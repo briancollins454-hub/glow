@@ -7,6 +7,7 @@ import {
   getTechById,
 } from "@/lib/db/repo";
 import { gbp, fmtDateTime } from "@/lib/format";
+import { hydrate } from "@/lib/db/store";
 import { payBalanceAction } from "../actions";
 
 export default async function PayPage({
@@ -18,6 +19,7 @@ export default async function PayPage({
 }) {
   const { token } = await params;
   const { paid } = await searchParams;
+  await hydrate();
   const booking = getBookingByToken(token);
   if (!booking) notFound();
   const tech = getTechById(booking.techId);

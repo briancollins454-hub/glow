@@ -9,9 +9,11 @@ import {
 } from "@/lib/db/repo";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { startSession, endSession } from "@/lib/auth/session";
+import { hydrate, flush } from "@/lib/db/store";
 import { slugify, randomId } from "@/lib/utils";
 
 export async function loginAction(formData: FormData) {
+  await hydrate();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const tech = getTechByEmail(email);
@@ -19,10 +21,12 @@ export async function loginAction(formData: FormData) {
     redirect("/login?error=invalid");
   }
   await startSession(tech.id);
+  await flush();
   redirect("/dashboard");
 }
 
 export async function signupAction(formData: FormData) {
+  await hydrate();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const businessName = String(formData.get("businessName") ?? "").trim();
@@ -74,10 +78,13 @@ export async function signupAction(formData: FormData) {
   );
 
   await startSession(tech.id);
+  await flush();
   redirect("/dashboard");
 }
 
 export async function logoutAction() {
+  await hydrate();
   await endSession();
+  await flush();
   redirect("/");
 }

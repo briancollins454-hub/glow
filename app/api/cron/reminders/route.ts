@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { processDueReminders } from "@/lib/scheduler";
+import { hydrate, flush } from "@/lib/db/store";
 
 // Triggered by Vercel Cron (see vercel.json). Vercel sends the CRON_SECRET as a
 // bearer token; in local dev the check is skipped if no secret is configured.
@@ -12,6 +13,8 @@ export async function GET(request: Request) {
     }
   }
 
+  await hydrate();
   const result = await processDueReminders();
+  await flush();
   return NextResponse.json({ ok: true, ...result, at: new Date().toISOString() });
 }

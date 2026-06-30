@@ -18,6 +18,7 @@ import {
   listServices,
 } from "@/lib/db/repo";
 import { availableDays, daySlots, depositFor } from "@/lib/rules";
+import { hydrate } from "@/lib/db/store";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
 import { formatInTimeZone } from "date-fns-tz";
 import type { Service, Tech } from "@/lib/db/types";
@@ -48,6 +49,7 @@ export default async function PublicBookingPage({
 }) {
   const { handle } = await params;
   const sp = await searchParams;
+  await hydrate();
   const tech = getTechByHandle(handle);
   if (!tech) notFound();
 

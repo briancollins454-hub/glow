@@ -7,6 +7,7 @@ import {
   getTechByHandle,
 } from "@/lib/db/repo";
 import { gbp, fmtDateTime } from "@/lib/format";
+import { hydrate } from "@/lib/db/store";
 
 export default async function BookedPage({
   params,
@@ -14,6 +15,7 @@ export default async function BookedPage({
   params: Promise<{ handle: string; token: string }>;
 }) {
   const { handle, token } = await params;
+  await hydrate();
   const tech = getTechByHandle(handle);
   const booking = getBookingByToken(token);
   if (!tech || !booking || booking.techId !== tech.id) notFound();

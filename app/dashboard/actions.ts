@@ -27,6 +27,7 @@ import {
   updateTech,
 } from "@/lib/db/repo";
 import { createConfirmedBooking } from "@/lib/bookings";
+import { flush, resetDb } from "@/lib/db/store";
 import type { BookingStatus, DepositType, WorkingHour } from "@/lib/db/types";
 
 async function requireTech() {
@@ -35,9 +36,26 @@ async function requireTech() {
   return tech;
 }
 
+// Persist pending changes, then redirect.
+async function done(path: string): Promise<never> {
+  await flush();
+  redirect(path);
+}
+
 function toIso(localValue: string): string {
   // localValue from <input type="datetime-local"> e.g. "2026-07-01T09:00"
   return fromZonedTime(localValue, TZ).toISOString();
+}
+
+function clampInt(v: string, min: number, max: number, fallback: number): number {
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function hhmmToMin(s: string): number {
+  const [h, m] = s.split(":").map((x) => parseInt(x, 10));
+  return (h || 0) * 60 + (m || 0);
 }
 
 // ---------------- Settings / branding / policy ----------------
@@ -73,13 +91,7 @@ export async function updateSettingsAction(formData: FormData) {
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
-  redirect("/dashboard/settings?saved=1");
-}
-
-function clampInt(v: string, min: number, max: number, fallback: number): number {
-  const n = parseInt(v, 10);
-  if (Number.isNaN(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
+  await done("/dashboard/settings?saved=1");
 }
 
 // ---------------- Availability ----------------
@@ -101,12 +113,7 @@ export async function saveAvailabilityAction(formData: FormData) {
   }
   replaceWorkingHours(tech.id, rows);
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=1");
-}
-
-function hhmmToMin(s: string): number {
-  const [h, m] = s.split(":").map((x) => parseInt(x, 10));
-  return (h || 0) * 60 + (m || 0);
+  await done("/dashboard/availability?saved=1");
 }
 
 export async function addTimeOffAction(formData: FormData) {
@@ -123,14 +130,14 @@ export async function addTimeOffAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability");
+  await done("/dashboard/availability");
 }
 
 export async function deleteTimeOffAction(formData: FormData) {
   await requireTech();
   deleteTimeOff(String(formData.get("id") ?? ""));
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability");
+  await done("/dashboard/availability");
 }
 
 // ---------------- Categories ----------------
@@ -146,7 +153,7 @@ export async function addCategoryAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/services");
-  redirect("/dashboard/services");
+  await done("/dashboard/services");
 }
 
 // ---------------- Services ----------------
@@ -187,7 +194,7 @@ export async function saveServiceAction(formData: FormData) {
   }
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
-  redirect("/dashboard/services");
+  await done("/dashboard/services");
 }
 
 export async function deleteServiceAction(formData: FormData) {
@@ -195,7 +202,7 @@ export async function deleteServiceAction(formData: FormData) {
   deleteService(String(formData.get("id") ?? ""));
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
-  redirect("/dashboard/services");
+  await done("/dashboard/services");
 }
 
 // ---------------- Clients ----------------
@@ -212,7 +219,7 @@ export async function addClientAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/clients");
-  redirect("/dashboard/clients");
+  await done("/dashboard/clients");
 }
 
 export async function updateClientAction(formData: FormData) {
@@ -231,7 +238,7 @@ export async function updateClientAction(formData: FormData) {
   }
   revalidatePath(`/dashboard/clients/${id}`);
   revalidatePath("/dashboard/clients");
-  redirect(`/dashboard/clients/${id}`);
+  await done(`/dashboard/clients/${id}`);
 }
 
 export async function toggleBlacklistAction(formData: FormData) {
@@ -241,7 +248,7 @@ export async function toggleBlacklistAction(formData: FormData) {
   if (client) updateClient(id, { isBlacklisted: !client.isBlacklisted });
   revalidatePath("/dashboard/clients");
   revalidatePath(`/dashboard/clients/${id}`);
-  redirect(`/dashboard/clients/${id}`);
+  await done(`/dashboard/clients/${id}`);
 }
 
 // ---------------- Patch tests ----------------
@@ -268,7 +275,7 @@ export async function addPatchTestAction(formData: FormData) {
     });
   }
   revalidatePath(`/dashboard/clients/${clientId}`);
-  redirect(`/dashboard/clients/${clientId}`);
+  await done(`/dashboard/clients/${clientId}`);
 }
 
 // ---------------- Bookings ----------------
@@ -300,7 +307,7 @@ export async function setBookingStatusAction(formData: FormData) {
   updateBooking(id, patch);
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/clients/${booking.clientId}`);
-  redirect("/dashboard/bookings");
+  await done("/dashboard/bookings");
 }
 
 export async function addManualBookingAction(formData: FormData) {
@@ -310,8 +317,10 @@ export async function addManualBookingAction(formData: FormData) {
   const dateTime = String(formData.get("startsAt") ?? "");
   if (!service || !dateTime) redirect("/dashboard/bookings?error=missing");
 
-  let clientId = String(formData.get("clientId") ?? "");
-  let client = clientId ? getClient(clientId) : undefined;
+  let client = (() => {
+    const cid = String(formData.get("clientId") ?? "");
+    return cid ? getClient(cid) : undefined;
+  })();
   if (!client) {
     client = findOrCreateClient(tech.id, {
       name: String(formData.get("clientName") ?? "Walk-in").trim() || "Walk-in",
@@ -319,11 +328,10 @@ export async function addManualBookingAction(formData: FormData) {
       phone: String(formData.get("clientPhone") ?? "").trim(),
     });
   }
-  clientId = client.id;
 
   await createConfirmedBooking({
     tech,
-    service,
+    service: service!,
     client,
     startIso: toIso(dateTime),
     notes: String(formData.get("notes") ?? "").trim(),
@@ -331,7 +339,7 @@ export async function addManualBookingAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard/bookings");
-  redirect("/dashboard/bookings");
+  await done("/dashboard/bookings");
 }
 
 // ---------------- Reminders ----------------
@@ -340,13 +348,13 @@ export async function runRemindersAction() {
   const { processDueReminders } = await import("@/lib/scheduler");
   await processDueReminders();
   revalidatePath("/dashboard/reminders");
-  redirect("/dashboard/reminders?ran=1");
+  await done("/dashboard/reminders?ran=1");
 }
 
 // ---------------- Demo reset ----------------
 export async function resetDemoAction() {
   await requireTech();
-  const { resetDb } = await import("@/lib/db/store");
-  resetDb();
-  redirect("/dashboard");
+  await resetDb();
+  revalidatePath("/dashboard");
+  await done("/dashboard");
 }

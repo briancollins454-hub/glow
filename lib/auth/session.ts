@@ -6,6 +6,7 @@ import {
   getSession,
   getTechById,
 } from "@/lib/db/repo";
+import { hydrate } from "@/lib/db/store";
 import type { Tech } from "@/lib/db/types";
 
 const COOKIE = "glow_session";
@@ -30,6 +31,7 @@ export async function endSession(): Promise<void> {
 }
 
 export async function getCurrentTech(): Promise<Tech | null> {
+  await hydrate();
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;

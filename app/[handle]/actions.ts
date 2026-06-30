@@ -9,8 +9,10 @@ import {
 } from "@/lib/db/repo";
 import { daySlots, dateStrInTz, evaluateEligibility } from "@/lib/rules";
 import { createConfirmedBooking } from "@/lib/bookings";
+import { hydrate, flush } from "@/lib/db/store";
 
 export async function createPublicBookingAction(formData: FormData) {
+  await hydrate();
   const handle = String(formData.get("handle") ?? "");
   const serviceId = String(formData.get("serviceId") ?? "");
   const slotIso = String(formData.get("slot") ?? "");
@@ -56,5 +58,6 @@ export async function createPublicBookingAction(formData: FormData) {
     takeDeposit: true,
   });
 
+  await flush();
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);
 }
