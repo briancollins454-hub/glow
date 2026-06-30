@@ -1,0 +1,90 @@
+import Link from "next/link";
+import { CalendarHeart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
+import { signupAction } from "../actions";
+
+const errors: Record<string, string> = {
+  email: "An account with that email already exists.",
+  missing: "Please fill in your business name, email and password.",
+};
+
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  return (
+    <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
+      <div className="w-full max-w-md animate-fade-in">
+        <Link href="/" className="mb-6 flex items-center justify-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white">
+            <CalendarHeart className="h-5 w-5" />
+          </span>
+          <span className="font-display text-xl font-semibold">Glow</span>
+        </Link>
+        <div className="card p-7">
+          <h1 className="font-display text-2xl font-semibold">
+            Create your booking page
+          </h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Free to start. No card needed. No commission, ever.
+          </p>
+
+          {error && (
+            <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errors[error] ?? "Something went wrong. Please try again."}
+            </p>
+          )}
+
+          <form action={signupAction} className="mt-6 space-y-4">
+            <div>
+              <Label htmlFor="businessName">Business name</Label>
+              <Input
+                id="businessName"
+                name="businessName"
+                required
+                placeholder="Bella Rose Beauty"
+              />
+            </div>
+            <div>
+              <Label htmlFor="name">Your name</Label>
+              <Input id="name" name="name" placeholder="Bella Rose" />
+            </div>
+            <div>
+              <Label htmlFor="handle">Booking link</Label>
+              <div className="flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200">
+                <span className="text-sm text-ink-faint">glow.app/</span>
+                <input
+                  id="handle"
+                  name="handle"
+                  placeholder="bellarose"
+                  className="w-full bg-transparent py-2.5 text-sm outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" required />
+            </div>
+            <Button type="submit" className="w-full">
+              Create my page
+            </Button>
+          </form>
+
+          <p className="mt-5 text-center text-sm text-ink-soft">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-brand-600">
+              Log in
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

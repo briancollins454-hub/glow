@@ -1,0 +1,200 @@
+import Link from "next/link";
+import {
+  CalendarHeart,
+  ShieldCheck,
+  Sparkles,
+  Clock,
+  BellRing,
+  Receipt,
+  HeartHandshake,
+  Instagram,
+  CheckCircle2,
+} from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
+
+const features = [
+  {
+    icon: ShieldCheck,
+    title: "Deposits & no-show protection",
+    body: "Take a deposit on every booking and set your own cancellation window. No-shows are flagged automatically.",
+  },
+  {
+    icon: Sparkles,
+    title: "Patch test tracking",
+    body: "Services that need a patch test simply can't be booked without a valid one on file. Stay insured, stay safe.",
+  },
+  {
+    icon: Clock,
+    title: "Infill timing rules",
+    body: "Lash, nail and brow infills only show for clients within your rebooking window. Everyone else books a full set.",
+  },
+  {
+    icon: BellRing,
+    title: "Automatic reminders",
+    body: "Confirmation, 24-hour and balance-due reminders go out on their own. Fewer gaps, fewer no-shows.",
+  },
+  {
+    icon: Receipt,
+    title: "Pay remaining balance",
+    body: "Clients settle the balance from a private link before they arrive. Less awkward card-tapping at the chair.",
+  },
+  {
+    icon: HeartHandshake,
+    title: "Client notes & blacklist",
+    body: "Warning notes and a blacklist keep difficult clients from slipping back into your calendar.",
+  },
+];
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen">
+      <header className="container-page flex items-center justify-between py-6">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <CalendarHeart className="h-5 w-5" />
+          </span>
+          <span className="font-display text-xl font-semibold">Glow</span>
+        </Link>
+        <nav className="flex items-center gap-2">
+          <ButtonLink href="/login" variant="ghost" size="sm">
+            Log in
+          </ButtonLink>
+          <ButtonLink href="/signup" size="sm">
+            Start free
+          </ButtonLink>
+        </nav>
+      </header>
+
+      <section className="container-page grid items-center gap-12 py-12 lg:grid-cols-2 lg:py-20">
+        <div className="animate-fade-in">
+          <span className="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-700">
+            <Sparkles className="h-4 w-4" /> Built for solo beauty techs
+          </span>
+          <h1 className="mt-5 font-display text-4xl font-semibold leading-tight text-ink sm:text-5xl">
+            Your booking page, your rules.{" "}
+            <span className="text-brand-600">No hidden fees.</span>
+          </h1>
+          <p className="mt-5 max-w-xl text-lg text-ink-soft">
+            Glow is the booking system made for self-employed lash, nail and brow
+            techs in the UK. Deposits, patch tests, infill timing and reminders
+            built in — without a marketplace taking a cut of your clients.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <ButtonLink href="/signup" size="lg">
+              Create your booking page
+            </ButtonLink>
+            <ButtonLink href="/bellarose" variant="outline" size="lg">
+              View a live example
+            </ButtonLink>
+          </div>
+          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
+            {[
+              "0% commission",
+              "Share on Instagram & TikTok",
+              "Cancel anytime",
+            ].map((t) => (
+              <li key={t} className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-brand-500" /> {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="animate-fade-in">
+          <div className="card overflow-hidden">
+            <div className="bg-gradient-to-br from-brand-500 to-brand-700 p-6 text-white">
+              <p className="text-sm/relaxed opacity-90">glow.app/</p>
+              <p className="font-display text-2xl font-semibold">bellarose</p>
+              <p className="mt-1 text-sm opacity-90">
+                Bella Rose Beauty · Manchester
+              </p>
+            </div>
+            <div className="space-y-3 p-6">
+              {[
+                { name: "Classic Full Set", meta: "2h · £55 · £16.50 deposit" },
+                { name: "Classic Infill", meta: "1h 15m · £35 · returning only" },
+                { name: "Brow Lamination", meta: "1h · £40 · patch test required" },
+              ].map((s) => (
+                <div
+                  key={s.name}
+                  className="flex items-center justify-between rounded-xl border border-black/5 bg-cream px-4 py-3"
+                >
+                  <div>
+                    <p className="font-medium text-ink">{s.name}</p>
+                    <p className="text-xs text-ink-faint">{s.meta}</p>
+                  </div>
+                  <span className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white">
+                    Book
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 pt-1 text-xs text-ink-faint">
+                <Instagram className="h-4 w-4" /> Linked from your bio
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="container-page py-12 lg:py-16">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl font-semibold">
+            Everything a solo tech actually needs
+          </h2>
+          <p className="mt-3 text-ink-soft">
+            The big platforms bolt this on or charge extra. Here it is the whole
+            point.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((f) => (
+            <div key={f.title} className="card p-6">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-100 text-brand-700">
+                <f.icon className="h-5 w-5" />
+              </span>
+              <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
+              <p className="mt-2 text-sm text-ink-soft">{f.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="container-page py-12">
+        <div className="card overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 p-10 text-center text-white">
+          <h2 className="font-display text-3xl font-semibold">
+            Ready to fill your calendar?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-white/85">
+            Set up your services, share your link, and let deposits and reminders
+            do the chasing for you.
+          </p>
+          <div className="mt-7 flex justify-center gap-3">
+            <ButtonLink
+              href="/signup"
+              size="lg"
+              className="bg-white text-brand-700 hover:bg-white/90"
+            >
+              Get started free
+            </ButtonLink>
+            <ButtonLink
+              href="/login"
+              size="lg"
+              variant="outline"
+              className="border-white/40 bg-transparent text-white hover:bg-white/10"
+            >
+              Log in
+            </ButtonLink>
+          </div>
+        </div>
+      </section>
+
+      <footer className="container-page flex flex-col items-center justify-between gap-3 border-t border-black/5 py-8 text-sm text-ink-faint sm:flex-row">
+        <p>© {new Date().getFullYear()} Glow. Made for UK beauty techs.</p>
+        <p className="flex items-center gap-1">
+          Demo login: <code className="rounded bg-black/5 px-1.5 py-0.5">demo@glow.app</code>{" "}
+          / <code className="rounded bg-black/5 px-1.5 py-0.5">password123</code>
+        </p>
+      </footer>
+    </div>
+  );
+}
