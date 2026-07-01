@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import { supabaseService } from "@/lib/supabase/service";
 import { processDueReminders } from "@/lib/scheduler";
-import { hydrate, flush } from "@/lib/db/store";
 
-// Triggered by Vercel Cron (see vercel.json). Vercel sends the CRON_SECRET as a
-// bearer token; in local dev the check is skipped if no secret is configured.
+// Triggered by Vercel Cron (see vercel.json). Uses the service-role client so it
+// can process reminders across all techs.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
@@ -13,8 +13,7 @@ export async function GET(request: Request) {
     }
   }
 
-  await hydrate();
-  const result = await processDueReminders();
-  await flush();
+  const sb = supabaseService();
+  const result = await processDueReminders(sb);
   return NextResponse.json({ ok: true, ...result, at: new Date().toISOString() });
 }

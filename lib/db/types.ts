@@ -24,8 +24,8 @@ export type ReminderKind =
 
 export interface Tech {
   id: string;
+  authUserId: string | null;
   email: string;
-  passwordHash: string;
   name: string;
   handle: string;
   businessName: string;

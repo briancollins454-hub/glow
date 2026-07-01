@@ -1,9 +1,5 @@
-import {
-  createBooking,
-  createReminder,
-  getService,
-  getTechById,
-} from "@/lib/db/repo";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createBooking, createReminder } from "@/lib/db/queries";
 import { depositFor } from "@/lib/rules";
 import { charge } from "@/lib/payments";
 import { sendReminder } from "@/lib/notify";
@@ -13,18 +9,19 @@ import type { Booking, Client, Service, Tech } from "@/lib/db/types";
 const HOUR = 60 * 60 * 1000;
 
 interface CreateParams {
+  sb: SupabaseClient;
   tech: Tech;
   service: Service;
   client: Client;
   startIso: string;
   isPatchTest?: boolean;
   notes?: string;
-  // Online bookings take the deposit immediately; manual ones collect in person.
   takeDeposit?: boolean;
 }
 
-/** Create a confirmed booking: takes the deposit (stub), then schedules reminders. */
+/** Create a confirmed booking: take the deposit (stub), then schedule reminders. */
 export async function createConfirmedBooking({
+  sb,
   tech,
   service,
   client,
@@ -39,7 +36,7 @@ export async function createConfirmedBooking({
   const deposit = depositFor(service);
   const balance = Math.max(0, price - deposit);
 
-  const booking = createBooking({
+  const booking = await createBooking(sb, {
     techId: tech.id,
     clientId: client.id,
     serviceId: service.id,
@@ -57,24 +54,17 @@ export async function createConfirmedBooking({
   });
 
   if (deposit > 0 && takeDeposit) {
-    await charge({
-      techId: tech.id,
-      bookingId: booking.id,
-      kind: "deposit",
-      amountPennies: deposit,
-    });
+    await charge(sb, { techId: tech.id, bookingId: booking.id, kind: "deposit", amountPennies: deposit });
   }
 
-  await scheduleReminders(booking);
+  await scheduleReminders(sb, booking);
   return booking;
 }
 
-/** Schedule confirmation (now), 24h reminder, and balance request (48h before). */
-export async function scheduleReminders(booking: Booking): Promise<void> {
+export async function scheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
   const startMs = new Date(booking.startIso).getTime();
 
-  // Confirmation, sent immediately
-  const confirmation = createReminder({
+  const confirmation = await createReminder(sb, {
     techId: booking.techId,
     bookingId: booking.id,
     channel: "email",
@@ -84,12 +74,11 @@ export async function scheduleReminders(booking: Booking): Promise<void> {
     preview: "",
     sentAtIso: null,
   });
-  await sendReminder(confirmation);
+  await sendReminder(sb, confirmation);
 
-  // 24h reminder
   const remind24 = startMs - 24 * HOUR;
   if (remind24 > Date.now()) {
-    createReminder({
+    await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
       channel: "sms",
@@ -101,10 +90,9 @@ export async function scheduleReminders(booking: Booking): Promise<void> {
     });
   }
 
-  // Balance request 48h before, only if there is a balance
   if (booking.balancePennies > 0) {
     const balanceAt = startMs - 48 * HOUR;
-    createReminder({
+    await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
       channel: "email",
@@ -115,13 +103,4 @@ export async function scheduleReminders(booking: Booking): Promise<void> {
       sentAtIso: null,
     });
   }
-}
-
-/** Helper used by server components to hydrate a booking row with relations. */
-export function bookingView(booking: Booking) {
-  return {
-    booking,
-    service: getService(booking.serviceId),
-    tech: getTechById(booking.techId),
-  };
 }

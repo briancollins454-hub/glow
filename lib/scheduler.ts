@@ -1,33 +1,31 @@
-import { dueReminders, getBooking, markReminder } from "@/lib/db/repo";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { dueReminders, getBooking, markReminder } from "@/lib/db/queries";
 import { sendReminder } from "@/lib/notify";
 
-// Processes all reminders whose send time has passed. Called by the Vercel Cron
-// route and by the "run now" button in the dashboard.
-export async function processDueReminders(nowMs = Date.now()): Promise<{
-  sent: number;
-  skipped: number;
-}> {
-  const due = dueReminders(nowMs);
+// Processes reminders whose send time has passed. Called by the Vercel Cron
+// route and the "run now" dashboard button. Uses the service-role client.
+export async function processDueReminders(
+  sb: SupabaseClient,
+  nowIso = new Date().toISOString(),
+): Promise<{ sent: number; skipped: number }> {
+  const due = await dueReminders(sb, nowIso);
   let sent = 0;
   let skipped = 0;
 
   for (const reminder of due) {
-    const booking = getBooking(reminder.bookingId);
-    // Don't send reminders for cancelled / no-show appointments.
+    const booking = await getBooking(sb, reminder.bookingId);
     if (!booking || booking.status === "cancelled" || booking.status === "no_show") {
-      markReminder(reminder.id, { status: "skipped" });
+      await markReminder(sb, reminder.id, { status: "skipped" });
       skipped++;
       continue;
     }
-    // Skip balance requests once the balance is settled.
     if (reminder.kind === "balance_request" && booking.balanceStatus === "paid") {
-      markReminder(reminder.id, { status: "skipped" });
+      await markReminder(sb, reminder.id, { status: "skipped" });
       skipped++;
       continue;
     }
-    await sendReminder(reminder);
+    await sendReminder(sb, reminder);
     sent++;
   }
-
   return { sent, skipped };
 }

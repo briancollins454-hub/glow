@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
-import { getCurrentTech } from "@/lib/auth/session";
+import { getDashboardContext } from "@/lib/auth/session";
+import { supabaseService } from "@/lib/supabase/service";
 import { slugify, randomId } from "@/lib/utils";
 import {
   createCategory,
@@ -25,25 +26,18 @@ import {
   updateClient,
   updateService,
   updateTech,
-} from "@/lib/db/repo";
+} from "@/lib/db/queries";
 import { createConfirmedBooking } from "@/lib/bookings";
-import { flush, resetDb } from "@/lib/db/store";
+import { processDueReminders } from "@/lib/scheduler";
 import type { BookingStatus, DepositType, WorkingHour } from "@/lib/db/types";
 
-async function requireTech() {
-  const tech = await getCurrentTech();
-  if (!tech) redirect("/login");
-  return tech;
-}
-
-// Persist pending changes, then redirect.
-async function done(path: string): Promise<never> {
-  await flush();
-  redirect(path);
+async function ctx() {
+  const c = await getDashboardContext();
+  if (!c) redirect("/login");
+  return c;
 }
 
 function toIso(localValue: string): string {
-  // localValue from <input type="datetime-local"> e.g. "2026-07-01T09:00"
   return fromZonedTime(localValue, TZ).toISOString();
 }
 
@@ -58,25 +52,28 @@ function hhmmToMin(s: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
-// ---------------- Settings / branding / policy ----------------
+// ---------------- Settings ----------------
 export async function updateSettingsAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const get = (k: string) => String(formData.get(k) ?? "").trim();
 
   let handle = slugify(get("handle"));
   if (handle && handle !== tech.handle) {
-    const clash = getTechByHandle(handle);
-    if (clash && clash.id !== tech.id) {
-      let n = 1;
-      let candidate = `${handle}${n}`;
-      while (getTechByHandle(candidate)) candidate = `${handle}${++n}`;
-      handle = candidate;
+    // Handle uniqueness is global: check with the service client.
+    const admin = supabaseService();
+    let candidate = handle;
+    let n = 1;
+    while (true) {
+      const clash = await getTechByHandle(admin, candidate);
+      if (!clash || clash.id === tech.id) break;
+      candidate = `${handle}${n++}`;
     }
+    handle = candidate;
   } else {
     handle = tech.handle;
   }
 
-  updateTech(tech.id, {
+  await updateTech(sb, tech.id, {
     businessName: get("businessName") || tech.businessName,
     name: get("name"),
     handle,
@@ -91,61 +88,57 @@ export async function updateSettingsAction(formData: FormData) {
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
-  await done("/dashboard/settings?saved=1");
+  redirect("/dashboard/settings?saved=1");
 }
 
 // ---------------- Availability ----------------
 export async function saveAvailabilityAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const rows: WorkingHour[] = [];
   for (let weekday = 0; weekday <= 6; weekday++) {
-    const enabled = formData.get(`enabled_${weekday}`) === "on";
-    const start = String(formData.get(`start_${weekday}`) ?? "09:00");
-    const end = String(formData.get(`end_${weekday}`) ?? "17:00");
     rows.push({
       id: randomId("wh"),
       techId: tech.id,
       weekday,
-      startMinutes: hhmmToMin(start),
-      endMinutes: hhmmToMin(end),
-      enabled,
+      startMinutes: hhmmToMin(String(formData.get(`start_${weekday}`) ?? "09:00")),
+      endMinutes: hhmmToMin(String(formData.get(`end_${weekday}`) ?? "17:00")),
+      enabled: formData.get(`enabled_${weekday}`) === "on",
     });
   }
-  replaceWorkingHours(tech.id, rows);
+  await replaceWorkingHours(sb, tech.id, rows);
   revalidatePath("/dashboard/availability");
-  await done("/dashboard/availability?saved=1");
+  redirect("/dashboard/availability?saved=1");
 }
 
 export async function addTimeOffAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const start = String(formData.get("start") ?? "");
   const end = String(formData.get("end") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
   if (start && end) {
-    createTimeOff({
+    await createTimeOff(sb, {
       techId: tech.id,
       startIso: toIso(start),
       endIso: toIso(end),
-      reason,
+      reason: String(formData.get("reason") ?? "").trim(),
     });
   }
   revalidatePath("/dashboard/availability");
-  await done("/dashboard/availability");
+  redirect("/dashboard/availability");
 }
 
 export async function deleteTimeOffAction(formData: FormData) {
-  await requireTech();
-  deleteTimeOff(String(formData.get("id") ?? ""));
+  const { sb } = await ctx();
+  await deleteTimeOff(sb, String(formData.get("id") ?? ""));
   revalidatePath("/dashboard/availability");
-  await done("/dashboard/availability");
+  redirect("/dashboard/availability");
 }
 
 // ---------------- Categories ----------------
 export async function addCategoryAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const name = String(formData.get("name") ?? "").trim();
   if (name) {
-    createCategory({
+    await createCategory(sb, {
       techId: tech.id,
       name,
       patchTestValidityDays: clampInt(String(formData.get("validityDays") ?? ""), 1, 3650, 180),
@@ -153,14 +146,14 @@ export async function addCategoryAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/services");
-  await done("/dashboard/services");
+  redirect("/dashboard/services");
 }
 
 // ---------------- Services ----------------
 export async function saveServiceAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const id = String(formData.get("id") ?? "");
-  const depositType = (String(formData.get("depositType") ?? "percent") as DepositType);
+  const depositType = String(formData.get("depositType") ?? "percent") as DepositType;
   const depositRaw = String(formData.get("depositValue") ?? "0");
   const depositValue =
     depositType === "fixed" ? poundsToPennies(depositRaw) : clampInt(depositRaw, 0, 100, 0);
@@ -187,30 +180,31 @@ export async function saveServiceAction(formData: FormData) {
     redirect("/dashboard/services?error=missing");
   }
 
-  if (id && getService(id)) {
-    updateService(id, data);
+  const existing = id ? await getService(sb, id) : null;
+  if (existing) {
+    await updateService(sb, id, data);
   } else {
-    createService(data);
+    await createService(sb, data);
   }
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
-  await done("/dashboard/services");
+  redirect("/dashboard/services");
 }
 
 export async function deleteServiceAction(formData: FormData) {
-  const tech = await requireTech();
-  deleteService(String(formData.get("id") ?? ""));
+  const { sb, tech } = await ctx();
+  await deleteService(sb, String(formData.get("id") ?? ""));
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
-  await done("/dashboard/services");
+  redirect("/dashboard/services");
 }
 
 // ---------------- Clients ----------------
 export async function addClientAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const name = String(formData.get("name") ?? "").trim();
   if (name) {
-    createClient({
+    await createClient(sb, {
       techId: tech.id,
       name,
       email: String(formData.get("email") ?? "").trim(),
@@ -219,15 +213,15 @@ export async function addClientAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/clients");
-  await done("/dashboard/clients");
+  redirect("/dashboard/clients");
 }
 
 export async function updateClientAction(formData: FormData) {
-  await requireTech();
+  const { sb } = await ctx();
   const id = String(formData.get("id") ?? "");
-  const client = getClient(id);
+  const client = await getClient(sb, id);
   if (client) {
-    updateClient(id, {
+    await updateClient(sb, id, {
       name: String(formData.get("name") ?? client.name).trim() || client.name,
       email: String(formData.get("email") ?? "").trim(),
       phone: String(formData.get("phone") ?? "").trim(),
@@ -238,91 +232,82 @@ export async function updateClientAction(formData: FormData) {
   }
   revalidatePath(`/dashboard/clients/${id}`);
   revalidatePath("/dashboard/clients");
-  await done(`/dashboard/clients/${id}`);
+  redirect(`/dashboard/clients/${id}`);
 }
 
 export async function toggleBlacklistAction(formData: FormData) {
-  await requireTech();
+  const { sb } = await ctx();
   const id = String(formData.get("id") ?? "");
-  const client = getClient(id);
-  if (client) updateClient(id, { isBlacklisted: !client.isBlacklisted });
-  revalidatePath("/dashboard/clients");
+  const client = await getClient(sb, id);
+  if (client) await updateClient(sb, id, { isBlacklisted: !client.isBlacklisted });
   revalidatePath(`/dashboard/clients/${id}`);
-  await done(`/dashboard/clients/${id}`);
+  redirect(`/dashboard/clients/${id}`);
 }
 
 // ---------------- Patch tests ----------------
 export async function addPatchTestAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const clientId = String(formData.get("clientId") ?? "");
   const categoryId = String(formData.get("categoryId") ?? "");
   const performedDate = String(formData.get("performedAt") ?? "");
-  const category = getCategory(categoryId);
-  if (clientId && categoryId && performedDate && category) {
+  const category = categoryId ? await getCategory(sb, categoryId) : null;
+  if (clientId && category && performedDate) {
     const performed = fromZonedTime(`${performedDate}T12:00:00`, TZ);
-    const expires = new Date(
-      performed.getTime() + category.patchTestValidityDays * 24 * 60 * 60 * 1000,
-    );
-    createPatchTest({
+    const expires = new Date(performed.getTime() + category.patchTestValidityDays * 24 * 60 * 60 * 1000);
+    await createPatchTest(sb, {
       techId: tech.id,
       clientId,
       categoryId,
       performedAtIso: performed.toISOString(),
       expiresAtIso: expires.toISOString(),
-      result: (String(formData.get("result") ?? "pass") as "pending" | "pass" | "fail"),
+      result: String(formData.get("result") ?? "pass") as "pending" | "pass" | "fail",
       bookingId: null,
       notes: String(formData.get("notes") ?? "").trim(),
     });
   }
   revalidatePath(`/dashboard/clients/${clientId}`);
-  await done(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}`);
 }
 
 // ---------------- Bookings ----------------
 export async function setBookingStatusAction(formData: FormData) {
-  await requireTech();
+  const { sb, tech } = await ctx();
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as BookingStatus;
-  const booking = getBooking(id);
+  const booking = await getBooking(sb, id);
   if (!booking) redirect("/dashboard/bookings");
 
-  const patch: Parameters<typeof updateBooking>[1] = { status };
+  const patch: Partial<typeof booking> = { status };
 
   if (status === "no_show") {
-    // No-show protection: forfeit deposit + flag the client.
-    patch.depositStatus = booking.depositStatus === "paid" ? "forfeited" : booking.depositStatus;
-    const client = getClient(booking.clientId);
-    if (client) updateClient(client.id, { noShowCount: client.noShowCount + 1 });
+    patch.depositStatus = booking!.depositStatus === "paid" ? "forfeited" : booking!.depositStatus;
+    const client = await getClient(sb, booking!.clientId);
+    if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
   }
   if (status === "cancelled") {
-    const hoursOut =
-      (new Date(booking.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
-    const tech = await getCurrentTech();
-    const windowH = tech?.cancellationWindowHours ?? 48;
-    if (hoursOut < windowH && booking.depositStatus === "paid") {
+    const hoursOut = (new Date(booking!.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursOut < tech.cancellationWindowHours && booking!.depositStatus === "paid") {
       patch.depositStatus = "forfeited";
     }
   }
 
-  updateBooking(id, patch);
+  await updateBooking(sb, id, patch);
   revalidatePath("/dashboard/bookings");
-  revalidatePath(`/dashboard/clients/${booking.clientId}`);
-  await done("/dashboard/bookings");
+  revalidatePath(`/dashboard/clients/${booking!.clientId}`);
+  redirect("/dashboard/bookings");
 }
 
 export async function addManualBookingAction(formData: FormData) {
-  const tech = await requireTech();
+  const { sb, tech } = await ctx();
   const serviceId = String(formData.get("serviceId") ?? "");
-  const service = getService(serviceId);
+  const service = await getService(sb, serviceId);
   const dateTime = String(formData.get("startsAt") ?? "");
   if (!service || !dateTime) redirect("/dashboard/bookings?error=missing");
 
-  let client = (() => {
-    const cid = String(formData.get("clientId") ?? "");
-    return cid ? getClient(cid) : undefined;
-  })();
+  const cid = String(formData.get("clientId") ?? "");
+  let client = cid ? await getClient(sb, cid) : null;
   if (!client) {
-    client = findOrCreateClient(tech.id, {
+    client = await findOrCreateClient(sb, tech.id, {
       name: String(formData.get("clientName") ?? "Walk-in").trim() || "Walk-in",
       email: String(formData.get("clientEmail") ?? "").trim(),
       phone: String(formData.get("clientPhone") ?? "").trim(),
@@ -330,6 +315,7 @@ export async function addManualBookingAction(formData: FormData) {
   }
 
   await createConfirmedBooking({
+    sb,
     tech,
     service: service!,
     client,
@@ -339,22 +325,13 @@ export async function addManualBookingAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard/bookings");
-  await done("/dashboard/bookings");
+  redirect("/dashboard/bookings");
 }
 
 // ---------------- Reminders ----------------
 export async function runRemindersAction() {
-  await requireTech();
-  const { processDueReminders } = await import("@/lib/scheduler");
-  await processDueReminders();
+  const { sb } = await ctx();
+  await processDueReminders(sb);
   revalidatePath("/dashboard/reminders");
-  await done("/dashboard/reminders?ran=1");
-}
-
-// ---------------- Demo reset ----------------
-export async function resetDemoAction() {
-  await requireTech();
-  await resetDb();
-  revalidatePath("/dashboard");
-  await done("/dashboard");
+  redirect("/dashboard/reminders?ran=1");
 }

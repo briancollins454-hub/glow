@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CreditCard, CheckCircle2, CalendarHeart } from "lucide-react";
-import {
-  getBookingByToken,
-  getService,
-  getTechById,
-} from "@/lib/db/repo";
+import { supabaseService } from "@/lib/supabase/service";
+import { getBookingByToken, getService, getTechById } from "@/lib/db/queries";
 import { gbp, fmtDateTime } from "@/lib/format";
-import { hydrate } from "@/lib/db/store";
 import { payBalanceAction } from "../actions";
 
 export default async function PayPage({
@@ -19,11 +15,10 @@ export default async function PayPage({
 }) {
   const { token } = await params;
   const { paid } = await searchParams;
-  await hydrate();
-  const booking = getBookingByToken(token);
+  const sb = supabaseService();
+  const booking = await getBookingByToken(sb, token);
   if (!booking) notFound();
-  const tech = getTechById(booking.techId);
-  const service = getService(booking.serviceId);
+  const [tech, service] = await Promise.all([getTechById(sb, booking.techId), getService(sb, booking.serviceId)]);
   const brand = tech?.brandColor || "#db2777";
   const settled = booking.balanceStatus === "paid" || booking.balancePennies === 0;
 
@@ -42,31 +37,18 @@ export default async function PayPage({
             <Row label="Total" value={gbp(booking.pricePennies)} />
             <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${gbp(booking.depositPennies)}` : "—"} />
             <Row label="Balance" value={gbp(booking.balancePennies)} strong />
-
             {paid || settled ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700">
-                <CheckCircle2 className="h-5 w-5" /> Balance paid in full. Thank you!
-              </div>
+              <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-5 w-5" /> Balance paid in full. Thank you!</div>
             ) : (
               <form action={payBalanceAction}>
                 <input type="hidden" name="token" value={token} />
-                <button
-                  type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white"
-                  style={{ backgroundColor: brand }}
-                >
-                  <CreditCard className="h-4 w-4" /> Pay {gbp(booking.balancePennies)} now
-                </button>
-                <p className="mt-2 text-center text-xs text-ink-faint">
-                  Test mode — no real payment is taken.
-                </p>
+                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}><CreditCard className="h-4 w-4" /> Pay {gbp(booking.balancePennies)} now</button>
+                <p className="mt-2 text-center text-xs text-ink-faint">Test mode — no real payment is taken.</p>
               </form>
             )}
           </div>
         </div>
-        <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-ink-faint">
-          <CalendarHeart className="h-3.5 w-3.5" /> Powered by Glow
-        </p>
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-ink-faint"><CalendarHeart className="h-3.5 w-3.5" /> Powered by Glow</p>
       </div>
     </div>
   );
