@@ -97,7 +97,7 @@ export default async function PublicBookingPage({
       </main>
 
       <footer className="mx-auto mt-12 max-w-2xl px-4 text-center text-xs text-ink-faint">
-        <p>No hidden fees · deposits are shown upfront · powered by <Link href="/" className="font-medium text-brand-600">Glow</Link></p>
+        <p>No hidden fees · deposits are shown upfront · powered by <Link href="/" className="font-medium text-brand-400">Glow</Link></p>
       </footer>
     </div>
   );
@@ -182,7 +182,7 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
         <div className="card p-6 text-center text-sm text-ink-soft">No available times in the next two weeks. Please check back soon.</div>
       ) : (
         <div className="card p-5">
-          <h3 className="flex items-center gap-2 font-semibold"><Calendar className="h-4 w-4 text-brand-600" /> Pick a date</h3>
+          <h3 className="flex items-center gap-2 font-semibold"><Calendar className="h-4 w-4 text-brand-400" /> Pick a date</h3>
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {days.map((d) => {
               const isActive = d.dateStr === activeDate;
@@ -225,7 +225,7 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
             <input name="phone" placeholder="Mobile number" className="input" />
 
             {questions.length > 0 && (
-              <div className="space-y-3 border-t border-black/5 pt-3">
+              <div className="space-y-3 border-t border-edge pt-3">
                 <p className="text-sm font-medium text-ink">A few quick questions</p>
                 {questions.map((q) => (
                   <div key={q.id}>
@@ -249,14 +249,14 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
             )}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
-              <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" />
+              <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
               <span>I agree to the {tech.cancellationWindowHours}h cancellation policy. My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.</span>
             </label>
             <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
               <Lock className="h-4 w-4" />
               {deposit > 0 ? `Pay ${gbp(deposit)} deposit & book` : "Confirm booking"}
             </button>
-            <p className="text-center text-xs text-ink-faint">Test mode — no real payment is taken.</p>
+            <p className="text-center text-xs text-ink-faint">Test mode - no real payment is taken.</p>
           </form>
         </div>
       )}
@@ -269,7 +269,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function Notice({ tone, icon, children }: { tone: "amber" | "violet" | "red"; icon: React.ReactNode; children: React.ReactNode; }) {
-  const map = { amber: "bg-amber-50 text-amber-800", violet: "bg-violet-50 text-violet-800", red: "bg-red-50 text-red-700" };
+  const map = { amber: "bg-amber-500/10 text-amber-800", violet: "bg-violet-50 text-violet-800", red: "bg-red-500/10 text-red-300" };
   return <div className={`flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm ${map[tone]}`}><span className="mt-0.5">{icon}</span><span>{children}</span></div>;
 }
 

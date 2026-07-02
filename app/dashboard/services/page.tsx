@@ -29,7 +29,7 @@ export default async function ServicesPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FolderPlus className="h-5 w-5 text-brand-600" /> Add a category</CardTitle>
+            <CardTitle className="flex items-center gap-2"><FolderPlus className="h-5 w-5 text-brand-400" /> Add a category</CardTitle>
             <CardDescription>Categories hold patch-test defaults (e.g. Lashes, Brows).</CardDescription>
           </CardHeader>
           <CardContent>
@@ -49,7 +49,7 @@ export default async function ServicesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-brand-600" /> Add a service</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-brand-400" /> Add a service</CardTitle>
             <CardDescription>{categories.length === 0 ? "Add a category first." : "New services appear on your booking page immediately."}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -70,7 +70,7 @@ export default async function ServicesPage() {
         <CardContent className="space-y-3">
           {services.length === 0 && <p className="text-sm text-ink-faint">No services yet.</p>}
           {services.map((s) => (
-            <details key={s.id} className="group rounded-xl border border-black/5 bg-cream">
+            <details key={s.id} className="group rounded-xl border border-edge bg-cream">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -83,13 +83,13 @@ export default async function ServicesPage() {
                     {catById.get(s.categoryId)} · {minutesToLabel(s.durationMin)} · {gbp(s.pricePennies)} · {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
                   </p>
                 </div>
-                <span className="text-xs font-medium text-brand-600 group-open:hidden">Edit</span>
+                <span className="text-xs font-medium text-brand-400 group-open:hidden">Edit</span>
               </summary>
-              <div className="border-t border-black/5 p-4">
+              <div className="border-t border-edge p-4">
                 <ServiceForm service={s} categories={categories} fullSetOptions={fullSets} />
-                <form action={deleteServiceAction} className="mt-3 border-t border-black/5 pt-3">
+                <form action={deleteServiceAction} className="mt-3 border-t border-edge pt-3">
                   <input type="hidden" name="id" value={s.id} />
-                  <Button type="submit" variant="ghost" size="sm" className="text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /> Delete service</Button>
+                  <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /> Delete service</Button>
                 </form>
               </div>
             </details>

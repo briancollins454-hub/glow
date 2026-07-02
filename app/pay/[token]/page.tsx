@@ -46,17 +46,17 @@ export default async function PayPage({
           <div className="space-y-4 p-6">
             <Row label="Service" value={service?.name ?? "Appointment"} />
             <Row label="Appointment" value={fmtDateTime(booking.startIso)} />
-            <hr className="border-black/5" />
+            <hr className="border-edge" />
             <Row label="Total" value={gbp(booking.pricePennies)} />
-            <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${gbp(booking.depositPennies)}` : "—"} />
+            <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${gbp(booking.depositPennies)}` : "-"} />
             <Row label="Balance" value={gbp(booking.balancePennies)} strong />
             {sp.err === "unavailable" && (
-              <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                 Online balance payment isn&apos;t available for this studio. Please pay on the day.
               </p>
             )}
             {settled ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-5 w-5" /> Balance paid in full. Thank you!</div>
+              <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-4 text-sm font-medium text-emerald-300"><CheckCircle2 className="h-5 w-5" /> Balance paid in full. Thank you!</div>
             ) : (
               <form action={payBalanceAction}>
                 <input type="hidden" name="token" value={token} />

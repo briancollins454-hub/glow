@@ -27,10 +27,10 @@ export default async function ClientsPage() {
       </div>
 
       <details className="card">
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-700">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
           <Plus className="h-4 w-4" /> Add a client
         </summary>
-        <div className="border-t border-black/5 p-5">
+        <div className="border-t border-edge p-5">
           <form action={addClientAction} className="grid gap-3 sm:grid-cols-2">
             <div><Label>Name</Label><Input name="name" required /></div>
             <div><Label>Email</Label><Input name="email" type="email" /></div>
@@ -51,7 +51,7 @@ export default async function ClientsPage() {
           {clients.map((c) => {
             const visits = visitsByClient.get(c.id) ?? 0;
             return (
-              <Link key={c.id} href={`/dashboard/clients/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-cream px-4 py-3 transition hover:shadow-card">
+              <Link key={c.id} href={`/dashboard/clients/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{c.name}</span>

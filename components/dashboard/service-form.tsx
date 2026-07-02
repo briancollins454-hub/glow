@@ -80,13 +80,13 @@ export function ServiceForm({
         <p className="mt-1 text-xs text-ink-faint">Enter a % for percentage, or £ for fixed.</p>
       </div>
 
-      <label className="flex items-center gap-2.5 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm">
-        <input type="checkbox" name="requiresPatchTest" defaultChecked={s?.requiresPatchTest} className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" />
+      <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+        <input type="checkbox" name="requiresPatchTest" defaultChecked={s?.requiresPatchTest} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
         Requires a valid patch test
       </label>
 
-      <label className="flex items-center gap-2.5 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm">
-        <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" />
+      <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+        <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
         This is an infill / maintenance service
       </label>
 
@@ -97,7 +97,7 @@ export function ServiceForm({
       <div>
         <Label>Linked full set (for infills)</Label>
         <Select name="fullSetServiceId" defaultValue={s?.fullSetServiceId ?? ""}>
-          <option value="">— same category, any full set —</option>
+          <option value="">- same category, any full set -</option>
           {fullSetOptions
             .filter((o) => o.id !== s?.id)
             .map((o) => (
@@ -110,7 +110,7 @@ export function ServiceForm({
 
       <div className="flex items-center justify-between sm:col-span-2">
         <label className="flex items-center gap-2.5 text-sm">
-          <input type="checkbox" name="active" defaultChecked={s ? s.active : true} className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" />
+          <input type="checkbox" name="active" defaultChecked={s ? s.active : true} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
           Active (visible on booking page)
         </label>
         <Button type="submit">{s ? "Save changes" : "Add service"}</Button>

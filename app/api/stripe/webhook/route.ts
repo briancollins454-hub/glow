@@ -86,7 +86,7 @@ export async function POST(request: Request) {
               payment_method: pm,
               off_session: true,
               confirm: true,
-              description: "Glow — £2 for your first 14 days",
+              description: "Glow - £2 for your first 14 days",
               metadata: { techId, kind: "trial_fee" },
             });
           } catch (err) {

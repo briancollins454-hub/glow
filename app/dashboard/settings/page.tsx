@@ -19,7 +19,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <p className="text-sm text-ink-soft">Your branding, public link and protection policy.</p>
       </div>
 
-      {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
 
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
@@ -32,7 +32,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <div><Label htmlFor="name">Your name</Label><Input id="name" name="name" defaultValue={tech.name} /></div>
             <div className="sm:col-span-2">
               <Label htmlFor="handle">Booking link</Label>
-              <div className="flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200">
+              <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-white/[0.04] px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
                 <span className="text-sm text-ink-faint">glow.app/</span>
                 <input id="handle" name="handle" defaultValue={tech.handle} className="w-full bg-transparent py-2.5 text-sm outline-none" />
               </div>
@@ -43,7 +43,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <div>
               <Label htmlFor="brandColor">Brand colour</Label>
               <div className="flex items-center gap-2">
-                <input id="brandColor" name="brandColor" type="color" defaultValue={tech.brandColor} className="h-11 w-16 cursor-pointer rounded-xl border border-black/10 bg-white p-1" />
+                <input id="brandColor" name="brandColor" type="color" defaultValue={tech.brandColor} className="h-11 w-16 cursor-pointer rounded-xl border border-edge bg-white/[0.04] p-1" />
                 <span className="text-sm text-ink-faint">{tech.brandColor}</span>
               </div>
             </div>

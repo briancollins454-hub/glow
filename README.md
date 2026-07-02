@@ -1,10 +1,10 @@
-# Glow — booking for UK solo beauty techs
+# Glow - booking for UK solo beauty techs
 
 A fee-free, branded booking platform built for self-employed lash, nail and brow
 techs. Deposits and no-show protection, patch-test tracking, lash/nail/brow
 infill timing rules, automatic reminders, a "pay remaining balance" link, a
 client blacklist/warning system, simple tax/income reports, and a branded public
-booking page you can drop in your Instagram/TikTok bio — no marketplace, no
+booking page you can drop in your Instagram/TikTok bio - no marketplace, no
 commission.
 
 ## Tech stack
@@ -12,7 +12,7 @@ commission.
 - **Next.js (App Router)** + TypeScript + Tailwind CSS
 - **Data layer** behind a swappable repository (`lib/db`). The MVP runs on a
   local JSON store (`.data/db.json`) seeded with a demo studio; production swaps
-  it for **Supabase** (Postgres/Auth/Storage) — see `supabase/migrations`.
+  it for **Supabase** (Postgres/Auth/Storage) - see `supabase/migrations`.
 - **Payments & notifications** are stubbed behind interfaces (`lib/payments.ts`,
   `lib/notify.ts`) so the app runs with zero paid accounts. Phase D swaps in
   **Stripe Connect**, **Resend** (email) and **Twilio** (SMS).
@@ -68,5 +68,5 @@ bookings, a patch test and reminders. Reset it anytime from
    `lib/notify.ts` to Stripe / Resend / Twilio.
 4. Deploy to Vercel; the cron in `vercel.json` runs the reminder scheduler.
 
-> The local JSON store is for development/demo only — serverless filesystems are
+> The local JSON store is for development/demo only - serverless filesystems are
 > ephemeral, which is why production uses Supabase.

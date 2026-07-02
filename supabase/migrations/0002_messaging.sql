@@ -1,6 +1,6 @@
 -- Glow messaging: per-client conversation threads between a tech and a client.
 -- NOTE: the live database uses camelCase, quoted identifiers and text ids
--- (app-generated), matching lib/db/queries.ts — not the snake_case in 0001.
+-- (app-generated), matching lib/db/queries.ts - not the snake_case in 0001.
 
 create table if not exists public.messages (
   id text primary key,

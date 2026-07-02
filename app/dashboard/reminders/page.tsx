@@ -49,7 +49,7 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
   const sent = reminders.filter((r) => r.status === "sent").reverse();
 
   const rowEl = (r: Reminder, done?: boolean) => (
-    <div key={r.id} className="rounded-xl border border-black/5 bg-cream px-4 py-3">
+    <div key={r.id} className="rounded-xl border border-edge bg-cream px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {r.channel === "email" ? <Mail className="h-4 w-4 text-sky-600" /> : <MessageSquare className="h-4 w-4 text-violet-600" />}
@@ -58,7 +58,7 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
         </div>
         <span className="text-xs text-ink-faint">{done ? "Sent" : "Sends"} {fmtDateTime(done && r.sentAtIso ? r.sentAtIso : r.sendAtIso)}</span>
       </div>
-      <p className="mt-2 rounded-lg bg-white px-3 py-2 text-sm text-ink-soft">{preview(r)}</p>
+      <p className="mt-2 rounded-lg bg-white/[0.06] px-3 py-2 text-sm text-ink-soft">{preview(r)}</p>
     </div>
   );
 
@@ -72,11 +72,11 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
         <form action={runRemindersAction}><Button type="submit" variant="secondary"><Play className="h-4 w-4" /> Run due now</Button></form>
       </div>
 
-      {ran && <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Processed any due reminders.</div>}
+      {ran && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Processed any due reminders.</div>}
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-brand-600" /> Scheduled ({scheduled.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-brand-400" /> Scheduled ({scheduled.length})</CardTitle>
           <CardDescription>Waiting to send.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">

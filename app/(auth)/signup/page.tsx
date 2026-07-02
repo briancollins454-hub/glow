@@ -33,7 +33,7 @@ export default async function SignupPage({
           </p>
 
           {error && (
-            <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
               {errors[error] ?? "Something went wrong. Please try again."}
             </p>
           )}
@@ -54,7 +54,7 @@ export default async function SignupPage({
             </div>
             <div>
               <Label htmlFor="handle">Booking link</Label>
-              <div className="flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200">
+              <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-white/[0.04] px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
                 <span className="text-sm text-ink-faint">glow.app/</span>
                 <input
                   id="handle"
@@ -79,7 +79,7 @@ export default async function SignupPage({
 
           <p className="mt-5 text-center text-sm text-ink-soft">
             Already have an account?{" "}
-            <Link href="/login" className="font-medium text-brand-600">
+            <Link href="/login" className="font-medium text-brand-400">
               Log in
             </Link>
           </p>

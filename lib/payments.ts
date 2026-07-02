@@ -25,7 +25,7 @@ export async function createDepositCheckout(
           price_data: {
             currency: "gbp",
             unit_amount: booking.depositPennies,
-            product_data: { name: `${service.name} — deposit` },
+            product_data: { name: `${service.name} - deposit` },
           },
           quantity: 1,
         },
@@ -55,7 +55,7 @@ export async function createBalanceCheckout(
           price_data: {
             currency: "gbp",
             unit_amount: booking.balancePennies,
-            product_data: { name: `${service.name} — balance` },
+            product_data: { name: `${service.name} - balance` },
           },
           quantity: 1,
         },

@@ -31,7 +31,7 @@ export default async function FormsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-brand-600" /> Add a question</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-brand-400" /> Add a question</CardTitle>
           <CardDescription>Shown on your booking page before payment.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -49,7 +49,7 @@ export default async function FormsPage() {
               </Select>
             </div>
             <label className="flex items-center gap-2 pb-2.5 text-sm">
-              <input type="checkbox" name="required" className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" /> Required
+              <input type="checkbox" name="required" className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" /> Required
             </label>
             <Button type="submit" variant="secondary">Add</Button>
           </form>
@@ -58,14 +58,14 @@ export default async function FormsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-brand-600" /> Your questions ({questions.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-brand-400" /> Your questions ({questions.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {questions.length === 0 && (
-            <p className="py-3 text-center text-sm text-ink-faint">No questions yet — your booking page skips the consultation step.</p>
+            <p className="py-3 text-center text-sm text-ink-faint">No questions yet - your booking page skips the consultation step.</p>
           )}
           {questions.map((q) => (
-            <div key={q.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-cream px-4 py-3">
+            <div key={q.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3">
               <div>
                 <p className="font-medium">{q.prompt}</p>
                 <p className="mt-0.5 flex items-center gap-2 text-xs text-ink-faint">
@@ -75,7 +75,7 @@ export default async function FormsPage() {
               </div>
               <form action={deleteQuestionAction}>
                 <input type="hidden" name="id" value={q.id} />
-                <button type="submit" className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                <button type="submit" className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
               </form>
             </div>
           ))}

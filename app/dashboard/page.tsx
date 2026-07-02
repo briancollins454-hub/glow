@@ -55,12 +55,12 @@ export default async function DashboardOverview() {
   return (
     <div className="space-y-6">
       {!isLive(tech) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-500/10 px-5 py-4">
           <div className="flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Sparkles className="h-5 w-5" /></span>
             <div>
-              <p className="font-semibold text-brand-800">Go live — start your £2 trial</p>
-              <p className="text-sm text-brand-700/80">Your booking page won&apos;t take online bookings until you start a plan. £2 for 14 days, then £19/mo. Cancel anytime.</p>
+              <p className="font-semibold text-brand-300">Go live - start your £2 trial</p>
+              <p className="text-sm text-brand-300/80">Your booking page won&apos;t take online bookings until you start a plan. £2 for 14 days, then £19/mo. Cancel anytime.</p>
             </div>
           </div>
           <ButtonLink href="/dashboard/billing" size="sm">Start trial</ButtonLink>
@@ -74,7 +74,7 @@ export default async function DashboardOverview() {
           </h1>
           <p className="text-sm text-ink-soft">Here&apos;s how your studio is doing.</p>
         </div>
-        <Link href={`/${tech.handle}`} target="_blank" className="text-sm font-medium text-brand-600 hover:underline">
+        <Link href={`/${tech.handle}`} target="_blank" className="text-sm font-medium text-brand-400 hover:underline">
           glow.app/{tech.handle}
         </Link>
       </div>
@@ -90,7 +90,7 @@ export default async function DashboardOverview() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Next appointments</CardTitle>
-            <Link href="/dashboard/bookings" className="text-sm font-medium text-brand-600 hover:underline">
+            <Link href="/dashboard/bookings" className="text-sm font-medium text-brand-400 hover:underline">
               View all
             </Link>
           </CardHeader>
@@ -99,7 +99,7 @@ export default async function DashboardOverview() {
               <p className="py-6 text-center text-sm text-ink-faint">No upcoming appointments yet.</p>
             )}
             {upcoming.slice(0, 6).map((b) => (
-              <div key={b.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-cream px-4 py-3">
+              <div key={b.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{clientById.get(b.clientId)?.name}</p>
                   <p className="truncate text-xs text-ink-faint">{serviceById.get(b.serviceId)?.name}</p>
@@ -141,7 +141,7 @@ export default async function DashboardOverview() {
 }
 
 function StatCard({ icon: Icon, label, value, hint, tone }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint: string; tone: "brand" | "blue" | "green" | "amber"; }) {
-  const tones = { brand: "bg-brand-100 text-brand-700", blue: "bg-sky-100 text-sky-700", green: "bg-emerald-100 text-emerald-700", amber: "bg-amber-100 text-amber-700" };
+  const tones = { brand: "bg-brand-500/15 text-brand-300", blue: "bg-sky-500/15 text-sky-300", green: "bg-emerald-500/15 text-emerald-300", amber: "bg-amber-500/15 text-amber-300" };
   return (
     <Card className="p-5">
       <span className={`grid h-10 w-10 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-5 w-5" /></span>
@@ -154,7 +154,7 @@ function StatCard({ icon: Icon, label, value, hint, tone }: { icon: React.Compon
 
 function AlertRow({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: number; href: string }) {
   return (
-    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1 hover:bg-black/[0.03]">
+    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1 hover:bg-white/[0.06]">
       <span className="flex items-center gap-2">{icon} {label}</span>
       <Badge tone={value > 0 ? "red" : "neutral"}>{value}</Badge>
     </Link>
@@ -163,7 +163,7 @@ function AlertRow({ icon, label, value, href }: { icon: React.ReactNode; label: 
 
 function QuickLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1.5 text-ink-soft hover:bg-black/[0.03] hover:text-ink">
+    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1.5 text-ink-soft hover:bg-white/[0.06] hover:text-ink">
       {label} <ArrowRight className="h-4 w-4" />
     </Link>
   );

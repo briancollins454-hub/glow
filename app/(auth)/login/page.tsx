@@ -26,7 +26,7 @@ export default async function LoginPage({
           </p>
 
           {error && (
-            <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
               That email and password don&apos;t match. Try again.
             </p>
           )}
@@ -61,7 +61,7 @@ export default async function LoginPage({
 
           <p className="mt-5 text-center text-sm text-ink-soft">
             No account?{" "}
-            <Link href="/signup" className="font-medium text-brand-600">
+            <Link href="/signup" className="font-medium text-brand-400">
               Create one
             </Link>
           </p>

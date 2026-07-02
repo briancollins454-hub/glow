@@ -38,7 +38,7 @@ export default async function DashboardThreadPage({
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col space-y-4">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/messages" className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-black/[0.04] lg:hidden">
+        <Link href="/dashboard/messages" className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-white/[0.06] lg:hidden">
           <ArrowLeft className="h-4.5 w-4.5 h-[18px] w-[18px]" />
         </Link>
         <div className="min-w-0">
@@ -58,7 +58,7 @@ export default async function DashboardThreadPage({
           supabaseAnonKey={process.env.SUPABASE_ANON_KEY!}
           onSend={send}
           brand={tech.brandColor || "#db2777"}
-          emptyHint={`Send ${client.name.split(" ")[0]} a message — they'll get an email with a private link to reply.`}
+          emptyHint={`Send ${client.name.split(" ")[0]} a message - they'll get an email with a private link to reply.`}
         />
       </div>
     </div>

@@ -36,7 +36,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
         <p className="text-sm text-ink-soft">Your weekly hours and any time off. Slots are generated from this automatically (Europe/London).</p>
       </div>
 
-      {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Availability saved.</div>}
+      {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Availability saved.</div>}
 
       <Card>
         <CardHeader>
@@ -48,9 +48,9 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
             {DAYS.map(({ weekday, label }) => {
               const row = hours.find((h) => h.weekday === weekday);
               return (
-                <div key={weekday} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 bg-cream px-4 py-3">
+                <div key={weekday} className="flex flex-wrap items-center gap-3 rounded-xl border border-edge bg-cream px-4 py-3">
                   <label className="flex w-36 items-center gap-2.5">
-                    <input type="checkbox" name={`enabled_${weekday}`} defaultChecked={row?.enabled ?? false} className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" />
+                    <input type="checkbox" name={`enabled_${weekday}`} defaultChecked={row?.enabled ?? false} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
                     <span className="font-medium">{label}</span>
                   </label>
                   <div className="flex items-center gap-2 text-sm text-ink-soft">
@@ -77,21 +77,21 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
           ) : (
             <ul className="space-y-2">
               {offs.map((o) => (
-                <li key={o.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-cream px-4 py-3">
+                <li key={o.id} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-3">
                   <div className="text-sm">
                     <p className="font-medium">{fmtDateTime(o.startIso)} → {fmtDateTime(o.endIso)}</p>
                     {o.reason && <p className="text-ink-faint">{o.reason}</p>}
                   </div>
                   <form action={deleteTimeOffAction}>
                     <input type="hidden" name="id" value={o.id} />
-                    <button type="submit" className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                    <button type="submit" className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
                   </form>
                 </li>
               ))}
             </ul>
           )}
 
-          <form action={addTimeOffAction} className="grid gap-3 border-t border-black/5 pt-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+          <form action={addTimeOffAction} className="grid gap-3 border-t border-edge pt-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
             <div><Label htmlFor="start">From</Label><Input id="start" name="start" type="datetime-local" required /></div>
             <div><Label htmlFor="end">To</Label><Input id="end" name="end" type="datetime-local" required /></div>
             <div><Label htmlFor="reason">Reason (optional)</Label><Input id="reason" name="reason" placeholder="Holiday" /></div>

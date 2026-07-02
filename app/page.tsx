@@ -50,10 +50,10 @@ export default function HomePage() {
     <div className="min-h-screen">
       <header className="container-page flex items-center justify-between py-6">
         <Link href="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-glow">
             <CalendarHeart className="h-5 w-5" />
           </span>
-          <span className="font-display text-xl font-semibold">Glow</span>
+          <span className="font-display text-xl font-semibold tracking-tight">Glow</span>
         </Link>
         <nav className="flex items-center gap-2">
           <ButtonLink href="/login" variant="ghost" size="sm">
@@ -67,17 +67,19 @@ export default function HomePage() {
 
       <section className="container-page grid items-center gap-12 py-12 lg:grid-cols-2 lg:py-20">
         <div className="animate-fade-in">
-          <span className="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-700">
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-medium text-brand-300">
             <Sparkles className="h-4 w-4" /> Built for solo beauty techs
           </span>
-          <h1 className="mt-5 font-display text-4xl font-semibold leading-tight text-ink sm:text-5xl">
+          <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-6xl">
             Your booking page, your rules.{" "}
-            <span className="text-brand-600">No hidden fees.</span>
+            <span className="bg-gradient-to-r from-brand-400 via-brand-500 to-fuchsia-400 bg-clip-text text-transparent">
+              No hidden fees.
+            </span>
           </h1>
           <p className="mt-5 max-w-xl text-lg text-ink-soft">
             Glow is the booking system made for self-employed lash, nail and brow
             techs in the UK. Deposits, patch tests, infill timing and reminders
-            built in — without a marketplace taking a cut of your clients.
+            built in - without a marketplace taking a cut of your clients.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink href="/signup" size="lg">
@@ -100,7 +102,8 @@ export default function HomePage() {
           </ul>
         </div>
 
-        <div className="animate-fade-in">
+        <div className="animate-fade-in relative">
+          <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-brand-600/20 blur-3xl" />
           <div className="card overflow-hidden">
             <div className="bg-gradient-to-br from-brand-500 to-brand-700 p-6 text-white">
               <p className="text-sm/relaxed opacity-90">glow.app/</p>
@@ -117,7 +120,7 @@ export default function HomePage() {
               ].map((s) => (
                 <div
                   key={s.name}
-                  className="flex items-center justify-between rounded-xl border border-black/5 bg-cream px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-3"
                 >
                   <div>
                     <p className="font-medium text-ink">{s.name}</p>
@@ -149,7 +152,7 @@ export default function HomePage() {
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f) => (
             <div key={f.title} className="card p-6">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-100 text-brand-700">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/15 text-brand-300">
                 <f.icon className="h-5 w-5" />
               </span>
               <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
@@ -188,11 +191,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="container-page flex flex-col items-center justify-between gap-3 border-t border-black/5 py-8 text-sm text-ink-faint sm:flex-row">
+      <footer className="container-page flex flex-col items-center justify-between gap-3 border-t border-edge py-8 text-sm text-ink-faint sm:flex-row">
         <p>© {new Date().getFullYear()} Glow. Made for UK beauty techs.</p>
         <p className="flex items-center gap-1">
-          Demo login: <code className="rounded bg-black/5 px-1.5 py-0.5">demo@glow.app</code>{" "}
-          / <code className="rounded bg-black/5 px-1.5 py-0.5">password123</code>
+          Demo login: <code className="rounded bg-white/[0.07] px-1.5 py-0.5">demo@glow.app</code>{" "}
+          / <code className="rounded bg-white/[0.07] px-1.5 py-0.5">password123</code>
         </p>
       </footer>
     </div>

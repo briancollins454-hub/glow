@@ -21,20 +21,28 @@ const config: Config = {
           800: "#9d174d",
           900: "#831843",
         },
+        // Dark luxe theme tokens. Names kept from the light theme so existing
+        // markup restyles globally: ink = text on dark, cream = page background.
         ink: {
-          DEFAULT: "#1f1726",
-          soft: "#564a5e",
-          faint: "#8a7f91",
+          DEFAULT: "#f2eef6",
+          soft: "#b3a9bf",
+          faint: "#7d7389",
         },
-        cream: "#fbf7f4",
+        cream: "#0b0910",
+        surface: {
+          DEFAULT: "#141019",
+          raised: "#1b1523",
+        },
+        edge: "rgba(255,255,255,0.08)",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "Georgia", "serif"],
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        soft: "0 10px 40px -12px rgba(131, 24, 67, 0.18)",
-        card: "0 1px 3px rgba(31, 23, 38, 0.06), 0 8px 24px -16px rgba(31, 23, 38, 0.25)",
+        soft: "0 10px 40px -12px rgba(236, 72, 153, 0.35)",
+        card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 32px -16px rgba(0,0,0,0.6)",
+        glow: "0 0 40px -8px rgba(236, 72, 153, 0.45)",
       },
       borderRadius: {
         xl: "1rem",

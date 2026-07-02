@@ -37,7 +37,7 @@ export default async function PaymentsPage({
       <div>
         <h1 className="font-display text-2xl font-semibold">Payments</h1>
         <p className="text-sm text-ink-soft">
-          Connect your bank so client deposits pay straight to you. Glow takes 0% —
+          Connect your bank so client deposits pay straight to you. Glow takes 0% -
           only Stripe&apos;s standard card fee applies.
         </p>
       </div>
@@ -45,7 +45,7 @@ export default async function PaymentsPage({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-brand-600" /> Payouts
+            <Wallet className="h-5 w-5 text-brand-400" /> Payouts
             {connected ? (
               <Badge tone="green">Connected</Badge>
             ) : started ? (
@@ -62,17 +62,17 @@ export default async function PaymentsPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {!stripeConfigured() && (
-            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
               Payments aren&apos;t configured on this environment yet.
             </div>
           )}
 
           {connected ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-emerald-700">
+              <div className="flex items-center gap-2 text-sm text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" /> Charges enabled
               </div>
-              <div className="flex items-center gap-2 text-sm text-emerald-700">
+              <div className="flex items-center gap-2 text-sm text-emerald-300">
                 <Banknote className="h-4 w-4" /> Payouts to your bank enabled
               </div>
               <form action={connectStartAction}>
@@ -82,7 +82,7 @@ export default async function PaymentsPage({
           ) : (
             <div className="space-y-3">
               {started && !detailsSubmitted && (
-                <p className="flex items-center gap-2 text-sm text-amber-700">
+                <p className="flex items-center gap-2 text-sm text-amber-300">
                   <AlertTriangle className="h-4 w-4" /> Your Stripe setup isn&apos;t finished yet.
                 </p>
               )}

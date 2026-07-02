@@ -81,9 +81,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 <div><Label>Phone</Label><Input name="phone" defaultValue={client.phone} /></div>
               </div>
               <div><Label>Notes</Label><Textarea name="notes" defaultValue={client.notes} placeholder="Preferences, allergies, etc." /></div>
-              <div><Label>Warning note (shown to you when booking)</Label><Textarea name="warningNote" defaultValue={client.warningNote} placeholder="e.g. Late twice — confirm by text." /></div>
-              <label className="flex items-center gap-2.5 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm">
-                <input type="checkbox" name="isBlacklisted" defaultChecked={client.isBlacklisted} className="h-4 w-4 rounded border-black/20 text-red-600 focus:ring-red-300" />
+              <div><Label>Warning note (shown to you when booking)</Label><Textarea name="warningNote" defaultValue={client.warningNote} placeholder="e.g. Late twice - confirm by text." /></div>
+              <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input type="checkbox" name="isBlacklisted" defaultChecked={client.isBlacklisted} className="h-4 w-4 rounded border-black/20 text-red-400 focus:ring-red-300" />
                 Blacklist this client (blocks online booking)
               </label>
               <div className="flex justify-end"><Button type="submit">Save client</Button></div>
@@ -104,7 +104,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 {tests.map((t) => {
                   const expired = new Date(t.expiresAtIso).getTime() < Date.now();
                   return (
-                    <li key={t.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-cream px-4 py-2.5 text-sm">
+                    <li key={t.id} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
                       <div>
                         <p className="font-medium">{catById.get(t.categoryId) ?? "Category"}</p>
                         <p className="text-xs text-ink-faint">Done {fmtDate(t.performedAtIso)} · expires {fmtDate(t.expiresAtIso)}</p>
@@ -117,7 +117,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             )}
 
             {categories.length > 0 && (
-              <form action={addPatchTestAction} className="grid gap-2 border-t border-black/5 pt-3 sm:grid-cols-2">
+              <form action={addPatchTestAction} className="grid gap-2 border-t border-edge pt-3 sm:grid-cols-2">
                 <input type="hidden" name="clientId" value={client.id} />
                 <div className="sm:col-span-2">
                   <Label>Category</Label>
@@ -150,7 +150,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           </CardHeader>
           <CardContent className="space-y-3">
             {latestResponse.answers.map((a, i) => (
-              <div key={i} className="rounded-xl border border-black/5 bg-cream px-4 py-2.5 text-sm">
+              <div key={i} className="rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
                 <p className="text-ink-faint">{a.prompt}</p>
                 <p className="font-medium">{a.answer}</p>
               </div>
@@ -161,14 +161,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ImagePlus className="h-5 w-5 text-brand-600" /> Before &amp; after photos</CardTitle>
+          <CardTitle className="flex items-center gap-2"><ImagePlus className="h-5 w-5 text-brand-400" /> Before &amp; after photos</CardTitle>
           <CardDescription>Only upload with the client&apos;s consent.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {photoItems.length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {photoItems.map(({ p, url }) => (
-                <div key={p.id} className="group relative overflow-hidden rounded-xl border border-black/5 bg-cream">
+                <div key={p.id} className="group relative overflow-hidden rounded-xl border border-edge bg-cream">
                   {url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={url} alt={p.kind} className="aspect-square w-full object-cover" />
@@ -185,7 +185,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               ))}
             </div>
           )}
-          <form action={uploadPhotoAction} className="grid gap-3 border-t border-black/5 pt-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+          <form action={uploadPhotoAction} className="grid gap-3 border-t border-edge pt-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
             <input type="hidden" name="clientId" value={client.id} />
             <div>
               <Label>Photo</Label>
@@ -200,7 +200,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </Select>
             </div>
             <label className="flex items-center gap-2 pb-2.5 text-sm">
-              <input type="checkbox" name="consent" className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" /> Consent
+              <input type="checkbox" name="consent" className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" /> Consent
             </label>
             <Button type="submit" variant="secondary" size="sm"><ImagePlus className="h-4 w-4" /> Upload</Button>
           </form>
@@ -212,7 +212,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <CardContent className="space-y-2">
           {history.length === 0 && <p className="py-3 text-center text-sm text-ink-faint">No bookings yet.</p>}
           {[...history].reverse().map((b) => (
-            <div key={b.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-cream px-4 py-2.5 text-sm">
+            <div key={b.id} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
               <div>
                 <p className="font-medium">{serviceById.get(b.serviceId) ?? "Service"}</p>
                 <p className="text-xs text-ink-faint">{fmtDate(b.startIso)}</p>

@@ -24,18 +24,18 @@ export function BookingActions({ id, status }: { id: string; status: BookingStat
   if (!options.length) return null;
   return (
     <details className="relative">
-      <summary className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg text-ink-soft hover:bg-black/[0.05]">
+      <summary className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]">
         <MoreHorizontal className="h-4 w-4" />
       </summary>
-      <div className="absolute right-0 z-10 mt-1 w-44 overflow-hidden rounded-xl border border-black/10 bg-white py-1 shadow-soft">
+      <div className="absolute right-0 z-10 mt-1 w-44 overflow-hidden rounded-xl border border-edge bg-surface-raised py-1 shadow-soft">
         {options.map((o) => (
           <form key={o.status} action={setBookingStatusAction}>
             <input type="hidden" name="id" value={id} />
             <input type="hidden" name="status" value={o.status} />
             <button
               type="submit"
-              className={`block w-full px-4 py-2 text-left text-sm hover:bg-black/[0.04] ${
-                o.danger ? "text-red-600" : "text-ink"
+              className={`block w-full px-4 py-2 text-left text-sm hover:bg-white/[0.06] ${
+                o.danger ? "text-red-400" : "text-ink"
               }`}
             >
               {o.label}

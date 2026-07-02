@@ -11,7 +11,7 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col gap-1 border-b border-black/5 p-5", className)}
+      className={cn("flex flex-col gap-1 border-b border-edge p-5", className)}
       {...props}
     />
   );
@@ -49,7 +49,7 @@ export function CardFooter({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex items-center gap-3 border-t border-black/5 p-5", className)}
+      className={cn("flex items-center gap-3 border-t border-edge p-5", className)}
       {...props}
     />
   );

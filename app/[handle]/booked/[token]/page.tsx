@@ -62,16 +62,16 @@ export default async function BookedPage({
             <Row label="Service" value={service?.name ?? "Appointment"} />
             <Row label="When" value={fmtDateTime(booking.startIso)} />
             <Row label="With" value={tech.businessName} />
-            <hr className="border-black/5" />
+            <hr className="border-edge" />
             <Row label="Total" value={gbp(booking.pricePennies)} />
-            <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "—"} />
+            <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
             <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
             {booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !awaitingDeposit && (
               <Link href={`/pay/${booking.balanceToken}`} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
                 <CreditCard className="h-4 w-4" /> Pay balance now (optional)
               </Link>
             )}
-            <Link href={`/${tech.handle}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 py-3 text-sm font-medium text-ink-soft hover:bg-black/[0.03]">Back to {tech.businessName}</Link>
+            <Link href={`/${tech.handle}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]">Back to {tech.businessName}</Link>
           </div>
         </div>
         <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-ink-faint"><CalendarHeart className="h-3.5 w-3.5" /> Powered by Glow</p>

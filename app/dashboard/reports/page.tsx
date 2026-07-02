@@ -76,7 +76,7 @@ export default async function ReportsPage() {
               <table className="w-full text-sm">
                 <tbody>
                   {months.map(([m, total]) => (
-                    <tr key={m} className="border-b border-black/5 last:border-0">
+                    <tr key={m} className="border-b border-edge last:border-0">
                       <td className="py-2.5 text-ink-soft">{formatInTimeZone(new Date(`${m}-01T12:00:00Z`), TZ, "MMMM yyyy")}</td>
                       <td className="py-2.5 text-right font-medium">{gbp(total)}</td>
                     </tr>
@@ -99,7 +99,7 @@ export default async function ReportsPage() {
               svcRows.map(([name, total]) => (
                 <div key={name}>
                   <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">{name}</span><span className="font-medium">{gbp(total)}</span></div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-black/[0.06]"><div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.round((total / maxService) * 100)}%` }} /></div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-black/[0.06]"><div className="h-full rounded-full bg-brand-500/100" style={{ width: `${Math.round((total / maxService) * 100)}%` }} /></div>
                 </div>
               ))
             )}
@@ -113,7 +113,7 @@ export default async function ReportsPage() {
 }
 
 function Stat({ icon: Icon, tone, label, value }: { icon: React.ComponentType<{ className?: string }>; tone: "green" | "blue" | "amber" | "red"; label: string; value: string; }) {
-  const tones = { green: "bg-emerald-100 text-emerald-700", blue: "bg-sky-100 text-sky-700", amber: "bg-amber-100 text-amber-700", red: "bg-red-100 text-red-700" };
+  const tones = { green: "bg-emerald-500/15 text-emerald-300", blue: "bg-sky-500/15 text-sky-300", amber: "bg-amber-500/15 text-amber-300", red: "bg-red-500/15 text-red-300" };
   return (
     <Card className="p-5">
       <span className={`grid h-10 w-10 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-5 w-5" /></span>

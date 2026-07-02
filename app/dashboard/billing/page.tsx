@@ -20,16 +20,16 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">Billing</h1>
-        <p className="text-sm text-ink-soft">Your Glow subscription. 0% commission — you keep every deposit.</p>
+        <p className="text-sm text-ink-soft">Your Glow subscription. 0% commission - you keep every deposit.</p>
       </div>
 
       {status === "started" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" /> Card saved — your trial is being activated. This can take a few seconds.
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" /> Card saved - your trial is being activated. This can take a few seconds.
         </div>
       )}
       {status === "cancelled" && (
-        <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">Checkout cancelled — no charge was made.</div>
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">Checkout cancelled - no charge was made.</div>
       )}
 
       <Card>
@@ -56,7 +56,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       {!live && (
         <>
           {!configured && (
-            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
               Payments aren&apos;t configured on this environment yet.
             </div>
           )}

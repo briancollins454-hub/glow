@@ -19,7 +19,7 @@ export default async function MessagesPage() {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-semibold">Messages</h1>
-          <p className="text-sm text-ink-soft">Chat with clients in one place — they reply from a private link, no app needed.</p>
+          <p className="text-sm text-ink-soft">Chat with clients in one place - they reply from a private link, no app needed.</p>
         </div>
         <UpgradePrompt feature="Client messaging" />
       </div>
@@ -48,7 +48,7 @@ export default async function MessagesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">Messages</h1>
-        <p className="text-sm text-ink-soft">Chat with clients in one place — they reply from a private link, no app needed.</p>
+        <p className="text-sm text-ink-soft">Chat with clients in one place - they reply from a private link, no app needed.</p>
       </div>
 
       <Card>
@@ -61,14 +61,14 @@ export default async function MessagesPage() {
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <MessageSquare className="h-6 w-6 text-ink-faint" />
               <p className="text-sm text-ink-faint">No conversations yet.</p>
-              <Link href="/dashboard/clients" className="text-sm font-medium text-brand-700">Message a client →</Link>
+              <Link href="/dashboard/clients" className="text-sm font-medium text-brand-300">Message a client →</Link>
             </div>
           )}
           {threads.map((t) => (
             <Link
               key={t.client!.id}
               href={`/dashboard/messages/${t.client!.id}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-cream px-4 py-3 transition hover:shadow-card"
+              className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

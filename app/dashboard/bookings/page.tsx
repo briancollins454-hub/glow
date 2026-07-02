@@ -32,7 +32,7 @@ export default async function BookingsPage() {
     .reverse();
 
   const row = (b: Booking, muted?: boolean) => (
-    <div key={b.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/5 px-4 py-3 ${muted ? "bg-white opacity-80" : "bg-cream"}`}>
+    <div key={b.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge px-4 py-3 ${muted ? "bg-white/[0.03] opacity-70" : "bg-cream"}`}>
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <p className="font-medium">{clientById.get(b.clientId) ?? "Client"}</p>
@@ -61,15 +61,15 @@ export default async function BookingsPage() {
       </div>
 
       <details className="card">
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-700">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
           <Plus className="h-4 w-4" /> Add a booking manually
         </summary>
-        <div className="border-t border-black/5 p-5">
+        <div className="border-t border-edge p-5">
           <form action={addManualBookingAction} className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Existing client</Label>
               <Select name="clientId" defaultValue="">
-                <option value="">— new client —</option>
+                <option value="">- new client -</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </div>

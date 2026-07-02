@@ -18,7 +18,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-cream">
-      <header className="sticky top-0 z-20 border-b border-black/5 bg-white/80 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-edge bg-surface/80 backdrop-blur">
         <div className="container-page flex h-16 items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">
@@ -30,7 +30,7 @@ export default async function DashboardLayout({
             <Link
               href={`/${tech.handle}`}
               target="_blank"
-              className="hidden items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 text-sm text-ink-soft hover:bg-black/[0.03] sm:flex"
+              className="hidden items-center gap-1.5 rounded-xl border border-edge px-3 py-2 text-sm text-ink-soft hover:bg-white/[0.06] sm:flex"
             >
               <ExternalLink className="h-4 w-4" /> View booking page
             </Link>
@@ -43,7 +43,7 @@ export default async function DashboardLayout({
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-black/[0.04]"
+                className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-white/[0.06]"
                 title="Log out"
               >
                 <LogOut className="h-4.5 w-4.5 h-[18px] w-[18px]" />

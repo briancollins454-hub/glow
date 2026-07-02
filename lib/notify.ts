@@ -23,7 +23,7 @@ export function renderReminderText({ reminder, booking, client, service, tech }:
 
   switch (reminder.kind) {
     case "confirmation":
-      return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Deposit of ${gbp(booking.depositPennies)} received — thank you. Balance due: ${gbp(booking.balancePennies)}.`;
+      return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Deposit of ${gbp(booking.depositPennies)} received - thank you. Balance due: ${gbp(booking.balancePennies)}.`;
     case "reminder_24h":
       return `Reminder: ${name}, your ${svc} with ${biz} is tomorrow (${when}). See you then! Need to rearrange? Please give notice.`;
     case "reminder_2h":
@@ -42,7 +42,7 @@ function subjectFor(kind: ReminderKind, biz: string): string {
     case "reminder_24h":
       return `Reminder: your appointment tomorrow`;
     case "reminder_2h":
-      return `See you soon — your appointment is in 2 hours`;
+      return `See you soon - your appointment is in 2 hours`;
     case "balance_request":
       return `Your remaining balance for ${biz}`;
   }
