@@ -241,6 +241,20 @@ export async function updateBooking(sb: SB, id: string, patch: Partial<Booking>)
   const { error } = await sb.from("bookings").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 }
+/** Hard delete (mistake bookings). Payments and reminders cascade in the DB. */
+export async function deleteBooking(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("bookings").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+/** Skip any still-scheduled reminders for a booking (used when rescheduling). */
+export async function skipScheduledReminders(sb: SB, bookingId: string): Promise<void> {
+  const { error } = await sb
+    .from("reminders")
+    .update({ status: "skipped" })
+    .eq("bookingId", bookingId)
+    .eq("status", "scheduled");
+  if (error) throw new Error(error.message);
+}
 
 // ---------------- Payments ----------------
 export async function listPayments(sb: SB, techId: string): Promise<Payment[]> {

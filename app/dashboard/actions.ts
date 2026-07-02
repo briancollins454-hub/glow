@@ -366,6 +366,9 @@ export async function addManualBookingAction(formData: FormData) {
     });
   }
 
+  const paymentTaken = String(formData.get("paymentTaken") ?? "none") as "none" | "deposit" | "full";
+  const paymentMethod = String(formData.get("paymentMethod") ?? "cash");
+
   await createConfirmedBooking({
     sb,
     tech,
@@ -373,8 +376,111 @@ export async function addManualBookingAction(formData: FormData) {
     client,
     startIso: toIso(dateTime),
     notes: String(formData.get("notes") ?? "").trim(),
+    paymentTaken,
+    paymentMethod,
   });
 
+  revalidatePath("/dashboard/bookings");
+  redirect("/dashboard/bookings");
+}
+
+/** Move a booking to a new date/time (and optionally another service). */
+export async function rescheduleBookingAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const dateTime = String(formData.get("startsAt") ?? "");
+  const booking = await getBooking(sb, id);
+  if (!booking || booking.techId !== tech.id) redirect("/dashboard/bookings");
+  if (!dateTime) redirect(`/dashboard/bookings/${id}?err=missing`);
+
+  const newServiceId = String(formData.get("serviceId") ?? booking!.serviceId);
+  const service = await getService(sb, newServiceId);
+  if (!service) redirect(`/dashboard/bookings/${id}?err=missing`);
+
+  const start = new Date(toIso(dateTime));
+  const end = new Date(start.getTime() + service!.durationMin * 60 * 1000);
+
+  const patch: Partial<typeof booking & object> = {
+    serviceId: service!.id,
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    notes: String(formData.get("notes") ?? booking!.notes),
+  };
+
+  // Repricing only applies when the service changed. Money already taken stays.
+  if (service!.id !== booking!.serviceId) {
+    const price = service!.pricePennies;
+    const depositAlreadyPaid = booking!.depositStatus === "paid";
+    const deposit = depositAlreadyPaid ? booking!.depositPennies : 0;
+    Object.assign(patch, {
+      pricePennies: price,
+      balancePennies: Math.max(0, price - deposit),
+      balanceStatus: booking!.balanceStatus === "paid" ? "paid" : Math.max(0, price - deposit) > 0 ? "unpaid" : "paid",
+    });
+  }
+
+  await updateBooking(sb, id, patch);
+  const updated = await getBooking(sb, id);
+  if (updated) {
+    const { rescheduleReminders } = await import("@/lib/bookings");
+    await rescheduleReminders(sb, updated);
+  }
+
+  revalidatePath("/dashboard/bookings");
+  redirect(`/dashboard/bookings/${id}?saved=1`);
+}
+
+/** Record an offline payment (cash, bank transfer, PayPal...) on a booking. */
+export async function recordManualPaymentAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const what = String(formData.get("what") ?? ""); // deposit | balance | full
+  const method = String(formData.get("method") ?? "cash");
+  const booking = await getBooking(sb, id);
+  if (!booking || booking.techId !== tech.id) redirect("/dashboard/bookings");
+
+  const { createPayment } = await import("@/lib/db/queries");
+  const patch: Record<string, unknown> = {};
+
+  if ((what === "deposit" || what === "full") && booking!.depositStatus !== "paid" && booking!.depositPennies > 0) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: id,
+      kind: "deposit",
+      amountPennies: booking!.depositPennies,
+      status: "succeeded",
+      provider: method,
+      providerRef: "",
+    });
+    patch.depositStatus = "paid";
+  }
+  if ((what === "balance" || what === "full") && booking!.balanceStatus !== "paid" && booking!.balancePennies > 0) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: id,
+      kind: "balance",
+      amountPennies: booking!.balancePennies,
+      status: "succeeded",
+      provider: method,
+      providerRef: "",
+    });
+    patch.balanceStatus = "paid";
+  }
+
+  if (Object.keys(patch).length) await updateBooking(sb, id, patch);
+  revalidatePath("/dashboard/bookings");
+  redirect(`/dashboard/bookings/${id}?saved=1`);
+}
+
+/** Hard delete a mistake booking: no strike, no history, reminders removed. */
+export async function deleteBookingAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const booking = await getBooking(sb, id);
+  if (booking && booking.techId === tech.id) {
+    const { deleteBooking } = await import("@/lib/db/queries");
+    await deleteBooking(sb, id);
+  }
   revalidatePath("/dashboard/bookings");
   redirect("/dashboard/bookings");
 }

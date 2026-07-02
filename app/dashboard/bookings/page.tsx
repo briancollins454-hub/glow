@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { BookingActions } from "@/components/dashboard/booking-actions";
+import { DateTimePicker } from "@/components/dashboard/date-time-picker";
 import { addManualBookingAction } from "../actions";
 import type { Booking } from "@/lib/db/types";
 
@@ -32,22 +33,23 @@ export default async function BookingsPage() {
     .reverse();
 
   const row = (b: Booking, muted?: boolean) => (
-    <div key={b.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge px-4 py-3 ${muted ? "bg-white/[0.03] opacity-70" : "bg-cream"}`}>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="font-medium">{clientById.get(b.clientId) ?? "Client"}</p>
+    <div key={b.id} className={`flex items-center justify-between gap-2 rounded-xl border border-edge px-4 py-3 ${muted ? "bg-white/[0.03] opacity-70" : "bg-cream"}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="truncate font-medium">{clientById.get(b.clientId) ?? "Client"}</p>
           {statusBadge(b.status)}
           {b.depositStatus === "forfeited" && <Badge tone="red">Deposit forfeited</Badge>}
         </div>
-        <p className="text-xs text-ink-faint">
+        <p className="mt-0.5 text-xs text-ink-faint">
           {serviceById.get(b.serviceId) ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}
         </p>
+        <p className="mt-0.5 text-xs text-ink-faint">
+          <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
+          {" · "}
+          {b.balanceStatus === "paid" ? "paid in full" : `${gbp(b.balancePennies)} due`}
+        </p>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="text-right text-sm">
-          <p className="font-medium">{gbp(b.pricePennies)}</p>
-          <p className="text-xs text-ink-faint">{b.balanceStatus === "paid" ? "paid in full" : `${gbp(b.balancePennies)} due`}</p>
-        </div>
+      <div className="shrink-0">
         <BookingActions id={b.id} status={b.status} />
       </div>
     </div>
@@ -81,9 +83,30 @@ export default async function BookingsPage() {
               </Select>
             </div>
             <div><Label>New client name</Label><Input name="clientName" placeholder="(if new)" /></div>
-            <div><Label>Date &amp; time</Label><Input name="startsAt" type="datetime-local" required /></div>
             <div><Label>Email</Label><Input name="clientEmail" type="email" placeholder="(optional)" /></div>
             <div><Label>Phone</Label><Input name="clientPhone" placeholder="(optional)" /></div>
+            <div className="sm:col-span-2">
+              <Label>Date &amp; time</Label>
+              <DateTimePicker name="startsAt" />
+            </div>
+            <div>
+              <Label>Payment taken?</Label>
+              <Select name="paymentTaken" defaultValue="none">
+                <option value="none">Nothing yet</option>
+                <option value="deposit">Deposit taken</option>
+                <option value="full">Paid in full</option>
+              </Select>
+            </div>
+            <div>
+              <Label>How was it paid?</Label>
+              <Select name="paymentMethod" defaultValue="cash">
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="paypal">PayPal</option>
+                <option value="card_machine">Card machine</option>
+                <option value="other">Other</option>
+              </Select>
+            </div>
             <div className="sm:col-span-2"><Button type="submit" variant="secondary">Add booking</Button></div>
           </form>
         </div>

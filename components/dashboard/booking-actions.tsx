@@ -1,4 +1,5 @@
-import { MoreHorizontal } from "lucide-react";
+import Link from "next/link";
+import { MoreHorizontal, Pencil } from "lucide-react";
 import { setBookingStatusAction } from "@/app/dashboard/actions";
 import type { BookingStatus } from "@/lib/db/types";
 
@@ -28,6 +29,12 @@ export function BookingActions({ id, status }: { id: string; status: BookingStat
         <MoreHorizontal className="h-4 w-4" />
       </summary>
       <div className="absolute right-0 z-10 mt-1 w-44 overflow-hidden rounded-xl border border-edge bg-surface-raised py-1 shadow-soft">
+        <Link
+          href={`/dashboard/bookings/${id}`}
+          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink hover:bg-white/[0.06]"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Edit / reschedule
+        </Link>
         {options.map((o) => (
           <form key={o.status} action={setBookingStatusAction}>
             <input type="hidden" name="id" value={id} />

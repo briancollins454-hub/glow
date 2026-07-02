@@ -99,19 +99,19 @@ export default async function DashboardOverview() {
               <p className="py-6 text-center text-sm text-ink-faint">No upcoming appointments yet.</p>
             )}
             {upcoming.slice(0, 6).map((b) => (
-              <div key={b.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{clientById.get(b.clientId)?.name}</p>
+              <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <p className="truncate font-medium">{clientById.get(b.clientId)?.name}</p>
+                    <span className="hidden sm:inline-flex">{statusBadge(b.status)}</span>
+                  </div>
                   <p className="truncate text-xs text-ink-faint">{serviceById.get(b.serviceId)?.name}</p>
                 </div>
-                <div className="flex items-center gap-3 text-right">
-                  <div className="text-sm">
-                    <p className="font-medium">{fmtTime(b.startIso)}</p>
-                    <p className="text-xs text-ink-faint">{fmtRelativeDays(b.startIso)}</p>
-                  </div>
-                  {statusBadge(b.status)}
+                <div className="shrink-0 text-right text-sm">
+                  <p className="font-medium">{fmtTime(b.startIso)}</p>
+                  <p className="text-xs text-ink-faint">{fmtRelativeDays(b.startIso)}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </CardContent>
         </Card>

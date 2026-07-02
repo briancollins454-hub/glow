@@ -28,7 +28,12 @@ function amounts(service: Service) {
   return { price, deposit, balance: Math.max(0, price - deposit) };
 }
 
-/** Confirmed booking with no online payment (manual/in-person, or deposit-free). */
+export type ManualPaymentTaken = "none" | "deposit" | "full";
+
+/**
+ * Confirmed booking created by the tech (walk-in, DM, phone). Optionally
+ * records money already taken offline (cash, bank transfer, PayPal...).
+ */
 export async function createConfirmedBooking({
   sb,
   tech,
@@ -37,10 +42,18 @@ export async function createConfirmedBooking({
   startIso,
   isPatchTest = false,
   notes = "",
-}: BaseParams): Promise<Booking> {
+  paymentTaken = "none",
+  paymentMethod = "in_person",
+}: BaseParams & {
+  paymentTaken?: ManualPaymentTaken;
+  paymentMethod?: string;
+}): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
   const { price, deposit, balance } = amounts(service);
+
+  const depositPaid = paymentTaken !== "none" && deposit > 0;
+  const fullyPaid = paymentTaken === "full";
 
   const booking = await createBooking(sb, {
     techId: tech.id,
@@ -51,13 +64,36 @@ export async function createConfirmedBooking({
     status: "confirmed",
     pricePennies: price,
     depositPennies: deposit,
-    depositStatus: "none",
+    depositStatus: depositPaid ? "paid" : "none",
     balancePennies: balance,
-    balanceStatus: balance > 0 ? "unpaid" : "paid",
+    balanceStatus: fullyPaid || balance === 0 ? "paid" : "unpaid",
     balanceToken: randomToken(),
     isPatchTest,
     notes,
   });
+
+  if (depositPaid) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: booking.id,
+      kind: "deposit",
+      amountPennies: deposit,
+      status: "succeeded",
+      provider: paymentMethod,
+      providerRef: "",
+    });
+  }
+  if (fullyPaid && balance > 0) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: booking.id,
+      kind: "balance",
+      amountPennies: balance,
+      status: "succeeded",
+      provider: paymentMethod,
+      providerRef: "",
+    });
+  }
 
   await scheduleReminders(sb, booking);
   return booking;
@@ -132,6 +168,40 @@ export async function applyBalancePaid(
     providerRef: paymentIntentId,
   });
   await updateBooking(sb, booking.id, { balanceStatus: "paid" });
+}
+
+/** After a reschedule: drop pending reminders and re-create the timed ones. */
+export async function rescheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
+  const { skipScheduledReminders } = await import("@/lib/db/queries");
+  await skipScheduledReminders(sb, booking.id);
+  const startMs = new Date(booking.startIso).getTime();
+
+  const remind24 = startMs - 24 * HOUR;
+  if (remind24 > Date.now()) {
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      channel: "email",
+      kind: "reminder_24h",
+      sendAtIso: new Date(remind24).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
+  }
+  if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
+    const balanceAt = startMs - 48 * HOUR;
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      channel: "email",
+      kind: "balance_request",
+      sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
+  }
 }
 
 export async function scheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
