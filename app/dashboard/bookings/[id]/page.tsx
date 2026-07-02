@@ -6,6 +6,7 @@ import { getDashboardContext } from "@/lib/auth/session";
 import { getBooking, getClient, getService, listServices } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
@@ -90,7 +91,7 @@ export default async function EditBookingPage({
               <Label>Notes</Label>
               <Textarea name="notes" defaultValue={booking.notes} placeholder="Anything to remember for this appointment" />
             </div>
-            <Button type="submit">Save changes</Button>
+            <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -134,7 +135,7 @@ export default async function EditBookingPage({
                 </Select>
               </div>
               <div className="flex items-end">
-                <Button type="submit" variant="secondary" className="w-full">Record payment</Button>
+                <SubmitButton variant="secondary" className="w-full" pendingLabel="Recording…">Record payment</SubmitButton>
               </div>
             </form>
           ) : (

@@ -23,6 +23,7 @@ import {
   getTechByHandle,
 } from "@/lib/db/queries";
 import { availableDays, depositFor } from "@/lib/rules";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
 import type { ConsultationQuestion, Service, ServiceCategory, Tech } from "@/lib/db/types";
@@ -272,10 +273,14 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
               <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
               <span>I agree to the {tech.cancellationWindowHours}h cancellation policy. My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.</span>
             </label>
-            <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
+            <SubmitButton
+              className="w-full bg-none py-3 font-semibold shadow-none"
+              style={{ backgroundColor: brand }}
+              pendingLabel="Securing your slot…"
+            >
               <Lock className="h-4 w-4" />
               {deposit > 0 ? `Pay ${gbp(deposit)} deposit & book` : "Confirm booking"}
-            </button>
+            </SubmitButton>
             {(process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test") && (
               <p className="text-center text-xs text-ink-faint">Test mode - no real payment is taken.</p>
             )}

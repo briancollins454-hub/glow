@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listBookings, listClients, listServices } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
@@ -107,7 +107,7 @@ export default async function BookingsPage() {
                 <option value="other">Other</option>
               </Select>
             </div>
-            <div className="sm:col-span-2"><Button type="submit" variant="secondary">Add booking</Button></div>
+            <div className="sm:col-span-2"><SubmitButton variant="secondary" pendingLabel="Adding…">Add booking</SubmitButton></div>
           </form>
         </div>
       </details>

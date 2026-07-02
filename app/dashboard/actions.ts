@@ -366,6 +366,23 @@ export async function addManualBookingAction(formData: FormData) {
     });
   }
 
+  // Duplicate guard: identical client + service + start time already booked
+  // (protects against double-taps and repeated form submissions).
+  const startIso = toIso(dateTime);
+  const { bookingsForClient } = await import("@/lib/db/queries");
+  const existing = await bookingsForClient(sb, tech.id, client.id);
+  const startMs = new Date(startIso).getTime();
+  const duplicate = existing.some(
+    (b) =>
+      b.serviceId === serviceId &&
+      b.status !== "cancelled" &&
+      new Date(b.startIso).getTime() === startMs,
+  );
+  if (duplicate) {
+    revalidatePath("/dashboard/bookings");
+    redirect("/dashboard/bookings");
+  }
+
   const paymentTaken = String(formData.get("paymentTaken") ?? "none") as "none" | "deposit" | "full";
   const paymentMethod = String(formData.get("paymentMethod") ?? "cash");
 
@@ -374,7 +391,7 @@ export async function addManualBookingAction(formData: FormData) {
     tech,
     service: service!,
     client,
-    startIso: toIso(dateTime),
+    startIso,
     notes: String(formData.get("notes") ?? "").trim(),
     paymentTaken,
     paymentMethod,
