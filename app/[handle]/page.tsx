@@ -276,7 +276,9 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
               <Lock className="h-4 w-4" />
               {deposit > 0 ? `Pay ${gbp(deposit)} deposit & book` : "Confirm booking"}
             </button>
-            <p className="text-center text-xs text-ink-faint">Test mode - no real payment is taken.</p>
+            {(process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test") && (
+              <p className="text-center text-xs text-ink-faint">Test mode - no real payment is taken.</p>
+            )}
           </form>
         </div>
       )}
