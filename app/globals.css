@@ -15,6 +15,11 @@
       radial-gradient(50rem 35rem at -10% 30%, rgba(147, 51, 234, 0.10), transparent 60%);
     background-attachment: fixed;
   }
+  /* No element may drag the page sideways; inner scroll strips still work. */
+  html,
+  body {
+    overflow-x: clip;
+  }
   ::selection {
     @apply bg-brand-500/40 text-white;
   }
