@@ -60,12 +60,13 @@ export async function POST(request: Request) {
           });
         }
 
-        // £2 for 14 days (phase 1), then the chosen plan price (phase 2).
+        // £2 for the first 14 days (phase 1), then the chosen plan price (phase 2).
         const planPrice = plan === "annual" ? PRICES.annual : PRICES.monthly;
-        const phases = [
-          { items: [{ price: PRICES.trial, quantity: 1 }], iterations: 1 },
+        const trialEnd = Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60;
+        const phases: Stripe.SubscriptionScheduleCreateParams.Phase[] = [
+          { items: [{ price: PRICES.trial, quantity: 1 }], end_date: trialEnd },
           { items: [{ price: planPrice, quantity: 1 }] },
-        ] as Stripe.SubscriptionScheduleCreateParams.Phase[];
+        ];
         const schedule = await s.subscriptionSchedules.create({
           customer: customerId,
           start_date: "now",
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
         break;
       }
 
+      case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
