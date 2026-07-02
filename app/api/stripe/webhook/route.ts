@@ -75,10 +75,34 @@ export async function POST(request: Request) {
           metadata: { techId, plan },
         });
 
+        const subId =
+          typeof schedule.subscription === "string"
+            ? schedule.subscription
+            : schedule.subscription?.id ?? null;
+
+        // Collect the first £2 immediately rather than waiting for Stripe's
+        // ~1h auto-finalize. Best-effort: if it fails, Stripe still collects later.
+        if (subId) {
+          try {
+            const sub = await s.subscriptions.retrieve(subId);
+            const invId =
+              typeof sub.latest_invoice === "string"
+                ? sub.latest_invoice
+                : sub.latest_invoice?.id;
+            if (invId) {
+              const inv = await s.invoices.retrieve(invId);
+              if (inv.status === "draft") await s.invoices.finalizeInvoice(invId);
+              await s.invoices.pay(invId);
+            }
+          } catch (err) {
+            console.error("[stripe webhook] immediate charge failed:", (err as Error).message);
+          }
+        }
+
         await updateTech(sb, techId, {
           subscriptionStatus: "active",
           plan,
-          stripeSubscriptionId: (schedule.subscription as string) ?? null,
+          stripeSubscriptionId: subId,
         });
         break;
       }
