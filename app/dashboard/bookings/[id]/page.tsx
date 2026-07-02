@@ -7,7 +7,7 @@ import { getBooking, getClient, getService, listServices } from "@/lib/db/querie
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
 import { statusBadge } from "@/components/dashboard/status";
@@ -86,6 +86,27 @@ export default async function EditBookingPage({
             <div>
               <Label>Date &amp; time</Label>
               <DateTimePicker name="startsAt" defaultValue={currentLocal} />
+            </div>
+            <div>
+              <Label>Deposit for this booking (£)</Label>
+              {booking.depositStatus === "paid" ? (
+                <p className="rounded-xl border border-edge bg-white/[0.03] px-3.5 py-2.5 text-sm text-ink-soft">
+                  {gbp(booking.depositPennies)} - already paid, so the amount is locked.
+                </p>
+              ) : (
+                <>
+                  <Input
+                    name="depositPounds"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    defaultValue={(booking.depositPennies / 100).toFixed(2)}
+                  />
+                  <p className="mt-1.5 text-xs text-ink-faint">
+                    Set to 0 for no deposit - the client pays the full {gbp(booking.pricePennies)} on the day.
+                  </p>
+                </>
+              )}
             </div>
             <div>
               <Label>Notes</Label>

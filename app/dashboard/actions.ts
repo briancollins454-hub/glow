@@ -386,6 +386,10 @@ export async function addManualBookingAction(formData: FormData) {
   const paymentTaken = String(formData.get("paymentTaken") ?? "none") as "none" | "deposit" | "full";
   const paymentMethod = String(formData.get("paymentMethod") ?? "cash");
 
+  // Optional per-booking deposit override: blank = service default, 0 = none.
+  const depositRaw = String(formData.get("depositPounds") ?? "").trim();
+  const depositOverridePennies = depositRaw === "" ? null : poundsToPennies(depositRaw);
+
   await createConfirmedBooking({
     sb,
     tech,
@@ -395,6 +399,7 @@ export async function addManualBookingAction(formData: FormData) {
     notes: String(formData.get("notes") ?? "").trim(),
     paymentTaken,
     paymentMethod,
+    depositOverridePennies,
   });
 
   revalidatePath("/dashboard/bookings");
@@ -424,17 +429,25 @@ export async function rescheduleBookingAction(formData: FormData) {
     notes: String(formData.get("notes") ?? booking!.notes),
   };
 
-  // Repricing only applies when the service changed. Money already taken stays.
-  if (service!.id !== booking!.serviceId) {
-    const price = service!.pricePennies;
-    const depositAlreadyPaid = booking!.depositStatus === "paid";
-    const deposit = depositAlreadyPaid ? booking!.depositPennies : 0;
-    Object.assign(patch, {
-      pricePennies: price,
-      balancePennies: Math.max(0, price - deposit),
-      balanceStatus: booking!.balanceStatus === "paid" ? "paid" : Math.max(0, price - deposit) > 0 ? "unpaid" : "paid",
-    });
+  // Price follows the (possibly changed) service.
+  const price = service!.id !== booking!.serviceId ? service!.pricePennies : booking!.pricePennies;
+
+  // Deposit is whatever the tech says it is (0 = no deposit). Once a deposit
+  // has actually been paid, the amount is locked to protect the records.
+  let deposit = booking!.depositPennies;
+  const depositRaw = String(formData.get("depositPounds") ?? "").trim();
+  if (depositRaw !== "" && booking!.depositStatus !== "paid") {
+    deposit = Math.min(Math.max(0, poundsToPennies(depositRaw)), price);
   }
+
+  const balance = Math.max(0, price - deposit);
+  Object.assign(patch, {
+    pricePennies: price,
+    depositPennies: deposit,
+    depositStatus: deposit === 0 ? "none" : booking!.depositStatus,
+    balancePennies: balance,
+    balanceStatus: booking!.balanceStatus === "paid" ? "paid" : balance > 0 ? "unpaid" : "paid",
+  });
 
   await updateBooking(sb, id, patch);
   const updated = await getBooking(sb, id);

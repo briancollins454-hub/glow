@@ -44,13 +44,22 @@ export async function createConfirmedBooking({
   notes = "",
   paymentTaken = "none",
   paymentMethod = "in_person",
+  depositOverridePennies = null,
 }: BaseParams & {
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
+  /** Tech-chosen deposit for this booking (0 = no deposit). null = service default. */
+  depositOverridePennies?: number | null;
 }): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const { price, deposit, balance } = amounts(service);
+  const base = amounts(service);
+  const price = base.price;
+  const deposit =
+    depositOverridePennies !== null
+      ? Math.min(Math.max(0, depositOverridePennies), price)
+      : base.deposit;
+  const balance = Math.max(0, price - deposit);
 
   const depositPaid = paymentTaken !== "none" && deposit > 0;
   const fullyPaid = paymentTaken === "full";

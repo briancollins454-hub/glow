@@ -90,6 +90,10 @@ export default async function BookingsPage() {
               <DateTimePicker name="startsAt" />
             </div>
             <div>
+              <Label>Deposit for this booking (£)</Label>
+              <Input name="depositPounds" type="number" min={0} step="0.01" placeholder="Blank = service default, 0 = none" />
+            </div>
+            <div>
               <Label>Payment taken?</Label>
               <Select name="paymentTaken" defaultValue="none">
                 <option value="none">Nothing yet</option>
