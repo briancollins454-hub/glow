@@ -12,6 +12,7 @@ import {
   patchTestsForClient,
 } from "@/lib/db/queries";
 import { signedPhotoUrl } from "@/lib/storage";
+import { isLive } from "@/lib/subscriptions";
 import { uploadPhotoAction, deletePhotoAction } from "../../actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,12 +56,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <h1 className="font-display text-2xl font-semibold">{client.name}</h1>
         {client.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blacklisted</Badge>}
         {client.noShowCount > 0 && <Badge tone="amber">{client.noShowCount} no-show{client.noShowCount > 1 ? "s" : ""}</Badge>}
-        <Link
-          href={`/dashboard/messages/${client.id}`}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
-        >
-          <MessageSquare className="h-4 w-4" /> Message
-        </Link>
+        {isLive(tech) && (
+          <Link
+            href={`/dashboard/messages/${client.id}`}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
+          >
+            <MessageSquare className="h-4 w-4" /> Message
+          </Link>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

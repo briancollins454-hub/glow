@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { ChevronRight, MessageSquare } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listClients, listMessagesForTech } from "@/lib/db/queries";
+import { isLive } from "@/lib/subscriptions";
+import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Message } from "@/lib/db/types";
@@ -11,6 +13,19 @@ export default async function MessagesPage() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
+
+  if (!isLive(tech)) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Messages</h1>
+          <p className="text-sm text-ink-soft">Chat with clients in one place — they reply from a private link, no app needed.</p>
+        </div>
+        <UpgradePrompt feature="Client messaging" />
+      </div>
+    );
+  }
+
   const [clients, messages] = await Promise.all([
     listClients(sb, tech.id),
     listMessagesForTech(sb, tech.id),

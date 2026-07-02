@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, User } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { getClient, markThreadRead, threadMessages } from "@/lib/db/queries";
+import { isLive } from "@/lib/subscriptions";
+import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { MessageThread } from "@/components/messages/message-thread";
 import { sendMessageAction } from "../actions";
 
@@ -17,6 +19,17 @@ export default async function DashboardThreadPage({
   const { sb, tech } = c;
   const client = await getClient(sb, clientId);
   if (!client) notFound();
+
+  if (!isLive(tech)) {
+    return (
+      <div className="space-y-6">
+        <Link href="/dashboard/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink">
+          <ArrowLeft className="h-4 w-4" /> Messages
+        </Link>
+        <UpgradePrompt feature="Client messaging" />
+      </div>
+    );
+  }
 
   await markThreadRead(sb, clientId, "client");
   const messages = await threadMessages(sb, clientId);

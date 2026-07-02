@@ -3,6 +3,7 @@
 import { getDashboardContext } from "@/lib/auth/session";
 import { createMessage, getClient } from "@/lib/db/queries";
 import { notifyClientOfMessage } from "@/lib/notify";
+import { isLive } from "@/lib/subscriptions";
 import type { Message } from "@/lib/db/types";
 
 type SendResult = { ok: boolean; message?: Message; error?: string };
@@ -14,6 +15,9 @@ export async function sendMessageAction(clientId: string, body: string): Promise
   const ctx = await getDashboardContext();
   if (!ctx) return { ok: false, error: "Not signed in" };
   const { sb, tech } = ctx;
+  if (!isLive(tech)) {
+    return { ok: false, error: "Messaging needs an active plan. Start your trial in Billing to reply to clients." };
+  }
   const client = await getClient(sb, clientId);
   if (!client) return { ok: false, error: "Client not found" };
   const message = await createMessage(sb, { techId: tech.id, clientId, sender: "tech", body: text });

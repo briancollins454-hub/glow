@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getClientByMessageToken, getTechById, threadMessages } from "@/lib/db/queries";
+import { isLive } from "@/lib/subscriptions";
 import { MessageThread } from "@/components/messages/message-thread";
 import { sendClientMessageAction } from "./actions";
 
@@ -18,6 +19,28 @@ export default async function ClientThreadPage({
   const messages = await threadMessages(sb, client.id);
   const brand = tech?.brandColor || "#db2777";
   const send = sendClientMessageAction.bind(null, token);
+  const live = !!tech && isLive(tech);
+
+  if (!live) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-8">
+        <div className="w-full max-w-md">
+          <div className="card overflow-hidden p-0">
+            <div className="px-6 py-5 text-white" style={{ backgroundColor: brand }}>
+              <p className="text-xs text-white/80">Chat with</p>
+              <h1 className="font-display text-xl font-semibold">{tech?.businessName ?? "your beauty studio"}</h1>
+            </div>
+            <div className="p-6 text-center text-sm text-ink-soft">
+              Messaging isn&apos;t available for this studio right now. Please contact them directly to get in touch.
+            </div>
+          </div>
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-ink-faint">
+            <CalendarHeart className="h-3.5 w-3.5" /> Powered by Glow
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-8">
