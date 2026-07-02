@@ -93,3 +93,14 @@ export async function logoutAction() {
   await sb.auth.signOut();
   redirect("/");
 }
+
+export async function forgotPasswordAction(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim();
+  if (email) {
+    const { requestPasswordReset } = await import("@/lib/password-reset");
+    await requestPasswordReset(email);
+  }
+  // Always show the same confirmation so the form never reveals which
+  // emails have accounts.
+  redirect("/forgot?sent=1");
+}

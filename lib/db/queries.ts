@@ -61,6 +61,11 @@ export async function getTechByConnectAccountId(sb: SB, accountId: string): Prom
   if (error) throw new Error(error.message);
   return data as Tech | null;
 }
+export async function getTechByResetTokenHash(sb: SB, tokenHash: string): Promise<Tech | null> {
+  const { data, error } = await sb.from("techs").select("*").eq("resetTokenHash", tokenHash).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Tech | null;
+}
 type ManagedTechField =
   | "stripeCustomerId"
   | "stripeSubscriptionId"
@@ -70,7 +75,9 @@ type ManagedTechField =
   | "stripeConnectAccountId"
   | "connectChargesEnabled"
   | "connectPayoutsEnabled"
-  | "connectDetailsSubmitted";
+  | "connectDetailsSubmitted"
+  | "resetTokenHash"
+  | "resetTokenExpiresAt";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;

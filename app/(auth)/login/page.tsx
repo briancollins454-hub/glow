@@ -7,9 +7,9 @@ import { loginAction } from "../actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4">
       <div className="w-full max-w-md animate-fade-in">
@@ -25,6 +25,11 @@ export default async function LoginPage({
             Log in to manage your bookings.
           </p>
 
+          {reset === "1" && (
+            <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              Password updated. Log in with your new password.
+            </p>
+          )}
           {error && (
             <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
               That email and password don&apos;t match. Try again.
@@ -39,18 +44,21 @@ export default async function LoginPage({
                 name="email"
                 type="email"
                 required
-                defaultValue="demo@glow.app"
                 placeholder="you@example.com"
               />
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <Label htmlFor="password" className="mb-0">Password</Label>
+                <Link href="/forgot" className="text-xs font-medium text-brand-400 hover:text-brand-300">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 name="password"
                 type="password"
                 required
-                defaultValue="password123"
                 placeholder="••••••••"
               />
             </div>
@@ -66,9 +74,6 @@ export default async function LoginPage({
             </Link>
           </p>
         </div>
-        <p className="mt-4 text-center text-xs text-ink-faint">
-          Demo: demo@glow.app / password123
-        </p>
       </div>
     </div>
   );

@@ -1,16 +1,23 @@
-import { CheckCircle2, Copy } from "lucide-react";
+import { CheckCircle2, Copy, KeyRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { updateSettingsAction } from "../actions";
+import { updateSettingsAction, changePasswordAction } from "../actions";
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
+const PW_ERRORS: Record<string, string> = {
+  wrong: "Your current password is incorrect.",
+  short: "New password needs to be at least 8 characters.",
+  match: "The new passwords don't match.",
+  failed: "Something went wrong. Please try again.",
+};
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string }> }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { tech } = c;
-  const { saved } = await searchParams;
+  const { saved, pw, pwerr } = await searchParams;
 
   return (
     <div className="space-y-6">
@@ -67,6 +74,31 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
         <div className="flex justify-end"><Button type="submit">Save settings</Button></div>
       </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Change password</CardTitle>
+          <CardDescription>Use at least 8 characters. You&apos;ll stay logged in on this device.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pw === "1" && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" /> Password updated.
+            </div>
+          )}
+          {pwerr && (
+            <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {PW_ERRORS[pwerr] ?? PW_ERRORS.failed}
+            </div>
+          )}
+          <form action={changePasswordAction} className="grid gap-4 sm:grid-cols-3">
+            <div><Label htmlFor="current">Current password</Label><Input id="current" name="current" type="password" required /></div>
+            <div><Label htmlFor="next">New password</Label><Input id="next" name="next" type="password" required minLength={8} /></div>
+            <div><Label htmlFor="confirm">Confirm new password</Label><Input id="confirm" name="confirm" type="password" required minLength={8} /></div>
+            <div className="sm:col-span-3"><Button type="submit" variant="secondary">Update password</Button></div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

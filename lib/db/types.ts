@@ -50,6 +50,9 @@ export interface Tech {
   connectChargesEnabled: boolean;
   connectPayoutsEnabled: boolean;
   connectDetailsSubmitted: boolean;
+  // Self-serve password reset (hashed single-use token)
+  resetTokenHash: string | null;
+  resetTokenExpiresAt: string | null;
   createdAt: string;
 }
 

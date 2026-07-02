@@ -48,6 +48,32 @@ async function ctx() {
   return c;
 }
 
+export async function changePasswordAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const current = String(formData.get("current") ?? "");
+  const next = String(formData.get("next") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (next.length < 8) redirect("/dashboard/settings?pwerr=short");
+  if (next !== confirm) redirect("/dashboard/settings?pwerr=match");
+
+  // Verify the current password with a throwaway client so a hijacked
+  // session alone can't silently change the password.
+  const { createClient: createBareClient } = await import("@supabase/supabase-js");
+  const bare = createBareClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: authErr } = await bare.auth.signInWithPassword({
+    email: tech.email,
+    password: current,
+  });
+  if (authErr) redirect("/dashboard/settings?pwerr=wrong");
+
+  const { error } = await sb.auth.updateUser({ password: next });
+  if (error) redirect("/dashboard/settings?pwerr=failed");
+  redirect("/dashboard/settings?pw=1");
+}
+
 function toIso(localValue: string): string {
   return fromZonedTime(localValue, TZ).toISOString();
 }
