@@ -30,8 +30,13 @@ export function MessageThread({
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Timestamps are locale/timezone dependent, so only render them after mount to
+  // avoid a server/client hydration mismatch (React #418).
+  const [mounted, setMounted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => setMounted(true), []);
 
   const upsert = (m: Message) =>
     setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
@@ -95,13 +100,15 @@ export function MessageThread({
                 style={mine ? { backgroundColor: brand } : undefined}
               >
                 <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <p className={"mt-1 text-[11px] " + (mine ? "text-white/70" : "text-ink-faint")}>
-                  {new Date(m.createdAt).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                <p suppressHydrationWarning className={"mt-1 text-[11px] " + (mine ? "text-white/70" : "text-ink-faint")}>
+                  {mounted
+                    ? new Date(m.createdAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "\u00a0"}
                 </p>
               </div>
             </div>
