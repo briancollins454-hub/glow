@@ -60,49 +60,40 @@ export async function POST(request: Request) {
           });
         }
 
-        // £2 for the first 14 days (phase 1), then the chosen plan price (phase 2).
+        // The subscription is simply the chosen plan (£19/mo or £180/yr) with a
+        // 14-day trial, so the portal shows a clean "£19/month, trial ends X".
+        // The £2 is taken as a separate one-time charge now (no proration).
         const planPrice = plan === "annual" ? PRICES.annual : PRICES.monthly;
-        const trialEnd = Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60;
-        const phases: Stripe.SubscriptionScheduleCreateParams.Phase[] = [
-          { items: [{ price: PRICES.trial, quantity: 1 }], end_date: trialEnd },
-          { items: [{ price: planPrice, quantity: 1 }] },
-        ];
-        const schedule = await s.subscriptionSchedules.create({
+        const subscription = await s.subscriptions.create({
           customer: customerId,
-          start_date: "now",
-          end_behavior: "release",
-          phases,
+          items: [{ price: planPrice }],
+          trial_period_days: 14,
+          default_payment_method: pm ?? undefined,
           metadata: { techId, plan },
         });
 
-        const subId =
-          typeof schedule.subscription === "string"
-            ? schedule.subscription
-            : schedule.subscription?.id ?? null;
-
-        // Collect the first £2 immediately rather than waiting for Stripe's
-        // ~1h auto-finalize. Best-effort: if it fails, Stripe still collects later.
-        if (subId) {
+        // £2 trial fee, charged immediately as a one-off.
+        if (pm) {
           try {
-            const sub = await s.subscriptions.retrieve(subId);
-            const invId =
-              typeof sub.latest_invoice === "string"
-                ? sub.latest_invoice
-                : sub.latest_invoice?.id;
-            if (invId) {
-              const inv = await s.invoices.retrieve(invId);
-              if (inv.status === "draft") await s.invoices.finalizeInvoice(invId);
-              await s.invoices.pay(invId);
-            }
+            await s.paymentIntents.create({
+              amount: 200,
+              currency: "gbp",
+              customer: customerId,
+              payment_method: pm,
+              off_session: true,
+              confirm: true,
+              description: "Glow — £2 for your first 14 days",
+              metadata: { techId, kind: "trial_fee" },
+            });
           } catch (err) {
-            console.error("[stripe webhook] immediate charge failed:", (err as Error).message);
+            console.error("[stripe webhook] trial fee charge failed:", (err as Error).message);
           }
         }
 
         await updateTech(sb, techId, {
-          subscriptionStatus: "active",
+          subscriptionStatus: mapStatus(subscription.status),
           plan,
-          stripeSubscriptionId: subId,
+          stripeSubscriptionId: subscription.id,
         });
         break;
       }
