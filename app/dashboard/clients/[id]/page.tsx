@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ShieldAlert, ShieldCheck, Plus } from "lucide-react";
+import { ArrowLeft, ShieldAlert, ShieldCheck, Plus, ImagePlus, Trash2 } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import {
   bookingsForClient,
+  formResponsesForClient,
   getClient,
   listCategories,
+  listClientPhotos,
   listServices,
   patchTestsForClient,
 } from "@/lib/db/queries";
+import { signedPhotoUrl } from "@/lib/storage";
+import { uploadPhotoAction, deletePhotoAction } from "../../actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea, Select } from "@/components/ui/input";
@@ -25,12 +29,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const client = await getClient(sb, id);
   if (!client || client.techId !== tech.id) notFound();
 
-  const [history, tests, categories, services] = await Promise.all([
+  const [history, tests, categories, services, photos, responses] = await Promise.all([
     bookingsForClient(sb, tech.id, client.id),
     patchTestsForClient(sb, tech.id, client.id),
     listCategories(sb, tech.id),
     listServices(sb, tech.id),
+    listClientPhotos(sb, client.id),
+    formResponsesForClient(sb, client.id),
   ]);
+  const latestResponse = responses[0];
+  const photoItems = await Promise.all(
+    photos.map(async (p) => ({ p, url: await signedPhotoUrl(p.path) })),
+  );
   const serviceById = new Map(services.map((s) => [s.id, s.name]));
   const catById = new Map(categories.map((c) => [c.id, c.name]));
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -122,6 +132,71 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           </CardContent>
         </Card>
       </div>
+
+      {latestResponse && latestResponse.answers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Consultation answers</CardTitle>
+            <CardDescription>From {fmtDate(latestResponse.createdAt)}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {latestResponse.answers.map((a, i) => (
+              <div key={i} className="rounded-xl border border-black/5 bg-cream px-4 py-2.5 text-sm">
+                <p className="text-ink-faint">{a.prompt}</p>
+                <p className="font-medium">{a.answer}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ImagePlus className="h-5 w-5 text-brand-600" /> Before &amp; after photos</CardTitle>
+          <CardDescription>Only upload with the client&apos;s consent.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {photoItems.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {photoItems.map(({ p, url }) => (
+                <div key={p.id} className="group relative overflow-hidden rounded-xl border border-black/5 bg-cream">
+                  {url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={url} alt={p.kind} className="aspect-square w-full object-cover" />
+                  ) : (
+                    <div className="grid aspect-square w-full place-items-center text-xs text-ink-faint">Unavailable</div>
+                  )}
+                  <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium capitalize text-white">{p.kind}</span>
+                  <form action={deletePhotoAction} className="absolute right-1.5 top-1.5">
+                    <input type="hidden" name="id" value={p.id} />
+                    <input type="hidden" name="clientId" value={client.id} />
+                    <button type="submit" className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white opacity-0 transition group-hover:opacity-100" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+          <form action={uploadPhotoAction} className="grid gap-3 border-t border-black/5 pt-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+            <input type="hidden" name="clientId" value={client.id} />
+            <div>
+              <Label>Photo</Label>
+              <input type="file" name="photo" accept="image/*" required className="input h-auto py-2 text-sm" />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <Select name="kind" defaultValue="before">
+                <option value="before">Before</option>
+                <option value="after">After</option>
+                <option value="other">Other</option>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 pb-2.5 text-sm">
+              <input type="checkbox" name="consent" className="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" /> Consent
+            </label>
+            <Button type="submit" variant="secondary" size="sm"><ImagePlus className="h-4 w-4" /> Upload</Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Booking history ({history.length})</CardTitle></CardHeader>

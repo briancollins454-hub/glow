@@ -28,10 +28,19 @@ import {
   updateService,
   updateTech,
 } from "@/lib/db/queries";
+import {
+  createClientPhoto,
+  createQuestion,
+  deleteClientPhoto,
+  deleteQuestion,
+  getClientPhoto,
+} from "@/lib/db/queries";
+import { uploadPhoto, removePhoto } from "@/lib/storage";
 import { createConfirmedBooking } from "@/lib/bookings";
 import { refundOnConnect } from "@/lib/payments";
 import { processDueReminders } from "@/lib/scheduler";
-import type { BookingStatus, DepositType, WorkingHour } from "@/lib/db/types";
+import type { PhotoKind } from "@/lib/db/types";
+import type { BookingStatus, DepositType, QuestionType, WorkingHour } from "@/lib/db/types";
 
 async function ctx() {
   const c = await getDashboardContext();
@@ -340,6 +349,70 @@ export async function addManualBookingAction(formData: FormData) {
 
   revalidatePath("/dashboard/bookings");
   redirect("/dashboard/bookings");
+}
+
+// ---------------- Client photos ----------------
+export async function uploadPhotoAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const clientId = String(formData.get("clientId") ?? "");
+  const kind = (String(formData.get("kind") ?? "other") as PhotoKind);
+  const consent = formData.get("consent") === "on";
+  const file = formData.get("photo") as File | null;
+
+  if (clientId && file && file.size > 0) {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `${tech.id}/${clientId}/${randomId("ph")}.${ext}`;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    await uploadPhoto(path, bytes, file.type || "image/jpeg");
+    await createClientPhoto(sb, {
+      techId: tech.id,
+      clientId,
+      bookingId: null,
+      path,
+      kind,
+      consent,
+    });
+  }
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}`);
+}
+
+export async function deletePhotoAction(formData: FormData) {
+  const { sb } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("clientId") ?? "");
+  const photo = await getClientPhoto(sb, id);
+  if (photo) {
+    await removePhoto(photo.path);
+    await deleteClientPhoto(sb, id);
+  }
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}`);
+}
+
+// ---------------- Consultation forms ----------------
+export async function addQuestionAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const prompt = String(formData.get("prompt") ?? "").trim();
+  if (prompt) {
+    await createQuestion(sb, {
+      techId: tech.id,
+      prompt,
+      type: String(formData.get("type") ?? "text") as QuestionType,
+      required: formData.get("required") === "on",
+      sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
+      active: true,
+    });
+  }
+  revalidatePath("/dashboard/forms");
+  redirect("/dashboard/forms");
+}
+
+export async function deleteQuestionAction(formData: FormData) {
+  const { sb } = await ctx();
+  await deleteQuestion(sb, String(formData.get("id") ?? ""));
+  revalidatePath("/dashboard/forms");
+  redirect("/dashboard/forms");
 }
 
 // ---------------- Reminders ----------------

@@ -16,6 +16,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import {
   listBookings,
   listCategories,
+  listQuestions,
   listServices,
   listTimeOff,
   listWorkingHours,
@@ -24,7 +25,7 @@ import {
 import { availableDays, depositFor } from "@/lib/rules";
 import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
-import type { Service, ServiceCategory, Tech } from "@/lib/db/types";
+import type { ConsultationQuestion, Service, ServiceCategory, Tech } from "@/lib/db/types";
 import { createPublicBookingAction } from "./actions";
 
 type DayOption = { dateStr: string; slots: string[] };
@@ -59,13 +60,16 @@ export default async function PublicBookingPage({
 
   const live = isLive(tech);
   let days: DayOption[] = [];
+  let questions: ConsultationQuestion[] = [];
   if (selected && live) {
-    const [workingHours, timeOff, bookings] = await Promise.all([
+    const [workingHours, timeOff, bookings, qs] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listTimeOff(sb, tech.id),
       listBookings(sb, tech.id),
+      listQuestions(sb, tech.id, { activeOnly: true }),
     ]);
     days = availableDays(selected, { workingHours, timeOff, bookings }, 14);
+    questions = qs;
   }
 
   const brand = tech.brandColor || "#db2777";
@@ -88,7 +92,7 @@ export default async function PublicBookingPage({
         {!selected ? (
           <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} />
         ) : (
-          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} />
+          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} questions={questions} />
         )}
       </main>
 
@@ -132,7 +136,7 @@ function ServiceMenu({ categories, services, handle, brand }: { categories: Serv
   );
 }
 
-function BookingStep({ tech, service, sp, brand, days, live }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; live: boolean; }) {
+function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; live: boolean; questions: ConsultationQuestion[]; }) {
   const deposit = depositFor(service);
   const balance = Math.max(0, service.pricePennies - deposit);
   const activeDate = sp.date && days.some((d) => d.dateStr === sp.date) ? sp.date : days[0]?.dateStr;
@@ -219,6 +223,31 @@ function BookingStep({ tech, service, sp, brand, days, live }: { tech: Tech; ser
               <input name="email" type="email" required placeholder="Email" className="input" />
             </div>
             <input name="phone" placeholder="Mobile number" className="input" />
+
+            {questions.length > 0 && (
+              <div className="space-y-3 border-t border-black/5 pt-3">
+                <p className="text-sm font-medium text-ink">A few quick questions</p>
+                {questions.map((q) => (
+                  <div key={q.id}>
+                    <label className="mb-1 block text-sm text-ink-soft">
+                      {q.prompt}{q.required && <span className="text-red-500"> *</span>}
+                    </label>
+                    {q.type === "longtext" ? (
+                      <textarea name={`q_${q.id}`} required={q.required} className="input min-h-[70px]" />
+                    ) : q.type === "yesno" ? (
+                      <select name={`q_${q.id}`} required={q.required} className="input cursor-pointer" defaultValue="">
+                        <option value="" disabled>Choose…</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    ) : (
+                      <input name={`q_${q.id}`} required={q.required} className="input" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-300" />
               <span>I agree to the {tech.cancellationWindowHours}h cancellation policy. My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.</span>

@@ -10,11 +10,14 @@ import {
   getService,
   getTechByHandle,
   listBookings,
+  listQuestions,
   listServices,
   listTimeOff,
   listWorkingHours,
   patchTestsForClient,
+  createFormResponse,
 } from "@/lib/db/queries";
+import type { FormAnswer } from "@/lib/db/types";
 import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
 import { createConfirmedBooking, createPendingOnlineBooking } from "@/lib/bookings";
 import { createDepositCheckout } from "@/lib/payments";
@@ -85,6 +88,17 @@ export async function createPublicBookingAction(formData: FormData) {
 
   const client = await findOrCreateClient(sb, tech!.id, { name, email, phone });
 
+  // Collect consultation answers (if the tech has questions).
+  const questions = await listQuestions(sb, tech!.id, { activeOnly: true });
+  const answers: FormAnswer[] = questions
+    .map((q) => ({ prompt: q.prompt, answer: String(formData.get(`q_${q.id}`) ?? "").trim() }))
+    .filter((a) => a.answer);
+  const saveAnswers = async (bookingId: string) => {
+    if (answers.length) {
+      await createFormResponse(sb, { techId: tech!.id, clientId: client.id, bookingId, answers });
+    }
+  };
+
   // If a deposit applies and the tech can take card payments, send the client to
   // Stripe Checkout on the tech's connected account. Otherwise confirm now
   // (deposit settled in person).
@@ -96,6 +110,7 @@ export async function createPublicBookingAction(formData: FormData) {
       client,
       startIso: slotIso,
     });
+    await saveAnswers(pending.id);
     const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
     redirect(url);
   }
@@ -107,5 +122,6 @@ export async function createPublicBookingAction(formData: FormData) {
     client,
     startIso: slotIso,
   });
+  await saveAnswers(booking.id);
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);
 }

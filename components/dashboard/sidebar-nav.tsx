@@ -12,6 +12,7 @@ import {
   BarChart3,
   CreditCard,
   Wallet,
+  ClipboardList,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const items = [
   { href: "/dashboard/clients", label: "Clients", icon: Users },
   { href: "/dashboard/services", label: "Services", icon: Scissors },
   { href: "/dashboard/availability", label: "Availability", icon: Clock },
+  { href: "/dashboard/forms", label: "Forms", icon: ClipboardList },
   { href: "/dashboard/reminders", label: "Reminders", icon: BellRing },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/payments", label: "Payments", icon: Wallet },

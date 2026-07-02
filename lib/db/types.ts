@@ -178,23 +178,43 @@ export interface Reminder {
   createdAt: string;
 }
 
-export interface Session {
-  token: string;
+export type QuestionType = "text" | "longtext" | "yesno";
+
+export interface ConsultationQuestion {
+  id: string;
   techId: string;
+  prompt: string;
+  type: QuestionType;
+  required: boolean;
+  sortOrder: number;
+  active: boolean;
   createdAt: string;
-  expiresAt: string;
 }
 
-export interface DB {
-  techs: Tech[];
-  categories: ServiceCategory[];
-  services: Service[];
-  workingHours: WorkingHour[];
-  timeOff: TimeOff[];
-  clients: Client[];
-  bookings: Booking[];
-  payments: Payment[];
-  patchTests: PatchTest[];
-  reminders: Reminder[];
-  sessions: Session[];
+export interface FormAnswer {
+  prompt: string;
+  answer: string;
 }
+
+export interface FormResponse {
+  id: string;
+  techId: string;
+  clientId: string;
+  bookingId: string | null;
+  answers: FormAnswer[];
+  createdAt: string;
+}
+
+export type PhotoKind = "before" | "after" | "other";
+
+export interface ClientPhoto {
+  id: string;
+  techId: string;
+  clientId: string;
+  bookingId: string | null;
+  path: string;
+  kind: PhotoKind;
+  consent: boolean;
+  createdAt: string;
+}
+

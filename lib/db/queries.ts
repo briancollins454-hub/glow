@@ -3,6 +3,9 @@ import { randomId } from "@/lib/utils";
 import type {
   Booking,
   Client,
+  ClientPhoto,
+  ConsultationQuestion,
+  FormResponse,
   Payment,
   PatchTest,
   Reminder,
@@ -272,4 +275,47 @@ export async function dueReminders(sb: SB, nowIso: string): Promise<Reminder[]> 
 export async function markReminder(sb: SB, id: string, patch: Partial<Reminder>): Promise<void> {
   const { error } = await sb.from("reminders").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+// ---------------- Client photos ----------------
+export async function listClientPhotos(sb: SB, clientId: string): Promise<ClientPhoto[]> {
+  const { data, error } = await sb.from("client_photos").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
+  return must(data as ClientPhoto[], error) ?? [];
+}
+export async function createClientPhoto(sb: SB, p: Omit<ClientPhoto, "id" | "createdAt">): Promise<ClientPhoto> {
+  const { data, error } = await sb.from("client_photos").insert({ ...p, id: randomId("ph") }).select("*").single();
+  return must(data as ClientPhoto, error);
+}
+export async function getClientPhoto(sb: SB, id: string): Promise<ClientPhoto | null> {
+  const { data, error } = await sb.from("client_photos").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as ClientPhoto | null;
+}
+export async function deleteClientPhoto(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("client_photos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Consultation forms ----------------
+export async function listQuestions(sb: SB, techId: string, opts: { activeOnly?: boolean } = {}): Promise<ConsultationQuestion[]> {
+  let q = sb.from("consultation_questions").select("*").eq("techId", techId);
+  if (opts.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q.order("sortOrder").order("createdAt");
+  return must(data as ConsultationQuestion[], error) ?? [];
+}
+export async function createQuestion(sb: SB, q: Omit<ConsultationQuestion, "id" | "createdAt">): Promise<ConsultationQuestion> {
+  const { data, error } = await sb.from("consultation_questions").insert({ ...q, id: randomId("q") }).select("*").single();
+  return must(data as ConsultationQuestion, error);
+}
+export async function deleteQuestion(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("consultation_questions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+export async function createFormResponse(sb: SB, r: Omit<FormResponse, "id" | "createdAt">): Promise<FormResponse> {
+  const { data, error } = await sb.from("form_responses").insert({ ...r, id: randomId("fr") }).select("*").single();
+  return must(data as FormResponse, error);
+}
+export async function formResponsesForClient(sb: SB, clientId: string): Promise<FormResponse[]> {
+  const { data, error } = await sb.from("form_responses").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
+  return must(data as FormResponse[], error) ?? [];
 }
