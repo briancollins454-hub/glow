@@ -142,8 +142,8 @@ function ServiceMenu({ categories, services, handle, brand }: { categories: Serv
                     <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{minutesToLabel(s.durationMin)}</span>
                     <span className="font-medium text-ink">{gbp(s.pricePennies)}</span>
                     {depositFor(s) > 0 && <span>{gbp(depositFor(s))} deposit</span>}
-                    {s.requiresPatchTest && <span className="flex items-center gap-1 text-amber-600"><ShieldCheck className="h-3.5 w-3.5" /> patch test</span>}
-                    {s.isInfill && <span className="flex items-center gap-1 text-violet-600"><RefreshCw className="h-3.5 w-3.5" /> returning clients</span>}
+                    {s.requiresPatchTest && <span className="flex items-center gap-1 text-amber-300"><ShieldCheck className="h-3.5 w-3.5" /> patch test</span>}
+                    {s.isInfill && <span className="flex items-center gap-1 text-violet-300"><RefreshCw className="h-3.5 w-3.5" /> returning clients</span>}
                   </div>
                 </div>
                 <span className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: brand }}>Book</span>
@@ -207,7 +207,7 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
             {days.map((d) => {
               const isActive = d.dateStr === activeDate;
               return (
-                <Link key={d.dateStr} href={`/${tech.handle}?service=${service.id}&date=${d.dateStr}`} scroll={false} className="flex min-w-[64px] flex-col items-center rounded-xl border px-3 py-2 text-center text-sm transition" style={isActive ? { backgroundColor: brand, borderColor: brand, color: "white" } : { borderColor: "rgba(0,0,0,0.08)" }}>
+                <Link key={d.dateStr} href={`/${tech.handle}?service=${service.id}&date=${d.dateStr}`} scroll={false} className="flex min-w-[64px] flex-col items-center rounded-xl border px-3 py-2 text-center text-sm transition" style={isActive ? { backgroundColor: brand, borderColor: brand, color: "white" } : { borderColor: "rgba(255,255,255,0.14)" }}>
                   <span className="text-xs opacity-80">{formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "EEE")}</span>
                   <span className="text-lg font-semibold">{formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "d")}</span>
                   <span className="text-[10px] opacity-80">{formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "MMM")}</span>
@@ -221,7 +221,7 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
             {slots.map((slot) => {
               const isActive = slot === sp.slot;
               return (
-                <Link key={slot} href={`/${tech.handle}?service=${service.id}&date=${activeDate}&slot=${encodeURIComponent(slot)}`} scroll={false} className="rounded-xl border py-2.5 text-center text-sm font-medium transition" style={isActive ? { backgroundColor: brand, borderColor: brand, color: "white" } : { borderColor: "rgba(0,0,0,0.08)" }}>
+                <Link key={slot} href={`/${tech.handle}?service=${service.id}&date=${activeDate}&slot=${encodeURIComponent(slot)}`} scroll={false} className="rounded-xl border py-2.5 text-center text-sm font-medium transition" style={isActive ? { backgroundColor: brand, borderColor: brand, color: "white" } : { borderColor: "rgba(255,255,255,0.14)" }}>
                   {fmtTime(slot)}
                 </Link>
               );
@@ -269,7 +269,7 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
             )}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
-              <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+              <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
               <span>I agree to the {tech.cancellationWindowHours}h cancellation policy. My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.</span>
             </label>
             <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>

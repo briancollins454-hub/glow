@@ -4,6 +4,7 @@ import { CalendarHeart, ExternalLink, LogOut } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { unreadCountForTech } from "@/lib/db/queries";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { logoutAction } from "@/app/(auth)/actions";
 
 export default async function DashboardLayout({
@@ -53,7 +54,7 @@ export default async function DashboardLayout({
         </div>
       </header>
 
-      <div className="container-page grid gap-6 py-6 lg:grid-cols-[220px_1fr]">
+      <div className="container-page grid gap-6 py-6 pb-28 lg:grid-cols-[220px_1fr] lg:pb-6">
         <aside className="lg:sticky lg:top-20 lg:h-fit">
           <div className="card lg:py-1">
             <SidebarNav unread={unread} />
@@ -61,6 +62,8 @@ export default async function DashboardLayout({
         </aside>
         <main className="min-w-0">{children}</main>
       </div>
+
+      <MobileNav unread={unread} />
     </div>
   );
 }

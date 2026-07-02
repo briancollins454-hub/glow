@@ -36,7 +36,7 @@ export default async function DashboardThreadPage({
   const send = sendMessageAction.bind(null, clientId);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col space-y-4">
+    <div className="flex h-[calc(100dvh-16rem)] flex-col space-y-4 lg:h-[calc(100dvh-8rem)]">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/messages" className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-white/[0.06] lg:hidden">
           <ArrowLeft className="h-4.5 w-4.5 h-[18px] w-[18px]" />

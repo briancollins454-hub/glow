@@ -46,7 +46,7 @@ export default async function ClientThreadPage({
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-8">
-      <div className="flex h-[85vh] max-h-[720px] w-full max-w-md flex-col">
+      <div className="flex h-[88dvh] max-h-[720px] w-full max-w-md flex-col">
         <div className="card flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           <div className="px-6 py-5 text-white" style={{ backgroundColor: brand }}>
             <p className="text-xs text-white/80">Chat with</p>

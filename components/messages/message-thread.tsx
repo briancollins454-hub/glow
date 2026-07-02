@@ -131,7 +131,7 @@ export function MessageThread({
           }}
           rows={1}
           placeholder="Type a message…"
-          className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-edge px-3 py-2.5 text-sm outline-none focus:border-brand-400"
+          className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-edge bg-white/[0.04] px-3 py-2.5 text-base outline-none focus:border-brand-400 sm:text-sm"
         />
         <button
           type="submit"

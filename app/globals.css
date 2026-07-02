@@ -6,6 +6,7 @@
   html {
     -webkit-text-size-adjust: 100%;
     color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-cream text-ink antialiased;
@@ -27,11 +28,16 @@
   .card {
     @apply rounded-2xl border border-edge bg-surface/80 shadow-card backdrop-blur-sm;
   }
+  /* 16px on mobile so iOS Safari doesn't auto-zoom when an input is focused */
   .input {
-    @apply w-full rounded-xl border border-edge bg-white/[0.04] px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30 placeholder:text-ink-faint;
+    @apply w-full rounded-xl border border-edge bg-white/[0.04] px-3.5 py-2.5 text-base text-ink outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30 placeholder:text-ink-faint sm:text-sm;
   }
   .label {
     @apply mb-1.5 block text-sm font-medium text-ink-soft;
+  }
+  /* Bottom padding that respects the iPhone home-indicator area */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

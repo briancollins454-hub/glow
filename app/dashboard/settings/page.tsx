@@ -41,7 +41,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <Label htmlFor="handle">Booking link</Label>
               <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-white/[0.04] px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
                 <span className="text-sm text-ink-faint">glow.app/</span>
-                <input id="handle" name="handle" defaultValue={tech.handle} className="w-full bg-transparent py-2.5 text-sm outline-none" />
+                <input id="handle" name="handle" defaultValue={tech.handle} className="w-full bg-transparent py-2.5 text-base outline-none sm:text-sm" />
               </div>
               <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-faint"><Copy className="h-3 w-3" /> Share glow.app/{tech.handle} in your Instagram &amp; TikTok bio.</p>
             </div>

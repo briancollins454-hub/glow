@@ -60,7 +60,7 @@ export default async function SignupPage({
                   id="handle"
                   name="handle"
                   placeholder="bellarose"
-                  className="w-full bg-transparent py-2.5 text-sm outline-none"
+                  className="w-full bg-transparent py-2.5 text-base outline-none sm:text-sm"
                 />
               </div>
             </div>
