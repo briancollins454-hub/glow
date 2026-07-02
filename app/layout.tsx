@@ -5,10 +5,40 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
+
 export const metadata: Metadata = {
-  title: "Glow - booking for solo beauty techs",
+  metadataBase: new URL(APP_URL),
+  title: {
+    default: "Glow - booking for solo beauty techs",
+    template: "%s | Glow",
+  },
   description:
     "A fee-free, branded booking platform for UK self-employed beauty techs. Deposits, no-show protection, patch-test tracking and infill timing rules built in.",
+  keywords: [
+    "beauty booking system",
+    "lash tech booking",
+    "nail tech booking",
+    "brow tech booking",
+    "booking deposits",
+    "no-show protection",
+    "UK beauty techs",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "Glow",
+    title: "Glow - booking for solo beauty techs",
+    description:
+      "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
+    url: APP_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Glow - booking for solo beauty techs",
+    description:
+      "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({

@@ -6,6 +6,8 @@ import { isLive } from "@/lib/subscriptions";
 import { MessageThread } from "@/components/messages/message-thread";
 import { sendClientMessageAction } from "./actions";
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function ClientThreadPage({
   params,
 }: {

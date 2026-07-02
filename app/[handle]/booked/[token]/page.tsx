@@ -7,6 +7,8 @@ import { confirmCheckoutPaid } from "@/lib/payments";
 import { applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function BookedPage({
   params,
   searchParams,

@@ -8,6 +8,8 @@ import { applyBalancePaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
 import { payBalanceAction } from "../actions";
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function PayPage({
   params,
   searchParams,

@@ -30,6 +30,26 @@ import { createPublicBookingAction } from "./actions";
 
 type DayOption = { dateStr: string; slots: string[] };
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ handle: string }>;
+}) {
+  const { handle } = await params;
+  const tech = await getTechByHandle(supabaseService(), handle);
+  if (!tech) return {};
+  const title = `${tech.businessName} - book online`;
+  const description =
+    tech.bio ||
+    `Book ${tech.businessName} online. Secure your slot with a deposit. Powered by Glow.`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary", title, description },
+  };
+}
+
 const ERR: Record<string, string> = {
   missing: "Please fill in your name and email.",
   slot: "Sorry, that time was just taken. Please pick another slot.",
