@@ -11,6 +11,7 @@ import {
   BellRing,
   BarChart3,
   CreditCard,
+  Wallet,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const items = [
   { href: "/dashboard/availability", label: "Availability", icon: Clock },
   { href: "/dashboard/reminders", label: "Reminders", icon: BellRing },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
+  { href: "/dashboard/payments", label: "Payments", icon: Wallet },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

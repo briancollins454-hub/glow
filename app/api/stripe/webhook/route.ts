@@ -3,7 +3,11 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { PRICES } from "@/lib/stripe";
 import { supabaseService } from "@/lib/supabase/service";
-import { getTechByStripeCustomerId, updateTech } from "@/lib/db/queries";
+import {
+  getTechByConnectAccountId,
+  getTechByStripeCustomerId,
+  updateTech,
+} from "@/lib/db/queries";
 import type { SubscriptionStatus } from "@/lib/db/types";
 
 function mapStatus(s: string): SubscriptionStatus {
@@ -95,6 +99,20 @@ export async function POST(request: Request) {
           plan,
           stripeSubscriptionId: subscription.id,
         });
+        break;
+      }
+
+      case "account.updated": {
+        // Stripe Connect: keep the tech's payout capability flags in sync.
+        const account = event.data.object as Stripe.Account;
+        const tech = await getTechByConnectAccountId(sb, account.id);
+        if (tech) {
+          await updateTech(sb, tech.id, {
+            connectChargesEnabled: !!account.charges_enabled,
+            connectPayoutsEnabled: !!account.payouts_enabled,
+            connectDetailsSubmitted: !!account.details_submitted,
+          });
+        }
         break;
       }
 

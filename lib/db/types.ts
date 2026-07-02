@@ -45,6 +45,11 @@ export interface Tech {
   subscriptionStatus: SubscriptionStatus;
   plan: string | null;
   currentPeriodEnd: string | null;
+  // Stripe Connect (client deposits pay out to the tech)
+  stripeConnectAccountId: string | null;
+  connectChargesEnabled: boolean;
+  connectPayoutsEnabled: boolean;
+  connectDetailsSubmitted: boolean;
   createdAt: string;
 }
 

@@ -21,6 +21,7 @@ import {
   getClient,
   getService,
   getTechByHandle,
+  paymentsForBooking,
   replaceWorkingHours,
   updateBooking,
   updateClient,
@@ -28,6 +29,7 @@ import {
   updateTech,
 } from "@/lib/db/queries";
 import { createConfirmedBooking } from "@/lib/bookings";
+import { refundOnConnect } from "@/lib/payments";
 import { processDueReminders } from "@/lib/scheduler";
 import type { BookingStatus, DepositType, WorkingHour } from "@/lib/db/types";
 
@@ -284,10 +286,23 @@ export async function setBookingStatusAction(formData: FormData) {
     const client = await getClient(sb, booking!.clientId);
     if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
   }
-  if (status === "cancelled") {
+  if (status === "cancelled" && booking!.depositStatus === "paid") {
     const hoursOut = (new Date(booking!.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursOut < tech.cancellationWindowHours && booking!.depositStatus === "paid") {
+    if (hoursOut < tech.cancellationWindowHours) {
+      // Inside the window: deposit is forfeited (kept by the tech).
       patch.depositStatus = "forfeited";
+    } else if (tech.stripeConnectAccountId) {
+      // Outside the window: refund the deposit to the client.
+      const payments = await paymentsForBooking(sb, booking!.id);
+      const dep = payments.find((p) => p.kind === "deposit" && p.status === "succeeded");
+      if (dep?.providerRef) {
+        try {
+          await refundOnConnect(tech, dep.providerRef);
+          patch.depositStatus = "refunded";
+        } catch {
+          /* leave as paid; tech can refund manually */
+        }
+      }
     }
   }
 
@@ -321,7 +336,6 @@ export async function addManualBookingAction(formData: FormData) {
     client,
     startIso: toIso(dateTime),
     notes: String(formData.get("notes") ?? "").trim(),
-    takeDeposit: false,
   });
 
   revalidatePath("/dashboard/bookings");

@@ -51,25 +51,24 @@ export async function getTechByStripeCustomerId(sb: SB, customerId: string): Pro
   if (error) throw new Error(error.message);
   return data as Tech | null;
 }
-type NewTech = Omit<
-  Tech,
-  | "createdAt"
+export async function getTechByConnectAccountId(sb: SB, accountId: string): Promise<Tech | null> {
+  const { data, error } = await sb.from("techs").select("*").eq("stripeConnectAccountId", accountId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Tech | null;
+}
+type ManagedTechField =
   | "stripeCustomerId"
   | "stripeSubscriptionId"
   | "subscriptionStatus"
   | "plan"
   | "currentPeriodEnd"
-> &
-  Partial<
-    Pick<
-      Tech,
-      | "stripeCustomerId"
-      | "stripeSubscriptionId"
-      | "subscriptionStatus"
-      | "plan"
-      | "currentPeriodEnd"
-    >
-  >;
+  | "stripeConnectAccountId"
+  | "connectChargesEnabled"
+  | "connectPayoutsEnabled"
+  | "connectDetailsSubmitted";
+
+type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
+  Partial<Pick<Tech, ManagedTechField>>;
 
 export async function createTech(sb: SB, tech: NewTech): Promise<Tech> {
   const { data, error } = await sb.from("techs").insert({ ...tech }).select("*").single();

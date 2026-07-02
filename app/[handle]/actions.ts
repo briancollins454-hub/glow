@@ -15,9 +15,12 @@ import {
   listWorkingHours,
   patchTestsForClient,
 } from "@/lib/db/queries";
-import { daySlots, dateStrInTz, evaluateEligibility } from "@/lib/rules";
-import { createConfirmedBooking } from "@/lib/bookings";
-import { isLive } from "@/lib/subscriptions";
+import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
+import { createConfirmedBooking, createPendingOnlineBooking } from "@/lib/bookings";
+import { createDepositCheckout } from "@/lib/payments";
+import { isLive, isPaymentsReady } from "@/lib/subscriptions";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export async function createPublicBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
@@ -81,14 +84,28 @@ export async function createPublicBookingAction(formData: FormData) {
   if (!eligibility.infill.ok) redirect(`${base}&err=infill`);
 
   const client = await findOrCreateClient(sb, tech!.id, { name, email, phone });
+
+  // If a deposit applies and the tech can take card payments, send the client to
+  // Stripe Checkout on the tech's connected account. Otherwise confirm now
+  // (deposit settled in person).
+  if (depositFor(service!) > 0 && isPaymentsReady(tech!)) {
+    const pending = await createPendingOnlineBooking({
+      sb,
+      tech: tech!,
+      service: service!,
+      client,
+      startIso: slotIso,
+    });
+    const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
+    redirect(url);
+  }
+
   const booking = await createConfirmedBooking({
     sb,
     tech: tech!,
     service: service!,
     client,
     startIso: slotIso,
-    takeDeposit: true,
   });
-
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);
 }

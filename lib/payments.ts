@@ -1,42 +1,93 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createPayment, getBooking, updateBooking } from "@/lib/db/queries";
-import type { PaymentKind } from "@/lib/db/types";
+import type Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
+import type { Booking, Service, Tech } from "@/lib/db/types";
 
-// Stubbed payment provider. Swap this module for Stripe Connect in Phase D.
-export interface ChargeResult {
-  ok: boolean;
-  providerRef: string;
-  provider: string;
+// Client payments via Stripe Connect: deposits/balances are charged as DIRECT
+// charges on the tech's connected account, so funds go straight to the tech.
+
+function acct(tech: Tech): { stripeAccount: string } {
+  if (!tech.stripeConnectAccountId) throw new Error("Tech has no connected account");
+  return { stripeAccount: tech.stripeConnectAccountId };
 }
 
-const PROVIDER = process.env.PAYMENTS_PROVIDER ?? "stub";
-
-export async function charge(
-  sb: SupabaseClient,
-  params: { techId: string; bookingId: string; kind: PaymentKind; amountPennies: number },
-): Promise<ChargeResult> {
-  const providerRef = `${PROVIDER}_${Math.random().toString(36).slice(2, 12)}`;
-  await createPayment(sb, {
-    techId: params.techId,
-    bookingId: params.bookingId,
-    kind: params.kind,
-    amountPennies: params.amountPennies,
-    status: "succeeded",
-    provider: PROVIDER,
-    providerRef,
-  });
-  return { ok: true, providerRef, provider: PROVIDER };
+export async function createDepositCheckout(
+  tech: Tech,
+  service: Service,
+  booking: Booking,
+  appUrl: string,
+): Promise<string> {
+  const s = stripe();
+  const session = await s.checkout.sessions.create(
+    {
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "gbp",
+            unit_amount: booking.depositPennies,
+            product_data: { name: `${service.name} — deposit` },
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${appUrl}/${tech.handle}/booked/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/${tech.handle}?service=${service.id}&err=payment_cancelled`,
+      metadata: { bookingId: booking.id, kind: "deposit" },
+      payment_intent_data: { metadata: { bookingId: booking.id, kind: "deposit" } },
+    },
+    acct(tech),
+  );
+  return session.url!;
 }
 
-export async function payBalance(sb: SupabaseClient, bookingId: string): Promise<ChargeResult> {
-  const booking = await getBooking(sb, bookingId);
-  if (!booking) return { ok: false, providerRef: "", provider: PROVIDER };
-  const result = await charge(sb, {
-    techId: booking.techId,
-    bookingId: booking.id,
-    kind: "balance",
-    amountPennies: booking.balancePennies,
-  });
-  if (result.ok) await updateBooking(sb, booking.id, { balanceStatus: "paid" });
-  return result;
+export async function createBalanceCheckout(
+  tech: Tech,
+  service: Service,
+  booking: Booking,
+  appUrl: string,
+): Promise<string> {
+  const s = stripe();
+  const session = await s.checkout.sessions.create(
+    {
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "gbp",
+            unit_amount: booking.balancePennies,
+            product_data: { name: `${service.name} — balance` },
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${appUrl}/pay/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/pay/${booking.balanceToken}`,
+      metadata: { bookingId: booking.id, kind: "balance" },
+      payment_intent_data: { metadata: { bookingId: booking.id, kind: "balance" } },
+    },
+    acct(tech),
+  );
+  return session.url!;
+}
+
+/** Retrieve a Checkout session on the connected account (to verify on return). */
+export async function retrieveCheckout(
+  tech: Tech,
+  sessionId: string,
+): Promise<Stripe.Checkout.Session | null> {
+  try {
+    const s = stripe();
+    return await s.checkout.sessions.retrieve(sessionId, undefined, acct(tech));
+  } catch {
+    return null;
+  }
+}
+
+/** Refund a payment on the connected account (e.g. genuine cancellation). */
+export async function refundOnConnect(
+  tech: Tech,
+  paymentIntentId: string,
+): Promise<void> {
+  const s = stripe();
+  await s.refunds.create({ payment_intent: paymentIntentId }, acct(tech));
 }

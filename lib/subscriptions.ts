@@ -7,6 +7,11 @@ export function isLive(tech: Pick<Tech, "subscriptionStatus">): boolean {
   return LIVE_STATUSES.includes(tech.subscriptionStatus);
 }
 
+/** True when the tech can accept card payments from clients (Stripe Connect ready). */
+export function isPaymentsReady(tech: Pick<Tech, "connectChargesEnabled">): boolean {
+  return !!tech.connectChargesEnabled;
+}
+
 export function planLabel(tech: Pick<Tech, "plan" | "subscriptionStatus">): string {
   if (tech.subscriptionStatus === "comped") return "Complimentary";
   if (tech.plan === "annual") return "Annual (£180/yr)";

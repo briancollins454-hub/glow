@@ -1,14 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createBooking, createReminder } from "@/lib/db/queries";
+import {
+  createBooking,
+  createPayment,
+  createReminder,
+  updateBooking,
+} from "@/lib/db/queries";
 import { depositFor } from "@/lib/rules";
-import { charge } from "@/lib/payments";
 import { sendReminder } from "@/lib/notify";
 import { randomToken } from "@/lib/utils";
 import type { Booking, Client, Service, Tech } from "@/lib/db/types";
 
 const HOUR = 60 * 60 * 1000;
 
-interface CreateParams {
+interface BaseParams {
   sb: SupabaseClient;
   tech: Tech;
   service: Service;
@@ -16,10 +20,15 @@ interface CreateParams {
   startIso: string;
   isPatchTest?: boolean;
   notes?: string;
-  takeDeposit?: boolean;
 }
 
-/** Create a confirmed booking: take the deposit (stub), then schedule reminders. */
+function amounts(service: Service) {
+  const price = service.pricePennies;
+  const deposit = depositFor(service);
+  return { price, deposit, balance: Math.max(0, price - deposit) };
+}
+
+/** Confirmed booking with no online payment (manual/in-person, or deposit-free). */
 export async function createConfirmedBooking({
   sb,
   tech,
@@ -28,13 +37,10 @@ export async function createConfirmedBooking({
   startIso,
   isPatchTest = false,
   notes = "",
-  takeDeposit = true,
-}: CreateParams): Promise<Booking> {
+}: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const price = service.pricePennies;
-  const deposit = depositFor(service);
-  const balance = Math.max(0, price - deposit);
+  const { price, deposit, balance } = amounts(service);
 
   const booking = await createBooking(sb, {
     techId: tech.id,
@@ -45,7 +51,7 @@ export async function createConfirmedBooking({
     status: "confirmed",
     pricePennies: price,
     depositPennies: deposit,
-    depositStatus: deposit > 0 && takeDeposit ? "paid" : "none",
+    depositStatus: "none",
     balancePennies: balance,
     balanceStatus: balance > 0 ? "unpaid" : "paid",
     balanceToken: randomToken(),
@@ -53,12 +59,79 @@ export async function createConfirmedBooking({
     notes,
   });
 
-  if (deposit > 0 && takeDeposit) {
-    await charge(sb, { techId: tech.id, bookingId: booking.id, kind: "deposit", amountPennies: deposit });
-  }
-
   await scheduleReminders(sb, booking);
   return booking;
+}
+
+/** Pending booking awaiting an online deposit payment (confirmed once paid). */
+export async function createPendingOnlineBooking({
+  sb,
+  tech,
+  service,
+  client,
+  startIso,
+  isPatchTest = false,
+  notes = "",
+}: BaseParams): Promise<Booking> {
+  const start = new Date(startIso);
+  const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
+  const { price, deposit, balance } = amounts(service);
+
+  return createBooking(sb, {
+    techId: tech.id,
+    clientId: client.id,
+    serviceId: service.id,
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    status: "pending",
+    pricePennies: price,
+    depositPennies: deposit,
+    depositStatus: "none",
+    balancePennies: balance,
+    balanceStatus: balance > 0 ? "unpaid" : "paid",
+    balanceToken: randomToken(),
+    isPatchTest,
+    notes,
+  });
+}
+
+/** Mark a deposit paid (idempotent): confirm the booking + schedule reminders. */
+export async function applyDepositPaid(
+  sb: SupabaseClient,
+  booking: Booking,
+  paymentIntentId: string,
+): Promise<void> {
+  if (booking.depositStatus === "paid") return;
+  await createPayment(sb, {
+    techId: booking.techId,
+    bookingId: booking.id,
+    kind: "deposit",
+    amountPennies: booking.depositPennies,
+    status: "succeeded",
+    provider: "stripe",
+    providerRef: paymentIntentId,
+  });
+  await updateBooking(sb, booking.id, { status: "confirmed", depositStatus: "paid" });
+  await scheduleReminders(sb, { ...booking, status: "confirmed", depositStatus: "paid" });
+}
+
+/** Mark a balance paid (idempotent). */
+export async function applyBalancePaid(
+  sb: SupabaseClient,
+  booking: Booking,
+  paymentIntentId: string,
+): Promise<void> {
+  if (booking.balanceStatus === "paid") return;
+  await createPayment(sb, {
+    techId: booking.techId,
+    bookingId: booking.id,
+    kind: "balance",
+    amountPennies: booking.balancePennies,
+    status: "succeeded",
+    provider: "stripe",
+    providerRef: paymentIntentId,
+  });
+  await updateBooking(sb, booking.id, { balanceStatus: "paid" });
 }
 
 export async function scheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
@@ -81,7 +154,7 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
-      channel: "sms",
+      channel: "email",
       kind: "reminder_24h",
       sendAtIso: new Date(remind24).toISOString(),
       status: "scheduled",
@@ -90,7 +163,7 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
     });
   }
 
-  if (booking.balancePennies > 0) {
+  if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
     const balanceAt = startMs - 48 * HOUR;
     await createReminder(sb, {
       techId: booking.techId,
