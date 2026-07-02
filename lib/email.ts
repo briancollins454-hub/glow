@@ -20,16 +20,21 @@ export async function sendEmail(params: {
   subject: string;
   html: string;
   text: string;
+  idempotencyKey?: string;
 }): Promise<boolean> {
   if (!emailConfigured() || !params.to) return false;
   try {
-    const { error } = await getResend().emails.send({
-      from: FROM,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-      text: params.text,
-    });
+    // The Resend SDK returns { data, error } (it does not throw on API errors).
+    const { error } = await getResend().emails.send(
+      {
+        from: FROM,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      },
+      params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+    );
     if (error) {
       console.error("[resend] send failed:", error.message);
       return false;

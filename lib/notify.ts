@@ -120,7 +120,7 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
   const { subject, html } = renderReminderEmail(ctx);
 
   if (client?.email) {
-    await sendEmail({ to: client.email, subject, html, text });
+    await sendEmail({ to: client.email, subject, html, text, idempotencyKey: `reminder/${reminder.id}` });
   }
 
   await markReminder(sb, reminder.id, {
