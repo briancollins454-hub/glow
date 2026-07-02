@@ -175,7 +175,7 @@ export default function HomePage() {
             <ButtonLink
               href="/signup"
               size="lg"
-              className="bg-white text-brand-700 hover:bg-white/90"
+              className="bg-none bg-white text-brand-700 shadow-none hover:bg-white/90"
             >
               Get started free
             </ButtonLink>
