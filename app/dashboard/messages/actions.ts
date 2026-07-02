@@ -1,0 +1,26 @@
+"use server";
+
+import { getDashboardContext } from "@/lib/auth/session";
+import { createMessage, getClient } from "@/lib/db/queries";
+import { notifyClientOfMessage } from "@/lib/notify";
+import type { Message } from "@/lib/db/types";
+
+type SendResult = { ok: boolean; message?: Message; error?: string };
+
+/** Tech sends a message to a client (bound to clientId in the page). */
+export async function sendMessageAction(clientId: string, body: string): Promise<SendResult> {
+  const text = body.trim();
+  if (!text) return { ok: false, error: "Message is empty" };
+  const ctx = await getDashboardContext();
+  if (!ctx) return { ok: false, error: "Not signed in" };
+  const { sb, tech } = ctx;
+  const client = await getClient(sb, clientId);
+  if (!client) return { ok: false, error: "Client not found" };
+  const message = await createMessage(sb, { techId: tech.id, clientId, sender: "tech", body: text });
+  try {
+    await notifyClientOfMessage(client, tech, text);
+  } catch {
+    // Email is best-effort; the in-app message is already saved.
+  }
+  return { ok: true, message };
+}

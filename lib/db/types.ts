@@ -118,6 +118,20 @@ export interface Client {
   isBlacklisted: boolean;
   warningNote: string;
   noShowCount: number;
+  // Private, unguessable token for the no-login client message thread page.
+  messageToken: string;
+  createdAt: string;
+}
+
+export type MessageSender = "tech" | "client";
+
+export interface Message {
+  id: string;
+  techId: string;
+  clientId: string;
+  sender: MessageSender;
+  body: string;
+  readAt: string | null;
   createdAt: string;
 }
 

@@ -13,6 +13,7 @@ import {
   CreditCard,
   Wallet,
   ClipboardList,
+  MessageSquare,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/bookings", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
   { href: "/dashboard/clients", label: "Clients", icon: Users },
   { href: "/dashboard/services", label: "Services", icon: Scissors },
   { href: "/dashboard/availability", label: "Availability", icon: Clock },
@@ -31,7 +33,7 @@ const items = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ unread = 0 }: { unread?: number }) {
   const pathname = usePathname();
   return (
     <nav className="flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
@@ -52,6 +54,14 @@ export function SidebarNav() {
           >
             <item.icon className="h-4.5 w-4.5 h-[18px] w-[18px]" />
             {item.label}
+            {item.href === "/dashboard/messages" && unread > 0 && (
+              <span className={cn(
+                "ml-auto grid h-5 min-w-[20px] place-items-center rounded-full px-1.5 text-xs font-semibold",
+                active ? "bg-white/25 text-white" : "bg-brand-600 text-white",
+              )}>
+                {unread}
+              </span>
+            )}
           </Link>
         );
       })}

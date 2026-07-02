@@ -1,0 +1,32 @@
+"use server";
+
+import { supabaseService } from "@/lib/supabase/service";
+import { createMessage, getClientByMessageToken, getTechById } from "@/lib/db/queries";
+import { notifyTechOfMessage } from "@/lib/notify";
+import type { Message } from "@/lib/db/types";
+
+type SendResult = { ok: boolean; message?: Message; error?: string };
+
+/** Client (no login) sends a message via their private token (bound in the page). */
+export async function sendClientMessageAction(token: string, body: string): Promise<SendResult> {
+  const text = body.trim();
+  if (!text) return { ok: false, error: "Message is empty" };
+  const sb = supabaseService();
+  const client = await getClientByMessageToken(sb, token);
+  if (!client) return { ok: false, error: "Conversation not found" };
+  const message = await createMessage(sb, {
+    techId: client.techId,
+    clientId: client.id,
+    sender: "client",
+    body: text,
+  });
+  const tech = await getTechById(sb, client.techId);
+  if (tech) {
+    try {
+      await notifyTechOfMessage(tech, client, text);
+    } catch {
+      // Email is best-effort; the in-app message is already saved.
+    }
+  }
+  return { ok: true, message };
+}

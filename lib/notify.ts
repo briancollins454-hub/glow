@@ -106,6 +106,55 @@ export function labelForKind(kind: ReminderKind): string {
   }
 }
 
+function truncate(s: string, n = 200): string {
+  const t = s.trim();
+  return t.length > n ? t.slice(0, n - 1) + "\u2026" : t;
+}
+
+/** Email a client that their tech sent them a message, linking to their thread. */
+export async function notifyClientOfMessage(client: Client, tech: Tech, body: string): Promise<void> {
+  if (!client.email) return;
+  const biz = tech.businessName || "your beauty studio";
+  const brand = tech.brandColor || "#db2777";
+  const url = `${APP_URL}/m/${client.messageToken}`;
+  const name = client.name?.split(" ")[0] ?? "there";
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: "You have a new message",
+    bodyHtml: `Hi ${name},<br/><br/>${biz} sent you a message:<br/><br/><em>&ldquo;${truncate(body)}&rdquo;</em>`,
+    buttonLabel: "View & reply",
+    buttonUrl: url,
+  });
+  await sendEmail({
+    to: client.email,
+    subject: `New message from ${biz}`,
+    html,
+    text: `${biz} sent you a message: "${truncate(body)}"\n\nView & reply: ${url}`,
+  });
+}
+
+/** Email a tech that a client replied, linking to the dashboard thread. */
+export async function notifyTechOfMessage(tech: Tech, client: Client, body: string): Promise<void> {
+  if (!tech.email) return;
+  const brand = tech.brandColor || "#db2777";
+  const url = `${APP_URL}/dashboard/messages/${client.id}`;
+  const html = brandedEmail({
+    brand,
+    businessName: tech.businessName || "Glow",
+    heading: `New message from ${client.name}`,
+    bodyHtml: `${client.name} replied:<br/><br/><em>&ldquo;${truncate(body)}&rdquo;</em>`,
+    buttonLabel: "Open in dashboard",
+    buttonUrl: url,
+  });
+  await sendEmail({
+    to: tech.email,
+    subject: `New message from ${client.name}`,
+    html,
+    text: `${client.name} replied: "${truncate(body)}"\n\nOpen: ${url}`,
+  });
+}
+
 /** Render + send a reminder email via Resend, then record it. */
 export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Promise<void> {
   const booking = await getBooking(sb, reminder.bookingId);

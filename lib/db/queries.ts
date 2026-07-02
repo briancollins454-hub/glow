@@ -6,6 +6,8 @@ import type {
   ClientPhoto,
   ConsultationQuestion,
   FormResponse,
+  Message,
+  MessageSender,
   Payment,
   PatchTest,
   Reminder,
@@ -164,10 +166,16 @@ export async function getClientByEmail(sb: SB, techId: string, email: string): P
   if (error) throw new Error(error.message);
   return data as Client | null;
 }
+export async function getClientByMessageToken(sb: SB, token: string): Promise<Client | null> {
+  if (!token) return null;
+  const { data, error } = await sb.from("clients").select("*").eq("messageToken", token).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Client | null;
+}
 export async function createClient(
   sb: SB,
-  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote"> &
-    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote">>,
+  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken"> &
+    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken">>,
 ): Promise<Client> {
   const row = {
     noShowCount: 0,
@@ -318,4 +326,39 @@ export async function createFormResponse(sb: SB, r: Omit<FormResponse, "id" | "c
 export async function formResponsesForClient(sb: SB, clientId: string): Promise<FormResponse[]> {
   const { data, error } = await sb.from("form_responses").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
   return must(data as FormResponse[], error) ?? [];
+}
+
+// ---------------- Messages ----------------
+export async function listMessagesForTech(sb: SB, techId: string): Promise<Message[]> {
+  const { data, error } = await sb.from("messages").select("*").eq("techId", techId).order("createdAt", { ascending: false });
+  return must(data as Message[], error) ?? [];
+}
+export async function threadMessages(sb: SB, clientId: string): Promise<Message[]> {
+  const { data, error } = await sb.from("messages").select("*").eq("clientId", clientId).order("createdAt", { ascending: true });
+  return must(data as Message[], error) ?? [];
+}
+export async function createMessage(sb: SB, m: Omit<Message, "id" | "createdAt" | "readAt"> & Partial<Pick<Message, "readAt">>): Promise<Message> {
+  const { data, error } = await sb.from("messages").insert({ readAt: null, ...m, id: randomId("msg") }).select("*").single();
+  return must(data as Message, error);
+}
+/** Mark messages in a thread that were sent by `from` as read. */
+export async function markThreadRead(sb: SB, clientId: string, from: MessageSender): Promise<void> {
+  const { error } = await sb
+    .from("messages")
+    .update({ readAt: new Date().toISOString() })
+    .eq("clientId", clientId)
+    .eq("sender", from)
+    .is("readAt", null);
+  if (error) throw new Error(error.message);
+}
+/** Count unread client-sent messages across all of a tech's threads (for the nav badge). */
+export async function unreadCountForTech(sb: SB, techId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("techId", techId)
+    .eq("sender", "client")
+    .is("readAt", null);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }

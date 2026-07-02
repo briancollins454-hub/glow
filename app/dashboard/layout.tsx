@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarHeart, ExternalLink, LogOut } from "lucide-react";
-import { getCurrentTech } from "@/lib/auth/session";
+import { getDashboardContext } from "@/lib/auth/session";
+import { unreadCountForTech } from "@/lib/db/queries";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { logoutAction } from "@/app/(auth)/actions";
 
@@ -10,8 +11,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const tech = await getCurrentTech();
-  if (!tech) redirect("/login");
+  const ctx = await getDashboardContext();
+  if (!ctx) redirect("/login");
+  const { sb, tech } = ctx;
+  const unread = await unreadCountForTech(sb, tech.id);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -53,7 +56,7 @@ export default async function DashboardLayout({
       <div className="container-page grid gap-6 py-6 lg:grid-cols-[220px_1fr]">
         <aside className="lg:sticky lg:top-20 lg:h-fit">
           <div className="card lg:py-1">
-            <SidebarNav />
+            <SidebarNav unread={unread} />
           </div>
         </aside>
         <main className="min-w-0">{children}</main>
