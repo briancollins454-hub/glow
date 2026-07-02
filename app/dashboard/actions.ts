@@ -295,21 +295,23 @@ export async function setBookingStatusAction(formData: FormData) {
     const client = await getClient(sb, booking!.clientId);
     if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
   }
-  if (status === "cancelled" && booking!.depositStatus === "paid") {
+  if (status === "cancelled") {
     const hoursOut = (new Date(booking!.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursOut < tech.cancellationWindowHours) {
       // Inside the window: deposit is forfeited (kept by the tech).
-      patch.depositStatus = "forfeited";
+      if (booking!.depositStatus === "paid") patch.depositStatus = "forfeited";
     } else if (tech.stripeConnectAccountId) {
-      // Outside the window: refund the deposit to the client.
+      // Outside the window: refund everything the client paid (deposit + balance).
       const payments = await paymentsForBooking(sb, booking!.id);
-      const dep = payments.find((p) => p.kind === "deposit" && p.status === "succeeded");
-      if (dep?.providerRef) {
+      for (const p of payments) {
+        if (p.status !== "succeeded" || !p.providerRef) continue;
+        if (p.kind !== "deposit" && p.kind !== "balance") continue;
         try {
-          await refundOnConnect(tech, dep.providerRef);
-          patch.depositStatus = "refunded";
+          await refundOnConnect(tech, p.providerRef);
+          if (p.kind === "deposit") patch.depositStatus = "refunded";
+          if (p.kind === "balance") patch.balanceStatus = "refunded";
         } catch {
-          /* leave as paid; tech can refund manually */
+          /* leave as paid; tech can refund manually from Stripe */
         }
       }
     }

@@ -10,7 +10,7 @@ export type BookingStatus =
 
 export type DepositType = "percent" | "fixed" | "none";
 export type DepositStatus = "none" | "paid" | "forfeited" | "refunded";
-export type BalanceStatus = "none" | "unpaid" | "paid";
+export type BalanceStatus = "none" | "unpaid" | "paid" | "refunded";
 export type PaymentKind = "deposit" | "balance" | "refund";
 export type PaymentStatus = "succeeded" | "failed" | "refunded";
 export type PatchTestResult = "pending" | "pass" | "fail";

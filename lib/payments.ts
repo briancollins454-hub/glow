@@ -83,6 +83,29 @@ export async function retrieveCheckout(
   }
 }
 
+/**
+ * Verify a Checkout was paid, retrying briefly to absorb the moment between the
+ * client redirect and Stripe finalizing the session. Returns the payment intent.
+ */
+export async function confirmCheckoutPaid(
+  tech: Tech,
+  sessionId: string,
+  attempts = 5,
+): Promise<{ paid: boolean; paymentIntentId: string }> {
+  for (let i = 0; i < attempts; i++) {
+    const session = await retrieveCheckout(tech, sessionId);
+    if (session?.payment_status === "paid") {
+      const pi =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id ?? "";
+      return { paid: true, paymentIntentId: pi };
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 800));
+  }
+  return { paid: false, paymentIntentId: "" };
+}
+
 /** Refund a payment on the connected account (e.g. genuine cancellation). */
 export async function refundOnConnect(
   tech: Tech,
