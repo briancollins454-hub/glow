@@ -22,6 +22,7 @@ import {
   getTechByHandle,
 } from "@/lib/db/queries";
 import { availableDays, depositFor } from "@/lib/rules";
+import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
 import type { Service, ServiceCategory, Tech } from "@/lib/db/types";
 import { createPublicBookingAction } from "./actions";
@@ -31,6 +32,7 @@ type DayOption = { dateStr: string; slots: string[] };
 const ERR: Record<string, string> = {
   missing: "Please fill in your name and email.",
   slot: "Sorry, that time was just taken. Please pick another slot.",
+  not_live: "This studio isn't accepting online bookings just yet. Please check back soon.",
   blocked: "We can't complete this booking online. Please contact the studio directly.",
   patch: "This service needs a valid patch test on file at least 24-48h before your appointment. Please get in touch to arrange one first.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
@@ -55,8 +57,9 @@ export default async function PublicBookingPage({
   ]);
   const selected = sp.service ? services.find((s) => s.id === sp.service) ?? null : null;
 
+  const live = isLive(tech);
   let days: DayOption[] = [];
-  if (selected) {
+  if (selected && live) {
     const [workingHours, timeOff, bookings] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listTimeOff(sb, tech.id),
@@ -85,7 +88,7 @@ export default async function PublicBookingPage({
         {!selected ? (
           <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} />
         ) : (
-          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} />
+          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} />
         )}
       </main>
 
@@ -129,7 +132,7 @@ function ServiceMenu({ categories, services, handle, brand }: { categories: Serv
   );
 }
 
-function BookingStep({ tech, service, sp, brand, days }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; }) {
+function BookingStep({ tech, service, sp, brand, days, live }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; live: boolean; }) {
   const deposit = depositFor(service);
   const balance = Math.max(0, service.pricePennies - deposit);
   const activeDate = sp.date && days.some((d) => d.dateStr === sp.date) ? sp.date : days[0]?.dateStr;
@@ -165,7 +168,13 @@ function BookingStep({ tech, service, sp, brand, days }: { tech: Tech; service: 
 
       {sp.err && ERR[sp.err] && <Notice tone="red" icon={<AlertTriangle className="h-4 w-4" />}>{ERR[sp.err]}</Notice>}
 
-      {days.length === 0 ? (
+      {!live && (
+        <Notice tone="amber" icon={<AlertTriangle className="h-4 w-4" />}>
+          This studio isn&apos;t accepting online bookings just yet. Please check back soon.
+        </Notice>
+      )}
+
+      {live && (days.length === 0 ? (
         <div className="card p-6 text-center text-sm text-ink-soft">No available times in the next two weeks. Please check back soon.</div>
       ) : (
         <div className="card p-5">
@@ -195,9 +204,9 @@ function BookingStep({ tech, service, sp, brand, days }: { tech: Tech; service: 
             })}
           </div>
         </div>
-      )}
+      ))}
 
-      {sp.slot && (
+      {live && sp.slot && (
         <div className="card p-5">
           <h3 className="font-semibold">Your details</h3>
           <p className="mt-0.5 text-sm text-ink-soft">Booking {service.name} on <strong>{formatInTimeZone(new Date(sp.slot), TZ, "EEE d MMM 'at' HH:mm")}</strong></p>

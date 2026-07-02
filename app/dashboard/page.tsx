@@ -14,6 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime, fmtRelativeDays } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
+import { isLive } from "@/lib/subscriptions";
+import { ButtonLink } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 
 export default async function DashboardOverview() {
   const c = await getDashboardContext();
@@ -51,6 +54,19 @@ export default async function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {!isLive(tech) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Sparkles className="h-5 w-5" /></span>
+            <div>
+              <p className="font-semibold text-brand-800">Go live — start your £2 trial</p>
+              <p className="text-sm text-brand-700/80">Your booking page won&apos;t take online bookings until you start a plan. £2 for 14 days, then £19/mo. Cancel anytime.</p>
+            </div>
+          </div>
+          <ButtonLink href="/dashboard/billing" size="sm">Start trial</ButtonLink>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold">

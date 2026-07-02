@@ -39,8 +39,22 @@ export interface Tech {
   // No-show / cancellation protection policy
   cancellationWindowHours: number;
   noShowFeePct: number;
+  // Platform subscription (Stripe Billing)
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  subscriptionStatus: SubscriptionStatus;
+  plan: string | null;
+  currentPeriodEnd: string | null;
   createdAt: string;
 }
+
+export type SubscriptionStatus =
+  | "none"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "comped";
 
 export interface ServiceCategory {
   id: string;

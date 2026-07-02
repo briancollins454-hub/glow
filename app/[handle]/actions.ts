@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/queries";
 import { daySlots, dateStrInTz, evaluateEligibility } from "@/lib/rules";
 import { createConfirmedBooking } from "@/lib/bookings";
+import { isLive } from "@/lib/subscriptions";
 
 export async function createPublicBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
@@ -31,6 +32,11 @@ export async function createPublicBookingAction(formData: FormData) {
   const service = serviceId ? await getService(sb, serviceId) : null;
   if (!tech || !service || !slotIso || !name || !email) {
     redirect(`/${handle}?service=${serviceId}&slot=${encodeURIComponent(slotIso)}&err=missing`);
+  }
+
+  // Gating: the studio must have an active subscription to take online bookings.
+  if (!isLive(tech!)) {
+    redirect(`/${tech!.handle}?service=${serviceId}&err=not_live`);
   }
 
   const base = `/${tech!.handle}?service=${serviceId}&slot=${encodeURIComponent(slotIso)}`;

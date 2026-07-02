@@ -46,9 +46,33 @@ export async function getTechByEmail(sb: SB, email: string): Promise<Tech | null
   if (error) throw new Error(error.message);
   return data as Tech | null;
 }
-export async function createTech(sb: SB, tech: Omit<Tech, "createdAt"> & { createdAt?: string }): Promise<Tech> {
-  const row = { ...tech };
-  const { data, error } = await sb.from("techs").insert(row).select("*").single();
+export async function getTechByStripeCustomerId(sb: SB, customerId: string): Promise<Tech | null> {
+  const { data, error } = await sb.from("techs").select("*").eq("stripeCustomerId", customerId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Tech | null;
+}
+type NewTech = Omit<
+  Tech,
+  | "createdAt"
+  | "stripeCustomerId"
+  | "stripeSubscriptionId"
+  | "subscriptionStatus"
+  | "plan"
+  | "currentPeriodEnd"
+> &
+  Partial<
+    Pick<
+      Tech,
+      | "stripeCustomerId"
+      | "stripeSubscriptionId"
+      | "subscriptionStatus"
+      | "plan"
+      | "currentPeriodEnd"
+    >
+  >;
+
+export async function createTech(sb: SB, tech: NewTech): Promise<Tech> {
+  const { data, error } = await sb.from("techs").insert({ ...tech }).select("*").single();
   return must(data as Tech, error);
 }
 export async function updateTech(sb: SB, id: string, patch: Partial<Tech>): Promise<void> {
