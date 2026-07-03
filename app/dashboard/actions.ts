@@ -427,6 +427,9 @@ export async function rescheduleBookingAction(formData: FormData) {
     startIso: start.toISOString(),
     endIso: end.toISOString(),
     notes: String(formData.get("notes") ?? booking!.notes),
+    lashMap: String(formData.get("lashMap") ?? booking!.lashMap ?? ""),
+    lashCurl: String(formData.get("lashCurl") ?? booking!.lashCurl ?? ""),
+    lashLength: String(formData.get("lashLength") ?? booking!.lashLength ?? ""),
   };
 
   // Price follows the (possibly changed) service.
@@ -513,6 +516,132 @@ export async function deleteBookingAction(formData: FormData) {
   }
   revalidatePath("/dashboard/bookings");
   redirect("/dashboard/bookings");
+}
+
+// ---------------- Service photos & add-ons ----------------
+export async function setServicePhotoAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const serviceId = String(formData.get("serviceId") ?? "");
+  const file = formData.get("photo") as File | null;
+  const service = await getService(sb, serviceId);
+  if (service && service.techId === tech.id && file && file.size > 0) {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `svc/${tech.id}/${serviceId}.${ext}`;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    await uploadPhoto(path, bytes, file.type || "image/jpeg", { upsert: true });
+    await updateService(sb, serviceId, { photoPath: path });
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+export async function removeServicePhotoAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const serviceId = String(formData.get("serviceId") ?? "");
+  const service = await getService(sb, serviceId);
+  if (service && service.techId === tech.id && service.photoPath) {
+    await removePhoto(service.photoPath);
+    await updateService(sb, serviceId, { photoPath: null });
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+export async function addAddonAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const serviceId = String(formData.get("serviceId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const price = poundsToPennies(String(formData.get("pricePounds") ?? "0"));
+  const service = await getService(sb, serviceId);
+  if (service && service.techId === tech.id && name) {
+    const { createAddon } = await import("@/lib/db/queries");
+    await createAddon(sb, {
+      techId: tech.id,
+      serviceId,
+      name,
+      pricePennies: Math.max(0, price),
+      active: true,
+    });
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+export async function deleteAddonAction(formData: FormData) {
+  const { sb } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const { deleteAddon } = await import("@/lib/db/queries");
+  await deleteAddon(sb, id);
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+// ---------------- Client import (migration) ----------------
+export async function importClientsAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const file = formData.get("csv") as File | null;
+  if (!file || file.size === 0) redirect("/dashboard/clients?import=empty");
+
+  const text = await file!.text();
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) redirect("/dashboard/clients?import=empty");
+
+  // Basic CSV parse with quoted-field support.
+  const parseLine = (line: string): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cur += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ",") { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out.map((s) => s.trim());
+  };
+
+  // Flexible header mapping for Square / Booksy / Timely / Fresha exports.
+  const headers = parseLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
+  const idx = (...names: string[]) => headers.findIndex((h) => names.includes(h));
+  const iFirst = idx("firstname", "first");
+  const iLast = idx("lastname", "last", "surname");
+  const iName = idx("name", "fullname", "clientname", "customername");
+  const iEmail = idx("email", "emailaddress", "customeremail");
+  const iPhone = idx("phone", "phonenumber", "mobile", "mobilenumber", "telephone", "cellphone");
+  const iNotes = idx("notes", "note", "comments");
+
+  if (iName === -1 && iFirst === -1) redirect("/dashboard/clients?import=badformat");
+
+  const { createClient: createClientRow, getClientByEmail: findByEmail } = await import("@/lib/db/queries");
+  let imported = 0;
+  let skipped = 0;
+
+  for (const line of lines.slice(1)) {
+    const cols = parseLine(line);
+    const name =
+      iName !== -1
+        ? cols[iName]
+        : [cols[iFirst], iLast !== -1 ? cols[iLast] : ""].filter(Boolean).join(" ");
+    if (!name) { skipped++; continue; }
+    const email = iEmail !== -1 ? (cols[iEmail] ?? "") : "";
+    const phone = iPhone !== -1 ? (cols[iPhone] ?? "") : "";
+    const notes = iNotes !== -1 ? (cols[iNotes] ?? "") : "";
+
+    if (email) {
+      const existing = await findByEmail(sb, tech.id, email);
+      if (existing) { skipped++; continue; }
+    }
+    await createClientRow(sb, { techId: tech.id, name, email, phone, notes });
+    imported++;
+  }
+
+  revalidatePath("/dashboard/clients");
+  redirect(`/dashboard/clients?import=done&n=${imported}&s=${skipped}`);
 }
 
 // ---------------- Client photos ----------------

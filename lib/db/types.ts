@@ -93,7 +93,26 @@ export interface Service {
   infillMaxGapDays: number;
   active: boolean;
   sortOrder: number;
+  // Storage path of the service photo shown on the booking page
+  photoPath: string | null;
   createdAt: string;
+}
+
+/** Optional extra a client can add to a service (e.g. "Wispy", "Colour"). */
+export interface ServiceAddon {
+  id: string;
+  techId: string;
+  serviceId: string;
+  name: string;
+  pricePennies: number;
+  active: boolean;
+  createdAt: string;
+}
+
+/** Snapshot of an addon chosen on a booking (denormalised for history). */
+export interface BookingAddon {
+  name: string;
+  pricePennies: number;
 }
 
 export interface WorkingHour {
@@ -156,6 +175,12 @@ export interface Booking {
   balanceToken: string;
   isPatchTest: boolean;
   notes: string;
+  // Lash record for this appointment (free text, tech-facing)
+  lashMap: string;
+  lashCurl: string;
+  lashLength: string;
+  // Extras chosen at booking time
+  addons: BookingAddon[];
   createdAt: string;
 }
 

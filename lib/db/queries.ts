@@ -12,6 +12,7 @@ import type {
   PatchTest,
   Reminder,
   Service,
+  ServiceAddon,
   ServiceCategory,
   Tech,
   TimeOff,
@@ -119,7 +120,10 @@ export async function getService(sb: SB, id: string): Promise<Service | null> {
   if (error) throw new Error(error.message);
   return data as Service | null;
 }
-export async function createService(sb: SB, s: Omit<Service, "id" | "createdAt">): Promise<Service> {
+export async function createService(
+  sb: SB,
+  s: Omit<Service, "id" | "createdAt" | "photoPath"> & Partial<Pick<Service, "photoPath">>,
+): Promise<Service> {
   const { data, error } = await sb.from("services").insert({ ...s, id: randomId("svc") }).select("*").single();
   return must(data as Service, error);
 }
@@ -129,6 +133,28 @@ export async function updateService(sb: SB, id: string, patch: Partial<Service>)
 }
 export async function deleteService(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("services").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Service add-ons ----------------
+export async function listAddons(sb: SB, techId: string, opts: { activeOnly?: boolean } = {}): Promise<ServiceAddon[]> {
+  let q = sb.from("service_addons").select("*").eq("techId", techId);
+  if (opts.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q.order("createdAt");
+  return must(data as ServiceAddon[], error) ?? [];
+}
+export async function addonsForService(sb: SB, serviceId: string, opts: { activeOnly?: boolean } = {}): Promise<ServiceAddon[]> {
+  let q = sb.from("service_addons").select("*").eq("serviceId", serviceId);
+  if (opts.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q.order("createdAt");
+  return must(data as ServiceAddon[], error) ?? [];
+}
+export async function createAddon(sb: SB, a: Omit<ServiceAddon, "id" | "createdAt">): Promise<ServiceAddon> {
+  const { data, error } = await sb.from("service_addons").insert({ ...a, id: randomId("add") }).select("*").single();
+  return must(data as ServiceAddon, error);
+}
+export async function deleteAddon(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("service_addons").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

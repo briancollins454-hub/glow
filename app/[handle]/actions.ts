@@ -16,8 +16,9 @@ import {
   listWorkingHours,
   patchTestsForClient,
   createFormResponse,
+  addonsForService,
 } from "@/lib/db/queries";
-import type { FormAnswer } from "@/lib/db/types";
+import type { BookingAddon, FormAnswer } from "@/lib/db/types";
 import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
 import { createConfirmedBooking, createPendingOnlineBooking } from "@/lib/bookings";
 import { createDepositCheckout } from "@/lib/payments";
@@ -88,6 +89,12 @@ export async function createPublicBookingAction(formData: FormData) {
 
   const client = await findOrCreateClient(sb, tech!.id, { name, email, phone });
 
+  // Extras chosen by the client (validated against the service's real add-ons).
+  const available = await addonsForService(sb, service!.id, { activeOnly: true });
+  const addons: BookingAddon[] = available
+    .filter((a) => formData.get(`addon_${a.id}`) === "on")
+    .map((a) => ({ name: a.name, pricePennies: a.pricePennies }));
+
   // Collect consultation answers (if the tech has questions).
   const questions = await listQuestions(sb, tech!.id, { activeOnly: true });
   const answers: FormAnswer[] = questions
@@ -109,6 +116,7 @@ export async function createPublicBookingAction(formData: FormData) {
       service: service!,
       client,
       startIso: slotIso,
+      addons,
     });
     await saveAnswers(pending.id);
     const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
@@ -121,6 +129,7 @@ export async function createPublicBookingAction(formData: FormData) {
     service: service!,
     client,
     startIso: slotIso,
+    addons,
   });
   await saveAnswers(booking.id);
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);

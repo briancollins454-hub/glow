@@ -6,10 +6,11 @@ export async function uploadPhoto(
   path: string,
   bytes: Uint8Array,
   contentType: string,
+  opts: { upsert?: boolean } = {},
 ): Promise<void> {
   const { error } = await supabaseService()
     .storage.from(BUCKET)
-    .upload(path, bytes, { contentType, upsert: false });
+    .upload(path, bytes, { contentType, upsert: opts.upsert ?? false });
   if (error) throw new Error(error.message);
 }
 

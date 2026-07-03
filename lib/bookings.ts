@@ -8,7 +8,7 @@ import {
 import { depositFor } from "@/lib/rules";
 import { sendReminder } from "@/lib/notify";
 import { randomToken } from "@/lib/utils";
-import type { Booking, Client, Service, Tech } from "@/lib/db/types";
+import type { Booking, BookingAddon, Client, Service, Tech } from "@/lib/db/types";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -20,11 +20,14 @@ interface BaseParams {
   startIso: string;
   isPatchTest?: boolean;
   notes?: string;
+  /** Extras chosen at booking time; added to the price (deposit stays on the base service). */
+  addons?: BookingAddon[];
 }
 
-function amounts(service: Service) {
-  const price = service.pricePennies;
-  const deposit = depositFor(service);
+function amounts(service: Service, addons: BookingAddon[] = []) {
+  const extras = addons.reduce((s, a) => s + a.pricePennies, 0);
+  const price = service.pricePennies + extras;
+  const deposit = Math.min(depositFor(service), price);
   return { price, deposit, balance: Math.max(0, price - deposit) };
 }
 
@@ -45,6 +48,7 @@ export async function createConfirmedBooking({
   paymentTaken = "none",
   paymentMethod = "in_person",
   depositOverridePennies = null,
+  addons = [],
 }: BaseParams & {
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
@@ -53,7 +57,7 @@ export async function createConfirmedBooking({
 }): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const base = amounts(service);
+  const base = amounts(service, addons);
   const price = base.price;
   const deposit =
     depositOverridePennies !== null
@@ -79,6 +83,10 @@ export async function createConfirmedBooking({
     balanceToken: randomToken(),
     isPatchTest,
     notes,
+    lashMap: "",
+    lashCurl: "",
+    lashLength: "",
+    addons,
   });
 
   if (depositPaid) {
@@ -117,10 +125,11 @@ export async function createPendingOnlineBooking({
   startIso,
   isPatchTest = false,
   notes = "",
+  addons = [],
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const { price, deposit, balance } = amounts(service);
+  const { price, deposit, balance } = amounts(service, addons);
 
   return createBooking(sb, {
     techId: tech.id,
@@ -137,6 +146,10 @@ export async function createPendingOnlineBooking({
     balanceToken: randomToken(),
     isPatchTest,
     notes,
+    lashMap: "",
+    lashCurl: "",
+    lashLength: "",
+    addons,
   });
 }
 

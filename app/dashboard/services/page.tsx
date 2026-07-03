@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
-import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listCategories, listServices } from "@/lib/db/queries";
+import { listAddons, listCategories, listServices } from "@/lib/db/queries";
+import { signedPhotoUrl } from "@/lib/storage";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,15 +10,35 @@ import { Input, Label } from "@/components/ui/input";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
-import { addCategoryAction, deleteServiceAction } from "../actions";
+import {
+  addCategoryAction,
+  deleteServiceAction,
+  setServicePhotoAction,
+  removeServicePhotoAction,
+  addAddonAction,
+  deleteAddonAction,
+} from "../actions";
 
 export default async function ServicesPage() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
-  const [categories, services] = await Promise.all([listCategories(sb, tech.id), listServices(sb, tech.id)]);
+  const [categories, services, addons] = await Promise.all([
+    listCategories(sb, tech.id),
+    listServices(sb, tech.id),
+    listAddons(sb, tech.id),
+  ]);
   const fullSets = services.filter((s) => !s.isInfill);
   const catById = new Map(categories.map((c) => [c.id, c.name]));
+  const photoUrls = new Map<string, string>();
+  await Promise.all(
+    services
+      .filter((s) => s.photoPath)
+      .map(async (s) => {
+        const url = await signedPhotoUrl(s.photoPath!);
+        if (url) photoUrls.set(s.id, url);
+      }),
+  );
 
   return (
     <div className="space-y-6">
@@ -87,7 +108,50 @@ export default async function ServicesPage() {
               </summary>
               <div className="border-t border-edge p-4">
                 <ServiceForm service={s} categories={categories} fullSetOptions={fullSets} />
-                <form action={deleteServiceAction} className="mt-3 border-t border-edge pt-3">
+
+                <div className="mt-4 border-t border-edge pt-4">
+                  <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><ImagePlus className="h-4 w-4 text-brand-400" /> Photo on your booking page</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {photoUrls.has(s.id) && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoUrls.get(s.id)!} alt={s.name} className="h-16 w-16 rounded-xl object-cover" />
+                    )}
+                    <form action={setServicePhotoAction} className="flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="serviceId" value={s.id} />
+                      <input type="file" name="photo" accept="image/*" required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
+                      <Button type="submit" variant="secondary" size="sm">{photoUrls.has(s.id) ? "Replace" : "Upload"}</Button>
+                    </form>
+                    {photoUrls.has(s.id) && (
+                      <form action={removeServicePhotoAction}>
+                        <input type="hidden" name="serviceId" value={s.id} />
+                        <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10">Remove</Button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 border-t border-edge pt-4">
+                  <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><Sparkles className="h-4 w-4 text-brand-400" /> Extras clients can add</p>
+                  <div className="space-y-2">
+                    {addons.filter((a) => a.serviceId === s.id).map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-2.5 text-sm">
+                        <span>{a.name} <span className="text-ink-faint">+{gbp(a.pricePennies)}</span></span>
+                        <form action={deleteAddonAction}>
+                          <input type="hidden" name="id" value={a.id} />
+                          <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </form>
+                      </div>
+                    ))}
+                    <form action={addAddonAction} className="flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="serviceId" value={s.id} />
+                      <div className="min-w-32 flex-1"><Label>Extra name</Label><Input name="name" placeholder="Wispy" required /></div>
+                      <div className="w-28"><Label>Price (£)</Label><Input name="pricePounds" type="number" min={0} step="0.01" placeholder="5.00" required /></div>
+                      <Button type="submit" variant="secondary" size="sm"><Plus className="h-4 w-4" /> Add</Button>
+                    </form>
+                  </div>
+                </div>
+
+                <form action={deleteServiceAction} className="mt-4 border-t border-edge pt-3">
                   <input type="hidden" name="id" value={s.id} />
                   <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /> Delete service</Button>
                 </form>

@@ -211,18 +211,27 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <CardHeader><CardTitle>Booking history ({history.length})</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {history.length === 0 && <p className="py-3 text-center text-sm text-ink-faint">No bookings yet.</p>}
-          {[...history].reverse().map((b) => (
-            <div key={b.id} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
-              <div>
-                <p className="font-medium">{serviceById.get(b.serviceId) ?? "Service"}</p>
-                <p className="text-xs text-ink-faint">{fmtDate(b.startIso)}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">{gbp(b.pricePennies)}</span>
-                {statusBadge(b.status)}
-              </div>
-            </div>
-          ))}
+          {[...history].reverse().map((b) => {
+            const lash = [
+              b.lashMap && `Map: ${b.lashMap}`,
+              b.lashCurl && `Curl: ${b.lashCurl}`,
+              b.lashLength && `Length: ${b.lashLength}`,
+            ].filter(Boolean).join(" · ");
+            const extras = (b.addons ?? []).map((a) => a.name).join(", ");
+            return (
+              <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm transition hover:shadow-card">
+                <div className="min-w-0">
+                  <p className="font-medium">{serviceById.get(b.serviceId) ?? "Service"}{extras && <span className="text-ink-faint"> + {extras}</span>}</p>
+                  <p className="text-xs text-ink-faint">{fmtDate(b.startIso)}</p>
+                  {lash && <p className="mt-0.5 text-xs text-brand-300">{lash}</p>}
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-sm font-medium">{gbp(b.pricePennies)}</span>
+                  {statusBadge(b.status)}
+                </div>
+              </Link>
+            );
+          })}
         </CardContent>
       </Card>
     </div>

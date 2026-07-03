@@ -108,6 +108,21 @@ export default async function EditBookingPage({
                 </>
               )}
             </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div><Label>Lash map</Label><Input name="lashMap" defaultValue={booking.lashMap} placeholder="e.g. Cat eye" /></div>
+              <div><Label>Curl</Label><Input name="lashCurl" defaultValue={booking.lashCurl} placeholder="e.g. C / CC / D" /></div>
+              <div><Label>Length</Label><Input name="lashLength" defaultValue={booking.lashLength} placeholder="e.g. 8-12mm" /></div>
+            </div>
+            {booking.addons.length > 0 && (
+              <div>
+                <Label>Extras chosen</Label>
+                <div className="flex flex-wrap gap-2">
+                  {booking.addons.map((a, i) => (
+                    <Badge key={i} tone="brand">{a.name} +{gbp(a.pricePennies)}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <Label>Notes</Label>
               <Textarea name="notes" defaultValue={booking.notes} placeholder="Anything to remember for this appointment" />

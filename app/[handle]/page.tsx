@@ -21,12 +21,14 @@ import {
   listTimeOff,
   listWorkingHours,
   getTechByHandle,
+  addonsForService,
 } from "@/lib/db/queries";
+import { signedPhotoUrl } from "@/lib/storage";
 import { availableDays, depositFor } from "@/lib/rules";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
-import type { ConsultationQuestion, Service, ServiceCategory, Tech } from "@/lib/db/types";
+import type { ConsultationQuestion, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
 import { createPublicBookingAction } from "./actions";
 
 type DayOption = { dateStr: string; slots: string[] };
@@ -82,15 +84,31 @@ export default async function PublicBookingPage({
   const live = isLive(tech);
   let days: DayOption[] = [];
   let questions: ConsultationQuestion[] = [];
+  let addons: ServiceAddon[] = [];
   if (selected && live) {
-    const [workingHours, timeOff, bookings, qs] = await Promise.all([
+    const [workingHours, timeOff, bookings, qs, adds] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listTimeOff(sb, tech.id),
       listBookings(sb, tech.id),
       listQuestions(sb, tech.id, { activeOnly: true }),
+      addonsForService(sb, selected.id, { activeOnly: true }),
     ]);
     days = availableDays(selected, { workingHours, timeOff, bookings }, 14);
     questions = qs;
+    addons = adds;
+  }
+
+  // Signed URLs for service photos (menu view only).
+  const photoUrls = new Map<string, string>();
+  if (!selected) {
+    await Promise.all(
+      services
+        .filter((s) => s.photoPath)
+        .map(async (s) => {
+          const url = await signedPhotoUrl(s.photoPath!);
+          if (url) photoUrls.set(s.id, url);
+        }),
+    );
   }
 
   const brand = tech.brandColor || "#db2777";
@@ -111,9 +129,9 @@ export default async function PublicBookingPage({
 
       <main className="mx-auto mt-8 max-w-2xl px-4">
         {!selected ? (
-          <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} />
+          <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} photoUrls={photoUrls} />
         ) : (
-          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} questions={questions} />
+          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} questions={questions} addons={addons} />
         )}
       </main>
 
@@ -124,7 +142,7 @@ export default async function PublicBookingPage({
   );
 }
 
-function ServiceMenu({ categories, services, handle, brand }: { categories: ServiceCategory[]; services: Service[]; handle: string; brand: string; }) {
+function ServiceMenu({ categories, services, handle, brand, photoUrls }: { categories: ServiceCategory[]; services: Service[]; handle: string; brand: string; photoUrls: Map<string, string>; }) {
   if (services.length === 0) {
     return <div className="card p-8 text-center text-ink-soft">This studio hasn&apos;t published any services yet.</div>;
   }
@@ -136,7 +154,15 @@ function ServiceMenu({ categories, services, handle, brand }: { categories: Serv
           <div className="space-y-3">
             {services.filter((s) => s.categoryId === cat.id).map((s) => (
               <Link key={s.id} href={`/${handle}?service=${s.id}`} className="card flex items-center justify-between gap-4 p-4 transition hover:shadow-soft">
-                <div className="min-w-0">
+                {photoUrls.has(s.id) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoUrls.get(s.id)!}
+                    alt={s.name}
+                    className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{s.name}</p>
                   {s.description && <p className="mt-0.5 line-clamp-2 text-sm text-ink-soft">{s.description}</p>}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-faint">
@@ -157,7 +183,7 @@ function ServiceMenu({ categories, services, handle, brand }: { categories: Serv
   );
 }
 
-function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; live: boolean; questions: ConsultationQuestion[]; }) {
+function BookingStep({ tech, service, sp, brand, days, live, questions, addons }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; live: boolean; questions: ConsultationQuestion[]; addons: ServiceAddon[]; }) {
   const deposit = depositFor(service);
   const balance = Math.max(0, service.pricePennies - deposit);
   const activeDate = sp.date && days.some((d) => d.dateStr === sp.date) ? sp.date : days[0]?.dateStr;
@@ -244,6 +270,22 @@ function BookingStep({ tech, service, sp, brand, days, live, questions }: { tech
               <input name="email" type="email" required placeholder="Email" className="input" />
             </div>
             <input name="phone" placeholder="Mobile number" className="input" />
+
+            {addons.length > 0 && (
+              <div className="space-y-2 border-t border-edge pt-3">
+                <p className="text-sm font-medium text-ink">Extras (optional)</p>
+                {addons.map((a) => (
+                  <label key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-3 text-sm">
+                    <span className="flex items-center gap-2.5">
+                      <input type="checkbox" name={`addon_${a.id}`} className="h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
+                      {a.name}
+                    </span>
+                    <span className="font-medium">+{gbp(a.pricePennies)}</span>
+                  </label>
+                ))}
+                <p className="text-xs text-ink-faint">Extras are added to your balance on the day.</p>
+              </div>
+            )}
 
             {questions.length > 0 && (
               <div className="space-y-3 border-t border-edge pt-3">

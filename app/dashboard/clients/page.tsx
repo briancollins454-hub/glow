@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, ShieldAlert, AlertTriangle, ChevronRight } from "lucide-react";
+import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2 } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listBookings, listClients } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { addClientAction } from "../actions";
+import { addClientAction, importClientsAction } from "../actions";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ import?: string; n?: string; s?: string }>;
+}) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
+  const sp = await searchParams;
   const [clients, bookings] = await Promise.all([listClients(sb, tech.id), listBookings(sb, tech.id)]);
   const visitsByClient = new Map<string, number>();
   for (const b of bookings) {
@@ -25,6 +31,38 @@ export default async function ClientsPage() {
         <h1 className="font-display text-2xl font-semibold">Clients</h1>
         <p className="text-sm text-ink-soft">Notes, warnings and your blacklist live here.</p>
       </div>
+
+      {sp.import === "done" && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" /> Imported {sp.n} client{sp.n === "1" ? "" : "s"}
+          {Number(sp.s) > 0 && ` (${sp.s} skipped: duplicates or missing names)`}.
+        </div>
+      )}
+      {sp.import === "badformat" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Couldn&apos;t find name columns in that file. Export your client list as CSV and try again.
+        </div>
+      )}
+      {sp.import === "empty" && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
+      )}
+
+      <details className="card">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
+          <Upload className="h-4 w-4" /> Import clients from another app
+        </summary>
+        <div className="border-t border-edge p-5">
+          <p className="text-sm text-ink-soft">
+            Moving from Square, Booksy, Timely or Fresha? Export your client list as a CSV from
+            the old app, then upload it here. We match name, email, phone and notes columns
+            automatically and skip duplicates.
+          </p>
+          <form action={importClientsAction} className="mt-4 flex flex-wrap items-center gap-3">
+            <input type="file" name="csv" accept=".csv,text/csv" required className="text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300" />
+            <SubmitButton variant="secondary" pendingLabel="Importing…">Import clients</SubmitButton>
+          </form>
+        </div>
+      </details>
 
       <details className="card">
         <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
