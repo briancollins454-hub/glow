@@ -5,8 +5,9 @@ import { getDashboardContext } from "@/lib/auth/session";
 import { getClient, markThreadRead, threadMessages } from "@/lib/db/queries";
 import { isLive } from "@/lib/subscriptions";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
+import { Trash2 } from "lucide-react";
 import { MessageThread } from "@/components/messages/message-thread";
-import { sendMessageAction } from "../actions";
+import { sendMessageAction, deleteConversationAction } from "../actions";
 
 export default async function DashboardThreadPage({
   params,
@@ -47,6 +48,16 @@ export default async function DashboardThreadPage({
             <User className="h-3 w-3" /> View client profile
           </Link>
         </div>
+        <form action={deleteConversationAction} className="ml-auto">
+          <input type="hidden" name="clientId" value={client.id} />
+          <button
+            type="submit"
+            className="grid h-9 w-9 place-items-center rounded-xl text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+            title="Delete this conversation"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </form>
       </div>
 
       <div className="card flex min-h-0 flex-1 flex-col p-4">

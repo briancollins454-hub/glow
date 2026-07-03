@@ -230,13 +230,36 @@ export async function findOrCreateClient(
   techId: string,
   data: { name: string; email: string; phone: string },
 ): Promise<Client> {
-  const existing = await getClientByEmail(sb, techId, data.email);
+  // Match on email first, then phone, then exact name (case-insensitive), so
+  // manual bookings without an email reuse the existing client instead of
+  // creating a duplicate account.
+  let existing = await getClientByEmail(sb, techId, data.email);
+  if (!existing && data.phone) {
+    const digits = data.phone.replace(/\D/g, "");
+    if (digits.length >= 7) {
+      const { data: rows, error } = await sb.from("clients").select("*").eq("techId", techId);
+      if (error) throw new Error(error.message);
+      existing = ((rows as Client[]) ?? []).find((c) => c.phone.replace(/\D/g, "") === digits) ?? null;
+    }
+  }
+  if (!existing && data.name) {
+    const { data: rows, error } = await sb
+      .from("clients")
+      .select("*")
+      .eq("techId", techId)
+      .ilike("name", data.name.trim());
+    if (error) throw new Error(error.message);
+    existing = ((rows as Client[]) ?? [])[0] ?? null;
+  }
+
   if (existing) {
-    await updateClient(sb, existing.id, {
+    const patch = {
       name: data.name || existing.name,
+      email: data.email || existing.email,
       phone: data.phone || existing.phone,
-    });
-    return { ...existing, name: data.name || existing.name, phone: data.phone || existing.phone };
+    };
+    await updateClient(sb, existing.id, patch);
+    return { ...existing, ...patch };
   }
   return createClient(sb, { techId, notes: "", ...data });
 }

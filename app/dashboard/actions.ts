@@ -612,6 +612,17 @@ export async function deleteCategoryAction(formData: FormData) {
   redirect("/dashboard/services");
 }
 
+/** Delete a saved consultation response. */
+export async function deleteFormResponseAction(formData: FormData) {
+  const { sb } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("clientId") ?? "");
+  const { error } = await sb.from("form_responses").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}`);
+}
+
 /** Delete a patch test record. */
 export async function deletePatchTestAction(formData: FormData) {
   const { sb } = await ctx();

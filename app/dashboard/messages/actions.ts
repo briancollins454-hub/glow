@@ -8,6 +8,21 @@ import type { Message } from "@/lib/db/types";
 
 type SendResult = { ok: boolean; message?: Message; error?: string };
 
+/** Delete an entire conversation with a client. */
+export async function deleteConversationAction(formData: FormData) {
+  const { redirect } = await import("next/navigation");
+  const ctx = await getDashboardContext();
+  if (!ctx) redirect("/login");
+  const { sb, tech } = ctx!;
+  const clientId = String(formData.get("clientId") ?? "");
+  const client = await getClient(sb, clientId);
+  if (client && client.techId === tech.id) {
+    const { error } = await sb.from("messages").delete().eq("clientId", clientId);
+    if (error) throw new Error(error.message);
+  }
+  redirect("/dashboard/messages");
+}
+
 /** Tech sends a message to a client (bound to clientId in the page). */
 export async function sendMessageAction(clientId: string, body: string): Promise<SendResult> {
   const text = body.trim();

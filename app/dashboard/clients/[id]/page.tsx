@@ -20,7 +20,7 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
-import { updateClientAction, addPatchTestAction, deletePatchTestAction, deleteClientAction } from "../../actions";
+import { updateClientAction, addPatchTestAction, deletePatchTestAction, deleteClientAction, deleteFormResponseAction } from "../../actions";
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const c = await getDashboardContext();
@@ -151,9 +151,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
       {latestResponse && latestResponse.answers.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Consultation answers</CardTitle>
-            <CardDescription>From {fmtDate(latestResponse.createdAt)}</CardDescription>
+          <CardHeader className="flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle>Consultation answers</CardTitle>
+              <CardDescription>From {fmtDate(latestResponse.createdAt)}</CardDescription>
+            </div>
+            <form action={deleteFormResponseAction}>
+              <input type="hidden" name="id" value={latestResponse.id} />
+              <input type="hidden" name="clientId" value={client.id} />
+              <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400" title="Delete these answers">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </form>
           </CardHeader>
           <CardContent className="space-y-3">
             {latestResponse.answers.map((a, i) => (
