@@ -12,9 +12,9 @@ const errors: Record<string, string> = {
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ref?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, ref } = await searchParams;
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
@@ -39,6 +39,7 @@ export default async function SignupPage({
           )}
 
           <form action={signupAction} className="mt-6 space-y-4">
+            {ref && <input type="hidden" name="ref" value={ref} />}
             <div>
               <Label htmlFor="businessName">Business name</Label>
               <Input

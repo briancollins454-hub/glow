@@ -51,8 +51,12 @@ export async function signupAction(formData: FormData) {
   let n = 1;
   while (await getTechByHandle(admin, candidate)) candidate = `${handle}${n++}`;
 
+  // Referral attribution: only record codes that match a real tech's handle.
+  const refRaw = slugify(String(formData.get("ref") ?? ""));
+  const referrer = refRaw && refRaw !== candidate ? await getTechByHandle(admin, refRaw) : null;
+
   const techId = randomId("tech");
-  await createTech(admin, {
+  const tech = await createTech(admin, {
     id: techId,
     authUserId,
     email,
@@ -67,6 +71,7 @@ export async function signupAction(formData: FormData) {
     defaultDepositPct: 30,
     cancellationWindowHours: 48,
     noShowFeePct: 100,
+    referredBy: referrer?.handle ?? null,
   });
 
   await replaceWorkingHours(
@@ -81,6 +86,15 @@ export async function signupAction(formData: FormData) {
       enabled: weekday >= 2 && weekday <= 6,
     })),
   );
+
+  // Welcome email now + a setup nudge in 2 days (both best-effort).
+  try {
+    const { sendWelcomeEmail, scheduleOnboardingEmails } = await import("@/lib/onboarding");
+    await sendWelcomeEmail(tech);
+    await scheduleOnboardingEmails(admin, techId);
+  } catch {
+    // Never block signup on email problems.
+  }
 
   // Sign them in (sets the session cookie).
   const sb = await createSupabaseServerClient();

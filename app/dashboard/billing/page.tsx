@@ -1,20 +1,34 @@
 import { redirect } from "next/navigation";
-import { CheckCircle2, CreditCard, Sparkles, Clock } from "lucide-react";
+import { CheckCircle2, CreditCard, Sparkles, Clock, Gift } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input, Label } from "@/components/ui/input";
 import { isLive, planLabel } from "@/lib/subscriptions";
 import { stripeConfigured } from "@/lib/stripe";
 import { startCheckoutAction, manageBillingAction } from "./actions";
 
+const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
+
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
-  const { tech } = c;
+  const { sb, tech } = c;
   const { status } = await searchParams;
   const live = isLive(tech);
   const configured = stripeConfigured();
+
+  // RLS hides other techs' rows, so count referrals with the service client.
+  const { supabaseService, serviceConfigured } = await import("@/lib/supabase/service");
+  let referredCount = 0;
+  if (serviceConfigured()) {
+    const { count } = await supabaseService()
+      .from("techs")
+      .select("id", { count: "exact", head: true })
+      .eq("referredBy", tech.handle);
+    referredCount = count ?? 0;
+  }
 
   return (
     <div className="space-y-6">
@@ -81,8 +95,32 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <p className="text-center text-xs text-ink-faint">
             Both plans start with <strong>£2 for your first 14 days</strong>, then renew at the plan price. Cancel anytime.
           </p>
+          <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-300">
+            <strong>Founding offer:</strong> the first 50 techs get 50% off forever. Enter code{" "}
+            <code className="rounded bg-white/10 px-1.5 py-0.5 font-semibold">FOUNDER50</code> above before starting your trial.
+          </div>
         </>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Gift className="h-4 w-4" /> Refer a tech, get a free month</CardTitle>
+          <CardDescription>
+            Share your link. When a tech you refer becomes a paying member, we credit a free month to your bill.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded-xl border border-edge bg-white/[0.04] px-3 py-2 text-sm">
+              {APP_HOST}/signup?ref={tech.handle}
+            </code>
+            <Badge tone="brand">{referredCount} signed up via your link</Badge>
+          </div>
+          <p className="text-xs text-ink-faint">
+            Credits are applied to your next invoice. Referrals are tracked automatically when someone signs up through your link.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -100,8 +138,12 @@ function PlanCard({ title, price, cadence, plan, configured, highlight, note }: 
         <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-brand-500" /> Deposits &amp; no-show protection</li>
         <li className="flex items-center gap-2"><Clock className="h-4 w-4 text-brand-500" /> Reminders &amp; infill rules</li>
       </ul>
-      <form action={startCheckoutAction} className="mt-5">
+      <form action={startCheckoutAction} className="mt-5 space-y-3">
         <input type="hidden" name="plan" value={plan} />
+        <div>
+          <Label>Promo code (optional)</Label>
+          <Input name="promo" placeholder="e.g. FOUNDER50" />
+        </div>
         <Button type="submit" className="w-full" disabled={!configured}>Start £2 trial</Button>
       </form>
     </div>

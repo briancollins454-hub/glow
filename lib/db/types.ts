@@ -53,6 +53,8 @@ export interface Tech {
   // Self-serve password reset (hashed single-use token)
   resetTokenHash: string | null;
   resetTokenExpiresAt: string | null;
+  // Handle of the tech whose referral link brought this signup (if any)
+  referredBy: string | null;
   createdAt: string;
 }
 

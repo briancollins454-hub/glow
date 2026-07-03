@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabase/service";
 import { processDueReminders } from "@/lib/scheduler";
+import { processDueOnboardingEmails } from "@/lib/onboarding";
 
 // Triggered by Vercel Cron (see vercel.json). Uses the service-role client so it
 // can process reminders across all techs.
@@ -15,5 +16,11 @@ export async function GET(request: Request) {
 
   const sb = supabaseService();
   const result = await processDueReminders(sb);
-  return NextResponse.json({ ok: true, ...result, at: new Date().toISOString() });
+  let onboarding = 0;
+  try {
+    onboarding = await processDueOnboardingEmails(sb);
+  } catch (err) {
+    console.error("[cron] onboarding emails failed:", (err as Error).message);
+  }
+  return NextResponse.json({ ok: true, ...result, onboarding, at: new Date().toISOString() });
 }

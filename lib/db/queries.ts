@@ -77,7 +77,8 @@ type ManagedTechField =
   | "connectPayoutsEnabled"
   | "connectDetailsSubmitted"
   | "resetTokenHash"
-  | "resetTokenExpiresAt";
+  | "resetTokenExpiresAt"
+  | "referredBy";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;

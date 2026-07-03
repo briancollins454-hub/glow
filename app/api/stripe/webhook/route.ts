@@ -68,11 +68,25 @@ export async function POST(request: Request) {
         // 14-day trial, so the portal shows a clean "£19/month, trial ends X".
         // The £2 is taken as a separate one-time charge now (no proration).
         const planPrice = plan === "annual" ? PRICES.annual : PRICES.monthly;
+
+        // Apply a promo code (e.g. FOUNDER50) if one was entered at checkout.
+        let discounts: { promotion_code: string }[] | undefined;
+        const promo = session.metadata?.promo;
+        if (promo) {
+          try {
+            const codes = await s.promotionCodes.list({ code: promo, active: true, limit: 1 });
+            if (codes.data[0]) discounts = [{ promotion_code: codes.data[0].id }];
+          } catch (err) {
+            console.error("[stripe webhook] promo lookup failed:", (err as Error).message);
+          }
+        }
+
         const subscription = await s.subscriptions.create({
           customer: customerId,
           items: [{ price: planPrice }],
           trial_period_days: 14,
           default_payment_method: pm ?? undefined,
+          discounts,
           metadata: { techId, plan },
         });
 

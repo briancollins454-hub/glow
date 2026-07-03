@@ -68,7 +68,7 @@ export default function HomePage() {
       <section className="container-page grid items-center gap-12 py-12 lg:grid-cols-2 lg:py-20">
         <div className="animate-fade-in">
           <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-medium text-brand-300">
-            <Sparkles className="h-4 w-4" /> Built for solo beauty techs
+            <Sparkles className="h-4 w-4" /> Founding offer: first 50 techs get 50% off forever - code FOUNDER50
           </span>
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-6xl">
             Your booking page, your rules.{" "}
@@ -162,6 +162,61 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="container-page py-12 lg:py-16">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl font-semibold">Why techs switch to Glow</h2>
+          <p className="mt-3 text-ink-soft">No commission. No marketplace poaching your clients. One flat price.</p>
+        </div>
+        <div className="card mt-10 overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="border-b border-edge text-left text-ink-faint">
+                <th className="p-4 font-medium"></th>
+                <th className="p-4 font-semibold text-brand-300">Glow</th>
+                <th className="p-4 font-medium">Marketplace apps</th>
+              </tr>
+            </thead>
+            <tbody className="[&_td]:p-4 [&_tr]:border-b [&_tr]:border-edge">
+              <tr>
+                <td className="text-ink-soft">Commission on your bookings</td>
+                <td className="font-semibold text-emerald-300">0%, ever</td>
+                <td className="text-ink-soft">Up to 35% on new clients</td>
+              </tr>
+              <tr>
+                <td className="text-ink-soft">Your clients shown competitors</td>
+                <td className="font-semibold text-emerald-300">Never - it&apos;s your page</td>
+                <td className="text-ink-soft">Marketplace promotes nearby rivals</td>
+              </tr>
+              <tr>
+                <td className="text-ink-soft">Deposits &amp; no-show protection</td>
+                <td className="font-semibold text-emerald-300">Built in</td>
+                <td className="text-ink-soft">Often paid add-ons</td>
+              </tr>
+              <tr>
+                <td className="text-ink-soft">Patch tests &amp; infill timing rules</td>
+                <td className="font-semibold text-emerald-300">Built for beauty techs</td>
+                <td className="text-ink-soft">Generic salon tools</td>
+              </tr>
+              <tr className="!border-b-0">
+                <td className="text-ink-soft">Price</td>
+                <td className="font-semibold text-emerald-300">£19/mo flat, cancel anytime</td>
+                <td className="text-ink-soft">Subscriptions + fees + upsells</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="container-page py-6 lg:py-10">
+        <div className="card mx-auto max-w-2xl p-8 text-center">
+          <p className="font-display text-xl font-medium leading-relaxed">
+            &ldquo;Deposits, reminders and my own booking link in one place - and my clients stay mine.
+            I set it up in an evening.&rdquo;
+          </p>
+          <p className="mt-4 text-sm text-ink-faint">Claudia · ILashIt, lash tech</p>
+        </div>
+      </section>
+
       <section className="container-page py-12">
         <div className="card overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 p-10 text-center text-white">
           <h2 className="font-display text-3xl font-semibold">
@@ -193,10 +248,12 @@ export default function HomePage() {
 
       <footer className="container-page flex flex-col items-center justify-between gap-3 border-t border-edge py-8 text-sm text-ink-faint sm:flex-row">
         <p>© {new Date().getFullYear()} Glow. Made for UK beauty techs.</p>
-        <p className="flex items-center gap-1">
-          Demo login: <code className="rounded bg-white/[0.07] px-1.5 py-0.5">demo@glow.app</code>{" "}
-          / <code className="rounded bg-white/[0.07] px-1.5 py-0.5">password123</code>
-        </p>
+        <nav className="flex items-center gap-4">
+          <Link href="/bellarose" className="hover:text-ink">Live demo</Link>
+          <Link href="/terms" className="hover:text-ink">Terms</Link>
+          <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+          <a href="mailto:support@glow-uk.com" className="hover:text-ink">Support</a>
+        </nav>
       </footer>
     </div>
   );

@@ -18,6 +18,7 @@ async function ctx() {
 export async function startCheckoutAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const plan = formData.get("plan") === "annual" ? "annual" : "monthly";
+  const promo = String(formData.get("promo") ?? "").trim().toUpperCase();
   const s = stripe();
 
   let customerId = tech.stripeCustomerId;
@@ -37,8 +38,8 @@ export async function startCheckoutAction(formData: FormData) {
     customer: customerId,
     success_url: `${APP_URL}/dashboard/billing?status=started`,
     cancel_url: `${APP_URL}/dashboard/billing?status=cancelled`,
-    metadata: { techId: tech.id, plan },
-    setup_intent_data: { metadata: { techId: tech.id, plan } },
+    metadata: { techId: tech.id, plan, promo },
+    setup_intent_data: { metadata: { techId: tech.id, plan, promo } },
   });
 
   redirect(session.url!);
