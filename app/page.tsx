@@ -68,7 +68,7 @@ export default function HomePage() {
       <section className="container-page grid items-center gap-12 py-12 lg:grid-cols-2 lg:py-20">
         <div className="animate-fade-in">
           <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-medium text-brand-300">
-            <Sparkles className="h-4 w-4" /> Founding offer: first 50 techs get 50% off forever - code FOUNDER50
+            <Sparkles className="h-4 w-4" /> Built for solo beauty techs
           </span>
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-6xl">
             Your booking page, your rules.{" "}

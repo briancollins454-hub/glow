@@ -95,10 +95,6 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <p className="text-center text-xs text-ink-faint">
             Both plans start with <strong>£2 for your first 14 days</strong>, then renew at the plan price. Cancel anytime.
           </p>
-          <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-300">
-            <strong>Founding offer:</strong> the first 50 techs get 50% off forever. Enter code{" "}
-            <code className="rounded bg-white/10 px-1.5 py-0.5 font-semibold">FOUNDER50</code> above before starting your trial.
-          </div>
         </>
       )}
 
