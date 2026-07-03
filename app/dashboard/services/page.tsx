@@ -12,6 +12,7 @@ import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
 import {
   addCategoryAction,
+  deleteCategoryAction,
   deleteServiceAction,
   setServicePhotoAction,
   removeServicePhotoAction,
@@ -61,8 +62,26 @@ export default async function ServicesPage() {
               <div className="sm:col-span-2"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
             </form>
             {categories.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {categories.map((c) => <Badge key={c.id} tone="brand">{c.name} · {c.patchTestValidityDays}d</Badge>)}
+              <div className="mt-4 space-y-2">
+                {categories.map((c) => {
+                  const count = services.filter((s) => s.categoryId === c.id).length;
+                  return (
+                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-white/[0.03] px-3 py-2 text-sm">
+                      <span>{c.name} <span className="text-ink-faint">· patch test {c.patchTestValidityDays}d · {count} service{count === 1 ? "" : "s"}</span></span>
+                      <form action={deleteCategoryAction}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <button
+                          type="submit"
+                          className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+                          title={count > 0 ? `Deletes the category AND its ${count} service(s)` : "Delete category"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-ink-faint">Deleting a category also deletes the services inside it.</p>
               </div>
             )}
           </CardContent>

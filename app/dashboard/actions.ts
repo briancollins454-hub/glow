@@ -576,6 +576,53 @@ export async function deleteAddonAction(formData: FormData) {
   redirect("/dashboard/services");
 }
 
+/** Hard delete a client and everything attached (bookings, photos, messages). */
+export async function deleteClientAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const client = await getClient(sb, id);
+  if (client && client.techId === tech.id) {
+    // Remove stored photo files first (DB rows cascade with the client).
+    const { listClientPhotos } = await import("@/lib/db/queries");
+    const photos = await listClientPhotos(sb, id);
+    for (const p of photos) {
+      try {
+        await removePhoto(p.path);
+      } catch {
+        /* storage cleanup is best-effort */
+      }
+    }
+    const { error } = await sb.from("clients").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/dashboard/clients");
+  redirect("/dashboard/clients");
+}
+
+/** Delete a category (and its services, which cascade). */
+export async function deleteCategoryAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const category = await getCategory(sb, id);
+  if (category && category.techId === tech.id) {
+    const { error } = await sb.from("categories").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+/** Delete a patch test record. */
+export async function deletePatchTestAction(formData: FormData) {
+  const { sb } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("clientId") ?? "");
+  const { error } = await sb.from("patch_tests").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}`);
+}
+
 // ---------------- Client import (migration) ----------------
 export async function importClientsAction(formData: FormData) {
   const { sb, tech } = await ctx();

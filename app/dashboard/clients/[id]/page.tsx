@@ -20,7 +20,7 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
-import { updateClientAction, addPatchTestAction } from "../../actions";
+import { updateClientAction, addPatchTestAction, deletePatchTestAction, deleteClientAction } from "../../actions";
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const c = await getDashboardContext();
@@ -104,12 +104,19 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 {tests.map((t) => {
                   const expired = new Date(t.expiresAtIso).getTime() < Date.now();
                   return (
-                    <li key={t.id} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
-                      <div>
+                    <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
+                      <div className="min-w-0">
                         <p className="font-medium">{catById.get(t.categoryId) ?? "Category"}</p>
                         <p className="text-xs text-ink-faint">Done {fmtDate(t.performedAtIso)} · expires {fmtDate(t.expiresAtIso)}</p>
                       </div>
-                      {t.result === "fail" ? <Badge tone="red">Failed</Badge> : expired ? <Badge tone="neutral">Expired</Badge> : <Badge tone="green">Valid</Badge>}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {t.result === "fail" ? <Badge tone="red">Failed</Badge> : expired ? <Badge tone="neutral">Expired</Badge> : <Badge tone="green">Valid</Badge>}
+                        <form action={deletePatchTestAction}>
+                          <input type="hidden" name="id" value={t.id} />
+                          <input type="hidden" name="clientId" value={client.id} />
+                          <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400" title="Delete patch test"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </form>
+                      </div>
                     </li>
                   );
                 })}
@@ -203,6 +210,24 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               <input type="checkbox" name="consent" className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" /> Consent
             </label>
             <Button type="submit" variant="secondary" size="sm"><ImagePlus className="h-4 w-4" /> Upload</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-red-400">Delete this client</CardTitle>
+          <CardDescription>
+            Removes {client.name} completely, including their bookings, photos, messages and patch tests.
+            Useful for duplicates or test entries. This can&apos;t be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={deleteClientAction}>
+            <input type="hidden" name="id" value={client.id} />
+            <Button type="submit" variant="danger">
+              <Trash2 className="h-4 w-4" /> Delete client{history.length > 0 ? ` (and ${history.length} booking${history.length > 1 ? "s" : ""})` : ""}
+            </Button>
           </form>
         </CardContent>
       </Card>
