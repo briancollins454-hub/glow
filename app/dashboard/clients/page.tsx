@@ -5,10 +5,9 @@ import { getDashboardContext } from "@/lib/auth/session";
 import { listBookings, listClients } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { addClientAction, importClientsAction } from "../actions";
+import { addClientAction } from "../actions";
 
 export default async function ClientsPage({
   searchParams,
@@ -47,22 +46,12 @@ export default async function ClientsPage({
         <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
       )}
 
-      <details className="card">
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
-          <Upload className="h-4 w-4" /> Import clients from another app
-        </summary>
-        <div className="border-t border-edge p-5">
-          <p className="text-sm text-ink-soft">
-            Moving from Square, Booksy, Timely or Fresha? Export your client list as a CSV from
-            the old app, then upload it here. We match name, email, phone and notes columns
-            automatically and skip duplicates.
-          </p>
-          <form action={importClientsAction} className="mt-4 flex flex-wrap items-center gap-3">
-            <input type="file" name="csv" accept=".csv,text/csv" required className="text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300" />
-            <SubmitButton variant="secondary" pendingLabel="Importing…">Import clients</SubmitButton>
-          </form>
-        </div>
-      </details>
+      <Link href="/dashboard/import" className="card flex items-center justify-between gap-3 p-4 transition hover:shadow-card">
+        <span className="flex items-center gap-2 font-medium text-brand-300">
+          <Upload className="h-4 w-4" /> Moving from Square, Booksy, Timely or Fresha?
+        </span>
+        <span className="text-sm text-ink-faint">Import services, clients &amp; appointments →</span>
+      </Link>
 
       <details className="card">
         <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">

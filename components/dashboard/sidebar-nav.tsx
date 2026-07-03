@@ -14,6 +14,7 @@ import {
   Wallet,
   ClipboardList,
   MessageSquare,
+  FolderInput,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const items = [
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/payments", label: "Payments", icon: Wallet },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  { href: "/dashboard/import", label: "Move to Glow", icon: FolderInput },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

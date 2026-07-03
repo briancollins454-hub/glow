@@ -21,6 +21,9 @@ import {
   getClient,
   getService,
   getTechByHandle,
+  listBookings,
+  listCategories,
+  listServices,
   paymentsForBooking,
   replaceWorkingHours,
   updateBooking,
@@ -634,53 +637,31 @@ export async function deletePatchTestAction(formData: FormData) {
   redirect(`/dashboard/clients/${clientId}`);
 }
 
-// ---------------- Client import (migration) ----------------
+// ---------------- Migration imports (clients, services, appointments) ----------------
 export async function importClientsAction(formData: FormData) {
   const { sb, tech } = await ctx();
+  const back = String(formData.get("back") ?? "/dashboard/import");
   const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) redirect("/dashboard/clients?import=empty");
+  if (!file || file.size === 0) redirect(`${back}?import=empty`);
 
-  const text = await file!.text();
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) redirect("/dashboard/clients?import=empty");
+  const { parseCsv, col } = await import("@/lib/csv");
+  const { headers, rows } = parseCsv(await file!.text());
+  if (rows.length === 0) redirect(`${back}?import=empty`);
 
-  // Basic CSV parse with quoted-field support.
-  const parseLine = (line: string): string[] => {
-    const out: string[] = [];
-    let cur = "";
-    let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (inQ) {
-        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-        else if (ch === '"') inQ = false;
-        else cur += ch;
-      } else if (ch === '"') inQ = true;
-      else if (ch === ",") { out.push(cur); cur = ""; }
-      else cur += ch;
-    }
-    out.push(cur);
-    return out.map((s) => s.trim());
-  };
+  const iFirst = col(headers, "firstname", "first");
+  const iLast = col(headers, "lastname", "last", "surname");
+  const iName = col(headers, "name", "fullname", "clientname", "customername");
+  const iEmail = col(headers, "email", "emailaddress", "customeremail");
+  const iPhone = col(headers, "phone", "phonenumber", "mobile", "mobilenumber", "telephone", "cellphone");
+  const iNotes = col(headers, "notes", "note", "comments");
 
-  // Flexible header mapping for Square / Booksy / Timely / Fresha exports.
-  const headers = parseLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
-  const idx = (...names: string[]) => headers.findIndex((h) => names.includes(h));
-  const iFirst = idx("firstname", "first");
-  const iLast = idx("lastname", "last", "surname");
-  const iName = idx("name", "fullname", "clientname", "customername");
-  const iEmail = idx("email", "emailaddress", "customeremail");
-  const iPhone = idx("phone", "phonenumber", "mobile", "mobilenumber", "telephone", "cellphone");
-  const iNotes = idx("notes", "note", "comments");
-
-  if (iName === -1 && iFirst === -1) redirect("/dashboard/clients?import=badformat");
+  if (iName === -1 && iFirst === -1) redirect(`${back}?import=badformat`);
 
   const { createClient: createClientRow, getClientByEmail: findByEmail } = await import("@/lib/db/queries");
   let imported = 0;
   let skipped = 0;
 
-  for (const line of lines.slice(1)) {
-    const cols = parseLine(line);
+  for (const cols of rows) {
     const name =
       iName !== -1
         ? cols[iName]
@@ -699,7 +680,191 @@ export async function importClientsAction(formData: FormData) {
   }
 
   revalidatePath("/dashboard/clients");
-  redirect(`/dashboard/clients?import=done&n=${imported}&s=${skipped}`);
+  redirect(`${back}?import=done&what=clients&n=${imported}&s=${skipped}`);
+}
+
+export async function importServicesAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const file = formData.get("csv") as File | null;
+  if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
+
+  const { parseCsv, col, moneyToPennies, toMinutes } = await import("@/lib/csv");
+  const { headers, rows } = parseCsv(await file!.text());
+  if (rows.length === 0) redirect("/dashboard/import?import=empty");
+
+  const iName = col(headers, "name", "servicename", "service", "itemname", "treatmentname", "title", "item");
+  const iPrice = col(headers, "price", "amount", "cost", "retailprice", "priceamount");
+  const iDuration = col(headers, "duration", "durationmin", "durationminutes", "durationmins", "length", "time", "servicelength");
+  const iCategory = col(headers, "category", "categoryname", "servicecategory", "group", "type");
+  const iDesc = col(headers, "description", "details", "servicedescription");
+
+  if (iName === -1) redirect("/dashboard/import?import=badformat");
+
+  const existing = await listServices(sb, tech.id);
+  const existingNames = new Set(existing.map((s) => s.name.toLowerCase()));
+  const cats = await listCategories(sb, tech.id);
+  const catIdByName = new Map(cats.map((c) => [c.name.toLowerCase(), c.id]));
+
+  const ensureCategory = async (rawName: string): Promise<string> => {
+    const name = rawName.trim() || "Imported";
+    const key = name.toLowerCase();
+    if (catIdByName.has(key)) return catIdByName.get(key)!;
+    const created = await createCategory(sb, {
+      techId: tech.id,
+      name,
+      patchTestValidityDays: 180,
+      patchTestMinLeadHours: 24,
+    });
+    catIdByName.set(key, created.id);
+    return created.id;
+  };
+
+  let imported = 0;
+  let skipped = 0;
+  let sortOrder = existing.length;
+
+  for (const cols of rows) {
+    const name = (cols[iName] ?? "").trim();
+    if (!name || existingNames.has(name.toLowerCase())) { skipped++; continue; }
+    const pricePennies = iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : 0;
+    const durationMin = iDuration !== -1 ? toMinutes(cols[iDuration] ?? "") : 60;
+    const categoryId = await ensureCategory(iCategory !== -1 ? cols[iCategory] ?? "" : "");
+
+    await createService(sb, {
+      techId: tech.id,
+      categoryId,
+      name,
+      description: iDesc !== -1 ? (cols[iDesc] ?? "") : "",
+      durationMin: durationMin || 60,
+      pricePennies,
+      depositType: "percent",
+      depositValue: tech.defaultDepositPct,
+      requiresPatchTest: false,
+      isInfill: false,
+      fullSetServiceId: null,
+      infillMaxGapDays: 21,
+      active: true,
+      sortOrder: sortOrder++,
+    });
+    existingNames.add(name.toLowerCase());
+    imported++;
+  }
+
+  revalidatePath("/dashboard/services");
+  redirect(`/dashboard/import?import=done&what=services&n=${imported}&s=${skipped}`);
+}
+
+export async function importBookingsAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const file = formData.get("csv") as File | null;
+  if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
+
+  const { parseCsv, col } = await import("@/lib/csv");
+  const { headers, rows } = parseCsv(await file!.text());
+  if (rows.length === 0) redirect("/dashboard/import?import=empty");
+
+  const iClient = col(headers, "client", "clientname", "customer", "customername", "name", "fullname");
+  const iEmail = col(headers, "email", "clientemail", "customeremail", "emailaddress");
+  const iService = col(headers, "service", "servicename", "item", "treatment", "appointmentservice", "itemname");
+  const iDate = col(headers, "datetime", "date", "startsat", "start", "starttime", "appointmentdate", "startdate");
+  const iTime = col(headers, "time", "appointmenttime");
+  const iStatus = col(headers, "status", "appointmentstatus");
+
+  if (iClient === -1 || iService === -1 || iDate === -1) redirect("/dashboard/import?import=badformat");
+
+  const services = await listServices(sb, tech.id);
+  const serviceByName = new Map(services.map((s) => [s.name.toLowerCase(), s]));
+  const existingBookings = await listBookings(sb, tech.id);
+  const { createBooking: createBookingRow } = await import("@/lib/db/queries");
+  const { rescheduleReminders } = await import("@/lib/bookings");
+  const { randomToken: newToken } = await import("@/lib/utils");
+
+  // UK exports commonly use dd/mm/yyyy; times are naive local (Europe/London),
+  // so interpret them in the tech's timezone rather than the server's (UTC).
+  const parseWhen = (dateRaw: string, timeRaw: string): Date | null => {
+    let s = dateRaw.trim();
+    if (timeRaw?.trim()) s = `${s} ${timeRaw.trim()}`;
+    const uk = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(.*)$/);
+    if (uk) {
+      const yyyy = uk[3].length === 2 ? `20${uk[3]}` : uk[3];
+      s = `${yyyy}-${uk[2].padStart(2, "0")}-${uk[1].padStart(2, "0")}${uk[4]}`;
+    }
+    // Already has an explicit offset/zone: trust it.
+    if (/z$|[+-]\d{2}:?\d{2}$/i.test(s)) {
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ]?(\d{1,2})?:?(\d{2})?/);
+    if (!m) {
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const local = `${m[1]}-${m[2]}-${m[3]}T${(m[4] ?? "9").padStart(2, "0")}:${m[5] ?? "00"}`;
+    const d = fromZonedTime(local, TZ);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const cols of rows) {
+    const clientName = (cols[iClient] ?? "").trim();
+    const serviceName = (cols[iService] ?? "").trim().toLowerCase();
+    const when = parseWhen(cols[iDate] ?? "", iTime !== -1 ? cols[iTime] ?? "" : "");
+    const service = serviceByName.get(serviceName);
+    if (!clientName || !service || !when) { skipped++; continue; }
+
+    const client = await findOrCreateClient(sb, tech.id, {
+      name: clientName,
+      email: iEmail !== -1 ? (cols[iEmail] ?? "").trim() : "",
+      phone: "",
+    });
+
+    // Skip exact duplicates (same client, same start).
+    const startMs = when.getTime();
+    if (existingBookings.some((b) => b.clientId === client.id && new Date(b.startIso).getTime() === startMs)) {
+      skipped++;
+      continue;
+    }
+
+    const isPast = startMs < Date.now();
+    const rawStatus = iStatus !== -1 ? (cols[iStatus] ?? "").toLowerCase() : "";
+    const status: BookingStatus = rawStatus.includes("cancel")
+      ? "cancelled"
+      : rawStatus.includes("no") && rawStatus.includes("show")
+        ? "no_show"
+        : isPast
+          ? "completed"
+          : "confirmed";
+
+    const booking = await createBookingRow(sb, {
+      techId: tech.id,
+      clientId: client.id,
+      serviceId: service.id,
+      startIso: when.toISOString(),
+      endIso: new Date(startMs + service.durationMin * 60 * 1000).toISOString(),
+      status,
+      pricePennies: service.pricePennies,
+      depositPennies: 0,
+      depositStatus: "none",
+      balancePennies: isPast ? 0 : service.pricePennies,
+      balanceStatus: isPast ? "paid" : "unpaid",
+      balanceToken: newToken(),
+      isPatchTest: false,
+      notes: "Imported",
+      lashMap: "",
+      lashCurl: "",
+      lashLength: "",
+      addons: [],
+    });
+    // Future imports get quiet reminders (24h etc.) but no confirmation email spam.
+    if (!isPast && status === "confirmed") await rescheduleReminders(sb, booking);
+    existingBookings.push(booking);
+    imported++;
+  }
+
+  revalidatePath("/dashboard/bookings");
+  redirect(`/dashboard/import?import=done&what=appointments&n=${imported}&s=${skipped}`);
 }
 
 // ---------------- Client photos ----------------
