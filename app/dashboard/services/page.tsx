@@ -56,9 +56,8 @@ export default async function ServicesPage() {
           </CardHeader>
           <CardContent>
             <form action={addCategoryAction} className="grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2"><Label>Category name</Label><Input name="name" placeholder="Lashes" required /></div>
+              <div><Label>Category name</Label><Input name="name" placeholder="Lashes" required /></div>
               <div><Label>Patch test valid for (days)</Label><Input name="validityDays" type="number" defaultValue={180} /></div>
-              <div><Label>Min lead before appt (hours)</Label><Input name="minLeadHours" type="number" defaultValue={24} /></div>
               <div className="sm:col-span-2"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
             </form>
             {categories.length > 0 && (
@@ -96,7 +95,7 @@ export default async function ServicesPage() {
             {categories.length === 0 ? (
               <p className="text-sm text-ink-faint">You need at least one category before adding services.</p>
             ) : (
-              <ServiceForm categories={categories} fullSetOptions={fullSets} />
+              <ServiceForm categories={categories} />
             )}
           </CardContent>
         </Card>
@@ -126,7 +125,7 @@ export default async function ServicesPage() {
                 <span className="text-xs font-medium text-brand-400 group-open:hidden">Edit</span>
               </summary>
               <div className="border-t border-edge p-4">
-                <ServiceForm service={s} categories={categories} fullSetOptions={fullSets} />
+                <ServiceForm service={s} categories={categories} />
 
                 <div className="mt-4 border-t border-edge pt-4">
                   <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><ImagePlus className="h-4 w-4 text-brand-400" /> Photo on your booking page</p>

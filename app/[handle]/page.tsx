@@ -98,17 +98,31 @@ export default async function PublicBookingPage({
     addons = adds;
   }
 
-  // Signed URLs for service photos (menu view only).
+  // Signed URLs for service photos + opening hours (menu view only).
   const photoUrls = new Map<string, string>();
+  let openingHours: { label: string; value: string }[] = [];
   if (!selected) {
-    await Promise.all(
-      services
-        .filter((s) => s.photoPath)
-        .map(async (s) => {
-          const url = await signedPhotoUrl(s.photoPath!);
-          if (url) photoUrls.set(s.id, url);
-        }),
-    );
+    const [, hours] = await Promise.all([
+      Promise.all(
+        services
+          .filter((s) => s.photoPath)
+          .map(async (s) => {
+            const url = await signedPhotoUrl(s.photoPath!);
+            if (url) photoUrls.set(s.id, url);
+          }),
+      ),
+      listWorkingHours(sb, tech.id),
+    ]);
+    const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    // Monday-first display order
+    openingHours = [1, 2, 3, 4, 5, 6, 0].map((weekday) => {
+      const row = hours.find((h) => h.weekday === weekday);
+      return {
+        label: dayNames[weekday],
+        value: row?.enabled ? `${hhmm(row.startMinutes)} - ${hhmm(row.endMinutes)}` : "Closed",
+      };
+    });
   }
 
   const brand = tech.brandColor || "#db2777";
@@ -129,7 +143,24 @@ export default async function PublicBookingPage({
 
       <main className="mx-auto mt-8 max-w-2xl px-4">
         {!selected ? (
-          <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} photoUrls={photoUrls} />
+          <>
+            <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} photoUrls={photoUrls} />
+            {openingHours.some((d) => d.value !== "Closed") && (
+              <section className="card mt-8 p-5">
+                <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+                  <Clock className="h-4 w-4 text-brand-400" /> Opening hours
+                </h2>
+                <dl className="mt-3 space-y-1.5 text-sm">
+                  {openingHours.map((d) => (
+                    <div key={d.label} className="flex items-center justify-between">
+                      <dt className="text-ink-soft">{d.label}</dt>
+                      <dd className={d.value === "Closed" ? "text-ink-faint" : "font-medium"}>{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+          </>
         ) : (
           <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} questions={questions} addons={addons} />
         )}

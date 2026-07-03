@@ -22,13 +22,26 @@ interface BaseParams {
   notes?: string;
   /** Extras chosen at booking time; added to the price (deposit stays on the base service). */
   addons?: BookingAddon[];
+  /** Loyalty (or other) discount off the price. */
+  discountPennies?: number;
 }
 
-function amounts(service: Service, addons: BookingAddon[] = []) {
+function amounts(service: Service, addons: BookingAddon[] = [], discountPennies = 0) {
   const extras = addons.reduce((s, a) => s + a.pricePennies, 0);
-  const price = service.pricePennies + extras;
+  const price = Math.max(0, service.pricePennies + extras - discountPennies);
   const deposit = Math.min(depositFor(service), price);
   return { price, deposit, balance: Math.max(0, price - deposit) };
+}
+
+/** Loyalty discount in pennies for a client with `completedVisits` history. */
+export function loyaltyDiscountFor(
+  tech: Pick<Tech, "loyaltyVisitThreshold" | "loyaltyDiscountPct">,
+  completedVisits: number,
+  grossPennies: number,
+): number {
+  if (tech.loyaltyVisitThreshold <= 0 || tech.loyaltyDiscountPct <= 0) return 0;
+  if (completedVisits < tech.loyaltyVisitThreshold) return 0;
+  return Math.round((grossPennies * tech.loyaltyDiscountPct) / 100);
 }
 
 export type ManualPaymentTaken = "none" | "deposit" | "full";
@@ -49,6 +62,7 @@ export async function createConfirmedBooking({
   paymentMethod = "in_person",
   depositOverridePennies = null,
   addons = [],
+  discountPennies = 0,
 }: BaseParams & {
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
@@ -57,7 +71,7 @@ export async function createConfirmedBooking({
 }): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const base = amounts(service, addons);
+  const base = amounts(service, addons, discountPennies);
   const price = base.price;
   const deposit =
     depositOverridePennies !== null
@@ -87,6 +101,7 @@ export async function createConfirmedBooking({
     lashCurl: "",
     lashLength: "",
     addons,
+    discountPennies,
   });
 
   if (depositPaid) {
@@ -126,10 +141,11 @@ export async function createPendingOnlineBooking({
   isPatchTest = false,
   notes = "",
   addons = [],
+  discountPennies = 0,
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const { price, deposit, balance } = amounts(service, addons);
+  const { price, deposit, balance } = amounts(service, addons, discountPennies);
 
   return createBooking(sb, {
     techId: tech.id,
@@ -150,6 +166,7 @@ export async function createPendingOnlineBooking({
     lashCurl: "",
     lashLength: "",
     addons,
+    discountPennies,
   });
 }
 

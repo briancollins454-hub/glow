@@ -79,7 +79,9 @@ type ManagedTechField =
   | "connectDetailsSubmitted"
   | "resetTokenHash"
   | "resetTokenExpiresAt"
-  | "referredBy";
+  | "referredBy"
+  | "loyaltyVisitThreshold"
+  | "loyaltyDiscountPct";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;
@@ -122,7 +124,8 @@ export async function getService(sb: SB, id: string): Promise<Service | null> {
 }
 export async function createService(
   sb: SB,
-  s: Omit<Service, "id" | "createdAt" | "photoPath"> & Partial<Pick<Service, "photoPath">>,
+  s: Omit<Service, "id" | "createdAt" | "photoPath" | "aftercareText"> &
+    Partial<Pick<Service, "photoPath" | "aftercareText">>,
 ): Promise<Service> {
   const { data, error } = await sb.from("services").insert({ ...s, id: randomId("svc") }).select("*").single();
   return must(data as Service, error);

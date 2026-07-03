@@ -124,6 +124,8 @@ export async function updateSettingsAction(formData: FormData) {
     location: get("location"),
     defaultDepositPct: clampInt(get("defaultDepositPct"), 0, 100, tech.defaultDepositPct),
     cancellationWindowHours: clampInt(get("cancellationWindowHours"), 0, 336, tech.cancellationWindowHours),
+    loyaltyVisitThreshold: clampInt(get("loyaltyVisitThreshold"), 0, 100, tech.loyaltyVisitThreshold),
+    loyaltyDiscountPct: clampInt(get("loyaltyDiscountPct"), 0, 50, tech.loyaltyDiscountPct),
     noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
   });
   revalidatePath("/dashboard/settings");
@@ -214,6 +216,7 @@ export async function saveServiceAction(formData: FormData) {
     infillMaxGapDays: clampInt(String(formData.get("infillMaxGapDays") ?? "21"), 1, 365, 21),
     active: formData.get("active") === "on",
     sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
+    aftercareText: String(formData.get("aftercareText") ?? "").trim(),
   };
 
   if (!data.name || !data.categoryId) {
@@ -319,6 +322,15 @@ export async function setBookingStatusAction(formData: FormData) {
 
   const patch: Partial<typeof booking> = { status };
 
+  if (status === "completed" && booking!.status !== "completed") {
+    try {
+      const { sendAftercareEmail } = await import("@/lib/notify");
+      await sendAftercareEmail(sb, booking!);
+    } catch {
+      // Aftercare email is best-effort; completing the booking always succeeds.
+    }
+  }
+
   if (status === "no_show") {
     patch.depositStatus = booking!.depositStatus === "paid" ? "forfeited" : booking!.depositStatus;
     const client = await getClient(sb, booking!.clientId);
@@ -393,6 +405,11 @@ export async function addManualBookingAction(formData: FormData) {
   const depositRaw = String(formData.get("depositPounds") ?? "").trim();
   const depositOverridePennies = depositRaw === "" ? null : poundsToPennies(depositRaw);
 
+  // Loyalty reward applies to manual bookings too.
+  const { loyaltyDiscountFor } = await import("@/lib/bookings");
+  const completedVisits = existing.filter((b) => b.status === "completed").length;
+  const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies);
+
   await createConfirmedBooking({
     sb,
     tech,
@@ -403,6 +420,7 @@ export async function addManualBookingAction(formData: FormData) {
     paymentTaken,
     paymentMethod,
     depositOverridePennies,
+    discountPennies,
   });
 
   revalidatePath("/dashboard/bookings");
@@ -856,6 +874,7 @@ export async function importBookingsAction(formData: FormData) {
       lashCurl: "",
       lashLength: "",
       addons: [],
+      discountPennies: 0,
     });
     // Future imports get quiet reminders (24h etc.) but no confirmation email spam.
     if (!isPast && status === "confirmed") await rescheduleReminders(sb, booking);

@@ -55,6 +55,9 @@ export interface Tech {
   resetTokenExpiresAt: string | null;
   // Handle of the tech whose referral link brought this signup (if any)
   referredBy: string | null;
+  // Loyalty reward: after N completed visits, clients get X% off (0 = off)
+  loyaltyVisitThreshold: number;
+  loyaltyDiscountPct: number;
   createdAt: string;
 }
 
@@ -95,6 +98,8 @@ export interface Service {
   sortOrder: number;
   // Storage path of the service photo shown on the booking page
   photoPath: string | null;
+  // Aftercare instructions emailed to the client when the appointment completes
+  aftercareText: string;
   createdAt: string;
 }
 
@@ -181,6 +186,8 @@ export interface Booking {
   lashLength: string;
   // Extras chosen at booking time
   addons: BookingAddon[];
+  // Loyalty (or other) discount applied to the price
+  discountPennies: number;
   createdAt: string;
 }
 

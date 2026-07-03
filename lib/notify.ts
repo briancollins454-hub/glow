@@ -155,6 +155,60 @@ export async function notifyTechOfMessage(tech: Tech, client: Client, body: stri
   });
 }
 
+/**
+ * Aftercare email sent when an appointment is marked completed: the service's
+ * aftercare card plus a one-tap rebook button (infill if one exists).
+ */
+export async function sendAftercareEmail(
+  sb: SupabaseClient,
+  booking: Booking,
+): Promise<void> {
+  const [client, service, tech] = await Promise.all([
+    getClient(sb, booking.clientId),
+    getService(sb, booking.serviceId),
+    getTechById(sb, booking.techId),
+  ]);
+  if (!client?.email || !service || !tech) return;
+  if (!service.aftercareText.trim()) return;
+
+  // Prefer the matching infill service for the rebook button.
+  const { listServices } = await import("@/lib/db/queries");
+  const all = await listServices(sb, tech.id, { activeOnly: true });
+  const infill =
+    all.find((s) => s.isInfill && s.fullSetServiceId === service.id) ??
+    all.find((s) => s.isInfill && s.categoryId === service.categoryId);
+  const rebook = infill ?? service;
+  const rebookUrl = `${APP_URL}/${tech.handle}?service=${rebook.id}`;
+
+  const brand = tech.brandColor || "#db2777";
+  const biz = tech.businessName || "your beauty studio";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const aftercareHtml = service.aftercareText
+    .split(/\r?\n/)
+    .filter((l) => l.trim())
+    .map((l) => `<p style="margin:6px 0">${l}</p>`)
+    .join("");
+
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: `Your ${service.name} aftercare`,
+    bodyHtml:
+      `Hi ${name},<br/><br/>Thanks for coming in today! To keep your ${service.name.toLowerCase()} looking their best:` +
+      `<div style="margin-top:12px;padding:14px 16px;background:#faf6f3;border-radius:12px;color:#564a5e">${aftercareHtml}</div>` +
+      `<br/>Ready when you are - book your ${infill ? infill.name.toLowerCase() : "next appointment"} in a couple of taps.`,
+    buttonLabel: infill ? `Book ${infill.name}` : "Book again",
+    buttonUrl: rebookUrl,
+  });
+  await sendEmail({
+    to: client.email,
+    subject: `Aftercare for your ${service.name} + easy rebooking`,
+    html,
+    text: `Hi ${name}, aftercare for your ${service.name}:\n\n${service.aftercareText}\n\nBook your next appointment: ${rebookUrl}`,
+    idempotencyKey: `aftercare/${booking.id}`,
+  });
+}
+
 /** Render + send a reminder email via Resend, then record it. */
 export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Promise<void> {
   const booking = await getBooking(sb, reminder.bookingId);

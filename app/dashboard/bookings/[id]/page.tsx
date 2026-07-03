@@ -145,6 +145,9 @@ export default async function EditBookingPage({
             <Badge tone={booking.balanceStatus === "paid" ? "green" : "neutral"}>
               Balance {gbp(booking.balancePennies)} · {booking.balanceStatus}
             </Badge>
+            {booking.discountPennies > 0 && (
+              <Badge tone="purple">Loyalty discount -{gbp(booking.discountPennies)}</Badge>
+            )}
           </div>
 
           {depositOutstanding || balanceOutstanding ? (

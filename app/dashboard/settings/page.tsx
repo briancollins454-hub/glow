@@ -72,6 +72,31 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Loyalty reward</CardTitle>
+            <CardDescription>
+              Thank your regulars automatically: after a number of completed visits, they get a
+              discount on every booking. Set visits to 0 to switch it off.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="loyaltyVisitThreshold">After how many visits?</Label>
+              <Input id="loyaltyVisitThreshold" name="loyaltyVisitThreshold" type="number" min={0} max={100} defaultValue={tech.loyaltyVisitThreshold} />
+            </div>
+            <div>
+              <Label htmlFor="loyaltyDiscountPct">Discount (%)</Label>
+              <Input id="loyaltyDiscountPct" name="loyaltyDiscountPct" type="number" min={0} max={50} defaultValue={tech.loyaltyDiscountPct} />
+            </div>
+            {tech.loyaltyVisitThreshold > 0 && tech.loyaltyDiscountPct > 0 && (
+              <p className="text-xs text-ink-faint sm:col-span-2">
+                Currently: clients with {tech.loyaltyVisitThreshold}+ completed visits get {tech.loyaltyDiscountPct}% off automatically.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end"><Button type="submit">Save settings</Button></div>
       </form>
 

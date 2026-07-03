@@ -20,7 +20,7 @@ import {
 } from "@/lib/db/queries";
 import type { BookingAddon, FormAnswer } from "@/lib/db/types";
 import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
-import { createConfirmedBooking, createPendingOnlineBooking } from "@/lib/bookings";
+import { createConfirmedBooking, createPendingOnlineBooking, loyaltyDiscountFor } from "@/lib/bookings";
 import { createDepositCheckout } from "@/lib/payments";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 
@@ -95,6 +95,11 @@ export async function createPublicBookingAction(formData: FormData) {
     .filter((a) => formData.get(`addon_${a.id}`) === "on")
     .map((a) => ({ name: a.name, pricePennies: a.pricePennies }));
 
+  // Loyalty reward: returning clients past the visit threshold get their discount.
+  const completedVisits = priorBookings.filter((b) => b.status === "completed").length;
+  const gross = service!.pricePennies + addons.reduce((s, a) => s + a.pricePennies, 0);
+  const discountPennies = loyaltyDiscountFor(tech!, completedVisits, gross);
+
   // Collect consultation answers (if the tech has questions).
   const questions = await listQuestions(sb, tech!.id, { activeOnly: true });
   const answers: FormAnswer[] = questions
@@ -117,6 +122,7 @@ export async function createPublicBookingAction(formData: FormData) {
       client,
       startIso: slotIso,
       addons,
+      discountPennies,
     });
     await saveAnswers(pending.id);
     const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
@@ -130,6 +136,7 @@ export async function createPublicBookingAction(formData: FormData) {
     client,
     startIso: slotIso,
     addons,
+    discountPennies,
   });
   await saveAnswers(booking.id);
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);

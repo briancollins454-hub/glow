@@ -6,11 +6,9 @@ import type { Service, ServiceCategory } from "@/lib/db/types";
 export function ServiceForm({
   service,
   categories,
-  fullSetOptions,
 }: {
   service?: Service;
   categories: ServiceCategory[];
-  fullSetOptions: Service[];
 }) {
   const s = service;
   return (
@@ -56,28 +54,29 @@ export function ServiceForm({
       </div>
 
       <div>
-        <Label>Deposit type</Label>
+        <Label>Deposit</Label>
         <Select name="depositType" defaultValue={s?.depositType ?? "percent"}>
-          <option value="percent">Percentage</option>
-          <option value="fixed">Fixed amount</option>
+          <option value="fixed">Set amount (£)</option>
+          <option value="percent">Percentage of price (%)</option>
           <option value="none">No deposit</option>
         </Select>
       </div>
       <div>
-        <Label>Deposit value</Label>
+        <Label>Deposit amount</Label>
         <Input
           name="depositValue"
           type="text"
+          inputMode="decimal"
           defaultValue={
             s
               ? s.depositType === "fixed"
                 ? (s.depositValue / 100).toFixed(2)
                 : String(s.depositValue)
-              : "30"
+              : "15.00"
           }
-          placeholder="30 (%) or 15.00 (£)"
+          placeholder="15.00"
         />
-        <p className="mt-1 text-xs text-ink-faint">Enter a % for percentage, or £ for fixed.</p>
+        <p className="mt-1 text-xs text-ink-faint">e.g. 15.00 for £15, or 30 if you chose percentage.</p>
       </div>
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
@@ -93,19 +92,20 @@ export function ServiceForm({
       <div>
         <Label>Infill window (max days since last)</Label>
         <Input name="infillMaxGapDays" type="number" min={1} max={365} defaultValue={s?.infillMaxGapDays ?? 21} />
+        <p className="mt-1 text-xs text-ink-faint">Only used when this is an infill service.</p>
       </div>
-      <div>
-        <Label>Linked full set (for infills)</Label>
-        <Select name="fullSetServiceId" defaultValue={s?.fullSetServiceId ?? ""}>
-          <option value="">- same category, any full set -</option>
-          {fullSetOptions
-            .filter((o) => o.id !== s?.id)
-            .map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-        </Select>
+      {s?.fullSetServiceId && <input type="hidden" name="fullSetServiceId" value={s.fullSetServiceId} />}
+
+      <div className="sm:col-span-2">
+        <Label>Aftercare instructions (emailed after the appointment)</Label>
+        <Textarea
+          name="aftercareText"
+          defaultValue={s?.aftercareText}
+          placeholder="e.g. Keep lashes dry for 24 hours. No oil-based products. Brush daily with the spoolie provided…"
+        />
+        <p className="mt-1 text-xs text-ink-faint">
+          When you mark an appointment completed, the client gets this by email with a one-tap rebook button. Leave blank to skip.
+        </p>
       </div>
 
       <div className="flex items-center justify-between sm:col-span-2">
