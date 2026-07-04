@@ -68,7 +68,7 @@ export default function HomePage() {
       <section className="container-page grid items-center gap-12 py-12 lg:grid-cols-2 lg:py-20">
         <div className="animate-fade-in">
           <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-medium text-brand-300">
-            <Sparkles className="h-4 w-4" /> Built for solo beauty techs
+            <Sparkles className="h-4 w-4" /> Built for beauty techs
           </span>
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-6xl">
             Your booking page, your rules.{" "}
@@ -142,7 +142,7 @@ export default function HomePage() {
       <section className="container-page py-12 lg:py-16">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-display text-3xl font-semibold">
-            Everything a solo tech actually needs
+            Everything a beauty tech actually needs
           </h2>
           <p className="mt-3 text-ink-soft">
             The big platforms bolt this on or charge extra. Here it is the whole
@@ -247,7 +247,7 @@ export default function HomePage() {
       </section>
 
       <footer className="container-page flex flex-col items-center justify-between gap-3 border-t border-edge py-8 text-sm text-ink-faint sm:flex-row">
-        <p>© {new Date().getFullYear()} Glow. Made for solo beauty techs.</p>
+        <p>© {new Date().getFullYear()} Glow. Made for beauty techs.</p>
         <nav className="flex items-center gap-4">
           <Link href="/bellarose" className="hover:text-ink">Live demo</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>

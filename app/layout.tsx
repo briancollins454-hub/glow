@@ -17,7 +17,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: "Glow - booking for solo beauty techs",
+    default: "Glow - booking for beauty techs",
     template: "%s | Glow",
   },
   description:
@@ -29,19 +29,19 @@ export const metadata: Metadata = {
     "brow tech booking",
     "booking deposits",
     "no-show protection",
-    "solo beauty techs",
+    "beauty techs",
   ],
   openGraph: {
     type: "website",
     siteName: "Glow",
-    title: "Glow - booking for solo beauty techs",
+    title: "Glow - booking for beauty techs",
     description:
       "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
     url: APP_URL,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Glow - booking for solo beauty techs",
+    title: "Glow - booking for beauty techs",
     description:
       "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
   },
