@@ -39,8 +39,8 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-2 text-lg font-semibold text-ink">3. Subscriptions and fees</h2>
             <p>
-              Glow is offered on a subscription basis (monthly or annual) with an introductory
-              trial as described at checkout. We take no commission on your bookings. Client
+              Glow is offered on a subscription basis (monthly or annual) with any introductory
+              offer as described at checkout. We take no commission on your bookings. Client
               payments (deposits and balances) go directly to your own Stripe account; Stripe&apos;s
               own card processing fees apply and are set by Stripe, not us. You can cancel your
               subscription at any time from Billing; access continues until the end of the paid

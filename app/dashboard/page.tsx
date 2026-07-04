@@ -59,11 +59,11 @@ export default async function DashboardOverview() {
           <div className="flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Sparkles className="h-5 w-5" /></span>
             <div>
-              <p className="font-semibold text-brand-300">Go live - start your £2 trial</p>
-              <p className="text-sm text-brand-300/80">Your booking page won&apos;t take online bookings until you start a plan. £2 for 14 days, then £19/mo. Cancel anytime.</p>
+              <p className="font-semibold text-brand-300">Go live - 50% off your first month</p>
+              <p className="text-sm text-brand-300/80">Your booking page won&apos;t take online bookings until you start a plan. £19/mo, half price for your first month. Cancel anytime.</p>
             </div>
           </div>
-          <ButtonLink href="/dashboard/billing" size="sm">Start trial</ButtonLink>
+          <ButtonLink href="/dashboard/billing" size="sm">Go live</ButtonLink>
         </div>
       )}
 

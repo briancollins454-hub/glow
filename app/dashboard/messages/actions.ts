@@ -31,7 +31,7 @@ export async function sendMessageAction(clientId: string, body: string): Promise
   if (!ctx) return { ok: false, error: "Not signed in" };
   const { sb, tech } = ctx;
   if (!isLive(tech)) {
-    return { ok: false, error: "Messaging needs an active plan. Start your trial in Billing to reply to clients." };
+    return { ok: false, error: "Messaging needs an active plan. Subscribe in Billing to reply to clients." };
   }
   const client = await getClient(sb, clientId);
   if (!client) return { ok: false, error: "Client not found" };

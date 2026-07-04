@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
-import { PRICES } from "@/lib/stripe";
+import { PRICES, ensureCoupon, type OfferId } from "@/lib/stripe";
 import { supabaseService } from "@/lib/supabase/service";
 import {
   getTechByConnectAccountId,
@@ -64,14 +64,14 @@ export async function POST(request: Request) {
           });
         }
 
-        // The subscription is simply the chosen plan (£19/mo or £180/yr) with a
-        // 14-day trial, so the portal shows a clean "£19/month, trial ends X".
-        // The £2 is taken as a separate one-time charge now (no proration).
+        // Subscription starts immediately at the plan price, with the intro
+        // offer (50% off first month, or £1 tester offer) as a one-off coupon
+        // on the first invoice. An explicit promo code takes priority.
         const planPrice = plan === "annual" ? PRICES.annual : PRICES.monthly;
 
-        // Apply a promo code (e.g. FOUNDER50) if one was entered at checkout.
-        let discounts: { promotion_code: string }[] | undefined;
+        let discounts: ({ promotion_code: string } | { coupon: string })[] | undefined;
         const promo = session.metadata?.promo;
+        const offer = session.metadata?.offer as OfferId | "" | undefined;
         if (promo) {
           try {
             const codes = await s.promotionCodes.list({ code: promo, active: true, limit: 1 });
@@ -80,33 +80,21 @@ export async function POST(request: Request) {
             console.error("[stripe webhook] promo lookup failed:", (err as Error).message);
           }
         }
+        if (!discounts && offer) {
+          try {
+            discounts = [{ coupon: await ensureCoupon(s, offer) }];
+          } catch (err) {
+            console.error("[stripe webhook] offer coupon failed:", (err as Error).message);
+          }
+        }
 
         const subscription = await s.subscriptions.create({
           customer: customerId,
           items: [{ price: planPrice }],
-          trial_period_days: 14,
           default_payment_method: pm ?? undefined,
           discounts,
           metadata: { techId, plan },
         });
-
-        // £2 trial fee, charged immediately as a one-off.
-        if (pm) {
-          try {
-            await s.paymentIntents.create({
-              amount: 200,
-              currency: "gbp",
-              customer: customerId,
-              payment_method: pm,
-              off_session: true,
-              confirm: true,
-              description: "Glow - £2 for your first 14 days",
-              metadata: { techId, kind: "trial_fee" },
-            });
-          } catch (err) {
-            console.error("[stripe webhook] trial fee charge failed:", (err as Error).message);
-          }
-        }
 
         await updateTech(sb, techId, {
           subscriptionStatus: mapStatus(subscription.status),

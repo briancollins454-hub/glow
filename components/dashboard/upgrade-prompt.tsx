@@ -10,13 +10,13 @@ export function UpgradePrompt({ feature }: { feature: string }) {
       </span>
       <h2 className="font-display text-xl font-semibold">{feature} is a plan feature</h2>
       <p className="max-w-sm text-sm text-ink-soft">
-        Start your £2 14-day trial to unlock {feature.toLowerCase()} and take live bookings. Cancel anytime - no commission, ever.
+        Subscribe to unlock {feature.toLowerCase()} and take live bookings - 50% off your first month. Cancel anytime, no commission ever.
       </p>
       <Link
         href="/dashboard/billing"
         className="mt-1 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
       >
-        <Sparkles className="h-4 w-4" /> Start free trial
+        <Sparkles className="h-4 w-4" /> See plans
       </Link>
     </div>
   );

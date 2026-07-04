@@ -73,7 +73,7 @@ export async function processDueOnboardingEmails(sb: SupabaseClient): Promise<nu
             `Your page <strong>${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}</strong> is one or two steps from taking bookings:` +
             `<br/><br/>` +
             `${(serviceCount ?? 0) === 0 ? `&bull; Add at least one service<br/>` : ""}` +
-            `${!live ? `&bull; Start your trial so clients can book online<br/>` : ""}` +
+            `${!live ? `&bull; Start your plan so clients can book online (50% off your first month)<br/>` : ""}` +
             `<br/>It takes about five minutes. Reply to this email if you're stuck and a human will help.`,
           buttonLabel: "Finish setting up",
           buttonUrl: `${APP_URL}/dashboard`,

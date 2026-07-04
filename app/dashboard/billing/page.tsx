@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { CheckCircle2, CreditCard, Sparkles, Clock, Gift } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,6 +19,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const { status } = await searchParams;
   const live = isLive(tech);
   const configured = stripeConfigured();
+  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
 
   // RLS hides other techs' rows, so count referrals with the service client.
   const { supabaseService, serviceConfigured } = await import("@/lib/supabase/service");
@@ -39,7 +41,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
       {status === "started" && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          <CheckCircle2 className="h-4 w-4" /> Card saved - your trial is being activated. This can take a few seconds.
+          <CheckCircle2 className="h-4 w-4" /> Card saved - your subscription is being activated. This can take a few seconds.
+        </div>
+      )}
+      {isTester && !live && (
+        <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-300">
+          <strong>Tester offer active:</strong> your first month is £1 (monthly plan). Thanks for helping test Glow!
         </div>
       )}
       {status === "cancelled" && (
@@ -62,7 +69,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               <Button type="submit" variant="outline"><CreditCard className="h-4 w-4" /> Manage subscription</Button>
             </form>
           ) : (
-            <p className="text-sm text-ink-soft">Start your trial below to switch on online bookings and deposits.</p>
+            <p className="text-sm text-ink-soft">Subscribe below to switch on online bookings and deposits.</p>
           )}
         </CardContent>
       </Card>
@@ -82,6 +89,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               plan="monthly"
               configured={configured}
               highlight
+              note={isTester ? "First month £1" : "50% off first month"}
             />
             <PlanCard
               title="Annual"
@@ -93,7 +101,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             />
           </div>
           <p className="text-center text-xs text-ink-faint">
-            Both plans start with <strong>£2 for your first 14 days</strong>, then renew at the plan price. Cancel anytime.
+            {isTester
+              ? "Tester offer: first month £1, then £19/mo. Cancel anytime."
+              : "50% off your first month on the monthly plan, then £19/mo. Cancel anytime."}
           </p>
         </>
       )}
@@ -138,9 +148,9 @@ function PlanCard({ title, price, cadence, plan, configured, highlight, note }: 
         <input type="hidden" name="plan" value={plan} />
         <div>
           <Label>Promo code (optional)</Label>
-          <Input name="promo" placeholder="e.g. FOUNDER50" />
+          <Input name="promo" placeholder="Have a code?" />
         </div>
-        <Button type="submit" className="w-full" disabled={!configured}>Start £2 trial</Button>
+        <Button type="submit" className="w-full" disabled={!configured}>Subscribe</Button>
       </form>
     </div>
   );
