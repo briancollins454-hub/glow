@@ -46,6 +46,12 @@ export const metadata: Metadata = {
       "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
   },
   robots: { index: true, follow: true },
+  // iPhone "Add to Home Screen": full-screen app experience with dark status bar.
+  appleWebApp: {
+    capable: true,
+    title: "Glow",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
