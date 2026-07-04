@@ -22,7 +22,7 @@ export default function TermsPage() {
             <h2 className="mb-2 text-lg font-semibold text-ink">1. Who we are</h2>
             <p>
               Glow (&quot;we&quot;, &quot;us&quot;) provides an online booking platform for self-employed
-              beauty professionals in the UK (&quot;you&quot;, the &quot;tech&quot;), available at glow-uk.com.
+              beauty professionals (&quot;you&quot;, the &quot;tech&quot;), available at glow-uk.com.
               These terms apply to your use of Glow as a business subscriber.
             </p>
           </section>

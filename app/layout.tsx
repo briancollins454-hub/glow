@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Glow",
   },
   description:
-    "A fee-free, branded booking platform for UK self-employed beauty techs. Deposits, no-show protection, patch-test tracking and infill timing rules built in.",
+    "A fee-free, branded booking platform for self-employed beauty techs. Deposits, no-show protection, patch-test tracking and infill timing rules built in.",
   keywords: [
     "beauty booking system",
     "lash tech booking",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     "brow tech booking",
     "booking deposits",
     "no-show protection",
-    "UK beauty techs",
+    "solo beauty techs",
   ],
   openGraph: {
     type: "website",

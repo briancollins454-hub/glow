@@ -78,7 +78,7 @@ export default function HomePage() {
           </h1>
           <p className="mt-5 max-w-xl text-lg text-ink-soft">
             Glow is the booking system made for self-employed lash, nail and brow
-            techs in the UK. Deposits, patch tests, infill timing and reminders
+            techs. Deposits, patch tests, infill timing and reminders
             built in - without a marketplace taking a cut of your clients.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -247,7 +247,7 @@ export default function HomePage() {
       </section>
 
       <footer className="container-page flex flex-col items-center justify-between gap-3 border-t border-edge py-8 text-sm text-ink-faint sm:flex-row">
-        <p>© {new Date().getFullYear()} Glow. Made for UK beauty techs.</p>
+        <p>© {new Date().getFullYear()} Glow. Made for solo beauty techs.</p>
         <nav className="flex items-center gap-4">
           <Link href="/bellarose" className="hover:text-ink">Live demo</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>
