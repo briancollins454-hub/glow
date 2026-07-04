@@ -27,9 +27,18 @@ export default async function BookingsPage() {
   const clientById = new Map(clients.map((c) => [c.id, c.name]));
   const serviceById = new Map(services.map((s) => [s.id, s.name]));
 
-  const upcoming = bookings.filter((b) => new Date(b.startIso).getTime() >= now && b.status !== "cancelled");
+  const todayStr = fmtDate(new Date().toISOString());
+  const notCancelled = bookings.filter((b) => b.status !== "cancelled");
+  const today = notCancelled.filter((b) => fmtDate(b.startIso) === todayStr);
+  const upcoming = notCancelled.filter(
+    (b) => new Date(b.startIso).getTime() >= now && fmtDate(b.startIso) !== todayStr,
+  );
   const past = bookings
-    .filter((b) => new Date(b.startIso).getTime() < now || b.status === "cancelled")
+    .filter(
+      (b) =>
+        (new Date(b.startIso).getTime() < now || b.status === "cancelled") &&
+        fmtDate(b.startIso) !== todayStr,
+    )
     .reverse();
 
   const row = (b: Booking, muted?: boolean) => (
@@ -115,6 +124,17 @@ export default async function BookingsPage() {
           </form>
         </div>
       </details>
+
+      <Card className="ring-1 ring-brand-500/30">
+        <CardHeader>
+          <CardTitle>Today&apos;s plan ({today.length})</CardTitle>
+          <CardDescription>{todayStr}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {today.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">Nothing booked today.</p>}
+          {[...today].sort((a, b) => a.startIso.localeCompare(b.startIso)).map((b) => row(b))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

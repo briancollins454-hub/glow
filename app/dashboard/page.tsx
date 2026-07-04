@@ -106,10 +106,10 @@ export default async function DashboardOverview() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={CalendarDays} label="Today" value={String(todayCount)} hint="appointments" tone="brand" />
-        <StatCard icon={Clock3} label="Upcoming" value={String(upcoming.length)} hint="booked ahead" tone="blue" />
-        <StatCard icon={PoundSterling} label="Income this month" value={gbp(monthIncome)} hint="deposits + balances" tone="green" />
-        <StatCard icon={TrendingUp} label="Outstanding" value={gbp(outstanding)} hint="balances due" tone="amber" />
+        <StatCard icon={CalendarDays} label="Today" value={String(todayCount)} hint="appointments" tone="brand" href="/dashboard/bookings" />
+        <StatCard icon={Clock3} label="Upcoming" value={String(upcoming.length)} hint="booked ahead" tone="blue" href="/dashboard/bookings" />
+        <StatCard icon={PoundSterling} label="Income this month" value={gbp(monthIncome)} hint="deposits + balances" tone="green" href="/dashboard/reports" />
+        <StatCard icon={TrendingUp} label="Outstanding" value={gbp(outstanding)} hint="balances due" tone="amber" href="/dashboard/bookings" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -166,15 +166,15 @@ export default async function DashboardOverview() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, hint, tone }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint: string; tone: "brand" | "blue" | "green" | "amber"; }) {
+function StatCard({ icon: Icon, label, value, hint, tone, href }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint: string; tone: "brand" | "blue" | "green" | "amber"; href: string; }) {
   const tones = { brand: "bg-brand-500/15 text-brand-300", blue: "bg-sky-500/15 text-sky-300", green: "bg-emerald-500/15 text-emerald-300", amber: "bg-amber-500/15 text-amber-300" };
   return (
-    <Card className="p-5">
+    <Link href={href} className="card block p-5 transition hover:shadow-card hover:ring-1 hover:ring-brand-500/40">
       <span className={`grid h-10 w-10 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-5 w-5" /></span>
       <p className="mt-3 text-2xl font-semibold">{value}</p>
       <p className="text-sm font-medium">{label}</p>
       <p className="text-xs text-ink-faint">{hint}</p>
-    </Card>
+    </Link>
   );
 }
 
