@@ -139,10 +139,13 @@ export function checkPatchTest(
     (p) => p.categoryId === service.categoryId && p.result !== "fail",
   );
 
-  // A test is valid if it passed and hasn't expired by the appointment date.
+  // A test is valid if it passed, happened far enough before the appointment,
+  // and hasn't expired by the appointment date.
   const valid = tests.find((p) => {
     const expires = new Date(p.expiresAtIso).getTime();
-    return expires >= apptMs && p.result === "pass";
+    const performed = new Date(p.performedAtIso).getTime();
+    const minLeadMs = (ctx.category?.patchTestMinLeadHours ?? 0) * 60 * 60 * 1000;
+    return expires >= apptMs && p.result === "pass" && performed + minLeadMs <= apptMs;
   });
 
   if (valid) {

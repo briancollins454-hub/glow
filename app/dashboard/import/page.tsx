@@ -3,6 +3,7 @@ import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput } from "lucide
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ImportPreview } from "@/components/dashboard/import-preview";
 import { importClientsAction, importServicesAction, importBookingsAction } from "../actions";
 
 const fileInputClass =
@@ -56,9 +57,10 @@ export default async function ImportPage({
         </CardHeader>
         <CardContent>
           <form action={importServicesAction} className="flex flex-wrap items-center gap-3">
-            <input type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
+            <input id="servicesCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
             <SubmitButton variant="secondary" pendingLabel="Importing…">Import services</SubmitButton>
           </form>
+          <ImportPreview inputId="servicesCsv" kind="services" />
         </CardContent>
       </Card>
 
@@ -73,9 +75,10 @@ export default async function ImportPage({
         <CardContent>
           <form action={importClientsAction} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="back" value="/dashboard/import" />
-            <input type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
+            <input id="clientsCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
             <SubmitButton variant="secondary" pendingLabel="Importing…">Import clients</SubmitButton>
           </form>
+          <ImportPreview inputId="clientsCsv" kind="clients" />
         </CardContent>
       </Card>
 
@@ -91,9 +94,10 @@ export default async function ImportPage({
         </CardHeader>
         <CardContent>
           <form action={importBookingsAction} className="flex flex-wrap items-center gap-3">
-            <input type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
+            <input id="appointmentsCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
             <SubmitButton variant="secondary" pendingLabel="Importing…">Import appointments</SubmitButton>
           </form>
+          <ImportPreview inputId="appointmentsCsv" kind="appointments" />
         </CardContent>
       </Card>
 

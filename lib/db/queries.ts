@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomId } from "@/lib/utils";
 import type {
+  AccountClosureRequest,
+  AuditEvent,
   Booking,
   Client,
   ClientPhoto,
@@ -62,6 +64,12 @@ export async function getTechByConnectAccountId(sb: SB, accountId: string): Prom
   if (error) throw new Error(error.message);
   return data as Tech | null;
 }
+export async function getTechByCalendarToken(sb: SB, token: string): Promise<Tech | null> {
+  if (!token) return null;
+  const { data, error } = await sb.from("techs").select("*").eq("calendarToken", token).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Tech | null;
+}
 export async function getTechByResetTokenHash(sb: SB, tokenHash: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("resetTokenHash", tokenHash).maybeSingle();
   if (error) throw new Error(error.message);
@@ -81,7 +89,10 @@ type ManagedTechField =
   | "resetTokenExpiresAt"
   | "referredBy"
   | "loyaltyVisitThreshold"
-  | "loyaltyDiscountPct";
+  | "loyaltyDiscountPct"
+  | "calendarToken"
+  | "closureRequestedAt"
+  | "closureReason";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;
@@ -365,6 +376,10 @@ export async function listClientPhotos(sb: SB, clientId: string): Promise<Client
   const { data, error } = await sb.from("client_photos").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
   return must(data as ClientPhoto[], error) ?? [];
 }
+export async function listClientPhotosForTech(sb: SB, techId: string): Promise<ClientPhoto[]> {
+  const { data, error } = await sb.from("client_photos").select("*").eq("techId", techId).order("createdAt", { ascending: false });
+  return must(data as ClientPhoto[], error) ?? [];
+}
 export async function createClientPhoto(sb: SB, p: Omit<ClientPhoto, "id" | "createdAt">): Promise<ClientPhoto> {
   const { data, error } = await sb.from("client_photos").insert({ ...p, id: randomId("ph") }).select("*").single();
   return must(data as ClientPhoto, error);
@@ -402,6 +417,10 @@ export async function formResponsesForClient(sb: SB, clientId: string): Promise<
   const { data, error } = await sb.from("form_responses").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
   return must(data as FormResponse[], error) ?? [];
 }
+export async function listFormResponsesForTech(sb: SB, techId: string): Promise<FormResponse[]> {
+  const { data, error } = await sb.from("form_responses").select("*").eq("techId", techId).order("createdAt", { ascending: false });
+  return must(data as FormResponse[], error) ?? [];
+}
 
 // ---------------- Messages ----------------
 export async function listMessagesForTech(sb: SB, techId: string): Promise<Message[]> {
@@ -436,4 +455,41 @@ export async function unreadCountForTech(sb: SB, techId: string): Promise<number
     .is("readAt", null);
   if (error) throw new Error(error.message);
   return count ?? 0;
+}
+
+// ---------------- Audit / compliance ----------------
+export async function createAuditEvent(
+  sb: SB,
+  event: Omit<AuditEvent, "id" | "createdAt">,
+): Promise<void> {
+  const { error } = await sb.from("audit_events").insert({ ...event, id: randomId("aud") });
+  if (error) throw new Error(error.message);
+}
+export async function listAuditEvents(sb: SB, techId: string): Promise<AuditEvent[]> {
+  const { data, error } = await sb
+    .from("audit_events")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as AuditEvent[], error) ?? [];
+}
+export async function createAccountClosureRequest(
+  sb: SB,
+  request: Omit<AccountClosureRequest, "id" | "requestedAt" | "completedAt" | "status"> &
+    Partial<Pick<AccountClosureRequest, "status" | "completedAt">>,
+): Promise<AccountClosureRequest> {
+  const { data, error } = await sb
+    .from("account_closure_requests")
+    .insert({ ...request, id: randomId("acr"), status: request.status ?? "requested", completedAt: request.completedAt ?? null })
+    .select("*")
+    .single();
+  return must(data as AccountClosureRequest, error);
+}
+export async function listAccountClosureRequests(sb: SB, techId: string): Promise<AccountClosureRequest[]> {
+  const { data, error } = await sb
+    .from("account_closure_requests")
+    .select("*")
+    .eq("techId", techId)
+    .order("requestedAt", { ascending: false });
+  return must(data as AccountClosureRequest[], error) ?? [];
 }

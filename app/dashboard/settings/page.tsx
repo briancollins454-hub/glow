@@ -1,10 +1,15 @@
-import { CheckCircle2, Copy, KeyRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, Download, KeyRound, ShieldAlert } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { updateSettingsAction, changePasswordAction } from "../actions";
+import {
+  changePasswordAction,
+  ensureCalendarTokenAction,
+  requestAccountClosureAction,
+  updateSettingsAction,
+} from "../actions";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -13,11 +18,14 @@ const PW_ERRORS: Record<string, string> = {
   failed: "Something went wrong. Please try again.",
 };
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string }> }) {
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string; calendar?: string; closure?: string }> }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { tech } = c;
-  const { saved, pw, pwerr } = await searchParams;
+  const { saved, pw, pwerr, calendar, closure } = await searchParams;
+  const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
 
   return (
     <div className="space-y-6">
@@ -27,6 +35,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </div>
 
       {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
+      {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
 
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
@@ -102,6 +112,41 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Calendar &amp; data</CardTitle>
+          <CardDescription>Private calendar sync plus full data portability for GDPR/support requests.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-xl border border-edge bg-cream p-4">
+            <p className="font-medium">Private calendar feed</p>
+            <p className="mt-1 text-sm text-ink-soft">
+              Subscribe from Apple Calendar, Google Calendar or Outlook to see confirmed appointments.
+            </p>
+            {calendarUrl ? (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Input readOnly value={calendarUrl} />
+                <ButtonLink href={calendarUrl} variant="outline">Open feed</ButtonLink>
+              </div>
+            ) : (
+              <form action={ensureCalendarTokenAction} className="mt-3">
+                <Button type="submit" variant="secondary">Create private feed</Button>
+              </form>
+            )}
+            <p className="mt-2 text-xs text-ink-faint">Anyone with this URL can read appointment titles and times. Keep it private.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/api/account/export" variant="outline">
+              <Download className="h-4 w-4" /> Download full account export
+            </ButtonLink>
+            <ButtonLink href="/api/reports/export" variant="outline">
+              <Download className="h-4 w-4" /> Download income CSV
+            </ButtonLink>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Change password</CardTitle>
           <CardDescription>Use at least 8 characters. You&apos;ll stay logged in on this device.</CardDescription>
         </CardHeader>
@@ -121,6 +166,26 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <div><Label htmlFor="next">New password</Label><Input id="next" name="next" type="password" required minLength={8} /></div>
             <div><Label htmlFor="confirm">Confirm new password</Label><Input id="confirm" name="confirm" type="password" required minLength={8} /></div>
             <div className="sm:col-span-3"><Button type="submit" variant="secondary">Update password</Button></div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-red-400">Close account</CardTitle>
+          <CardDescription>
+            Records a closure request for support review. Download your full export first if you need a copy.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={requestAccountClosureAction} className="space-y-3">
+            <div>
+              <Label>Reason / anything support should know</Label>
+              <Textarea name="reason" placeholder="Optional" />
+            </div>
+            <Button type="submit" variant="danger">
+              <ShieldAlert className="h-4 w-4" /> Request account closure
+            </Button>
           </form>
         </CardContent>
       </Card>

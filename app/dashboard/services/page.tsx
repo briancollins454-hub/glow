@@ -55,10 +55,11 @@ export default async function ServicesPage() {
             <CardDescription>Categories hold patch-test defaults (e.g. Lashes, Brows).</CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={addCategoryAction} className="grid gap-3 sm:grid-cols-2">
+            <form action={addCategoryAction} className="grid gap-3 sm:grid-cols-3">
               <div><Label>Category name</Label><Input name="name" placeholder="Lashes" required /></div>
               <div><Label>Patch test valid for (days)</Label><Input name="validityDays" type="number" defaultValue={180} /></div>
-              <div className="sm:col-span-2"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
+              <div><Label>Minimum lead time (hours)</Label><Input name="minLeadHours" type="number" min={0} defaultValue={24} /></div>
+              <div className="sm:col-span-3"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
             </form>
             {categories.length > 0 && (
               <div className="mt-4 space-y-2">

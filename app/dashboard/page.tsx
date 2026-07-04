@@ -5,6 +5,7 @@ import {
   Clock3,
   AlertTriangle,
   ArrowRight,
+  Lightbulb,
   TrendingUp,
 } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -17,6 +18,7 @@ import { statusBadge } from "@/components/dashboard/status";
 import { isLive } from "@/lib/subscriptions";
 import { isPaymentsReady } from "@/lib/subscriptions";
 import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
+import { buildBusinessInsights, type BusinessInsight } from "@/lib/insights";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
@@ -53,6 +55,7 @@ export default async function DashboardOverview() {
     .reduce((sum, b) => sum + b.balancePennies, 0);
   const blacklisted = clients.filter((c) => c.isBlacklisted).length;
   const noShows = bookings.filter((b) => b.status === "no_show").length;
+  const insights = buildBusinessInsights({ bookings, clients, payments, services });
 
   const live = isLive(tech);
   const setupSteps: SetupStep[] = [
@@ -111,6 +114,21 @@ export default async function DashboardOverview() {
         <StatCard icon={PoundSterling} label="Income this month" value={gbp(monthIncome)} hint="deposits + balances" tone="green" href="/dashboard/reports" />
         <StatCard icon={TrendingUp} label="Outstanding" value={gbp(outstanding)} hint="balances due" tone="amber" href="/dashboard/bookings" />
       </div>
+
+      {insights.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-brand-400" /> Smart admin prompts
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            {insights.map((insight) => (
+              <InsightCard key={insight.title} insight={insight} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -191,6 +209,24 @@ function QuickLink({ href, label }: { href: string; label: string }) {
   return (
     <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1.5 text-ink-soft hover:bg-white/[0.06] hover:text-ink">
       {label} <ArrowRight className="h-4 w-4" />
+    </Link>
+  );
+}
+
+function InsightCard({ insight }: { insight: BusinessInsight }) {
+  const tones = {
+    brand: "border-brand-500/30 bg-brand-500/10 text-brand-300",
+    amber: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    green: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    red: "border-red-500/30 bg-red-500/10 text-red-300",
+  };
+  return (
+    <Link href={insight.href} className={`rounded-xl border p-4 transition hover:shadow-card ${tones[insight.tone]}`}>
+      <p className="font-semibold">{insight.title}</p>
+      <p className="mt-1 text-sm text-ink-soft">{insight.body}</p>
+      <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium">
+        Open <ArrowRight className="h-4 w-4" />
+      </span>
     </Link>
   );
 }

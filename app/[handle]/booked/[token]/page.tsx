@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, CalendarHeart, CreditCard, Clock } from "lucide-react";
+import { CalendarPlus, CheckCircle2, CalendarHeart, CreditCard, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle } from "@/lib/db/queries";
 import { confirmCheckoutPaid } from "@/lib/payments";
 import { applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
+import { cancelClientBookingAction } from "./actions";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -14,10 +15,10 @@ export default async function BookedPage({
   searchParams,
 }: {
   params: Promise<{ handle: string; token: string }>;
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; cancelled?: string }>;
 }) {
   const { handle, token } = await params;
-  const { session_id } = await searchParams;
+  const { session_id, cancelled } = await searchParams;
   const sb = supabaseService();
   const [tech, initialBooking] = await Promise.all([
     getTechByHandle(sb, handle),
@@ -38,6 +39,11 @@ export default async function BookedPage({
   const service = await getService(sb, booking.serviceId);
   const brand = tech.brandColor || "#db2777";
   const awaitingDeposit = booking.status === "pending" && booking.depositPennies > 0;
+  const canSelfCancel =
+    booking.status !== "cancelled" &&
+    booking.status !== "completed" &&
+    booking.status !== "no_show" &&
+    new Date(booking.startIso).getTime() > Date.now();
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
@@ -68,10 +74,30 @@ export default async function BookedPage({
             <Row label="Total" value={gbp(booking.pricePennies)} />
             <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
             <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
-            {booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !awaitingDeposit && (
+            {(cancelled || booking.status === "cancelled") && (
+              <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-300">
+                <XCircle className="h-4 w-4" /> This booking has been cancelled.
+              </div>
+            )}
+            {booking.status !== "cancelled" && booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !awaitingDeposit && (
               <Link href={`/pay/${booking.balanceToken}`} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
                 <CreditCard className="h-4 w-4" /> Pay balance now (optional)
               </Link>
+            )}
+            <Link href={`/api/bookings/${booking.balanceToken}/calendar`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]">
+              <CalendarPlus className="h-4 w-4" /> Add to calendar
+            </Link>
+            {canSelfCancel && (
+              <form action={cancelClientBookingAction}>
+                <input type="hidden" name="handle" value={tech.handle} />
+                <input type="hidden" name="token" value={booking.balanceToken} />
+                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10">
+                  <XCircle className="h-4 w-4" /> Cancel booking
+                </button>
+                <p className="mt-2 text-center text-xs text-ink-faint">
+                  Cancellations inside {tech.cancellationWindowHours}h may forfeit your deposit.
+                </p>
+              </form>
             )}
             <Link href={`/${tech.handle}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]">Back to {tech.businessName}</Link>
           </div>
