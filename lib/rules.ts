@@ -119,13 +119,12 @@ export function checkPatchTest(
   if (!service.requiresPatchTest) {
     return { required: false, ok: true, reason: "No patch test required." };
   }
-  const minLeadH = ctx.category?.patchTestMinLeadHours ?? 24;
 
   if (!client) {
     return {
       required: true,
       ok: false,
-      reason: `A patch test is required at least ${minLeadH}h before this service.`,
+      reason: "A patch test is required before this service.",
       detail: "new_client",
     };
   }
@@ -135,11 +134,10 @@ export function checkPatchTest(
     (p) => p.categoryId === service.categoryId && p.result !== "fail",
   );
 
+  // A test is valid if it passed and hasn't expired by the appointment date.
   const valid = tests.find((p) => {
-    const performed = new Date(p.performedAtIso).getTime();
     const expires = new Date(p.expiresAtIso).getTime();
-    const leadOk = apptMs - performed >= minLeadH * 60 * 60 * 1000;
-    return leadOk && expires >= apptMs && p.result === "pass";
+    return expires >= apptMs && p.result === "pass";
   });
 
   if (valid) {
@@ -149,7 +147,7 @@ export function checkPatchTest(
   return {
     required: true,
     ok: false,
-    reason: `A valid patch test is required at least ${minLeadH}h before this service.`,
+    reason: "A valid patch test is required before this service.",
     detail: "no_valid_test",
   };
 }

@@ -58,7 +58,7 @@ const ERR: Record<string, string> = {
   slot: "Sorry, that time was just taken. Please pick another slot.",
   not_live: "This studio isn't accepting online bookings just yet. Please check back soon.",
   blocked: "We can't complete this booking online. Please contact the studio directly.",
-  patch: "This service needs a valid patch test on file at least 24-48h before your appointment. Please get in touch to arrange one first.",
+  patch: "This service needs a valid patch test on file. Please get in touch to arrange one first.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
 };
 
