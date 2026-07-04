@@ -45,6 +45,14 @@ const features = [
   },
 ];
 
+const COMPARISON = [
+  { label: "Commission on your bookings", glow: "0%, ever", others: "Up to 35% on new clients" },
+  { label: "Your clients shown competitors", glow: "Never - it's your page", others: "Marketplace promotes nearby rivals" },
+  { label: "Deposits & no-show protection", glow: "Built in", others: "Often paid add-ons" },
+  { label: "Patch tests & infill timing rules", glow: "Built for beauty techs", others: "Generic salon tools" },
+  { label: "Price", glow: "£19/mo flat, cancel anytime", others: "Subscriptions + fees + upsells" },
+];
+
 export default function HomePage() {
   return (
     <div className="min-h-screen">
@@ -167,8 +175,9 @@ export default function HomePage() {
           <h2 className="font-display text-3xl font-semibold">Why techs switch to Glow</h2>
           <p className="mt-3 text-ink-soft">No commission. No marketplace poaching your clients. One flat price.</p>
         </div>
-        <div className="card mt-10 overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
+        {/* Tablet/desktop: side-by-side table */}
+        <div className="card mt-10 hidden sm:block">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-edge text-left text-ink-faint">
                 <th className="p-4 font-medium"></th>
@@ -177,33 +186,34 @@ export default function HomePage() {
               </tr>
             </thead>
             <tbody className="[&_td]:p-4 [&_tr]:border-b [&_tr]:border-edge">
-              <tr>
-                <td className="text-ink-soft">Commission on your bookings</td>
-                <td className="font-semibold text-emerald-300">0%, ever</td>
-                <td className="text-ink-soft">Up to 35% on new clients</td>
-              </tr>
-              <tr>
-                <td className="text-ink-soft">Your clients shown competitors</td>
-                <td className="font-semibold text-emerald-300">Never - it&apos;s your page</td>
-                <td className="text-ink-soft">Marketplace promotes nearby rivals</td>
-              </tr>
-              <tr>
-                <td className="text-ink-soft">Deposits &amp; no-show protection</td>
-                <td className="font-semibold text-emerald-300">Built in</td>
-                <td className="text-ink-soft">Often paid add-ons</td>
-              </tr>
-              <tr>
-                <td className="text-ink-soft">Patch tests &amp; infill timing rules</td>
-                <td className="font-semibold text-emerald-300">Built for beauty techs</td>
-                <td className="text-ink-soft">Generic salon tools</td>
-              </tr>
-              <tr className="!border-b-0">
-                <td className="text-ink-soft">Price</td>
-                <td className="font-semibold text-emerald-300">£19/mo flat, cancel anytime</td>
-                <td className="text-ink-soft">Subscriptions + fees + upsells</td>
-              </tr>
+              {COMPARISON.map((row, i) => (
+                <tr key={row.label} className={i === COMPARISON.length - 1 ? "!border-b-0" : ""}>
+                  <td className="text-ink-soft">{row.label}</td>
+                  <td className="font-semibold text-emerald-300">{row.glow}</td>
+                  <td className="text-ink-soft">{row.others}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Phones: stacked cards, nothing to scroll sideways */}
+        <div className="mt-10 space-y-3 sm:hidden">
+          {COMPARISON.map((row) => (
+            <div key={row.label} className="card p-4">
+              <p className="text-sm font-medium text-ink">{row.label}</p>
+              <div className="mt-2.5 space-y-1.5 text-sm">
+                <p className="flex items-baseline justify-between gap-3">
+                  <span className="shrink-0 font-semibold text-brand-300">Glow</span>
+                  <span className="text-right font-semibold text-emerald-300">{row.glow}</span>
+                </p>
+                <p className="flex items-baseline justify-between gap-3">
+                  <span className="shrink-0 text-ink-faint">Marketplace apps</span>
+                  <span className="text-right text-ink-soft">{row.others}</span>
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
