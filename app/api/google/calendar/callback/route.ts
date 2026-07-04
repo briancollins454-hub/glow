@@ -1,0 +1,47 @@
+import { redirect } from "next/navigation";
+import { getDashboardContext } from "@/lib/auth/session";
+import { createAuditEvent, updateTech } from "@/lib/db/queries";
+import {
+  exchangeGoogleCode,
+  googleAccountEmail,
+  googleCalendarConfigured,
+  googleRedirectUri,
+} from "@/lib/google-calendar";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+export async function GET(request: Request) {
+  const c = await getDashboardContext();
+  if (!c) redirect("/login");
+  if (!googleCalendarConfigured()) redirect("/dashboard/settings?google=missing");
+
+  const url = new URL(request.url);
+  const error = url.searchParams.get("error");
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (error) redirect("/dashboard/settings?google=denied");
+  if (!code || state !== c.tech.id) redirect("/dashboard/settings?google=failed");
+
+  try {
+    const tokens = await exchangeGoogleCode({ code, redirectUri: googleRedirectUri(APP_URL) });
+    const email = await googleAccountEmail(tokens.access_token);
+    await updateTech(c.sb, c.tech.id, {
+      googleRefreshToken: tokens.refresh_token ?? c.tech.googleRefreshToken,
+      googleCalendarId: "primary",
+      googleCalendarEmail: email,
+      googleConnectedAt: new Date().toISOString(),
+    });
+    await createAuditEvent(c.sb, {
+      techId: c.tech.id,
+      actor: "tech",
+      action: "google_calendar_connected",
+      entityType: "tech",
+      entityId: c.tech.id,
+      metadata: { email },
+    });
+  } catch {
+    redirect("/dashboard/settings?google=failed");
+  }
+
+  redirect("/dashboard/settings?google=connected");
+}

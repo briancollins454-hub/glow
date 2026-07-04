@@ -92,7 +92,11 @@ type ManagedTechField =
   | "loyaltyDiscountPct"
   | "calendarToken"
   | "closureRequestedAt"
-  | "closureReason";
+  | "closureReason"
+  | "googleRefreshToken"
+  | "googleCalendarId"
+  | "googleCalendarEmail"
+  | "googleConnectedAt";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;
@@ -298,7 +302,10 @@ export async function bookingsForClient(sb: SB, techId: string, clientId: string
   const { data, error } = await sb.from("bookings").select("*").eq("techId", techId).eq("clientId", clientId).order("startIso");
   return must(data as Booking[], error) ?? [];
 }
-export async function createBooking(sb: SB, b: Omit<Booking, "id" | "createdAt">): Promise<Booking> {
+export async function createBooking(
+  sb: SB,
+  b: Omit<Booking, "id" | "createdAt" | "googleEventId"> & Partial<Pick<Booking, "googleEventId">>,
+): Promise<Booking> {
   const { data, error } = await sb.from("bookings").insert({ ...b, id: randomId("bk") }).select("*").single();
   return must(data as Booking, error);
 }

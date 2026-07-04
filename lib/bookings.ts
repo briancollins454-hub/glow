@@ -8,6 +8,7 @@ import {
 import { depositFor } from "@/lib/rules";
 import { sendReminder } from "@/lib/notify";
 import { randomToken } from "@/lib/utils";
+import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, Service, Tech } from "@/lib/db/types";
 
 const HOUR = 60 * 60 * 1000;
@@ -134,6 +135,11 @@ export async function createConfirmedBooking({
   }
 
   await scheduleReminders(sb, booking);
+  try {
+    await syncBookingToGoogle(sb, tech, booking);
+  } catch {
+    // Google Calendar sync is best-effort; booking creation remains source of truth.
+  }
   return booking;
 }
 
@@ -193,7 +199,14 @@ export async function applyDepositPaid(
     providerRef: paymentIntentId,
   });
   await updateBooking(sb, booking.id, { status: "confirmed", depositStatus: "paid" });
-  await scheduleReminders(sb, { ...booking, status: "confirmed", depositStatus: "paid" });
+  const confirmed = { ...booking, status: "confirmed" as const, depositStatus: "paid" as const };
+  await scheduleReminders(sb, confirmed);
+  try {
+    const { getTechById } = await import("@/lib/db/queries");
+    await syncBookingToGoogle(sb, await getTechById(sb, booking.techId), confirmed);
+  } catch {
+    // Calendar sync is best-effort.
+  }
 }
 
 /** Mark a balance paid (idempotent). */
@@ -246,6 +259,12 @@ export async function rescheduleReminders(sb: SupabaseClient, booking: Booking):
       preview: "",
       sentAtIso: null,
     });
+  }
+  try {
+    const { getTechById } = await import("@/lib/db/queries");
+    await syncBookingToGoogle(sb, await getTechById(sb, booking.techId), booking);
+  } catch {
+    // Calendar sync is best-effort.
   }
 }
 

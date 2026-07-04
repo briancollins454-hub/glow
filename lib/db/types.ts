@@ -63,6 +63,11 @@ export interface Tech {
   // Account closure / deletion request tracking.
   closureRequestedAt: string | null;
   closureReason: string;
+  // Direct Google Calendar sync for one-click setup.
+  googleRefreshToken: string | null;
+  googleCalendarId: string | null;
+  googleCalendarEmail: string | null;
+  googleConnectedAt: string | null;
   createdAt: string;
 }
 
@@ -197,6 +202,8 @@ export interface Booking {
   addons: BookingAddon[];
   // Loyalty (or other) discount applied to the price
   discountPennies: number;
+  // Google Calendar event created by direct sync, if connected.
+  googleEventId: string | null;
   createdAt: string;
 }
 

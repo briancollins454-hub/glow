@@ -42,6 +42,7 @@ import {
 } from "@/lib/db/queries";
 import { uploadPhoto, removePhoto } from "@/lib/storage";
 import { createConfirmedBooking } from "@/lib/bookings";
+import { deleteGoogleEventForBooking, syncBookingToGoogle } from "@/lib/google-calendar";
 import { refundOnConnect } from "@/lib/payments";
 import { processDueReminders } from "@/lib/scheduler";
 import type { PhotoKind } from "@/lib/db/types";
@@ -170,6 +171,19 @@ export async function requestAccountClosureAction(formData: FormData) {
   await audit(sb, tech.id, "account_closure_requested", "tech", tech.id, { reason });
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?closure=1");
+}
+
+export async function disconnectGoogleCalendarAction() {
+  const { sb, tech } = await ctx();
+  await updateTech(sb, tech.id, {
+    googleRefreshToken: null,
+    googleCalendarId: null,
+    googleCalendarEmail: null,
+    googleConnectedAt: null,
+  });
+  await audit(sb, tech.id, "google_calendar_disconnected", "tech", tech.id);
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?google=disconnected");
 }
 
 // ---------------- Availability ----------------
@@ -401,6 +415,11 @@ export async function setBookingStatusAction(formData: FormData) {
   }
 
   await updateBooking(sb, id, patch);
+  try {
+    await syncBookingToGoogle(sb, tech, { ...booking!, ...patch });
+  } catch {
+    // Google Calendar sync is best-effort.
+  }
   await audit(sb, tech.id, "booking_status_changed", "booking", id, {
     from: booking!.status,
     to: status,
@@ -593,6 +612,11 @@ export async function deleteBookingAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const booking = await getBooking(sb, id);
   if (booking && booking.techId === tech.id) {
+    try {
+      await deleteGoogleEventForBooking(tech, booking);
+    } catch {
+      // Google cleanup is best-effort.
+    }
     const { deleteBooking } = await import("@/lib/db/queries");
     await deleteBooking(sb, id);
     await audit(sb, tech.id, "booking_deleted", "booking", id, {

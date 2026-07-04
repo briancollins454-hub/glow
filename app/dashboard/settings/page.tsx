@@ -6,6 +6,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import {
   changePasswordAction,
+  disconnectGoogleCalendarAction,
   ensureCalendarTokenAction,
   requestAccountClosureAction,
   updateSettingsAction,
@@ -20,12 +21,21 @@ const PW_ERRORS: Record<string, string> = {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string; calendar?: string; closure?: string }> }) {
+const GOOGLE_MSG: Record<string, string> = {
+  connected: "Google Calendar connected. New bookings will sync automatically.",
+  disconnected: "Google Calendar disconnected.",
+  missing: "Google Calendar is not configured yet. Add Google OAuth credentials in the app environment.",
+  denied: "Google Calendar connection was cancelled.",
+  failed: "Google Calendar connection failed. Please try again.",
+};
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string; calendar?: string; closure?: string; google?: string }> }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { tech } = c;
-  const { saved, pw, pwerr, calendar, closure } = await searchParams;
+  const { saved, pw, pwerr, calendar, closure, google } = await searchParams;
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
+  const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
 
   return (
     <div className="space-y-6">
@@ -37,6 +47,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
       {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
       {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
+      {google && <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm ${google === "connected" ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}><CalendarDays className="h-4 w-4" /> {GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}</div>}
 
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
@@ -117,9 +128,30 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-xl border border-edge bg-cream p-4">
-            <p className="font-medium">Private calendar feed</p>
+            <p className="font-medium">Google Calendar</p>
             <p className="mt-1 text-sm text-ink-soft">
-              Subscribe from Apple Calendar, Google Calendar or Outlook to see confirmed appointments.
+              One click connects your diary. Glow will create, update and cancel Google Calendar events automatically.
+            </p>
+            {googleConnected ? (
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-emerald-300">
+                  Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
+                </p>
+                <form action={disconnectGoogleCalendarAction}>
+                  <Button type="submit" variant="outline" size="sm">Disconnect</Button>
+                </form>
+              </div>
+            ) : (
+              <ButtonLink href="/api/google/calendar/connect" className="mt-3">
+                Connect Google Calendar
+              </ButtonLink>
+            )}
+          </div>
+
+          <details className="rounded-xl border border-edge bg-cream p-4">
+            <summary className="cursor-pointer font-medium">Fallback: private iCal feed</summary>
+            <p className="mt-2 text-sm text-ink-soft">
+              Use this only if someone wants Apple/Outlook/iCal instead of direct Google sync.
             </p>
             {calendarUrl ? (
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -132,7 +164,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </form>
             )}
             <p className="mt-2 text-xs text-ink-faint">Anyone with this URL can read appointment titles and times. Keep it private.</p>
-          </div>
+          </details>
 
           <div className="flex flex-wrap gap-3">
             <ButtonLink href="/api/account/export" variant="outline">

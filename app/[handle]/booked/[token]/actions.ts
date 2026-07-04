@@ -10,6 +10,7 @@ import {
   skipScheduledReminders,
   updateBooking,
 } from "@/lib/db/queries";
+import { syncBookingToGoogle } from "@/lib/google-calendar";
 import { refundOnConnect } from "@/lib/payments";
 
 export async function cancelClientBookingAction(formData: FormData) {
@@ -45,6 +46,11 @@ export async function cancelClientBookingAction(formData: FormData) {
   }
 
   await updateBooking(sb, booking.id, patch);
+  try {
+    await syncBookingToGoogle(sb, tech, { ...booking, ...patch });
+  } catch {
+    // Google Calendar sync is best-effort.
+  }
   await skipScheduledReminders(sb, booking.id);
   try {
     await createAuditEvent(sb, {
