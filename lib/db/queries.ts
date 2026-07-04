@@ -211,13 +211,14 @@ export async function getClientByMessageToken(sb: SB, token: string): Promise<Cl
 }
 export async function createClient(
   sb: SB,
-  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken"> &
-    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken">>,
+  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip"> &
+    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip">>,
 ): Promise<Client> {
   const row = {
     noShowCount: 0,
     isBlacklisted: false,
     warningNote: "",
+    isVip: false,
     ...c,
     id: randomId("cli"),
   };
