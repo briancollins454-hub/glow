@@ -138,12 +138,14 @@ export async function saveAvailabilityAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const rows: WorkingHour[] = [];
   for (let weekday = 0; weekday <= 6; weekday++) {
+    const lastRaw = String(formData.get(`last_${weekday}`) ?? "").trim();
     rows.push({
       id: randomId("wh"),
       techId: tech.id,
       weekday,
       startMinutes: hhmmToMin(String(formData.get(`start_${weekday}`) ?? "09:00")),
       endMinutes: hhmmToMin(String(formData.get(`end_${weekday}`) ?? "17:00")),
+      lastStartMinutes: lastRaw ? hhmmToMin(lastRaw) : null,
       enabled: formData.get(`enabled_${weekday}`) === "on",
     });
   }
@@ -271,6 +273,7 @@ export async function updateClientAction(formData: FormData) {
       notes: String(formData.get("notes") ?? "").trim(),
       warningNote: String(formData.get("warningNote") ?? "").trim(),
       isBlacklisted: formData.get("isBlacklisted") === "on",
+      isVip: formData.get("isVip") === "on",
     });
   }
   revalidatePath(`/dashboard/clients/${id}`);
@@ -405,10 +408,10 @@ export async function addManualBookingAction(formData: FormData) {
   const depositRaw = String(formData.get("depositPounds") ?? "").trim();
   const depositOverridePennies = depositRaw === "" ? null : poundsToPennies(depositRaw);
 
-  // Loyalty reward applies to manual bookings too.
+  // Loyalty reward applies to manual bookings too (VIPs always qualify).
   const { loyaltyDiscountFor } = await import("@/lib/bookings");
   const completedVisits = existing.filter((b) => b.status === "completed").length;
-  const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies);
+  const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies, client.isVip);
 
   await createConfirmedBooking({
     sb,

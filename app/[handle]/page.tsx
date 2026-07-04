@@ -26,6 +26,7 @@ import {
 import { signedPhotoUrl } from "@/lib/storage";
 import { availableDays, depositFor } from "@/lib/rules";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
 import type { ConsultationQuestion, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
@@ -297,8 +298,8 @@ function BookingStep({ tech, service, sp, brand, days, live, questions, addons }
             <input type="hidden" name="serviceId" value={service.id} />
             <input type="hidden" name="slot" value={sp.slot} />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input name="name" required placeholder="Full name" className="input" />
-              <input name="email" type="email" required placeholder="Email" className="input" />
+              <input name="name" required placeholder="Full name *" className="input" />
+              <input name="email" type="email" required placeholder="Email *" className="input" />
             </div>
             <input name="phone" placeholder="Mobile number" className="input" />
 
@@ -329,11 +330,7 @@ function BookingStep({ tech, service, sp, brand, days, live, questions, addons }
                     {q.type === "longtext" ? (
                       <textarea name={`q_${q.id}`} required={q.required} className="input min-h-[70px]" />
                     ) : q.type === "yesno" ? (
-                      <select name={`q_${q.id}`} required={q.required} className="input cursor-pointer" defaultValue="">
-                        <option value="" disabled>Choose…</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
+                      <YesNoQuestion name={`q_${q.id}`} required={q.required} />
                     ) : (
                       <input name={`q_${q.id}`} required={q.required} className="input" />
                     )}

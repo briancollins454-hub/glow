@@ -41,7 +41,11 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
       <Card>
         <CardHeader>
           <CardTitle>Weekly hours</CardTitle>
-          <CardDescription>Toggle a day off, or set your start and end times.</CardDescription>
+          <CardDescription>
+            Toggle a day off, or set your start and end times. &quot;Last appt&quot; is optional: the latest
+            time an appointment can start, even if it runs past closing. Leave it blank to only
+            allow appointments that finish by closing time.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={saveAvailabilityAction} className="space-y-3">
@@ -53,10 +57,12 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
                     <input type="checkbox" name={`enabled_${weekday}`} defaultChecked={row?.enabled ?? false} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
                     <span className="font-medium">{label}</span>
                   </label>
-                  <div className="flex items-center gap-2 text-sm text-ink-soft">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
                     <input type="time" name={`start_${weekday}`} defaultValue={minToHHMM(row?.startMinutes ?? 540)} className="input h-10 w-32" />
                     <span>to</span>
                     <input type="time" name={`end_${weekday}`} defaultValue={minToHHMM(row?.endMinutes ?? 1020)} className="input h-10 w-32" />
+                    <span className="text-xs text-ink-faint">last appt</span>
+                    <input type="time" name={`last_${weekday}`} defaultValue={row?.lastStartMinutes != null ? minToHHMM(row.lastStartMinutes) : ""} className="input h-10 w-32" />
                   </div>
                 </div>
               );

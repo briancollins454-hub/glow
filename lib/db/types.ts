@@ -126,6 +126,8 @@ export interface WorkingHour {
   weekday: number; // 0 = Sunday ... 6 = Saturday
   startMinutes: number; // minutes from midnight (local)
   endMinutes: number;
+  // Latest time an appointment may START (may run past endMinutes). null = auto.
+  lastStartMinutes: number | null;
   enabled: boolean;
 }
 
@@ -147,6 +149,8 @@ export interface Client {
   isBlacklisted: boolean;
   warningNote: string;
   noShowCount: number;
+  // VIP clients always receive the loyalty discount, regardless of visit count.
+  isVip: boolean;
   // Private, unguessable token for the no-login client message thread page.
   messageToken: string;
   createdAt: string;

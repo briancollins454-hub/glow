@@ -54,6 +54,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-2xl font-semibold">{client.name}</h1>
+        {client.isVip && <Badge tone="purple">VIP</Badge>}
         {client.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blacklisted</Badge>}
         {client.noShowCount > 0 && <Badge tone="amber">{client.noShowCount} no-show{client.noShowCount > 1 ? "s" : ""}</Badge>}
         {isLive(tech) && (
@@ -82,6 +83,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </div>
               <div><Label>Notes</Label><Textarea name="notes" defaultValue={client.notes} placeholder="Preferences, allergies, etc." /></div>
               <div><Label>Warning note (shown to you when booking)</Label><Textarea name="warningNote" defaultValue={client.warningNote} placeholder="e.g. Late twice - confirm by text." /></div>
+              <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input type="checkbox" name="isVip" defaultChecked={client.isVip} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+                VIP - always gets your loyalty discount, from their very next booking
+              </label>
               <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
                 <input type="checkbox" name="isBlacklisted" defaultChecked={client.isBlacklisted} className="h-4 w-4 rounded border-black/20 text-red-400 focus:ring-red-300" />
                 Blacklist this client (blocks online booking)

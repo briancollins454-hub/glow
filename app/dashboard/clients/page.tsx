@@ -82,6 +82,7 @@ export default async function ClientsPage({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{c.name}</span>
+                    {c.isVip && <Badge tone="purple">VIP</Badge>}
                     {c.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blacklisted</Badge>}
                     {!c.isBlacklisted && c.warningNote && <Badge tone="amber"><AlertTriangle className="h-3 w-3" /> Warning</Badge>}
                     {c.noShowCount > 0 && <Badge tone="neutral">{c.noShowCount} no-show{c.noShowCount > 1 ? "s" : ""}</Badge>}

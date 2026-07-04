@@ -95,15 +95,20 @@ export async function createPublicBookingAction(formData: FormData) {
     .filter((a) => formData.get(`addon_${a.id}`) === "on")
     .map((a) => ({ name: a.name, pricePennies: a.pricePennies }));
 
-  // Loyalty reward: returning clients past the visit threshold get their discount.
+  // Loyalty reward: VIPs and returning clients past the visit threshold.
   const completedVisits = priorBookings.filter((b) => b.status === "completed").length;
   const gross = service!.pricePennies + addons.reduce((s, a) => s + a.pricePennies, 0);
-  const discountPennies = loyaltyDiscountFor(tech!, completedVisits, gross);
+  const discountPennies = loyaltyDiscountFor(tech!, completedVisits, gross, client.isVip);
 
   // Collect consultation answers (if the tech has questions).
   const questions = await listQuestions(sb, tech!.id, { activeOnly: true });
   const answers: FormAnswer[] = questions
-    .map((q) => ({ prompt: q.prompt, answer: String(formData.get(`q_${q.id}`) ?? "").trim() }))
+    .map((q) => {
+      const answer = String(formData.get(`q_${q.id}`) ?? "").trim();
+      // Yes/No questions can carry a follow-up detail ("Yes - nut allergy").
+      const detail = String(formData.get(`q_${q.id}_detail`) ?? "").trim();
+      return { prompt: q.prompt, answer: detail ? `${answer} - ${detail}` : answer };
+    })
     .filter((a) => a.answer);
   const saveAnswers = async (bookingId: string) => {
     if (answers.length) {

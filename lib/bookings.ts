@@ -33,14 +33,20 @@ function amounts(service: Service, addons: BookingAddon[] = [], discountPennies 
   return { price, deposit, balance: Math.max(0, price - deposit) };
 }
 
-/** Loyalty discount in pennies for a client with `completedVisits` history. */
+/**
+ * Loyalty discount in pennies. VIP clients always qualify; others qualify by
+ * reaching the visit threshold (when the programme is switched on).
+ */
 export function loyaltyDiscountFor(
   tech: Pick<Tech, "loyaltyVisitThreshold" | "loyaltyDiscountPct">,
   completedVisits: number,
   grossPennies: number,
+  isVip = false,
 ): number {
-  if (tech.loyaltyVisitThreshold <= 0 || tech.loyaltyDiscountPct <= 0) return 0;
-  if (completedVisits < tech.loyaltyVisitThreshold) return 0;
+  if (tech.loyaltyDiscountPct <= 0) return 0;
+  const qualifies =
+    isVip || (tech.loyaltyVisitThreshold > 0 && completedVisits >= tech.loyaltyVisitThreshold);
+  if (!qualifies) return 0;
   return Math.round((grossPennies * tech.loyaltyDiscountPct) / 100);
 }
 

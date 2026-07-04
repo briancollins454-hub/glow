@@ -83,6 +83,7 @@ export async function signupAction(formData: FormData) {
       weekday,
       startMinutes: 9 * 60,
       endMinutes: 17 * 60,
+      lastStartMinutes: null,
       enabled: weekday >= 2 && weekday <= 6,
     })),
   );

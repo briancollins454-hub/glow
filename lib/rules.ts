@@ -72,7 +72,12 @@ export function daySlots(
     }));
 
   const slots: string[] = [];
-  const lastStart = wh.endMinutes - service.durationMin;
+  // A set "last appointment" time wins over closing time (the tech accepts the
+  // appointment may run past closing). Otherwise appointments must end by close.
+  const lastStart =
+    wh.lastStartMinutes != null
+      ? wh.lastStartMinutes
+      : wh.endMinutes - service.durationMin;
   for (let m = wh.startMinutes; m <= lastStart; m += SLOT_STEP_MIN) {
     const start = localInstant(dateStr, m);
     const startMs = start.getTime();
