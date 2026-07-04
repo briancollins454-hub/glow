@@ -49,6 +49,33 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
       {google && <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm ${google === "connected" ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}><CalendarDays className="h-4 w-4" /> {GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}</div>}
 
+      <Card className="border-brand-500/30 bg-brand-500/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-brand-400" /> Google Calendar
+          </CardTitle>
+          <CardDescription>
+            Connect once. Glow will add, update and cancel appointments in Google Calendar automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {googleConnected ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-emerald-300">
+                Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
+              </p>
+              <form action={disconnectGoogleCalendarAction}>
+                <Button type="submit" variant="outline" size="sm">Disconnect</Button>
+              </form>
+            </div>
+          ) : (
+            <ButtonLink href="/api/google/calendar/connect" size="lg">
+              Connect Google Calendar
+            </ButtonLink>
+          )}
+        </CardContent>
+      </Card>
+
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
           <CardHeader>
@@ -123,31 +150,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Calendar &amp; data</CardTitle>
-          <CardDescription>Private calendar sync plus full data portability for GDPR/support requests.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Download className="h-4 w-4" /> Data export</CardTitle>
+          <CardDescription>Full data portability for GDPR/support requests, plus fallback calendar options.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-xl border border-edge bg-cream p-4">
-            <p className="font-medium">Google Calendar</p>
-            <p className="mt-1 text-sm text-ink-soft">
-              One click connects your diary. Glow will create, update and cancel Google Calendar events automatically.
-            </p>
-            {googleConnected ? (
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-emerald-300">
-                  Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
-                </p>
-                <form action={disconnectGoogleCalendarAction}>
-                  <Button type="submit" variant="outline" size="sm">Disconnect</Button>
-                </form>
-              </div>
-            ) : (
-              <ButtonLink href="/api/google/calendar/connect" className="mt-3">
-                Connect Google Calendar
-              </ButtonLink>
-            )}
-          </div>
-
           <details className="rounded-xl border border-edge bg-cream p-4">
             <summary className="cursor-pointer font-medium">Fallback: private iCal feed</summary>
             <p className="mt-2 text-sm text-ink-soft">
