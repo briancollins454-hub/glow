@@ -11,9 +11,43 @@
   body {
     @apply bg-cream text-ink antialiased;
     background-image:
-      radial-gradient(60rem 40rem at 85% -10%, rgba(219, 39, 119, 0.16), transparent 60%),
-      radial-gradient(50rem 35rem at -10% 30%, rgba(147, 51, 234, 0.10), transparent 60%);
+      radial-gradient(60rem 40rem at 85% -10%, rgba(219, 39, 119, 0.1), transparent 60%),
+      radial-gradient(50rem 35rem at -10% 30%, rgba(147, 51, 234, 0.07), transparent 60%);
     background-attachment: fixed;
+  }
+
+  /* The signature "glow": two soft light blobs that slowly breathe behind
+     every page. Pure transform/opacity animation, so it stays smooth on
+     phones, and it switches off for reduced-motion users. */
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: 9999px;
+  }
+  body::before {
+    top: -22%;
+    right: -12%;
+    width: 55rem;
+    height: 38rem;
+    background: radial-gradient(closest-side, rgba(236, 72, 153, 0.14), transparent 70%);
+    animation: glow-breathe 9s ease-in-out infinite;
+  }
+  body::after {
+    bottom: -25%;
+    left: -15%;
+    width: 50rem;
+    height: 36rem;
+    background: radial-gradient(closest-side, rgba(147, 51, 234, 0.12), transparent 70%);
+    animation: glow-breathe 12s ease-in-out -4s infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body::before,
+    body::after {
+      animation: none;
+    }
   }
   /* No element may drag the page sideways; inner scroll strips still work. */
   html,
@@ -43,6 +77,19 @@
   /* Bottom padding that respects the iPhone home-indicator area */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Slow breathing pulse for the background glow blobs */
+@keyframes glow-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
   }
 }
 
