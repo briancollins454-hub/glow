@@ -35,8 +35,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold">Billing</h1>
-        <p className="text-sm text-ink-soft">Your Glow subscription. 0% commission - you keep every deposit.</p>
+        <h1 className="font-display text-2xl font-semibold">My plan</h1>
+        <p className="text-sm text-ink-soft">Your Glow membership. 0% commission - you keep every penny your clients pay you.</p>
       </div>
 
       {status === "started" && (
@@ -66,7 +66,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           ) : live ? (
             <form action={manageBillingAction}>
               <p className="mb-3 text-sm text-ink-soft">Update your card, view invoices, or cancel anytime.</p>
-              <Button type="submit" variant="outline"><CreditCard className="h-4 w-4" /> Manage subscription</Button>
+              <Button type="submit" variant="outline"><CreditCard className="h-4 w-4" /> Manage my plan</Button>
             </form>
           ) : (
             <p className="text-sm text-ink-soft">Subscribe below to switch on online bookings and deposits.</p>

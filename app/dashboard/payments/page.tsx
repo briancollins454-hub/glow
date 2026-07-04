@@ -35,29 +35,29 @@ export default async function PaymentsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold">Payments</h1>
+        <h1 className="font-display text-2xl font-semibold">Get paid</h1>
         <p className="text-sm text-ink-soft">
-          Connect your bank so client deposits pay straight to you. Glow takes 0% -
-          only Stripe&apos;s standard card fee applies.
+          Set this up once and client deposits go straight to your bank. Glow takes 0% -
+          only the card company&apos;s standard fee applies.
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-brand-400" /> Payouts
+            <Wallet className="h-5 w-5 text-brand-400" /> Card payments
             {connected ? (
-              <Badge tone="green">Connected</Badge>
+              <Badge tone="green">All set</Badge>
             ) : started ? (
-              <Badge tone="amber">Setup incomplete</Badge>
+              <Badge tone="amber">Nearly there</Badge>
             ) : (
-              <Badge tone="neutral">Not connected</Badge>
+              <Badge tone="neutral">Not set up</Badge>
             )}
           </CardTitle>
           <CardDescription>
             {connected
-              ? "You're all set to take deposits online."
-              : "Link a Stripe account to accept online deposits."}
+              ? "You're all set - clients can pay deposits by card when they book."
+              : "A quick one-time setup so clients can pay deposits by card when they book."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -70,30 +70,30 @@ export default async function PaymentsPage({
           {connected ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" /> Charges enabled
+                <CheckCircle2 className="h-4 w-4" /> Clients can pay you by card
               </div>
               <div className="flex items-center gap-2 text-sm text-emerald-300">
-                <Banknote className="h-4 w-4" /> Payouts to your bank enabled
+                <Banknote className="h-4 w-4" /> Money goes straight to your bank
               </div>
               <form action={connectStartAction}>
-                <Button type="submit" variant="outline">Manage payout account</Button>
+                <Button type="submit" variant="outline">Manage bank details</Button>
               </form>
             </div>
           ) : (
             <div className="space-y-3">
               {started && !detailsSubmitted && (
                 <p className="flex items-center gap-2 text-sm text-amber-300">
-                  <AlertTriangle className="h-4 w-4" /> Your Stripe setup isn&apos;t finished yet.
+                  <AlertTriangle className="h-4 w-4" /> You&apos;re part-way through - just pick up where you left off.
                 </p>
               )}
               <form action={connectStartAction}>
                 <Button type="submit" disabled={!stripeConfigured()}>
-                  {started ? "Finish payout setup" : "Set up payouts"}
+                  {started ? "Finish setting up" : "Set up card payments"}
                 </Button>
               </form>
               <p className="text-xs text-ink-faint">
-                You&apos;ll be taken to Stripe to add your bank details and verify your
-                identity. Takes a couple of minutes.
+                You&apos;ll add your bank details and confirm who you are (standard for
+                card payments - handled securely by Stripe). Takes a couple of minutes.
               </p>
             </div>
           )}
@@ -105,9 +105,9 @@ export default async function PaymentsPage({
           <CardTitle>How it works</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-ink-soft">
-          <p>· Clients pay their deposit when they book; it goes straight to your Stripe balance.</p>
-          <p>· The remaining balance can be paid via a link, or in person on the day.</p>
-          <p>· Stripe pays out to your bank on a rolling basis. Glow never touches your money.</p>
+          <p>· Clients pay their deposit by card when they book.</p>
+          <p>· The rest can be paid through a link before the day, or in person on the day.</p>
+          <p>· The money lands in your bank automatically every few days. Glow never touches it.</p>
         </CardContent>
       </Card>
     </div>

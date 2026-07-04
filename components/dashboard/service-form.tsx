@@ -86,13 +86,13 @@ export function ServiceForm({
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
         <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
-        This is an infill / maintenance service
+        This is an infill / top-up (returning clients only)
       </label>
 
       <div>
-        <Label>Infill window (max days since last)</Label>
+        <Label>Infills allowed up to (days since their last visit)</Label>
         <Input name="infillMaxGapDays" type="number" min={1} max={365} defaultValue={s?.infillMaxGapDays ?? 21} />
-        <p className="mt-1 text-xs text-ink-faint">Only used when this is an infill service.</p>
+        <p className="mt-1 text-xs text-ink-faint">e.g. 21 = clients can only book this within 3 weeks of their last appointment.</p>
       </div>
       {s?.fullSetServiceId && <input type="hidden" name="fullSetServiceId" value={s.fullSetServiceId} />}
 

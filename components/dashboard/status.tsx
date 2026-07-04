@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import type { BookingStatus } from "@/lib/db/types";
 
 const map: Record<BookingStatus, { tone: "neutral" | "brand" | "green" | "amber" | "red" | "blue" | "purple"; label: string }> = {
-  pending: { tone: "amber", label: "Pending" },
+  pending: { tone: "amber", label: "Awaiting deposit" },
   confirmed: { tone: "blue", label: "Confirmed" },
   completed: { tone: "green", label: "Completed" },
   cancelled: { tone: "neutral", label: "Cancelled" },

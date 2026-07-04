@@ -20,17 +20,17 @@ import {
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/bookings", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
   { href: "/dashboard/clients", label: "Clients", icon: Users },
   { href: "/dashboard/services", label: "Services", icon: Scissors },
-  { href: "/dashboard/availability", label: "Availability", icon: Clock },
+  { href: "/dashboard/availability", label: "Opening hours", icon: Clock },
   { href: "/dashboard/forms", label: "Forms", icon: ClipboardList },
   { href: "/dashboard/reminders", label: "Reminders", icon: BellRing },
-  { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
-  { href: "/dashboard/payments", label: "Payments", icon: Wallet },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  { href: "/dashboard/reports", label: "Income", icon: BarChart3 },
+  { href: "/dashboard/payments", label: "Get paid", icon: Wallet },
+  { href: "/dashboard/billing", label: "My plan", icon: CreditCard },
   { href: "/dashboard/import", label: "Move to Glow", icon: FolderInput },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

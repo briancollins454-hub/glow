@@ -38,7 +38,7 @@ export default async function BookingsPage() {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="truncate font-medium">{clientById.get(b.clientId) ?? "Client"}</p>
           {statusBadge(b.status)}
-          {b.depositStatus === "forfeited" && <Badge tone="red">Deposit forfeited</Badge>}
+          {b.depositStatus === "forfeited" && <Badge tone="red">Deposit kept</Badge>}
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">
           {serviceById.get(b.serviceId) ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}

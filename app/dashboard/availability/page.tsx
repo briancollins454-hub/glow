@@ -32,7 +32,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold">Availability</h1>
+        <h1 className="font-display text-2xl font-semibold">Opening hours</h1>
         <p className="text-sm text-ink-soft">Your weekly hours and any time off. Slots are generated from this automatically (Europe/London).</p>
       </div>
 

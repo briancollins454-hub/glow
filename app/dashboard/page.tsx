@@ -78,8 +78,8 @@ export default async function DashboardOverview() {
       cta: "Go live",
     },
     {
-      title: "Connect payouts (optional but recommended)",
-      detail: "Take card deposits straight to your bank. Skip if you prefer cash or bank transfer.",
+      title: "Set up card payments (optional)",
+      detail: "Let clients pay deposits by card, straight to your bank. Skip if you prefer cash or bank transfer.",
       href: "/dashboard/payments",
       done: isPaymentsReady(tech),
       cta: "Connect",
@@ -146,7 +146,7 @@ export default async function DashboardOverview() {
           <Card>
             <CardHeader><CardTitle className="text-base">Needs attention</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <AlertRow icon={<AlertTriangle className="h-4 w-4 text-red-500" />} label="Blacklisted clients" value={blacklisted} href="/dashboard/clients" />
+              <AlertRow icon={<AlertTriangle className="h-4 w-4 text-red-500" />} label="Blocked clients" value={blacklisted} href="/dashboard/clients" />
               <AlertRow icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="No-shows recorded" value={noShows} href="/dashboard/bookings" />
               {blacklisted === 0 && noShows === 0 && <p className="text-ink-faint">All clear. Nice work.</p>}
             </CardContent>
@@ -155,7 +155,7 @@ export default async function DashboardOverview() {
             <CardHeader><CardTitle className="text-base">Quick links</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <QuickLink href="/dashboard/services" label="Edit services & prices" />
-              <QuickLink href="/dashboard/availability" label="Update availability" />
+              <QuickLink href="/dashboard/availability" label="Update opening hours" />
               <QuickLink href="/dashboard/reports" label="Tax & income reports" />
               <QuickLink href="/dashboard/settings" label="Branding & policy" />
             </CardContent>

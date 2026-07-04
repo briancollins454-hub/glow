@@ -28,7 +28,7 @@ export default async function ClientsPage({
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">Clients</h1>
-        <p className="text-sm text-ink-soft">Notes, warnings and your blacklist live here.</p>
+        <p className="text-sm text-ink-soft">Notes, warnings and blocked clients live here.</p>
       </div>
 
       {sp.import === "done" && (
@@ -83,7 +83,7 @@ export default async function ClientsPage({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{c.name}</span>
                     {c.isVip && <Badge tone="purple">VIP</Badge>}
-                    {c.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blacklisted</Badge>}
+                    {c.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blocked</Badge>}
                     {!c.isBlacklisted && c.warningNote && <Badge tone="amber"><AlertTriangle className="h-3 w-3" /> Warning</Badge>}
                     {c.noShowCount > 0 && <Badge tone="neutral">{c.noShowCount} no-show{c.noShowCount > 1 ? "s" : ""}</Badge>}
                   </div>
