@@ -88,6 +88,17 @@ export async function signupAction(formData: FormData) {
     })),
   );
 
+  // Starter categories so adding a first service is a single step.
+  const { createCategory } = await import("@/lib/db/queries");
+  for (const catName of ["Lashes", "Brows", "Nails"]) {
+    await createCategory(admin, {
+      techId,
+      name: catName,
+      patchTestValidityDays: 180,
+      patchTestMinLeadHours: 24,
+    });
+  }
+
   // Welcome email now + a setup nudge in 2 days (both best-effort).
   try {
     const { sendWelcomeEmail, scheduleOnboardingEmails } = await import("@/lib/onboarding");

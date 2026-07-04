@@ -15,8 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime, fmtRelativeDays } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive } from "@/lib/subscriptions";
-import { ButtonLink } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { isPaymentsReady } from "@/lib/subscriptions";
+import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
 export default async function DashboardOverview() {
   const c = await getDashboardContext();
@@ -52,19 +54,43 @@ export default async function DashboardOverview() {
   const blacklisted = clients.filter((c) => c.isBlacklisted).length;
   const noShows = bookings.filter((b) => b.status === "no_show").length;
 
+  const live = isLive(tech);
+  const setupSteps: SetupStep[] = [
+    {
+      title: "Add your first service",
+      detail: "Name, price, how long it takes. Two minutes.",
+      href: "/dashboard/services",
+      done: services.length > 0,
+      cta: "Add service",
+    },
+    {
+      title: "Set your opening hours",
+      detail: "We started you on Tue-Sat, 9-5. Tweak to suit.",
+      href: "/dashboard/availability",
+      done: live,
+      cta: "Check hours",
+    },
+    {
+      title: "Go live - 50% off your first month",
+      detail: "Switches on online bookings. £19/mo, cancel anytime.",
+      href: "/dashboard/billing",
+      done: live,
+      cta: "Go live",
+    },
+    {
+      title: "Connect payouts (optional but recommended)",
+      detail: "Take card deposits straight to your bank. Skip if you prefer cash or bank transfer.",
+      href: "/dashboard/payments",
+      done: isPaymentsReady(tech),
+      cta: "Connect",
+    },
+  ];
+  const essentialsDone = services.length > 0 && live;
+
   return (
     <div className="space-y-6">
-      {!isLive(tech) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-500/10 px-5 py-4">
-          <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Sparkles className="h-5 w-5" /></span>
-            <div>
-              <p className="font-semibold text-brand-300">Go live - 50% off your first month</p>
-              <p className="text-sm text-brand-300/80">Your booking page won&apos;t take online bookings until you start a plan. £19/mo, half price for your first month. Cancel anytime.</p>
-            </div>
-          </div>
-          <ButtonLink href="/dashboard/billing" size="sm">Go live</ButtonLink>
-        </div>
+      {!(essentialsDone && isPaymentsReady(tech)) && (
+        <OnboardingChecklist steps={setupSteps} bookingUrl={`${APP_URL}/${tech.handle}`} />
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
