@@ -6,8 +6,10 @@ import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
 import { getDashboardContext } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
-import { slugify, randomId } from "@/lib/utils";
+import { slugify, randomId, randomToken } from "@/lib/utils";
 import {
+  createAccountClosureRequest,
+  createAuditEvent,
   createCategory,
   createClient,
   createPatchTest,
@@ -40,6 +42,7 @@ import {
 } from "@/lib/db/queries";
 import { uploadPhoto, removePhoto } from "@/lib/storage";
 import { createConfirmedBooking } from "@/lib/bookings";
+import { deleteGoogleEventForBooking, syncBookingToGoogle } from "@/lib/google-calendar";
 import { refundOnConnect } from "@/lib/payments";
 import { processDueReminders } from "@/lib/scheduler";
 import type { PhotoKind } from "@/lib/db/types";
@@ -49,6 +52,22 @@ async function ctx() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   return c;
+}
+
+async function audit(
+  sb: Awaited<ReturnType<typeof ctx>>["sb"],
+  techId: string,
+  action: string,
+  entityType: string,
+  entityId: string,
+  metadata: Record<string, unknown> = {},
+  actor: "tech" | "client" | "system" = "tech",
+) {
+  try {
+    await createAuditEvent(sb, { techId, actor, action, entityType, entityId, metadata });
+  } catch {
+    // Audit logging must never block the primary workflow if a migration is pending.
+  }
 }
 
 export async function changePasswordAction(formData: FormData) {
@@ -131,6 +150,40 @@ export async function updateSettingsAction(formData: FormData) {
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
   redirect("/dashboard/settings?saved=1");
+}
+
+export async function ensureCalendarTokenAction() {
+  const { sb, tech } = await ctx();
+  if (!tech.calendarToken) {
+    await updateTech(sb, tech.id, { calendarToken: randomToken() });
+    await audit(sb, tech.id, "calendar_token_created", "tech", tech.id);
+  }
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?calendar=1");
+}
+
+export async function requestAccountClosureAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const reason = String(formData.get("reason") ?? "").trim();
+  const requestedAt = new Date().toISOString();
+  await updateTech(sb, tech.id, { closureRequestedAt: requestedAt, closureReason: reason });
+  await createAccountClosureRequest(sb, { techId: tech.id, reason });
+  await audit(sb, tech.id, "account_closure_requested", "tech", tech.id, { reason });
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?closure=1");
+}
+
+export async function disconnectGoogleCalendarAction() {
+  const { sb, tech } = await ctx();
+  await updateTech(sb, tech.id, {
+    googleRefreshToken: null,
+    googleCalendarId: null,
+    googleCalendarEmail: null,
+    googleConnectedAt: null,
+  });
+  await audit(sb, tech.id, "google_calendar_disconnected", "tech", tech.id);
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?google=disconnected");
 }
 
 // ---------------- Availability ----------------
@@ -362,6 +415,17 @@ export async function setBookingStatusAction(formData: FormData) {
   }
 
   await updateBooking(sb, id, patch);
+  try {
+    await syncBookingToGoogle(sb, tech, { ...booking!, ...patch });
+  } catch {
+    // Google Calendar sync is best-effort.
+  }
+  await audit(sb, tech.id, "booking_status_changed", "booking", id, {
+    from: booking!.status,
+    to: status,
+    depositStatus: patch.depositStatus,
+    balanceStatus: patch.balanceStatus,
+  });
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/clients/${booking!.clientId}`);
   redirect("/dashboard/bookings");
@@ -413,7 +477,7 @@ export async function addManualBookingAction(formData: FormData) {
   const completedVisits = existing.filter((b) => b.status === "completed").length;
   const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies, client.isVip);
 
-  await createConfirmedBooking({
+  const booking = await createConfirmedBooking({
     sb,
     tech,
     service: service!,
@@ -424,6 +488,12 @@ export async function addManualBookingAction(formData: FormData) {
     paymentMethod,
     depositOverridePennies,
     discountPennies,
+  });
+  await audit(sb, tech.id, "manual_booking_created", "booking", booking.id, {
+    clientId: client.id,
+    serviceId: service!.id,
+    startIso,
+    paymentTaken,
   });
 
   revalidatePath("/dashboard/bookings");
@@ -482,6 +552,10 @@ export async function rescheduleBookingAction(formData: FormData) {
     const { rescheduleReminders } = await import("@/lib/bookings");
     await rescheduleReminders(sb, updated);
   }
+  await audit(sb, tech.id, "booking_rescheduled", "booking", id, {
+    from: { serviceId: booking!.serviceId, startIso: booking!.startIso },
+    to: { serviceId: service!.id, startIso: start.toISOString() },
+  });
 
   revalidatePath("/dashboard/bookings");
   redirect(`/dashboard/bookings/${id}?saved=1`);
@@ -524,7 +598,10 @@ export async function recordManualPaymentAction(formData: FormData) {
     patch.balanceStatus = "paid";
   }
 
-  if (Object.keys(patch).length) await updateBooking(sb, id, patch);
+  if (Object.keys(patch).length) {
+    await updateBooking(sb, id, patch);
+    await audit(sb, tech.id, "manual_payment_recorded", "booking", id, { what, method, patch });
+  }
   revalidatePath("/dashboard/bookings");
   redirect(`/dashboard/bookings/${id}?saved=1`);
 }
@@ -535,8 +612,18 @@ export async function deleteBookingAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const booking = await getBooking(sb, id);
   if (booking && booking.techId === tech.id) {
+    try {
+      await deleteGoogleEventForBooking(tech, booking);
+    } catch {
+      // Google cleanup is best-effort.
+    }
     const { deleteBooking } = await import("@/lib/db/queries");
     await deleteBooking(sb, id);
+    await audit(sb, tech.id, "booking_deleted", "booking", id, {
+      clientId: booking.clientId,
+      serviceId: booking.serviceId,
+      startIso: booking.startIso,
+    });
   }
   revalidatePath("/dashboard/bookings");
   redirect("/dashboard/bookings");
@@ -618,6 +705,11 @@ export async function deleteClientAction(formData: FormData) {
     }
     const { error } = await sb.from("clients").delete().eq("id", id);
     if (error) throw new Error(error.message);
+    await audit(sb, tech.id, "client_deleted", "client", id, {
+      name: client.name,
+      email: client.email,
+      photosDeleted: photos.length,
+    });
   }
   revalidatePath("/dashboard/clients");
   redirect("/dashboard/clients");
@@ -638,22 +730,24 @@ export async function deleteCategoryAction(formData: FormData) {
 
 /** Delete a saved consultation response. */
 export async function deleteFormResponseAction(formData: FormData) {
-  const { sb } = await ctx();
+  const { sb, tech } = await ctx();
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("clientId") ?? "");
   const { error } = await sb.from("form_responses").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await audit(sb, tech.id, "form_response_deleted", "form_response", id, { clientId });
   revalidatePath(`/dashboard/clients/${clientId}`);
   redirect(`/dashboard/clients/${clientId}`);
 }
 
 /** Delete a patch test record. */
 export async function deletePatchTestAction(formData: FormData) {
-  const { sb } = await ctx();
+  const { sb, tech } = await ctx();
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("clientId") ?? "");
   const { error } = await sb.from("patch_tests").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await audit(sb, tech.id, "patch_test_deleted", "patch_test", id, { clientId });
   revalidatePath(`/dashboard/clients/${clientId}`);
   redirect(`/dashboard/clients/${clientId}`);
 }
@@ -700,6 +794,7 @@ export async function importClientsAction(formData: FormData) {
     imported++;
   }
 
+  await audit(sb, tech.id, "clients_imported", "import", "clients", { imported, skipped, rows: rows.length });
   revalidatePath("/dashboard/clients");
   redirect(`${back}?import=done&what=clients&n=${imported}&s=${skipped}`);
 }
@@ -771,6 +866,7 @@ export async function importServicesAction(formData: FormData) {
     imported++;
   }
 
+  await audit(sb, tech.id, "services_imported", "import", "services", { imported, skipped, rows: rows.length });
   revalidatePath("/dashboard/services");
   redirect(`/dashboard/import?import=done&what=services&n=${imported}&s=${skipped}`);
 }
@@ -885,6 +981,7 @@ export async function importBookingsAction(formData: FormData) {
     imported++;
   }
 
+  await audit(sb, tech.id, "appointments_imported", "import", "appointments", { imported, skipped, rows: rows.length });
   revalidatePath("/dashboard/bookings");
   redirect(`/dashboard/import?import=done&what=appointments&n=${imported}&s=${skipped}`);
 }
@@ -910,6 +1007,7 @@ export async function uploadPhotoAction(formData: FormData) {
       kind,
       consent,
     });
+    await audit(sb, tech.id, "client_photo_uploaded", "client", clientId, { kind, consent });
   }
   revalidatePath(`/dashboard/clients/${clientId}`);
   redirect(`/dashboard/clients/${clientId}`);
@@ -923,6 +1021,10 @@ export async function deletePhotoAction(formData: FormData) {
   if (photo) {
     await removePhoto(photo.path);
     await deleteClientPhoto(sb, id);
+    await audit(sb, photo.techId, "client_photo_deleted", "client_photo", id, {
+      clientId: photo.clientId,
+      kind: photo.kind,
+    });
   }
   revalidatePath(`/dashboard/clients/${clientId}`);
   redirect(`/dashboard/clients/${clientId}`);

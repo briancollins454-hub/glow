@@ -61,6 +61,7 @@ const ERR: Record<string, string> = {
   blocked: "We can't complete this booking online. Please contact the studio directly.",
   patch: "This service needs a valid patch test on file. Please get in touch to arrange one first.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
+  form: "Please complete the required questions and agree to the booking policy.",
 };
 
 export default async function PublicBookingPage({
@@ -340,8 +341,14 @@ function BookingStep({ tech, service, sp, brand, days, live, questions, addons }
             )}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
-              <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
-              <span>I agree to the {tech.cancellationWindowHours}h cancellation policy. My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.</span>
+              <input name="policyAccepted" type="checkbox" required className="mt-1 h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
+              <span>
+                I agree to the {tech.cancellationWindowHours}h cancellation policy and Glow&apos;s{" "}
+                <Link href="/terms" className="text-brand-400 underline-offset-2 hover:underline">terms</Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-brand-400 underline-offset-2 hover:underline">privacy policy</Link>.
+                {" "}My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.
+              </span>
             </label>
             <SubmitButton
               className="w-full bg-none py-3 font-semibold shadow-none"

@@ -33,6 +33,7 @@ export async function createPublicBookingAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
+  const policyAccepted = formData.get("policyAccepted") === "on";
 
   const sb = supabaseService();
   const tech = await getTechByHandle(sb, handle);
@@ -47,6 +48,7 @@ export async function createPublicBookingAction(formData: FormData) {
   }
 
   const base = `/${tech!.handle}?service=${serviceId}&slot=${encodeURIComponent(slotIso)}`;
+  if (!policyAccepted) redirect(`${base}&err=form`);
 
   // Re-check the slot is still free.
   const [workingHours, timeOff, bookings] = await Promise.all([
@@ -110,6 +112,11 @@ export async function createPublicBookingAction(formData: FormData) {
       return { prompt: q.prompt, answer: detail ? `${answer} - ${detail}` : answer };
     })
     .filter((a) => a.answer);
+  const missingRequiredAnswer = questions.some((q) => {
+    if (!q.required) return false;
+    return !String(formData.get(`q_${q.id}`) ?? "").trim();
+  });
+  if (missingRequiredAnswer) redirect(`${base}&err=form`);
   const saveAnswers = async (bookingId: string) => {
     if (answers.length) {
       await createFormResponse(sb, { techId: tech!.id, clientId: client.id, bookingId, answers });

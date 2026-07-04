@@ -1,10 +1,16 @@
-import { CheckCircle2, Copy, KeyRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, Download, KeyRound, ShieldAlert } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { updateSettingsAction, changePasswordAction } from "../actions";
+import {
+  changePasswordAction,
+  disconnectGoogleCalendarAction,
+  ensureCalendarTokenAction,
+  requestAccountClosureAction,
+  updateSettingsAction,
+} from "../actions";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -13,11 +19,23 @@ const PW_ERRORS: Record<string, string> = {
   failed: "Something went wrong. Please try again.",
 };
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string }> }) {
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
+
+const GOOGLE_MSG: Record<string, string> = {
+  connected: "Google Calendar connected. New bookings will sync automatically.",
+  disconnected: "Google Calendar disconnected.",
+  missing: "Google Calendar is not configured yet. Add Google OAuth credentials in the app environment.",
+  denied: "Google Calendar connection was cancelled.",
+  failed: "Google Calendar connection failed. Please try again.",
+};
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string; calendar?: string; closure?: string; google?: string }> }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { tech } = c;
-  const { saved, pw, pwerr } = await searchParams;
+  const { saved, pw, pwerr, calendar, closure, google } = await searchParams;
+  const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
+  const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
 
   return (
     <div className="space-y-6">
@@ -27,6 +45,36 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </div>
 
       {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
+      {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
+      {google && <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm ${google === "connected" ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}><CalendarDays className="h-4 w-4" /> {GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}</div>}
+
+      <Card className="border-brand-500/30 bg-brand-500/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-brand-400" /> Google Calendar
+          </CardTitle>
+          <CardDescription>
+            Connect once. Glow will add, update and cancel appointments in Google Calendar automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {googleConnected ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-emerald-300">
+                Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
+              </p>
+              <form action={disconnectGoogleCalendarAction}>
+                <Button type="submit" variant="outline" size="sm">Disconnect</Button>
+              </form>
+            </div>
+          ) : (
+            <ButtonLink href="/api/google/calendar/connect" size="lg">
+              Connect Google Calendar
+            </ButtonLink>
+          )}
+        </CardContent>
+      </Card>
 
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
@@ -102,6 +150,41 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Download className="h-4 w-4" /> Data export</CardTitle>
+          <CardDescription>Full data portability for GDPR/support requests, plus fallback calendar options.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <details className="rounded-xl border border-edge bg-cream p-4">
+            <summary className="cursor-pointer font-medium">Fallback: private iCal feed</summary>
+            <p className="mt-2 text-sm text-ink-soft">
+              Use this only if someone wants Apple/Outlook/iCal instead of direct Google sync.
+            </p>
+            {calendarUrl ? (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Input readOnly value={calendarUrl} />
+                <ButtonLink href={calendarUrl} variant="outline">Open feed</ButtonLink>
+              </div>
+            ) : (
+              <form action={ensureCalendarTokenAction} className="mt-3">
+                <Button type="submit" variant="secondary">Create private feed</Button>
+              </form>
+            )}
+            <p className="mt-2 text-xs text-ink-faint">Anyone with this URL can read appointment titles and times. Keep it private.</p>
+          </details>
+
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/api/account/export" variant="outline">
+              <Download className="h-4 w-4" /> Download full account export
+            </ButtonLink>
+            <ButtonLink href="/api/reports/export" variant="outline">
+              <Download className="h-4 w-4" /> Download income CSV
+            </ButtonLink>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Change password</CardTitle>
           <CardDescription>Use at least 8 characters. You&apos;ll stay logged in on this device.</CardDescription>
         </CardHeader>
@@ -121,6 +204,26 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <div><Label htmlFor="next">New password</Label><Input id="next" name="next" type="password" required minLength={8} /></div>
             <div><Label htmlFor="confirm">Confirm new password</Label><Input id="confirm" name="confirm" type="password" required minLength={8} /></div>
             <div className="sm:col-span-3"><Button type="submit" variant="secondary">Update password</Button></div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-red-400">Close account</CardTitle>
+          <CardDescription>
+            Records a closure request for support review. Download your full export first if you need a copy.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={requestAccountClosureAction} className="space-y-3">
+            <div>
+              <Label>Reason / anything support should know</Label>
+              <Textarea name="reason" placeholder="Optional" />
+            </div>
+            <Button type="submit" variant="danger">
+              <ShieldAlert className="h-4 w-4" /> Request account closure
+            </Button>
           </form>
         </CardContent>
       </Card>

@@ -8,7 +8,7 @@ import {
   getTechByHandle,
   replaceWorkingHours,
 } from "@/lib/db/queries";
-import { slugify, randomId } from "@/lib/utils";
+import { slugify, randomId, randomToken } from "@/lib/utils";
 
 export async function loginAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
@@ -72,6 +72,7 @@ export async function signupAction(formData: FormData) {
     cancellationWindowHours: 48,
     noShowFeePct: 100,
     referredBy: referrer?.handle ?? null,
+    calendarToken: randomToken(),
   });
 
   await replaceWorkingHours(

@@ -58,6 +58,16 @@ export interface Tech {
   // Loyalty reward: after N completed visits, clients get X% off (0 = off)
   loyaltyVisitThreshold: number;
   loyaltyDiscountPct: number;
+  // Private token for read-only calendar feed subscriptions.
+  calendarToken: string | null;
+  // Account closure / deletion request tracking.
+  closureRequestedAt: string | null;
+  closureReason: string;
+  // Direct Google Calendar sync for one-click setup.
+  googleRefreshToken: string | null;
+  googleCalendarId: string | null;
+  googleCalendarEmail: string | null;
+  googleConnectedAt: string | null;
   createdAt: string;
 }
 
@@ -192,6 +202,8 @@ export interface Booking {
   addons: BookingAddon[];
   // Loyalty (or other) discount applied to the price
   discountPennies: number;
+  // Google Calendar event created by direct sync, if connected.
+  googleEventId: string | null;
   createdAt: string;
 }
 
@@ -271,5 +283,25 @@ export interface ClientPhoto {
   kind: PhotoKind;
   consent: boolean;
   createdAt: string;
+}
+
+export interface AuditEvent {
+  id: string;
+  techId: string;
+  actor: "tech" | "client" | "system";
+  action: string;
+  entityType: string;
+  entityId: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AccountClosureRequest {
+  id: string;
+  techId: string;
+  reason: string;
+  status: "requested" | "processing" | "completed" | "cancelled";
+  requestedAt: string;
+  completedAt: string | null;
 }
 

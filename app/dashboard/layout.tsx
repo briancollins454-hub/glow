@@ -5,6 +5,7 @@ import { getDashboardContext } from "@/lib/auth/session";
 import { unreadCountForTech } from "@/lib/db/queries";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
+import { InstallPrompt } from "@/components/dashboard/install-prompt";
 import { logoutAction } from "@/app/(auth)/actions";
 
 export default async function DashboardLayout({
@@ -64,6 +65,7 @@ export default async function DashboardLayout({
       </div>
 
       <MobileNav unread={unread} />
+      <InstallPrompt />
     </div>
   );
 }
