@@ -167,6 +167,8 @@ export interface Client {
   messageToken: string;
   // When the last automated rebooking nudge went out (null = never).
   lastNudgeAtIso: string | null;
+  // PECR: opted out of marketing emails (rebooking nudges). Service emails unaffected.
+  marketingOptOut: boolean;
   createdAt: string;
 }
 

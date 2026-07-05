@@ -41,13 +41,16 @@ async function sendNudge(tech: Tech, client: Client, lastServiceName: string): P
   const biz = tech.businessName || "your beauty studio";
   const name = client.name?.split(" ")[0] ?? "there";
   const url = `${APP_URL}/${tech.handle}`;
+  // PECR: marketing emails must carry a working opt-out.
+  const unsubUrl = `${APP_URL}/unsubscribe/${client.messageToken}`;
   const html = brandedEmail({
     brand: tech.brandColor || "#db2777",
     businessName: biz,
     heading: "Time for your next appointment?",
     bodyHtml:
       `Hi ${name},<br/><br/>It's been a little while since your last ${lastServiceName ? `<strong>${lastServiceName}</strong>` : "visit"} at ${biz}. ` +
-      `Slots fill up fast - grab your favourite time before it goes.`,
+      `Slots fill up fast - grab your favourite time before it goes.` +
+      `<br/><br/><span style="font-size:12px;color:#8a7f91">Don't want these reminders? <a href="${unsubUrl}" style="color:#8a7f91">Unsubscribe here</a>. You'll still get confirmations for appointments you book.</span>`,
     buttonLabel: "Book now",
     buttonUrl: url,
   });
@@ -55,7 +58,7 @@ async function sendNudge(tech: Tech, client: Client, lastServiceName: string): P
     to: client.email,
     subject: `We miss you at ${biz}!`,
     html,
-    text: `Hi ${name}, it's been a while since your last visit at ${biz}. Book your next appointment: ${url}`,
+    text: `Hi ${name}, it's been a while since your last visit at ${biz}. Book your next appointment: ${url}\n\nUnsubscribe from these emails: ${unsubUrl}`,
     idempotencyKey: `rebook-nudge/${client.id}/${new Date().toISOString().slice(0, 10)}`,
   });
 }
@@ -79,7 +82,8 @@ export async function processRebookNudges(sb: SupabaseClient): Promise<number> {
 
     for (const client of clients) {
       if (sent >= MAX_PER_RUN) break;
-      if (!client.email || client.isBlacklisted) continue;
+      // messageToken is required for the unsubscribe link - no token, no marketing.
+      if (!client.email || !client.messageToken || client.isBlacklisted || client.marketingOptOut) continue;
 
       const lastNudge = client.lastNudgeAtIso ? new Date(client.lastNudgeAtIso).getTime() : 0;
       if (now - lastNudge < NUDGE_COOLDOWN_DAYS * DAY) continue;
