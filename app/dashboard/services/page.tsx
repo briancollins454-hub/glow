@@ -60,11 +60,19 @@ export default async function ServicesPage({
           <span className="text-xs text-ink-faint">Tap to open</span>
         </summary>
         <div className="border-t border-edge p-5">
-          <p className="mb-3 text-sm text-ink-soft">Categories hold patch-test defaults (e.g. Lashes, Brows).</p>
+          <p className="mb-3 text-sm text-ink-soft">Categories hold patch-test rules (e.g. Lashes, Brows).</p>
           <form action={addCategoryAction} className="grid gap-3 sm:grid-cols-3">
             <div><Label>Category name</Label><Input name="name" placeholder="Lashes" required /></div>
-            <div><Label>Patch test valid for (days)</Label><Input name="validityDays" type="number" defaultValue={180} /></div>
-            <div><Label>Minimum lead time (hours)</Label><Input name="minLeadHours" type="number" min={0} defaultValue={24} /></div>
+            <div>
+              <Label>A patch test lasts (days)</Label>
+              <Input name="validityDays" type="number" defaultValue={180} />
+              <p className="mt-1 text-xs text-ink-faint">After this many days, the client needs a new test.</p>
+            </div>
+            <div>
+              <Label>Test needed how long before the appointment? (hours)</Label>
+              <Input name="minLeadHours" type="number" min={0} defaultValue={24} />
+              <p className="mt-1 text-xs text-ink-faint">e.g. 24 = the test must be done at least a day before, so reactions have time to show.</p>
+            </div>
             <div className="sm:col-span-3"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
           </form>
           {categories.length > 0 && (
