@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarHeart, ExternalLink, LifeBuoy, LogOut } from "lucide-react";
+import { CalendarHeart, ExternalLink, LifeBuoy, Lightbulb, LogOut } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { unreadCountForTech } from "@/lib/db/queries";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
@@ -29,6 +29,13 @@ export default async function DashboardLayout({
             <span className="font-display text-lg font-semibold">Glow</span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/feedback"
+              className="flex items-center gap-1.5 rounded-xl border border-brand-500/40 bg-brand-500/10 px-3 py-2 text-sm font-medium text-brand-300 hover:bg-brand-500/20"
+            >
+              <Lightbulb className="h-4 w-4" />
+              <span className="hidden sm:inline">Share an idea</span>
+            </Link>
             <Link
               href="/dashboard/help"
               className="flex items-center gap-1.5 rounded-xl border border-edge px-3 py-2 text-sm font-medium text-ink-soft hover:bg-white/[0.06]"

@@ -21,6 +21,7 @@ export async function sendEmail(params: {
   html: string;
   text: string;
   idempotencyKey?: string;
+  replyTo?: string;
 }): Promise<boolean> {
   if (!emailConfigured() || !params.to) return false;
   try {
@@ -32,6 +33,7 @@ export async function sendEmail(params: {
         subject: params.subject,
         html: params.html,
         text: params.text,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
       },
       params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
     );

@@ -174,6 +174,41 @@ export async function requestAccountClosureAction(formData: FormData) {
   redirect("/dashboard/settings?closure=1");
 }
 
+// ---------------- Feedback / ideas ----------------
+export async function submitFeedbackAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { rateLimit } = await import("@/lib/rate-limit");
+  if (!(await rateLimit("feedback", { limit: 5, windowMinutes: 60 }))) {
+    redirect("/dashboard/feedback?sent=1");
+  }
+
+  const topic = String(formData.get("topic") ?? "idea").slice(0, 40);
+  const message = String(formData.get("message") ?? "").trim().slice(0, 4000);
+  if (!message) redirect("/dashboard/feedback");
+
+  const TOPIC_LABEL: Record<string, string> = {
+    idea: "Feature idea",
+    annoying: "Annoying / confusing",
+    broken: "Looks broken",
+    other: "Other",
+  };
+  const label = TOPIC_LABEL[topic] ?? "Feedback";
+  const to = process.env.FEEDBACK_EMAIL ?? process.env.OPS_ALERT_EMAIL ?? "support@glow-uk.com";
+  const { sendEmail } = await import("@/lib/email");
+  await sendEmail({
+    to,
+    replyTo: tech.email,
+    subject: `[Glow feedback] ${label} from ${tech.businessName || tech.handle}`,
+    html: `<p><strong>${label}</strong> from <strong>${tech.businessName}</strong> (${tech.name || "no name"} · ${tech.email} · glow.app/${tech.handle})</p><p style="white-space:pre-wrap">${message
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")}</p>`,
+    text: `${label} from ${tech.businessName} (${tech.name} · ${tech.email} · glow.app/${tech.handle})\n\n${message}`,
+  });
+  await audit(sb, tech.id, "feedback_submitted", "tech", tech.id, { topic });
+  redirect("/dashboard/feedback?sent=1");
+}
+
 // ---------------- Waitlist ----------------
 export async function deleteWaitlistEntryAction(formData: FormData) {
   const { sb } = await ctx();
