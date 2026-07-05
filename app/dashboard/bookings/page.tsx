@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, BellRing, Trash2 } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listBookings, listClients, listServices } from "@/lib/db/queries";
+import { listBookings, listClients, listServices, listWaitlist } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
-import { addManualBookingAction } from "../actions";
+import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
 import type { Booking } from "@/lib/db/types";
 
 export default async function BookingsPage() {
@@ -19,11 +19,13 @@ export default async function BookingsPage() {
   const { sb, tech } = c;
 
   const now = Date.now();
-  const [bookings, services, clients] = await Promise.all([
+  const [bookings, services, clients, waitlist] = await Promise.all([
     listBookings(sb, tech.id),
     listServices(sb, tech.id),
     listClients(sb, tech.id),
+    listWaitlist(sb, tech.id).catch(() => []),
   ]);
+  const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = new Map(clients.map((c) => [c.id, c.name]));
   const serviceById = new Map(services.map((s) => [s.id, s.name]));
 
@@ -146,6 +148,41 @@ export default async function BookingsPage() {
           {upcoming.map((b) => row(b))}
         </CardContent>
       </Card>
+
+      {waiting.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BellRing className="h-5 w-5 text-brand-400" /> Cancellation list ({waiting.length})
+            </CardTitle>
+            <CardDescription>
+              Clients waiting for a slot. They&apos;re emailed automatically the moment a booking is cancelled.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {waiting.map((w) => (
+              <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium">{w.name}</p>
+                  <p className="truncate text-xs text-ink-faint">
+                    {w.serviceId ? serviceById.get(w.serviceId) ?? "Any service" : "Any service"}
+                    {" · "}
+                    {w.dateStr ? `wants ${fmtDate(`${w.dateStr}T12:00:00Z`)}` : "any day"}
+                    {" · "}
+                    {w.email}
+                  </p>
+                </div>
+                <form action={deleteWaitlistEntryAction}>
+                  <input type="hidden" name="id" value={w.id} />
+                  <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400" title="Remove from list">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </form>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {past.length > 0 && (
         <Card>

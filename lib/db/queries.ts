@@ -19,6 +19,7 @@ import type {
   ServiceCategory,
   Tech,
   TimeOff,
+  WaitlistEntry,
   WorkingHour,
 } from "./types";
 
@@ -464,6 +465,32 @@ export async function unreadCountForTech(sb: SB, techId: string): Promise<number
     .is("readAt", null);
   if (error) throw new Error(error.message);
   return count ?? 0;
+}
+
+// ---------------- Waitlist (cancellation list) ----------------
+export async function createWaitlistEntry(sb: SB, w: Omit<WaitlistEntry, "id" | "createdAt" | "notifiedAtIso">): Promise<WaitlistEntry> {
+  const { data, error } = await sb
+    .from("waitlist_entries")
+    .insert({ ...w, id: randomId("wl"), notifiedAtIso: null })
+    .select("*")
+    .single();
+  return must(data as WaitlistEntry, error);
+}
+export async function listWaitlist(sb: SB, techId: string): Promise<WaitlistEntry[]> {
+  const { data, error } = await sb
+    .from("waitlist_entries")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as WaitlistEntry[], error) ?? [];
+}
+export async function updateWaitlistEntry(sb: SB, id: string, patch: Partial<WaitlistEntry>): Promise<void> {
+  const { error } = await sb.from("waitlist_entries").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+export async function deleteWaitlistEntry(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("waitlist_entries").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 // ---------------- Reviews ----------------

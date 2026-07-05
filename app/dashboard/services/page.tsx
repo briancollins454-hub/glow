@@ -20,10 +20,15 @@ import {
   deleteAddonAction,
 } from "../actions";
 
-export default async function ServicesPage() {
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ open?: string }>;
+}) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
+  const { open } = await searchParams;
   const [categories, services, addons] = await Promise.all([
     listCategories(sb, tech.id),
     listServices(sb, tech.id),
@@ -48,59 +53,62 @@ export default async function ServicesPage() {
         <p className="text-sm text-ink-soft">Set prices, deposits, patch-test rules and infill windows.</p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FolderPlus className="h-5 w-5 text-brand-400" /> Add a category</CardTitle>
-            <CardDescription>Categories hold patch-test defaults (e.g. Lashes, Brows).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={addCategoryAction} className="grid gap-3 sm:grid-cols-3">
-              <div><Label>Category name</Label><Input name="name" placeholder="Lashes" required /></div>
-              <div><Label>Patch test valid for (days)</Label><Input name="validityDays" type="number" defaultValue={180} /></div>
-              <div><Label>Minimum lead time (hours)</Label><Input name="minLeadHours" type="number" min={0} defaultValue={24} /></div>
-              <div className="sm:col-span-3"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
-            </form>
-            {categories.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {categories.map((c) => {
-                  const count = services.filter((s) => s.categoryId === c.id).length;
-                  return (
-                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-white/[0.03] px-3 py-2 text-sm">
-                      <span>{c.name} <span className="text-ink-faint">· patch test {c.patchTestValidityDays}d · {count} service{count === 1 ? "" : "s"}</span></span>
-                      <form action={deleteCategoryAction}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <button
-                          type="submit"
-                          className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
-                          title={count > 0 ? `Deletes the category AND its ${count} service(s)` : "Delete category"}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </form>
-                    </div>
-                  );
-                })}
-                <p className="text-xs text-ink-faint">Deleting a category also deletes the services inside it.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Both "add" forms are folded away behind a tap so the page stays calm. */}
+      <details className="card" open={categories.length === 0}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+          <span className="flex items-center gap-2 font-medium"><FolderPlus className="h-5 w-5 text-brand-400" /> Add a category</span>
+          <span className="text-xs text-ink-faint">Tap to open</span>
+        </summary>
+        <div className="border-t border-edge p-5">
+          <p className="mb-3 text-sm text-ink-soft">Categories hold patch-test defaults (e.g. Lashes, Brows).</p>
+          <form action={addCategoryAction} className="grid gap-3 sm:grid-cols-3">
+            <div><Label>Category name</Label><Input name="name" placeholder="Lashes" required /></div>
+            <div><Label>Patch test valid for (days)</Label><Input name="validityDays" type="number" defaultValue={180} /></div>
+            <div><Label>Minimum lead time (hours)</Label><Input name="minLeadHours" type="number" min={0} defaultValue={24} /></div>
+            <div className="sm:col-span-3"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
+          </form>
+          {categories.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {categories.map((c) => {
+                const count = services.filter((s) => s.categoryId === c.id).length;
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-white/[0.03] px-3 py-2 text-sm">
+                    <span>{c.name} <span className="text-ink-faint">· patch test {c.patchTestValidityDays}d · {count} service{count === 1 ? "" : "s"}</span></span>
+                    <form action={deleteCategoryAction}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <button
+                        type="submit"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+                        title={count > 0 ? `Deletes the category AND its ${count} service(s)` : "Delete category"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  </div>
+                );
+              })}
+              <p className="text-xs text-ink-faint">Deleting a category also deletes the services inside it.</p>
+            </div>
+          )}
+        </div>
+      </details>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-brand-400" /> Add a service</CardTitle>
-            <CardDescription>{categories.length === 0 ? "Add a category first." : "New services appear on your booking page immediately."}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {categories.length === 0 ? (
-              <p className="text-sm text-ink-faint">You need at least one category before adding services.</p>
-            ) : (
+      <details className="card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+          <span className="flex items-center gap-2 font-medium"><Plus className="h-5 w-5 text-brand-400" /> Add a service</span>
+          <span className="text-xs text-ink-faint">Tap to open</span>
+        </summary>
+        <div className="border-t border-edge p-5">
+          {categories.length === 0 ? (
+            <p className="text-sm text-ink-faint">You need at least one category before adding services.</p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-ink-soft">New services appear on your booking page immediately.</p>
               <ServiceForm categories={categories} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </>
+          )}
+        </div>
+      </details>
 
       <Card>
         <CardHeader>
@@ -110,7 +118,7 @@ export default async function ServicesPage() {
         <CardContent className="space-y-3">
           {services.length === 0 && <p className="text-sm text-ink-faint">No services yet.</p>}
           {services.map((s) => (
-            <details key={s.id} className="group rounded-xl border border-edge bg-cream">
+            <details key={s.id} open={open === s.id} className="group rounded-xl border border-edge bg-cream">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -157,6 +165,7 @@ export default async function ServicesPage() {
                         <span>{a.name} <span className="text-ink-faint">+{gbp(a.pricePennies)}</span></span>
                         <form action={deleteAddonAction}>
                           <input type="hidden" name="id" value={a.id} />
+                          <input type="hidden" name="serviceId" value={s.id} />
                           <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /></button>
                         </form>
                       </div>
