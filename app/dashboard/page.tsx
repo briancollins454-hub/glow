@@ -76,11 +76,15 @@ export default async function DashboardOverview() {
       cta: "Check hours",
     },
     {
-      title: "Go live - 50% off your first month",
-      detail: "Switches on online bookings. £19/mo, cancel anytime.",
+      // Testers (invited via the /tester link) see their £1 offer everywhere;
+      // everyone else keeps the public 50%-off message.
+      title: isTester ? "Go live - your first month is just £1" : "Go live - 50% off your first month",
+      detail: isTester
+        ? "Tester offer: £1 for month one, then £19/mo, cancel anytime."
+        : "Switches on online bookings. £19/mo, cancel anytime.",
       href: "/dashboard/billing",
       done: live,
-      cta: "Go live",
+      cta: isTester ? "Go live for £1" : "Go live",
     },
     {
       title: "Set up card payments (optional)",
