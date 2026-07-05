@@ -21,6 +21,34 @@ import {
 import type { BookingAddon, FormAnswer } from "@/lib/db/types";
 import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
+import { createWaitlistEntry } from "@/lib/db/queries";
+
+/** Client asks to be told when a cancellation frees up a slot. */
+export async function joinWaitlistAction(formData: FormData) {
+  const handle = String(formData.get("handle") ?? "");
+  const serviceId = String(formData.get("serviceId") ?? "");
+  if (!(await rateLimit("join-waitlist", { limit: 5, windowMinutes: 10 }))) {
+    redirect(`/${handle}?service=${serviceId}&wl=1`);
+  }
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const dateStr = String(formData.get("date") ?? "").trim();
+
+  const sb = supabaseService();
+  const tech = await getTechByHandle(sb, handle);
+  if (!tech || !name || !email) redirect(`/${handle}?service=${serviceId}`);
+
+  await createWaitlistEntry(sb, {
+    techId: tech!.id,
+    serviceId: serviceId || null,
+    name,
+    email,
+    phone,
+    dateStr: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : "",
+  });
+  redirect(`/${handle}?service=${serviceId}&wl=1`);
+}
 import { createConfirmedBooking, createPendingOnlineBooking, loyaltyDiscountFor } from "@/lib/bookings";
 import { createDepositCheckout } from "@/lib/payments";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";

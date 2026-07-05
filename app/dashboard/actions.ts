@@ -209,6 +209,16 @@ export async function submitFeedbackAction(formData: FormData) {
   redirect("/dashboard/feedback?sent=1");
 }
 
+// ---------------- Waitlist ----------------
+export async function deleteWaitlistEntryAction(formData: FormData) {
+  const { sb } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const { deleteWaitlistEntry } = await import("@/lib/db/queries");
+  await deleteWaitlistEntry(sb, id);
+  revalidatePath("/dashboard/bookings");
+  redirect("/dashboard/bookings");
+}
+
 // ---------------- Reviews ----------------
 export async function setReviewStatusAction(formData: FormData) {
   const { sb, tech } = await ctx();
@@ -348,7 +358,7 @@ export async function saveServiceAction(formData: FormData) {
   }
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
-  redirect("/dashboard/services");
+  redirect(existing ? `/dashboard/services?open=${id}` : "/dashboard/services");
 }
 
 export async function deleteServiceAction(formData: FormData) {
@@ -491,6 +501,14 @@ export async function setBookingStatusAction(formData: FormData) {
     await syncBookingToGoogle(sb, tech, { ...booking!, ...patch });
   } catch {
     // Google Calendar sync is best-effort.
+  }
+  if (status === "cancelled") {
+    try {
+      const { notifyWaitlistForCancelledBooking } = await import("@/lib/waitlist");
+      await notifyWaitlistForCancelledBooking(sb, { ...booking!, ...patch });
+    } catch {
+      // Waitlist notifications are best-effort.
+    }
   }
   await audit(sb, tech.id, "booking_status_changed", "booking", id, {
     from: booking!.status,
@@ -715,7 +733,7 @@ export async function setServicePhotoAction(formData: FormData) {
     await updateService(sb, serviceId, { photoPath: path });
   }
   revalidatePath("/dashboard/services");
-  redirect("/dashboard/services");
+  redirect(`/dashboard/services?open=${serviceId}`);
 }
 
 export async function removeServicePhotoAction(formData: FormData) {
@@ -727,7 +745,7 @@ export async function removeServicePhotoAction(formData: FormData) {
     await updateService(sb, serviceId, { photoPath: null });
   }
   revalidatePath("/dashboard/services");
-  redirect("/dashboard/services");
+  redirect(`/dashboard/services?open=${serviceId}`);
 }
 
 export async function addAddonAction(formData: FormData) {
@@ -747,16 +765,18 @@ export async function addAddonAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/services");
-  redirect("/dashboard/services");
+  // Land back with this service's panel open so adding several extras flows.
+  redirect(`/dashboard/services?open=${serviceId}`);
 }
 
 export async function deleteAddonAction(formData: FormData) {
   const { sb } = await ctx();
   const id = String(formData.get("id") ?? "");
+  const serviceId = String(formData.get("serviceId") ?? "");
   const { deleteAddon } = await import("@/lib/db/queries");
   await deleteAddon(sb, id);
   revalidatePath("/dashboard/services");
-  redirect("/dashboard/services");
+  redirect(serviceId ? `/dashboard/services?open=${serviceId}` : "/dashboard/services");
 }
 
 /** Hard delete a client and everything attached (bookings, photos, messages). */
