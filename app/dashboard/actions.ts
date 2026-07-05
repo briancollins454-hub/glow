@@ -146,6 +146,7 @@ export async function updateSettingsAction(formData: FormData) {
     loyaltyVisitThreshold: clampInt(get("loyaltyVisitThreshold"), 0, 100, tech.loyaltyVisitThreshold),
     loyaltyDiscountPct: clampInt(get("loyaltyDiscountPct"), 0, 50, tech.loyaltyDiscountPct),
     noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
+    rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
@@ -171,6 +172,32 @@ export async function requestAccountClosureAction(formData: FormData) {
   await audit(sb, tech.id, "account_closure_requested", "tech", tech.id, { reason });
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?closure=1");
+}
+
+// ---------------- Reviews ----------------
+export async function setReviewStatusAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (status === "approved" || status === "hidden" || status === "pending") {
+    const { updateReview } = await import("@/lib/db/queries");
+    await updateReview(sb, id, { status });
+    await audit(sb, tech.id, "review_status_changed", "review", id, { status });
+    revalidatePath("/dashboard/reviews");
+    revalidatePath(`/${tech.handle}`);
+  }
+  redirect("/dashboard/reviews");
+}
+
+export async function deleteReviewAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const { deleteReview } = await import("@/lib/db/queries");
+  await deleteReview(sb, id);
+  await audit(sb, tech.id, "review_deleted", "review", id);
+  revalidatePath("/dashboard/reviews");
+  revalidatePath(`/${tech.handle}`);
+  redirect("/dashboard/reviews");
 }
 
 export async function disconnectGoogleCalendarAction() {
@@ -384,6 +411,16 @@ export async function setBookingStatusAction(formData: FormData) {
       await sendAftercareEmail(sb, booking!);
     } catch {
       // Aftercare email is best-effort; completing the booking always succeeds.
+    }
+    try {
+      const { getReviewByBookingId } = await import("@/lib/db/queries");
+      const existing = await getReviewByBookingId(sb, booking!.id);
+      if (!existing) {
+        const { sendReviewRequestEmail } = await import("@/lib/notify");
+        await sendReviewRequestEmail(sb, booking!);
+      }
+    } catch {
+      // Review request is best-effort.
     }
   }
 
