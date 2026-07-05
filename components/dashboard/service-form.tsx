@@ -96,6 +96,19 @@ export function ServiceForm({
       </div>
       {s?.fullSetServiceId && <input type="hidden" name="fullSetServiceId" value={s.fullSetServiceId} />}
 
+      {!s && (
+        <div className="sm:col-span-2">
+          <Label>Photo for your booking page (optional)</Label>
+          <input
+            type="file"
+            name="photo"
+            accept="image/*"
+            className="input h-auto py-2 text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-300"
+          />
+          <p className="mt-1 text-xs text-ink-faint">Shows next to the service on your booking page. You can add or change it later too.</p>
+        </div>
+      )}
+
       <div className="sm:col-span-2">
         <Label>Aftercare instructions (emailed after the appointment)</Label>
         <Textarea

@@ -351,11 +351,28 @@ export async function saveServiceAction(formData: FormData) {
   }
 
   const existing = id ? await getService(sb, id) : null;
+  let serviceId = id;
   if (existing) {
     await updateService(sb, id, data);
   } else {
-    await createService(sb, data);
+    const created = await createService(sb, data);
+    serviceId = created.id;
   }
+
+  // Optional photo included with the form (create flow offers it inline).
+  const photo = formData.get("photo") as File | null;
+  if (serviceId && photo && photo.size > 0) {
+    try {
+      const ext = (photo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `svc/${tech.id}/${serviceId}.${ext}`;
+      const bytes = new Uint8Array(await photo.arrayBuffer());
+      await uploadPhoto(path, bytes, photo.type || "image/jpeg", { upsert: true });
+      await updateService(sb, serviceId, { photoPath: path });
+    } catch {
+      // The service is saved either way; the photo can be added from the edit panel.
+    }
+  }
+
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
   redirect(existing ? `/dashboard/services?open=${id}` : "/dashboard/services");
