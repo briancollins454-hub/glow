@@ -9,8 +9,13 @@ import {
   replaceWorkingHours,
 } from "@/lib/db/queries";
 import { slugify, randomId, randomToken } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function loginAction(formData: FormData) {
+  // Brute-force protection: same "invalid" response so attackers learn nothing.
+  if (!(await rateLimit("login", { limit: 10, windowMinutes: 5 }))) {
+    redirect("/login?error=invalid");
+  }
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const sb = await createSupabaseServerClient();
@@ -22,6 +27,9 @@ export async function loginAction(formData: FormData) {
 }
 
 export async function signupAction(formData: FormData) {
+  if (!(await rateLimit("signup", { limit: 5, windowMinutes: 15 }))) {
+    redirect("/signup?error=missing");
+  }
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const businessName = String(formData.get("businessName") ?? "").trim();
@@ -122,6 +130,9 @@ export async function logoutAction() {
 }
 
 export async function forgotPasswordAction(formData: FormData) {
+  if (!(await rateLimit("forgot-password", { limit: 5, windowMinutes: 15 }))) {
+    redirect("/forgot?sent=1");
+  }
   const email = String(formData.get("email") ?? "").trim();
   if (email) {
     const { requestPasswordReset } = await import("@/lib/password-reset");

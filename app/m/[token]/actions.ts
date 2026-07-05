@@ -4,6 +4,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import { createMessage, getClientByMessageToken, getTechById } from "@/lib/db/queries";
 import { notifyTechOfMessage } from "@/lib/notify";
 import { isLive } from "@/lib/subscriptions";
+import { rateLimit } from "@/lib/rate-limit";
 import type { Message } from "@/lib/db/types";
 
 type SendResult = { ok: boolean; message?: Message; error?: string };
@@ -12,6 +13,9 @@ type SendResult = { ok: boolean; message?: Message; error?: string };
 export async function sendClientMessageAction(token: string, body: string): Promise<SendResult> {
   const text = body.trim();
   if (!text) return { ok: false, error: "Message is empty" };
+  if (!(await rateLimit("client-message", { limit: 20, windowMinutes: 10 }))) {
+    return { ok: false, error: "Too many messages - give it a few minutes." };
+  }
   const sb = supabaseService();
   const client = await getClientByMessageToken(sb, token);
   if (!client) return { ok: false, error: "Conversation not found" };

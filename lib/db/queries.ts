@@ -228,8 +228,8 @@ export async function getClientByMessageToken(sb: SB, token: string): Promise<Cl
 }
 export async function createClient(
   sb: SB,
-  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso"> &
-    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso">>,
+  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso" | "marketingOptOut"> &
+    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso" | "marketingOptOut">>,
 ): Promise<Client> {
   const row = {
     noShowCount: 0,

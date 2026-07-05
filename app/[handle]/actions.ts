@@ -20,6 +20,7 @@ import {
 } from "@/lib/db/queries";
 import type { BookingAddon, FormAnswer } from "@/lib/db/types";
 import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
+import { rateLimit } from "@/lib/rate-limit";
 import { createConfirmedBooking, createPendingOnlineBooking, loyaltyDiscountFor } from "@/lib/bookings";
 import { createDepositCheckout } from "@/lib/payments";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
@@ -34,6 +35,11 @@ export async function createPublicBookingAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const policyAccepted = formData.get("policyAccepted") === "on";
+
+  // Generous for real clients, hostile to scripts hammering the booking form.
+  if (!(await rateLimit("public-booking", { limit: 10, windowMinutes: 10 }))) {
+    redirect(`/${handle}?service=${serviceId}&err=slot`);
+  }
 
   const sb = supabaseService();
   const tech = await getTechByHandle(sb, handle);
