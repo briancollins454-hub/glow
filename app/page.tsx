@@ -68,7 +68,7 @@ export default function HomePage() {
             Log in
           </ButtonLink>
           <ButtonLink href="/signup" size="sm">
-            Start free
+            Sign up
           </ButtonLink>
         </nav>
       </header>
@@ -99,7 +99,7 @@ export default function HomePage() {
           </div>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
             {[
-              "Free to set up - pay only when you go live",
+              "£19/mo - nothing to pay until you go live",
               "0% commission",
               "Cancel anytime",
             ].map((t) => (
@@ -234,8 +234,8 @@ export default function HomePage() {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-white/85">
             Set up your services, share your link, and let deposits and reminders
-            do the chasing for you. Setting up is free - you only pay (£19/mo)
-            when you switch online bookings on.
+            do the chasing for you. You only pay (£19/mo) once you switch online
+            bookings on.
           </p>
           <div className="mt-7 flex justify-center gap-3">
             <ButtonLink
@@ -243,7 +243,7 @@ export default function HomePage() {
               size="lg"
               className="bg-none bg-white text-brand-700 shadow-none hover:bg-white/90"
             >
-              Get started free
+              Create your booking page
             </ButtonLink>
             <ButtonLink
               href="/login"

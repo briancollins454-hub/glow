@@ -29,7 +29,7 @@ export default async function SignupPage({
             Create your booking page
           </h1>
           <p className="mt-1 text-sm text-ink-soft">
-            Free to start. No card needed. No commission, ever.
+            No card needed to sign up. £19/mo only when you go live. No commission, ever.
           </p>
 
           {error && (
