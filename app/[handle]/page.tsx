@@ -148,7 +148,7 @@ export default async function PublicBookingPage({
           return url ? { id: p.id, url, kind: p.kind } : null;
         }),
       )
-    ).filter((p): p is { id: string; url: string; kind: string } => p !== null);
+    ).filter((p): p is NonNullable<typeof p> => p !== null);
     const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     // Monday-first display order
