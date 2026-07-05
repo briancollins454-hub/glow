@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getDashboardContext } from "@/lib/auth/session";
 import { updateTech } from "@/lib/db/queries";
-import { stripe, OFFERS } from "@/lib/stripe";
+import { stripe, OFFERS, PRICES, ensureCoupon } from "@/lib/stripe";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -14,8 +14,12 @@ async function ctx() {
   return c;
 }
 
-/** Collect a card (setup mode); the webhook then creates the subscription
- *  with the intro offer (50% off first month, or £1 for invited testers). */
+/**
+ * Subscription checkout. The intro offer (£1 tester month / 50% off first
+ * month) is applied to the Checkout session itself, so Stripe's payment page
+ * shows the real amount due today (e.g. "£1.00") - no invisible follow-up
+ * charges, no confusing £0.00 screens.
+ */
 export async function startCheckoutAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const plan = formData.get("plan") === "annual" ? "annual" : "monthly";
@@ -40,14 +44,34 @@ export async function startCheckoutAction(formData: FormData) {
     await updateTech(sb, tech.id, { stripeCustomerId: customerId });
   }
 
+  // Resolve the discount up front. An explicit promo code takes priority.
+  let discounts: ({ promotion_code: string } | { coupon: string })[] | undefined;
+  if (promo) {
+    try {
+      const codes = await s.promotionCodes.list({ code: promo, active: true, limit: 1 });
+      if (codes.data[0]) discounts = [{ promotion_code: codes.data[0].id }];
+    } catch (err) {
+      console.error("[billing] promo lookup failed:", (err as Error).message);
+    }
+  }
+  if (!discounts && offer) {
+    try {
+      discounts = [{ coupon: await ensureCoupon(s, offer) }];
+    } catch (err) {
+      console.error("[billing] offer coupon failed:", (err as Error).message);
+    }
+  }
+
   const session = await s.checkout.sessions.create({
-    mode: "setup",
+    mode: "subscription",
     payment_method_types: ["card"],
     customer: customerId,
+    line_items: [{ price: plan === "annual" ? PRICES.annual : PRICES.monthly, quantity: 1 }],
+    discounts,
+    subscription_data: { metadata: { techId: tech.id, plan } },
+    metadata: { techId: tech.id, plan },
     success_url: `${APP_URL}/dashboard/billing?status=started`,
     cancel_url: `${APP_URL}/dashboard/billing?status=cancelled`,
-    metadata: { techId: tech.id, plan, promo, offer },
-    setup_intent_data: { metadata: { techId: tech.id, plan, promo, offer } },
   });
 
   redirect(session.url!);

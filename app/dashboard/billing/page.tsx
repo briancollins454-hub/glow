@@ -45,8 +45,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         </div>
       )}
       {isTester && !live && (
-        <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-300">
-          <strong>Tester offer active:</strong> your first month is £1 (monthly plan). Thanks for helping test Glow!
+        <div className="rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
+          <p className="font-display text-lg font-semibold">Tester offer active</p>
+          <p className="mt-1 text-3xl font-bold">First month £1</p>
+          <p className="mt-1 text-sm text-white/85">
+            Then £19/mo, cancel anytime. Pick Monthly below - the £1 shows at checkout. Thanks for helping test Glow!
+          </p>
         </div>
       )}
       {status === "cancelled" && (
@@ -84,12 +88,13 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <div className="grid gap-5 sm:grid-cols-2">
             <PlanCard
               title="Monthly"
-              price="£19"
-              cadence="/month"
+              price={isTester ? "£1" : "£9.50"}
+              cadence=" first month, then £19/mo"
               plan="monthly"
               configured={configured}
               highlight
-              note={isTester ? "First month £1" : "50% off first month"}
+              note={isTester ? "Tester offer" : "50% off first month"}
+              buttonLabel={isTester ? "Go live for £1" : "Go live for £9.50"}
             />
             <PlanCard
               title="Annual"
@@ -131,7 +136,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function PlanCard({ title, price, cadence, plan, configured, highlight, note }: { title: string; price: string; cadence: string; plan: "monthly" | "annual"; configured: boolean; highlight?: boolean; note?: string; }) {
+function PlanCard({ title, price, cadence, plan, configured, highlight, note, buttonLabel }: { title: string; price: string; cadence: string; plan: "monthly" | "annual"; configured: boolean; highlight?: boolean; note?: string; buttonLabel?: string; }) {
   return (
     <div className={`card p-6 ${highlight ? "ring-2 ring-brand-300" : ""}`}>
       <div className="flex items-center justify-between">
@@ -150,7 +155,7 @@ function PlanCard({ title, price, cadence, plan, configured, highlight, note }: 
           <Label>Promo code (optional)</Label>
           <Input name="promo" placeholder="Have a code?" />
         </div>
-        <Button type="submit" className="w-full" disabled={!configured}>Subscribe</Button>
+        <Button type="submit" className="w-full" disabled={!configured}>{buttonLabel ?? "Subscribe"}</Button>
       </form>
     </div>
   );
