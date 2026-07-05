@@ -99,8 +99,8 @@ export default function HomePage() {
           </div>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
             {[
+              "Free to set up - pay only when you go live",
               "0% commission",
-              "Share on Instagram & TikTok",
               "Cancel anytime",
             ].map((t) => (
               <li key={t} className="flex items-center gap-2">
@@ -234,7 +234,8 @@ export default function HomePage() {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-white/85">
             Set up your services, share your link, and let deposits and reminders
-            do the chasing for you.
+            do the chasing for you. Setting up is free - you only pay (£19/mo)
+            when you switch online bookings on.
           </p>
           <div className="mt-7 flex justify-center gap-3">
             <ButtonLink

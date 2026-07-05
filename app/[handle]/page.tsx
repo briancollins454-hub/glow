@@ -35,7 +35,7 @@ import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
 import type { ConsultationQuestion, Review, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
-import { createPublicBookingAction } from "./actions";
+import { createPublicBookingAction, joinWaitlistAction } from "./actions";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -74,7 +74,7 @@ export default async function PublicBookingPage({
   searchParams,
 }: {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ service?: string; date?: string; slot?: string; err?: string }>;
+  searchParams: Promise<{ service?: string; date?: string; slot?: string; err?: string; wl?: string }>;
 }) {
   const { handle } = await params;
   const sp = await searchParams;
@@ -297,7 +297,7 @@ function ServiceMenu({ categories, services, handle, brand, photoUrls }: { categ
   );
 }
 
-function BookingStep({ tech, service, sp, brand, days, live, questions, addons }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string }; brand: string; days: DayOption[]; live: boolean; questions: ConsultationQuestion[]; addons: ServiceAddon[]; }) {
+function BookingStep({ tech, service, sp, brand, days, live, questions, addons }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string; wl?: string }; brand: string; days: DayOption[]; live: boolean; questions: ConsultationQuestion[]; addons: ServiceAddon[]; }) {
   const deposit = depositFor(service);
   const balance = Math.max(0, service.pricePennies - deposit);
   const activeDate = sp.date && days.some((d) => d.dateStr === sp.date) ? sp.date : days[0]?.dateStr;
@@ -339,6 +339,12 @@ function BookingStep({ tech, service, sp, brand, days, live, questions, addons }
         </Notice>
       )}
 
+      {sp.wl === "1" && (
+        <Notice tone="amber" icon={<Calendar className="h-4 w-4" />}>
+          You&apos;re on the cancellation list! We&apos;ll email you the moment a slot frees up.
+        </Notice>
+      )}
+
       {live && (days.length === 0 ? (
         <div className="card p-6 text-center text-sm text-ink-soft">No available times in the next two weeks. Please check back soon.</div>
       ) : (
@@ -370,6 +376,35 @@ function BookingStep({ tech, service, sp, brand, days, live, questions, addons }
           </div>
         </div>
       ))}
+
+      {live && sp.wl !== "1" && (
+        <details className="card">
+          <summary className="cursor-pointer list-none p-4 text-sm font-medium text-ink-soft">
+            Can&apos;t see a time that works? <span style={{ color: brand }}>Join the cancellation list</span>
+          </summary>
+          <form action={joinWaitlistAction} className="space-y-3 border-t border-edge p-4">
+            <input type="hidden" name="handle" value={tech.handle} />
+            <input type="hidden" name="serviceId" value={service.id} />
+            <p className="text-sm text-ink-soft">
+              Leave your details and we&apos;ll email you the moment someone cancels.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input name="name" required placeholder="Full name *" className="input" />
+              <input name="email" type="email" required placeholder="Email *" className="input" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input name="phone" placeholder="Mobile number" className="input" />
+              <div>
+                <input name="date" type="date" className="input" />
+                <p className="mt-1 text-xs text-ink-faint">Only want a certain day? Pick it - or leave blank for any day.</p>
+              </div>
+            </div>
+            <SubmitButton className="w-full bg-none py-3 font-semibold shadow-none" style={{ backgroundColor: brand }} pendingLabel="Adding you…">
+              Join the cancellation list
+            </SubmitButton>
+          </form>
+        </details>
+      )}
 
       {live && sp.slot && (
         <div className="card p-5">

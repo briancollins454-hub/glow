@@ -51,6 +51,12 @@ export async function cancelClientBookingAction(formData: FormData) {
   } catch {
     // Google Calendar sync is best-effort.
   }
+  try {
+    const { notifyWaitlistForCancelledBooking } = await import("@/lib/waitlist");
+    await notifyWaitlistForCancelledBooking(sb, { ...booking, ...patch });
+  } catch {
+    // Waitlist notifications are best-effort.
+  }
   await skipScheduledReminders(sb, booking.id);
   try {
     await createAuditEvent(sb, {

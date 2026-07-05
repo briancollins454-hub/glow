@@ -291,6 +291,20 @@ export interface ClientPhoto {
   createdAt: string;
 }
 
+/** A client waiting for a cancellation to free up a slot. */
+export interface WaitlistEntry {
+  id: string;
+  techId: string;
+  serviceId: string | null;
+  name: string;
+  email: string;
+  phone: string;
+  // Preferred date (yyyy-mm-dd, Europe/London); "" = any date works.
+  dateStr: string;
+  notifiedAtIso: string | null;
+  createdAt: string;
+}
+
 export type ReviewStatus = "pending" | "approved" | "hidden";
 
 export interface Review {
