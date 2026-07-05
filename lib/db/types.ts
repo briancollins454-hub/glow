@@ -68,6 +68,8 @@ export interface Tech {
   googleCalendarId: string | null;
   googleCalendarEmail: string | null;
   googleConnectedAt: string | null;
+  // Automated "time to rebook" emails to lapsed clients.
+  rebookNudgesEnabled: boolean;
   createdAt: string;
 }
 
@@ -163,6 +165,8 @@ export interface Client {
   isVip: boolean;
   // Private, unguessable token for the no-login client message thread page.
   messageToken: string;
+  // When the last automated rebooking nudge went out (null = never).
+  lastNudgeAtIso: string | null;
   createdAt: string;
 }
 
@@ -282,6 +286,19 @@ export interface ClientPhoto {
   path: string;
   kind: PhotoKind;
   consent: boolean;
+  createdAt: string;
+}
+
+export type ReviewStatus = "pending" | "approved" | "hidden";
+
+export interface Review {
+  id: string;
+  techId: string;
+  clientId: string;
+  bookingId: string;
+  rating: number;
+  comment: string;
+  status: ReviewStatus;
   createdAt: string;
 }
 

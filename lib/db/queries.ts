@@ -13,6 +13,7 @@ import type {
   Payment,
   PatchTest,
   Reminder,
+  Review,
   Service,
   ServiceAddon,
   ServiceCategory,
@@ -96,7 +97,8 @@ type ManagedTechField =
   | "googleRefreshToken"
   | "googleCalendarId"
   | "googleCalendarEmail"
-  | "googleConnectedAt";
+  | "googleConnectedAt"
+  | "rebookNudgesEnabled";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;
@@ -226,8 +228,8 @@ export async function getClientByMessageToken(sb: SB, token: string): Promise<Cl
 }
 export async function createClient(
   sb: SB,
-  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip"> &
-    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip">>,
+  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso"> &
+    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso">>,
 ): Promise<Client> {
   const row = {
     noShowCount: 0,
@@ -462,6 +464,47 @@ export async function unreadCountForTech(sb: SB, techId: string): Promise<number
     .is("readAt", null);
   if (error) throw new Error(error.message);
   return count ?? 0;
+}
+
+// ---------------- Reviews ----------------
+export async function createReview(sb: SB, r: Omit<Review, "id" | "createdAt">): Promise<Review> {
+  const { data, error } = await sb.from("reviews").insert({ ...r, id: randomId("rev") }).select("*").single();
+  return must(data as Review, error);
+}
+export async function getReviewByBookingId(sb: SB, bookingId: string): Promise<Review | null> {
+  const { data, error } = await sb.from("reviews").select("*").eq("bookingId", bookingId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Review | null;
+}
+export async function listReviewsForTech(sb: SB, techId: string): Promise<Review[]> {
+  const { data, error } = await sb.from("reviews").select("*").eq("techId", techId).order("createdAt", { ascending: false });
+  return must(data as Review[], error) ?? [];
+}
+export async function listApprovedReviews(sb: SB, techId: string): Promise<Review[]> {
+  const { data, error } = await sb
+    .from("reviews")
+    .select("*")
+    .eq("techId", techId)
+    .eq("status", "approved")
+    .order("createdAt", { ascending: false });
+  return must(data as Review[], error) ?? [];
+}
+export async function updateReview(sb: SB, id: string, patch: Partial<Review>): Promise<void> {
+  const { error } = await sb.from("reviews").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+export async function deleteReview(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("reviews").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Techs with a live subscription (used by cross-tech cron jobs). */
+export async function listLiveTechs(sb: SB): Promise<Tech[]> {
+  const { data, error } = await sb
+    .from("techs")
+    .select("*")
+    .in("subscriptionStatus", ["trialing", "active", "comped"]);
+  return must(data as Tech[], error) ?? [];
 }
 
 // ---------------- Audit / compliance ----------------

@@ -142,6 +142,20 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 Currently: clients with {tech.loyaltyVisitThreshold}+ completed visits get {tech.loyaltyDiscountPct}% off automatically.
               </p>
             )}
+            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                name="rebookNudgesEnabled"
+                defaultChecked={tech.rebookNudgesEnabled}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              />
+              <span>
+                <span className="font-medium">Automatic &ldquo;time to rebook&rdquo; emails</span>
+                <span className="mt-0.5 block text-xs text-ink-faint">
+                  Clients who haven&apos;t visited in 30+ days and have nothing booked get a friendly nudge with your booking link. One per client every two months, max.
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
 

@@ -10,6 +10,8 @@ import {
   Calendar,
   AlertTriangle,
   Lock,
+  Star,
+  Sparkles,
 } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { supabaseService } from "@/lib/supabase/service";
@@ -22,6 +24,9 @@ import {
   listWorkingHours,
   getTechByHandle,
   addonsForService,
+  listApprovedReviews,
+  listClients,
+  listClientPhotosForTech,
 } from "@/lib/db/queries";
 import { signedPhotoUrl } from "@/lib/storage";
 import { availableDays, depositFor } from "@/lib/rules";
@@ -29,7 +34,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { isLive } from "@/lib/subscriptions";
 import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
-import type { ConsultationQuestion, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
+import type { ConsultationQuestion, Review, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
 import { createPublicBookingAction } from "./actions";
 
 type DayOption = { dateStr: string; slots: string[] };
@@ -100,11 +105,15 @@ export default async function PublicBookingPage({
     addons = adds;
   }
 
-  // Signed URLs for service photos + opening hours (menu view only).
+  // Signed URLs for service photos + opening hours + social proof (menu view only).
   const photoUrls = new Map<string, string>();
   let openingHours: { label: string; value: string }[] = [];
+  let reviews: { review: Review; clientLabel: string }[] = [];
+  let ratingAvg = 0;
+  let ratingCount = 0;
+  let portfolio: { id: string; url: string; kind: string }[] = [];
   if (!selected) {
-    const [, hours] = await Promise.all([
+    const [, hours, approvedReviews, clients, allPhotos] = await Promise.all([
       Promise.all(
         services
           .filter((s) => s.photoPath)
@@ -114,7 +123,32 @@ export default async function PublicBookingPage({
           }),
       ),
       listWorkingHours(sb, tech.id),
+      listApprovedReviews(sb, tech.id).catch(() => []),
+      listClients(sb, tech.id),
+      listClientPhotosForTech(sb, tech.id).catch(() => []),
     ]);
+
+    const clientById = new Map(clients.map((c) => [c.id, c.name]));
+    ratingCount = approvedReviews.length;
+    ratingAvg = ratingCount
+      ? approvedReviews.reduce((s, r) => s + r.rating, 0) / ratingCount
+      : 0;
+    reviews = approvedReviews.slice(0, 6).map((review) => {
+      const name = clientById.get(review.clientId) ?? "";
+      const [first = "", last = ""] = name.split(" ");
+      return { review, clientLabel: last ? `${first} ${last[0]}.` : first || "A client" };
+    });
+
+    // Portfolio: consented before/after photos only.
+    const consented = allPhotos.filter((p) => p.consent && p.kind !== "other").slice(0, 8);
+    portfolio = (
+      await Promise.all(
+        consented.map(async (p) => {
+          const url = await signedPhotoUrl(p.path);
+          return url ? { id: p.id, url, kind: p.kind } : null;
+        }),
+      )
+    ).filter((p): p is { id: string; url: string; kind: string } => p !== null);
     const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     // Monday-first display order
@@ -137,6 +171,12 @@ export default async function PublicBookingPage({
           <h1 className="mt-4 font-display text-3xl font-semibold">{tech.businessName}</h1>
           {tech.bio && <p className="mx-auto mt-2 max-w-md text-sm text-white/85">{tech.bio}</p>}
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-white/85">
+            {ratingCount > 0 && (
+              <span className="flex items-center gap-1 font-medium text-white">
+                <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
+                {ratingAvg.toFixed(1)} ({ratingCount} review{ratingCount > 1 ? "s" : ""})
+              </span>
+            )}
             {tech.location && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {tech.location}</span>}
             {tech.instagram && <a className="flex items-center gap-1 hover:text-white" href={`https://instagram.com/${tech.instagram}`} target="_blank"><Instagram className="h-4 w-4" /> @{tech.instagram}</a>}
           </div>
@@ -147,6 +187,47 @@ export default async function PublicBookingPage({
         {!selected ? (
           <>
             <ServiceMenu categories={categories} services={services} handle={tech.handle} brand={brand} photoUrls={photoUrls} />
+
+            {portfolio.length > 0 && (
+              <section className="mt-8">
+                <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
+                  <Sparkles className="h-5 w-5 text-brand-400" /> Recent work
+                </h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {portfolio.map((p) => (
+                    <div key={p.id} className="relative overflow-hidden rounded-xl border border-edge">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.url} alt={`${p.kind} photo`} className="aspect-square w-full object-cover" loading="lazy" />
+                      <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium capitalize text-white">{p.kind}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {reviews.length > 0 && (
+              <section className="mt-8">
+                <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" /> What clients say
+                </h2>
+                <div className="space-y-3">
+                  {reviews.map(({ review, clientLabel }) => (
+                    <div key={review.id} className="card p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Star key={n} className={`h-3.5 w-3.5 ${n <= review.rating ? "fill-amber-400 text-amber-400" : "text-ink-faint"}`} />
+                          ))}
+                        </span>
+                        <p className="text-sm font-medium">{clientLabel}</p>
+                      </div>
+                      {review.comment && <p className="mt-1.5 text-sm text-ink-soft">&ldquo;{review.comment}&rdquo;</p>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {openingHours.some((d) => d.value !== "Closed") && (
               <section className="card mt-8 p-5">
                 <h2 className="flex items-center gap-2 font-display text-lg font-semibold">

@@ -22,5 +22,12 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("[cron] onboarding emails failed:", (err as Error).message);
   }
-  return NextResponse.json({ ok: true, ...result, onboarding, at: new Date().toISOString() });
+  let rebookNudges = 0;
+  try {
+    const { processRebookNudges } = await import("@/lib/rebooking");
+    rebookNudges = await processRebookNudges(sb);
+  } catch (err) {
+    console.error("[cron] rebook nudges failed:", (err as Error).message);
+  }
+  return NextResponse.json({ ok: true, ...result, onboarding, rebookNudges, at: new Date().toISOString() });
 }

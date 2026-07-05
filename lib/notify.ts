@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
 import { sendEmail, brandedEmail } from "@/lib/email";
+import { sendSms, smsConfigured } from "@/lib/sms";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -226,9 +227,48 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
     await sendEmail({ to: client.email, subject, html, text, idempotencyKey: `reminder/${reminder.id}` });
   }
 
+  // SMS is where no-shows are actually prevented: clients read texts, not email.
+  // Sent for the time-critical kinds when Twilio is configured.
+  const SMS_KINDS: ReminderKind[] = ["reminder_24h", "reminder_2h", "balance_request"];
+  if (smsConfigured() && client?.phone && SMS_KINDS.includes(reminder.kind)) {
+    await sendSms(client.phone, text);
+  }
+
   await markReminder(sb, reminder.id, {
     status: "sent",
     sentAtIso: new Date().toISOString(),
     preview: text,
+  });
+}
+
+/**
+ * One-off review request sent when an appointment is completed. Uses the
+ * booking's private token so the client never needs an account.
+ */
+export async function sendReviewRequestEmail(sb: SupabaseClient, booking: Booking): Promise<void> {
+  const [client, service, tech] = await Promise.all([
+    getClient(sb, booking.clientId),
+    getService(sb, booking.serviceId),
+    getTechById(sb, booking.techId),
+  ]);
+  if (!client?.email || !tech) return;
+
+  const biz = tech.businessName || "your beauty studio";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const url = `${APP_URL}/review/${booking.balanceToken}`;
+  const html = brandedEmail({
+    brand: tech.brandColor || "#db2777",
+    businessName: biz,
+    heading: "How did it go?",
+    bodyHtml: `Hi ${name},<br/><br/>Thanks for visiting ${biz}! If you have 30 seconds, a quick rating helps other clients find us - and helps ${biz} keep improving.`,
+    buttonLabel: "Leave a quick review",
+    buttonUrl: url,
+  });
+  await sendEmail({
+    to: client.email,
+    subject: `How was your ${service?.name ?? "appointment"}?`,
+    html,
+    text: `Hi ${name}, thanks for visiting ${biz}! Leave a quick review: ${url}`,
+    idempotencyKey: `review-request/${booking.id}`,
   });
 }
