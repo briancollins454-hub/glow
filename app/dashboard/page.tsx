@@ -9,6 +9,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listBookings, listClients, listPayments, listServices } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +59,7 @@ export default async function DashboardOverview() {
   const insights = buildBusinessInsights({ bookings, clients, payments, services });
 
   const live = isLive(tech);
+  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
   const setupSteps: SetupStep[] = [
     {
       title: "Add your first service",
@@ -92,6 +94,17 @@ export default async function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {isTester && !live && (
+        <Link
+          href="/dashboard/billing"
+          className="block rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-white shadow-glow transition hover:from-brand-500 hover:to-brand-600"
+        >
+          <p className="font-display text-lg font-semibold">Congrats - you&apos;re an invited tester!</p>
+          <p className="mt-0.5 text-2xl font-bold">Your first month is just £1</p>
+          <p className="mt-1 text-sm text-white/85">Then £19/mo, cancel anytime. Tap here to go live for £1 →</p>
+        </Link>
+      )}
+
       {!(essentialsDone && isPaymentsReady(tech)) && (
         <OnboardingChecklist steps={setupSteps} bookingUrl={`${APP_URL}/${tech.handle}`} />
       )}

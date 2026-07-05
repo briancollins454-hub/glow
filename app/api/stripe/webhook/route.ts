@@ -126,10 +126,13 @@ export async function POST(request: Request) {
         if (!tech) break;
         const status = event.type === "customer.subscription.deleted" ? "canceled" : mapStatus(sub.status);
         const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
+        // Subscription-mode checkout carries the plan in subscription metadata.
+        const planMeta = sub.metadata?.plan;
         await updateTech(sb, tech.id, {
           subscriptionStatus: status,
           stripeSubscriptionId: sub.id,
           currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : tech.currentPeriodEnd,
+          ...(planMeta === "monthly" || planMeta === "annual" ? { plan: planMeta } : {}),
         });
         break;
       }
