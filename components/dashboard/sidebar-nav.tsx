@@ -17,6 +17,7 @@ import {
   MessageSquare,
   FolderInput,
   Settings,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ const items = [
   { href: "/dashboard/billing", label: "My plan", icon: CreditCard },
   { href: "/dashboard/import", label: "Move to Glow", icon: FolderInput },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/help", label: "Help", icon: LifeBuoy },
 ];
 
 export function SidebarNav({ unread = 0 }: { unread?: number }) {
