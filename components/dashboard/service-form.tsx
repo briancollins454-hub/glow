@@ -1,4 +1,5 @@
 import { SubmitButton } from "@/components/ui/submit-button";
+import { DepositFields } from "@/components/dashboard/deposit-fields";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { saveServiceAction } from "@/app/dashboard/actions";
 import type { Service, ServiceCategory } from "@/lib/db/types";
@@ -53,31 +54,16 @@ export function ServiceForm({
         </div>
       </div>
 
-      <div>
-        <Label>Deposit</Label>
-        <Select name="depositType" defaultValue={s?.depositType ?? "percent"}>
-          <option value="fixed">Set amount (£)</option>
-          <option value="percent">Percentage of price (%)</option>
-          <option value="none">No deposit</option>
-        </Select>
-      </div>
-      <div>
-        <Label>Deposit amount</Label>
-        <Input
-          name="depositValue"
-          type="text"
-          inputMode="decimal"
-          defaultValue={
-            s
-              ? s.depositType === "fixed"
-                ? (s.depositValue / 100).toFixed(2)
-                : String(s.depositValue)
-              : "15.00"
-          }
-          placeholder="15.00"
-        />
-        <p className="mt-1 text-xs text-ink-faint">e.g. 15.00 for £15, or 30 if you chose percentage.</p>
-      </div>
+      <DepositFields
+        defaultType={s?.depositType ?? "percent"}
+        defaultValue={
+          s
+            ? s.depositType === "fixed"
+              ? (s.depositValue / 100).toFixed(2)
+              : String(s.depositValue)
+            : "30"
+        }
+      />
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
         <input type="checkbox" name="requiresPatchTest" defaultChecked={s?.requiresPatchTest} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
