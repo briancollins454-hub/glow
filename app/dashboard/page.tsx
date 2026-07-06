@@ -10,13 +10,24 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listBookings, listClients, listPayments, listServices } from "@/lib/db/queries";
+import {
+  countBlacklistedClients,
+  countNoShowBookings,
+  countTodayBookings,
+  countUpcomingBookings,
+  listClients,
+  listInsightBookings,
+  listRecentPayments,
+  listServices,
+  listUpcomingBookings,
+  sumMonthIncome,
+  sumOutstandingBalances,
+} from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime, fmtRelativeDays } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
-import { isLive } from "@/lib/subscriptions";
-import { isPaymentsReady } from "@/lib/subscriptions";
+import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
 import { buildBusinessInsights, type BusinessInsight } from "@/lib/insights";
 
@@ -27,35 +38,51 @@ export default async function DashboardOverview() {
   if (!c) redirect("/login");
   const { sb, tech } = c;
 
-  const now = Date.now();
-  const [bookings, payments, clients, services] = await Promise.all([
-    listBookings(sb, tech.id),
-    listPayments(sb, tech.id),
-    listClients(sb, tech.id),
-    listServices(sb, tech.id),
-  ]);
-  const clientById = new Map(clients.map((c) => [c.id, c]));
-  const serviceById = new Map(services.map((s) => [s.id, s]));
-
+  const now = new Date();
+  const nowIso = now.toISOString();
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
+  const todayStr = fmtDate(nowIso);
+  const dayStart = `${todayStr}T00:00:00.000Z`;
+  const dayEnd = `${todayStr}T23:59:59.999Z`;
+  const insightFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const insightTo = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-  const monthIncome = payments
-    .filter((p) => p.status === "succeeded" && new Date(p.createdAt) >= monthStart)
-    .reduce((sum, p) => sum + (p.kind === "refund" ? -p.amountPennies : p.amountPennies), 0);
+  const [
+    upcoming,
+    services,
+    monthIncome,
+    outstanding,
+    todayCount,
+    upcomingCount,
+    blacklisted,
+    noShows,
+    insightBookings,
+    recentPayments,
+    clients,
+  ] = await Promise.all([
+    listUpcomingBookings(sb, tech.id, nowIso, 20),
+    listServices(sb, tech.id),
+    sumMonthIncome(sb, tech.id, monthStart.toISOString()),
+    sumOutstandingBalances(sb, tech.id, nowIso),
+    countTodayBookings(sb, tech.id, dayStart, dayEnd),
+    countUpcomingBookings(sb, tech.id, nowIso),
+    countBlacklistedClients(sb, tech.id),
+    countNoShowBookings(sb, tech.id),
+    listInsightBookings(sb, tech.id, insightFrom, insightTo),
+    listRecentPayments(sb, tech.id, insightFrom),
+    listClients(sb, tech.id),
+  ]);
 
-  const upcoming = bookings.filter(
-    (b) => new Date(b.startIso).getTime() >= now && (b.status === "confirmed" || b.status === "pending"),
-  );
-  const todayStr = fmtDate(new Date().toISOString());
-  const todayCount = upcoming.filter((b) => fmtDate(b.startIso) === todayStr).length;
-  const outstanding = upcoming
-    .filter((b) => b.balanceStatus === "unpaid")
-    .reduce((sum, b) => sum + b.balancePennies, 0);
-  const blacklisted = clients.filter((c) => c.isBlacklisted).length;
-  const noShows = bookings.filter((b) => b.status === "no_show").length;
-  const insights = buildBusinessInsights({ bookings, clients, payments, services });
+  const clientById = new Map(clients.map((c) => [c.id, c]));
+  const serviceById = new Map(services.map((s) => [s.id, s]));
+  const insights = buildBusinessInsights({
+    bookings: insightBookings,
+    clients,
+    payments: recentPayments,
+    services,
+  });
 
   const live = isLive(tech);
   const isTester = tech.signupOffer === "tester";
@@ -75,8 +102,6 @@ export default async function DashboardOverview() {
       cta: "Check hours",
     },
     {
-      // Testers (invited via the /tester link) see their £1 offer everywhere;
-      // everyone else keeps the public 50%-off message.
       title: isTester ? "Go live - your first month is just £1" : "Go live - 50% off your first month",
       detail: isTester
         ? "Tester offer: £1 for month one, then £19/mo, cancel anytime."
@@ -126,7 +151,7 @@ export default async function DashboardOverview() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={CalendarDays} label="Today" value={String(todayCount)} hint="appointments" tone="brand" href="/dashboard/bookings" />
-        <StatCard icon={Clock3} label="Upcoming" value={String(upcoming.length)} hint="booked ahead" tone="blue" href="/dashboard/bookings" />
+        <StatCard icon={Clock3} label="Upcoming" value={String(upcomingCount)} hint="booked ahead" tone="blue" href="/dashboard/bookings" />
         <StatCard icon={PoundSterling} label="Income this month" value={gbp(monthIncome)} hint="deposits + balances" tone="green" href="/dashboard/reports" />
         <StatCard icon={TrendingUp} label="Outstanding" value={gbp(outstanding)} hint="balances due" tone="amber" href="/dashboard/bookings" />
       </div>

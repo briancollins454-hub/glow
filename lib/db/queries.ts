@@ -292,6 +292,299 @@ export async function listBookings(sb: SB, techId: string): Promise<Booking[]> {
   const { data, error } = await sb.from("bookings").select("*").eq("techId", techId).order("startIso");
   return must(data as Booking[], error) ?? [];
 }
+
+/** Bookings that block availability within a time window (for slot calculation). */
+export async function listBlockingBookingsInRange(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<Booking[]> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("techId", techId)
+    .gte("startIso", fromIso)
+    .lt("startIso", toIso)
+    .in("status", ["pending", "confirmed", "completed"])
+    .order("startIso");
+  return must(data as Booking[], error) ?? [];
+}
+
+/** Bounded window for calendar views — avoids loading entire booking history. */
+export async function listBookingsInWindow(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<Booking[]> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("techId", techId)
+    .gte("startIso", fromIso)
+    .lte("startIso", toIso)
+    .order("startIso");
+  return must(data as Booking[], error) ?? [];
+}
+
+export async function listUpcomingBookings(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+  limit = 20,
+): Promise<Booking[]> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("techId", techId)
+    .gte("startIso", fromIso)
+    .in("status", ["pending", "confirmed"])
+    .order("startIso")
+    .limit(limit);
+  return must(data as Booking[], error) ?? [];
+}
+
+export async function getBookingsByIds(sb: SB, ids: string[]): Promise<Booking[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await sb.from("bookings").select("*").in("id", ids);
+  return must(data as Booking[], error) ?? [];
+}
+
+export async function completedVisitCounts(
+  sb: SB,
+  techId: string,
+): Promise<Map<string, number>> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("clientId")
+    .eq("techId", techId)
+    .eq("status", "completed");
+  if (error) throw new Error(error.message);
+  const counts = new Map<string, number>();
+  for (const row of (data as { clientId: string }[]) ?? []) {
+    counts.set(row.clientId, (counts.get(row.clientId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export async function countBlacklistedClients(sb: SB, techId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("clients")
+    .select("*", { count: "exact", head: true })
+    .eq("techId", techId)
+    .eq("isBlacklisted", true);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function countNoShowBookings(sb: SB, techId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .eq("techId", techId)
+    .eq("status", "no_show");
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function sumMonthIncome(
+  sb: SB,
+  techId: string,
+  monthStartIso: string,
+): Promise<number> {
+  const { data, error } = await sb
+    .from("payments")
+    .select("kind, amountPennies")
+    .eq("techId", techId)
+    .eq("status", "succeeded")
+    .gte("createdAt", monthStartIso);
+  if (error) throw new Error(error.message);
+  return ((data as Pick<Payment, "kind" | "amountPennies">[]) ?? []).reduce(
+    (sum, p) => sum + (p.kind === "refund" ? -p.amountPennies : p.amountPennies),
+    0,
+  );
+}
+
+export async function sumOutstandingBalances(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+): Promise<number> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("balancePennies")
+    .eq("techId", techId)
+    .gte("startIso", fromIso)
+    .eq("balanceStatus", "unpaid")
+    .in("status", ["pending", "confirmed"]);
+  if (error) throw new Error(error.message);
+  return ((data as Pick<Booking, "balancePennies">[]) ?? []).reduce(
+    (sum, b) => sum + b.balancePennies,
+    0,
+  );
+}
+
+export async function countUpcomingBookings(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+): Promise<number> {
+  const { count, error } = await sb
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .eq("techId", techId)
+    .gte("startIso", fromIso)
+    .in("status", ["pending", "confirmed"]);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function countTodayBookings(
+  sb: SB,
+  techId: string,
+  dayStartIso: string,
+  dayEndIso: string,
+): Promise<number> {
+  const { count, error } = await sb
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .eq("techId", techId)
+    .gte("startIso", dayStartIso)
+    .lte("startIso", dayEndIso)
+    .neq("status", "cancelled");
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export interface ReportSummary {
+  totalIncome: number;
+  depositsTotal: number;
+  balancesTotal: number;
+  completed: number;
+  noShows: number;
+  forfeited: number;
+  byMonth: [string, number][];
+  byService: [string, number][];
+}
+
+export async function getReportSummary(sb: SB, techId: string): Promise<ReportSummary> {
+  const [paymentsRes, bookingsRes, services] = await Promise.all([
+    sb
+      .from("payments")
+      .select("kind, amountPennies, createdAt, bookingId, status")
+      .eq("techId", techId)
+      .eq("status", "succeeded"),
+    sb
+      .from("bookings")
+      .select("id, serviceId, status, depositStatus, depositPennies")
+      .eq("techId", techId),
+    listServices(sb, techId),
+  ]);
+  if (paymentsRes.error) throw new Error(paymentsRes.error.message);
+  if (bookingsRes.error) throw new Error(bookingsRes.error.message);
+
+  const payments = (paymentsRes.data ?? []) as Pick<
+    Payment,
+    "kind" | "amountPennies" | "createdAt" | "bookingId"
+  >[];
+  const bookings = (bookingsRes.data ?? []) as Pick<
+    Booking,
+    "id" | "serviceId" | "status" | "depositStatus" | "depositPennies"
+  >[];
+  const bookingById = new Map(bookings.map((b) => [b.id, b]));
+  const serviceById = new Map(services.map((s) => [s.id, s.name]));
+  const signed = (kind: string, amt: number) => (kind === "refund" ? -amt : amt);
+
+  const totalIncome = payments.reduce((s, p) => s + signed(p.kind, p.amountPennies), 0);
+  const depositsTotal = payments
+    .filter((p) => p.kind === "deposit")
+    .reduce((s, p) => s + p.amountPennies, 0);
+  const balancesTotal = payments
+    .filter((p) => p.kind === "balance")
+    .reduce((s, p) => s + p.amountPennies, 0);
+  const completed = bookings.filter((b) => b.status === "completed").length;
+  const noShows = bookings.filter((b) => b.status === "no_show").length;
+  const forfeited = bookings
+    .filter((b) => b.depositStatus === "forfeited")
+    .reduce((s, b) => s + b.depositPennies, 0);
+
+  const byMonth = new Map<string, number>();
+  for (const p of payments) {
+    const key = p.createdAt.slice(0, 7);
+    byMonth.set(key, (byMonth.get(key) ?? 0) + signed(p.kind, p.amountPennies));
+  }
+
+  const byService = new Map<string, number>();
+  for (const p of payments) {
+    const b = bookingById.get(p.bookingId);
+    if (!b) continue;
+    const name = serviceById.get(b.serviceId) ?? "Other";
+    byService.set(name, (byService.get(name) ?? 0) + signed(p.kind, p.amountPennies));
+  }
+
+  return {
+    totalIncome,
+    depositsTotal,
+    balancesTotal,
+    completed,
+    noShows,
+    forfeited,
+    byMonth: [...byMonth.entries()].sort((a, b) => b[0].localeCompare(a[0])),
+    byService: [...byService.entries()].sort((a, b) => b[1] - a[1]),
+  };
+}
+
+export async function getClientsByIds(sb: SB, ids: string[]): Promise<Client[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await sb.from("clients").select("*").in("id", ids);
+  return must(data as Client[], error) ?? [];
+}
+
+export async function getClientNameMap(
+  sb: SB,
+  clientIds: string[],
+): Promise<Map<string, string>> {
+  if (clientIds.length === 0) return new Map();
+  const { data, error } = await sb
+    .from("clients")
+    .select("id, name")
+    .in("id", clientIds);
+  if (error) throw new Error(error.message);
+  return new Map(
+    ((data as Pick<Client, "id" | "name">[]) ?? []).map((c) => [c.id, c.name]),
+  );
+}
+
+export async function listRecentPayments(
+  sb: SB,
+  techId: string,
+  sinceIso: string,
+): Promise<Payment[]> {
+  const { data, error } = await sb
+    .from("payments")
+    .select("*")
+    .eq("techId", techId)
+    .gte("createdAt", sinceIso)
+    .order("createdAt");
+  return must(data as Payment[], error) ?? [];
+}
+
+export async function listInsightBookings(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<Booking[]> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("techId", techId)
+    .gte("startIso", fromIso)
+    .lte("startIso", toIso)
+    .order("startIso");
+  return must(data as Booking[], error) ?? [];
+}
 export async function getBooking(sb: SB, id: string): Promise<Booking | null> {
   const { data, error } = await sb.from("bookings").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);

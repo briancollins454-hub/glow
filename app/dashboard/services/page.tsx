@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles, ChevronUp, ChevronDown } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listAddons, listCategories, listServices } from "@/lib/db/queries";
-import { signedPhotoUrl } from "@/lib/storage";
+import { signedPhotoUrls } from "@/lib/storage";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,15 +38,16 @@ export default async function ServicesPage({
   ]);
   const fullSets = services.filter((s) => !s.isInfill);
   const catById = new Map(categories.map((c) => [c.id, c.name]));
-  const photoUrls = new Map<string, string>();
-  await Promise.all(
-    services
-      .filter((s) => s.photoPath)
-      .map(async (s) => {
-        const url = await signedPhotoUrl(s.photoPath!);
-        if (url) photoUrls.set(s.id, url);
-      }),
+  const photoUrls = await signedPhotoUrls(
+    services.filter((s) => s.photoPath).map((s) => s.photoPath!),
   );
+  const photoByService = new Map<string, string>();
+  for (const s of services) {
+    if (s.photoPath) {
+      const url = photoUrls.get(s.photoPath);
+      if (url) photoByService.set(s.id, url);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -180,16 +181,16 @@ export default async function ServicesPage({
                 <div className="mt-4 border-t border-edge pt-4">
                   <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><ImagePlus className="h-4 w-4 text-brand-400" /> Photo on your booking page</p>
                   <div className="flex flex-wrap items-center gap-3">
-                    {photoUrls.has(s.id) && (
+                    {photoByService.has(s.id) && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photoUrls.get(s.id)!} alt={s.name} className="h-16 w-16 rounded-xl object-cover" />
+                      <img src={photoByService.get(s.id)!} alt={s.name} className="h-16 w-16 rounded-xl object-cover" />
                     )}
                     <form action={setServicePhotoAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="serviceId" value={s.id} />
                       <input type="file" name="photo" accept="image/*" required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
-                      <SubmitButton size="sm" pendingLabel="Uploading…">{photoUrls.has(s.id) ? "Replace" : "Upload"}</SubmitButton>
+                      <SubmitButton size="sm" pendingLabel="Uploading…">{photoByService.has(s.id) ? "Replace" : "Upload"}</SubmitButton>
                     </form>
-                    {photoUrls.has(s.id) && (
+                    {photoByService.has(s.id) && (
                       <form action={removeServicePhotoAction}>
                         <input type="hidden" name="serviceId" value={s.id} />
                         <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10">Remove</Button>

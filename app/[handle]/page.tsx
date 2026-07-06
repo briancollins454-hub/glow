@@ -6,17 +6,12 @@ import {
   Clock,
   ShieldCheck,
   RefreshCw,
-  ArrowLeft,
-  Calendar,
-  AlertTriangle,
-  Lock,
   Star,
   Sparkles,
 } from "lucide-react";
-import { formatInTimeZone } from "date-fns-tz";
 import { supabaseService } from "@/lib/supabase/service";
 import {
-  listBookings,
+  listBlockingBookingsInRange,
   listCategories,
   listQuestions,
   listServices,
@@ -25,17 +20,16 @@ import {
   getTechByHandle,
   addonsForService,
   listApprovedReviews,
-  listClients,
   listClientPhotosForTech,
+  getClientNameMap,
 } from "@/lib/db/queries";
-import { signedPhotoUrl } from "@/lib/storage";
+import { signedPhotoUrls } from "@/lib/storage";
 import { availableDays, depositFor } from "@/lib/rules";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { isLive } from "@/lib/subscriptions";
-import { gbp, minutesToLabel, fmtTime, TZ } from "@/lib/format";
+import { gbp, minutesToLabel } from "@/lib/format";
 import type { ConsultationQuestion, Review, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
-import { createPublicBookingAction, joinWaitlistAction } from "./actions";
+import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
+import { RemoteImage } from "@/components/ui/remote-image";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -59,15 +53,8 @@ export async function generateMetadata({
   };
 }
 
-const ERR: Record<string, string> = {
-  missing: "Please fill in your name and email.",
-  slot: "Sorry, that time was just taken. Please pick another slot.",
-  not_live: "This studio isn't accepting online bookings just yet. Please check back soon.",
-  blocked: "We can't complete this booking online. Please contact the studio directly.",
-  patch: "This service needs a valid patch test on file. Please get in touch to arrange one first.",
-  infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
-  form: "Please complete the required questions and agree to the booking policy.",
-};
+// Menu content (services, reviews, portfolio) can be cached briefly.
+export const revalidate = 60;
 
 export default async function PublicBookingPage({
   params,
@@ -93,10 +80,11 @@ export default async function PublicBookingPage({
   let questions: ConsultationQuestion[] = [];
   let addons: ServiceAddon[] = [];
   if (selected && live) {
+    const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
     const [workingHours, timeOff, bookings, qs, adds] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listTimeOff(sb, tech.id),
-      listBookings(sb, tech.id),
+      listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
       listQuestions(sb, tech.id, { activeOnly: true }),
       addonsForService(sb, selected.id, { activeOnly: true }),
     ]);
@@ -113,22 +101,29 @@ export default async function PublicBookingPage({
   let ratingCount = 0;
   let portfolio: { id: string; url: string; kind: string }[] = [];
   if (!selected) {
-    const [, hours, approvedReviews, clients, allPhotos] = await Promise.all([
-      Promise.all(
-        services
-          .filter((s) => s.photoPath)
-          .map(async (s) => {
-            const url = await signedPhotoUrl(s.photoPath!);
-            if (url) photoUrls.set(s.id, url);
-          }),
-      ),
+    const [hours, approvedReviews, allPhotos] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listApprovedReviews(sb, tech.id).catch(() => []),
-      listClients(sb, tech.id),
       listClientPhotosForTech(sb, tech.id).catch(() => []),
     ]);
 
-    const clientById = new Map(clients.map((c) => [c.id, c.name]));
+    const consented = allPhotos.filter((p) => p.consent && p.kind !== "other").slice(0, 8);
+    const photoPaths = [
+      ...services.filter((s) => s.photoPath).map((s) => s.photoPath!),
+      ...consented.map((p) => p.path),
+    ];
+    const signed = await signedPhotoUrls(photoPaths);
+    for (const s of services) {
+      if (s.photoPath) {
+        const url = signed.get(s.photoPath);
+        if (url) photoUrls.set(s.id, url);
+      }
+    }
+
+    const clientById = await getClientNameMap(
+      sb,
+      approvedReviews.map((r) => r.clientId),
+    );
     ratingCount = approvedReviews.length;
     ratingAvg = ratingCount
       ? approvedReviews.reduce((s, r) => s + r.rating, 0) / ratingCount
@@ -139,16 +134,12 @@ export default async function PublicBookingPage({
       return { review, clientLabel: last ? `${first} ${last[0]}.` : first || "A client" };
     });
 
-    // Portfolio: consented before/after photos only.
-    const consented = allPhotos.filter((p) => p.consent && p.kind !== "other").slice(0, 8);
-    portfolio = (
-      await Promise.all(
-        consented.map(async (p) => {
-          const url = await signedPhotoUrl(p.path);
-          return url ? { id: p.id, url, kind: p.kind } : null;
-        }),
-      )
-    ).filter((p): p is NonNullable<typeof p> => p !== null);
+    portfolio = consented
+      .map((p) => {
+        const url = signed.get(p.path);
+        return url ? { id: p.id, url, kind: p.kind } : null;
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
     const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     // Monday-first display order
@@ -195,9 +186,14 @@ export default async function PublicBookingPage({
                 </h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {portfolio.map((p) => (
-                    <div key={p.id} className="relative overflow-hidden rounded-xl border border-edge">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.url} alt={`${p.kind} photo`} className="aspect-square w-full object-cover" loading="lazy" />
+                    <div key={p.id} className="relative aspect-square overflow-hidden rounded-xl border border-edge">
+                      <RemoteImage
+                        src={p.url}
+                        alt={`${p.kind} photo`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                      />
                       <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium capitalize text-white">{p.kind}</span>
                     </div>
                   ))}
@@ -245,7 +241,19 @@ export default async function PublicBookingPage({
             )}
           </>
         ) : (
-          <BookingStep tech={tech} service={selected} sp={sp} brand={brand} days={days} live={live} questions={questions} addons={addons} />
+          <BookingStepInteractive
+            tech={tech}
+            service={selected}
+            brand={brand}
+            days={days}
+            live={live}
+            questions={questions}
+            addons={addons}
+            err={sp.err}
+            wl={sp.wl}
+            initialDate={sp.date}
+            initialSlot={sp.slot}
+          />
         )}
       </main>
 
@@ -269,10 +277,11 @@ function ServiceMenu({ categories, services, handle, brand, photoUrls }: { categ
             {services.filter((s) => s.categoryId === cat.id).map((s) => (
               <Link key={s.id} href={`/${handle}?service=${s.id}`} className="card flex items-center justify-between gap-4 p-4 transition hover:shadow-soft">
                 {photoUrls.has(s.id) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <RemoteImage
                     src={photoUrls.get(s.id)!}
                     alt={s.name}
+                    width={64}
+                    height={64}
                     className="h-16 w-16 shrink-0 rounded-xl object-cover"
                   />
                 )}
@@ -295,202 +304,6 @@ function ServiceMenu({ categories, services, handle, brand, photoUrls }: { categ
       ))}
     </div>
   );
-}
-
-function BookingStep({ tech, service, sp, brand, days, live, questions, addons }: { tech: Tech; service: Service; sp: { date?: string; slot?: string; err?: string; wl?: string }; brand: string; days: DayOption[]; live: boolean; questions: ConsultationQuestion[]; addons: ServiceAddon[]; }) {
-  const deposit = depositFor(service);
-  const balance = Math.max(0, service.pricePennies - deposit);
-  const activeDate = sp.date && days.some((d) => d.dateStr === sp.date) ? sp.date : days[0]?.dateStr;
-  const slots = activeDate ? days.find((d) => d.dateStr === activeDate)?.slots ?? [] : [];
-
-  return (
-    <div className="space-y-5 animate-fade-in">
-      <Link href={`/${tech.handle}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><ArrowLeft className="h-4 w-4" /> All services</Link>
-
-      <div className="card p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl font-semibold">{service.name}</h2>
-            {service.description && <p className="mt-1 text-sm text-ink-soft">{service.description}</p>}
-          </div>
-          <div className="text-right">
-            <p className="text-xl font-semibold">{gbp(service.pricePennies)}</p>
-            <p className="text-xs text-ink-faint">{minutesToLabel(service.durationMin)}</p>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-cream p-3 text-sm sm:grid-cols-3">
-          <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} />
-          <Stat label="Balance on the day" value={gbp(balance)} />
-          <Stat label="Cancellation" value={`${tech.cancellationWindowHours}h notice`} />
-        </div>
-        {(service.requiresPatchTest || service.isInfill) && (
-          <div className="mt-3 space-y-2">
-            {service.requiresPatchTest && <Notice tone="amber" icon={<ShieldCheck className="h-4 w-4" />}>A valid patch test is required before this service.</Notice>}
-            {service.isInfill && <Notice tone="violet" icon={<RefreshCw className="h-4 w-4" />}>Infills are for returning clients within {service.infillMaxGapDays} days of their last appointment.</Notice>}
-          </div>
-        )}
-      </div>
-
-      {sp.err && ERR[sp.err] && <Notice tone="red" icon={<AlertTriangle className="h-4 w-4" />}>{ERR[sp.err]}</Notice>}
-
-      {!live && (
-        <Notice tone="amber" icon={<AlertTriangle className="h-4 w-4" />}>
-          This studio isn&apos;t accepting online bookings just yet. Please check back soon.
-        </Notice>
-      )}
-
-      {sp.wl === "1" && (
-        <Notice tone="amber" icon={<Calendar className="h-4 w-4" />}>
-          You&apos;re on the cancellation list! We&apos;ll email you the moment a slot frees up.
-        </Notice>
-      )}
-
-      {live && (days.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-ink-soft">No available times in the next two weeks. Please check back soon.</div>
-      ) : (
-        <div className="card p-5">
-          <h3 className="flex items-center gap-2 font-semibold"><Calendar className="h-4 w-4 text-brand-400" /> Pick a date</h3>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {days.map((d) => {
-              const isActive = d.dateStr === activeDate;
-              return (
-                <Link key={d.dateStr} href={`/${tech.handle}?service=${service.id}&date=${d.dateStr}`} scroll={false} className="flex min-w-[64px] flex-col items-center rounded-xl border px-3 py-2 text-center text-sm transition" style={isActive ? { backgroundColor: brand, borderColor: brand, color: "white" } : { borderColor: "rgba(255,255,255,0.14)" }}>
-                  <span className="text-xs opacity-80">{formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "EEE")}</span>
-                  <span className="text-lg font-semibold">{formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "d")}</span>
-                  <span className="text-[10px] opacity-80">{formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "MMM")}</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          <h3 className="mt-5 font-semibold">Pick a time</h3>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {slots.map((slot) => {
-              const isActive = slot === sp.slot;
-              return (
-                <Link key={slot} href={`/${tech.handle}?service=${service.id}&date=${activeDate}&slot=${encodeURIComponent(slot)}`} scroll={false} className="rounded-xl border py-2.5 text-center text-sm font-medium transition" style={isActive ? { backgroundColor: brand, borderColor: brand, color: "white" } : { borderColor: "rgba(255,255,255,0.14)" }}>
-                  {fmtTime(slot)}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      {live && sp.wl !== "1" && (
-        <details className="card">
-          <summary className="cursor-pointer list-none p-4 text-sm font-medium text-ink-soft">
-            Can&apos;t see a time that works? <span style={{ color: brand }}>Join the cancellation list</span>
-          </summary>
-          <form action={joinWaitlistAction} className="space-y-3 border-t border-edge p-4">
-            <input type="hidden" name="handle" value={tech.handle} />
-            <input type="hidden" name="serviceId" value={service.id} />
-            <p className="text-sm text-ink-soft">
-              Leave your details and we&apos;ll email you the moment someone cancels.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input name="name" required placeholder="Full name *" className="input" />
-              <input name="email" type="email" required placeholder="Email *" className="input" />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input name="phone" placeholder="Mobile number" className="input" />
-              <div>
-                <input name="date" type="date" className="input" />
-                <p className="mt-1 text-xs text-ink-faint">Only want a certain day? Pick it - or leave blank for any day.</p>
-              </div>
-            </div>
-            <SubmitButton className="w-full bg-none py-3 font-semibold shadow-none" style={{ backgroundColor: brand }} pendingLabel="Adding you…">
-              Join the cancellation list
-            </SubmitButton>
-          </form>
-        </details>
-      )}
-
-      {live && sp.slot && (
-        <div className="card p-5">
-          <h3 className="font-semibold">Your details</h3>
-          <p className="mt-0.5 text-sm text-ink-soft">Booking {service.name} on <strong>{formatInTimeZone(new Date(sp.slot), TZ, "EEE d MMM 'at' HH:mm")}</strong></p>
-          <form action={createPublicBookingAction} className="mt-4 space-y-3">
-            <input type="hidden" name="handle" value={tech.handle} />
-            <input type="hidden" name="serviceId" value={service.id} />
-            <input type="hidden" name="slot" value={sp.slot} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input name="name" required placeholder="Full name *" className="input" />
-              <input name="email" type="email" required placeholder="Email *" className="input" />
-            </div>
-            <input name="phone" placeholder="Mobile number" className="input" />
-
-            {addons.length > 0 && (
-              <div className="space-y-2 border-t border-edge pt-3">
-                <p className="text-sm font-medium text-ink">Extras (optional)</p>
-                {addons.map((a) => (
-                  <label key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-3 text-sm">
-                    <span className="flex items-center gap-2.5">
-                      <input type="checkbox" name={`addon_${a.id}`} className="h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
-                      {a.name}
-                    </span>
-                    <span className="font-medium">+{gbp(a.pricePennies)}</span>
-                  </label>
-                ))}
-                <p className="text-xs text-ink-faint">Extras are added to your balance on the day.</p>
-              </div>
-            )}
-
-            {questions.length > 0 && (
-              <div className="space-y-3 border-t border-edge pt-3">
-                <p className="text-sm font-medium text-ink">A few quick questions</p>
-                {questions.map((q) => (
-                  <div key={q.id}>
-                    <label className="mb-1 block text-sm text-ink-soft">
-                      {q.prompt}{q.required && <span className="text-red-500"> *</span>}
-                    </label>
-                    {q.type === "longtext" ? (
-                      <textarea name={`q_${q.id}`} required={q.required} className="input min-h-[70px]" />
-                    ) : q.type === "yesno" ? (
-                      <YesNoQuestion name={`q_${q.id}`} required={q.required} />
-                    ) : (
-                      <input name={`q_${q.id}`} required={q.required} className="input" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <label className="flex items-start gap-2.5 text-sm text-ink-soft">
-              <input name="policyAccepted" type="checkbox" required className="mt-1 h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300" />
-              <span>
-                I agree to the {tech.cancellationWindowHours}h cancellation policy and Glow&apos;s{" "}
-                <Link href="/terms" className="text-brand-400 underline-offset-2 hover:underline">terms</Link>{" "}
-                and{" "}
-                <Link href="/privacy" className="text-brand-400 underline-offset-2 hover:underline">privacy policy</Link>.
-                {" "}My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.
-              </span>
-            </label>
-            <SubmitButton
-              className="w-full bg-none py-3 font-semibold shadow-none"
-              style={{ backgroundColor: brand }}
-              pendingLabel="Securing your slot…"
-            >
-              <Lock className="h-4 w-4" />
-              {deposit > 0 ? `Pay ${gbp(deposit)} deposit & book` : "Confirm booking"}
-            </SubmitButton>
-            {(process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test") && (
-              <p className="text-center text-xs text-ink-faint">Test mode - no real payment is taken.</p>
-            )}
-          </form>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-xs text-ink-faint">{label}</p><p className="font-semibold">{value}</p></div>;
-}
-
-function Notice({ tone, icon, children }: { tone: "amber" | "violet" | "red"; icon: React.ReactNode; children: React.ReactNode; }) {
-  const map = { amber: "bg-amber-500/10 text-amber-800", violet: "bg-violet-50 text-violet-800", red: "bg-red-500/10 text-red-300" };
-  return <div className={`flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm ${map[tone]}`}><span className="mt-0.5">{icon}</span><span>{children}</span></div>;
 }
 
 function initials(name: string): string {

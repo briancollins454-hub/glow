@@ -11,7 +11,7 @@ import type {
 } from "@/lib/db/types";
 
 const SLOT_STEP_MIN = 15;
-const BLOCKING_STATUSES: Booking["status"][] = ["pending", "confirmed", "completed"];
+export const BLOCKING_STATUSES: Booking["status"][] = ["pending", "confirmed", "completed"];
 
 // ---------------- Deposits ----------------
 export function depositFor(service: Service): number {

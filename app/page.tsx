@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 
+export const revalidate = 3600;
+
 const features = [
   {
     icon: ShieldCheck,

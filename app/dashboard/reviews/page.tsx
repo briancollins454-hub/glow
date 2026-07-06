@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Star, Trash2, Eye, EyeOff } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listClients, listReviewsForTech } from "@/lib/db/queries";
+import { getClientNameMap, listReviewsForTech } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
@@ -11,11 +11,11 @@ export default async function ReviewsPage() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
-  const [reviews, clients] = await Promise.all([
-    listReviewsForTech(sb, tech.id),
-    listClients(sb, tech.id),
-  ]);
-  const clientById = new Map(clients.map((cl) => [cl.id, cl.name]));
+  const reviews = await listReviewsForTech(sb, tech.id);
+  const clientById = await getClientNameMap(
+    sb,
+    reviews.map((r) => r.clientId),
+  );
   const approved = reviews.filter((r) => r.status === "approved");
   const avg = approved.length
     ? (approved.reduce((s, r) => s + r.rating, 0) / approved.length).toFixed(1)

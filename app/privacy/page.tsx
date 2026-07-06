@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarHeart } from "lucide-react";
 
 export const metadata = { title: "Privacy Policy" };
+export const revalidate = 3600;
 
 export default function PrivacyPage() {
   return (

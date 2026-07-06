@@ -21,7 +21,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-cream">
-      <header className="sticky top-0 z-20 border-b border-edge bg-surface/80 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-edge bg-surface/95 max-lg:backdrop-blur-none lg:bg-surface/80 lg:backdrop-blur">
         <div className="container-page flex h-16 items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">

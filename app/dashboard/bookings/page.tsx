@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Plus, BellRing, Trash2 } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listBookings, listClients, listServices, listWaitlist } from "@/lib/db/queries";
+import { listBookingsInWindow, listClients, listServices, listWaitlist } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { BookingActions } from "@/components/dashboard/booking-actions";
-import { DateTimePicker } from "@/components/dashboard/date-time-picker";
+import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
 import type { Booking } from "@/lib/db/types";
 
@@ -19,8 +19,10 @@ export default async function BookingsPage() {
   const { sb, tech } = c;
 
   const now = Date.now();
+  const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
   const [bookings, services, clients, waitlist] = await Promise.all([
-    listBookings(sb, tech.id),
+    listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
     listServices(sb, tech.id),
     listClients(sb, tech.id),
     listWaitlist(sb, tech.id).catch(() => []),
@@ -98,7 +100,7 @@ export default async function BookingsPage() {
             <div><Label>Phone</Label><Input name="clientPhone" placeholder="(optional)" /></div>
             <div className="sm:col-span-2">
               <Label>Date &amp; time</Label>
-              <DateTimePicker name="startsAt" />
+              <LazyDateTimePicker name="startsAt" />
             </div>
             <div>
               <Label>Deposit for this booking (£)</Label>

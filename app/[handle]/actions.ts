@@ -9,7 +9,7 @@ import {
   getClientByEmail,
   getService,
   getTechByHandle,
-  listBookings,
+  listBlockingBookingsInRange,
   listQuestions,
   listServices,
   listTimeOff,
@@ -88,7 +88,12 @@ export async function createPublicBookingAction(formData: FormData) {
   const [workingHours, timeOff, bookings] = await Promise.all([
     listWorkingHours(sb, tech!.id),
     listTimeOff(sb, tech!.id),
-    listBookings(sb, tech!.id),
+    listBlockingBookingsInRange(
+      sb,
+      tech!.id,
+      new Date().toISOString(),
+      new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+    ),
   ]);
   const dateStr = dateStrInTz(new Date(slotIso));
   const stillFree = daySlots(service!, dateStr, { workingHours, timeOff, bookings }).includes(slotIso);

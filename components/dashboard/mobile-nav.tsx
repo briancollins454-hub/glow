@@ -23,7 +23,7 @@ const items = [
 export function MobileNav({ unread = 0 }: { unread?: number }) {
   const pathname = usePathname();
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface/90 backdrop-blur-md lg:hidden">
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface/95 lg:hidden">
       <div className="grid grid-cols-5">
         {items.map((item) => {
           const active = item.exact

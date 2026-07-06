@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Download, PoundSterling, CheckCircle2, XCircle, ShieldX } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listBookings, listPayments, listServices } from "@/lib/db/queries";
+import { getReportSummary } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { gbp, TZ } from "@/lib/format";
@@ -12,38 +12,16 @@ export default async function ReportsPage() {
   if (!c) redirect("/login");
   const { sb, tech } = c;
 
-  const [allPayments, bookings, services] = await Promise.all([
-    listPayments(sb, tech.id),
-    listBookings(sb, tech.id),
-    listServices(sb, tech.id),
-  ]);
-  const payments = allPayments.filter((p) => p.status === "succeeded");
-  const bookingById = new Map(bookings.map((b) => [b.id, b]));
-  const serviceById = new Map(services.map((s) => [s.id, s.name]));
-  const signed = (kind: string, amt: number) => (kind === "refund" ? -amt : amt);
-
-  const totalIncome = payments.reduce((s, p) => s + signed(p.kind, p.amountPennies), 0);
-  const depositsTotal = payments.filter((p) => p.kind === "deposit").reduce((s, p) => s + p.amountPennies, 0);
-  const balancesTotal = payments.filter((p) => p.kind === "balance").reduce((s, p) => s + p.amountPennies, 0);
-  const completed = bookings.filter((b) => b.status === "completed").length;
-  const noShows = bookings.filter((b) => b.status === "no_show").length;
-  const forfeited = bookings.filter((b) => b.depositStatus === "forfeited").reduce((s, b) => s + b.depositPennies, 0);
-
-  const byMonth = new Map<string, number>();
-  for (const p of payments) {
-    const key = formatInTimeZone(new Date(p.createdAt), TZ, "yyyy-MM");
-    byMonth.set(key, (byMonth.get(key) ?? 0) + signed(p.kind, p.amountPennies));
-  }
-  const months = [...byMonth.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-
-  const byService = new Map<string, number>();
-  for (const p of payments) {
-    const b = bookingById.get(p.bookingId);
-    if (!b) continue;
-    const name = serviceById.get(b.serviceId) ?? "Other";
-    byService.set(name, (byService.get(name) ?? 0) + signed(p.kind, p.amountPennies));
-  }
-  const svcRows = [...byService.entries()].sort((a, b) => b[1] - a[1]);
+  const {
+    totalIncome,
+    depositsTotal,
+    balancesTotal,
+    completed,
+    noShows,
+    forfeited,
+    byMonth: months,
+    byService: svcRows,
+  } = await getReportSummary(sb, tech.id);
   const maxService = Math.max(1, ...svcRows.map(([, v]) => v));
 
   return (
@@ -89,36 +67,43 @@ export default async function ReportsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Revenue by service</CardTitle>
-            <CardDescription>Where your income comes from.</CardDescription>
+            <CardTitle>Income by service</CardTitle>
+            <CardDescription>Where your money comes from.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {svcRows.length === 0 ? (
-              <p className="text-sm text-ink-faint">No revenue yet.</p>
+              <p className="text-sm text-ink-faint">No income recorded yet.</p>
             ) : (
               svcRows.map(([name, total]) => (
                 <div key={name}>
-                  <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">{name}</span><span className="font-medium">{gbp(total)}</span></div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-black/[0.06]"><div className="h-full rounded-full bg-brand-500/100" style={{ width: `${Math.round((total / maxService) * 100)}%` }} /></div>
+                  <div className="mb-1 flex justify-between text-sm">
+                    <span className="text-ink-soft">{name}</span>
+                    <span className="font-medium">{gbp(total)}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="h-full rounded-full bg-brand-500" style={{ width: `${(total / maxService) * 100}%` }} />
+                  </div>
                 </div>
               ))
             )}
           </CardContent>
         </Card>
       </div>
-
-      <p className="text-xs text-ink-faint">Note: figures reflect payments recorded in Glow and are a guide only, not formal accounting or tax advice.</p>
     </div>
   );
 }
 
-function Stat({ icon: Icon, tone, label, value }: { icon: React.ComponentType<{ className?: string }>; tone: "green" | "blue" | "amber" | "red"; label: string; value: string; }) {
-  const tones = { green: "bg-emerald-500/15 text-emerald-300", blue: "bg-sky-500/15 text-sky-300", amber: "bg-amber-500/15 text-amber-300", red: "bg-red-500/15 text-red-300" };
+function Stat({ icon: Icon, tone, label, value }: { icon: React.ComponentType<{ className?: string }>; tone: "green" | "blue" | "amber" | "red"; label: string; value: string }) {
+  const tones = { green: "text-emerald-400", blue: "text-sky-400", amber: "text-amber-400", red: "text-red-400" };
   return (
-    <Card className="p-5">
-      <span className={`grid h-10 w-10 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-5 w-5" /></span>
-      <p className="mt-3 text-2xl font-semibold">{value}</p>
-      <p className="text-sm font-medium">{label}</p>
+    <Card>
+      <CardContent className="flex items-center gap-3 p-5">
+        <Icon className={`h-8 w-8 ${tones[tone]}`} />
+        <div>
+          <p className="text-2xl font-semibold">{value}</p>
+          <p className="text-sm text-ink-soft">{label}</p>
+        </div>
+      </CardContent>
     </Card>
   );
 }

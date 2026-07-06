@@ -11,7 +11,8 @@ import {
   listServices,
   patchTestsForClient,
 } from "@/lib/db/queries";
-import { signedPhotoUrl } from "@/lib/storage";
+import { signedPhotoUrls } from "@/lib/storage";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { isLive } from "@/lib/subscriptions";
 import { uploadPhotoAction, deletePhotoAction } from "../../actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,9 +40,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     formResponsesForClient(sb, client.id),
   ]);
   const latestResponse = responses[0];
-  const photoItems = await Promise.all(
-    photos.map(async (p) => ({ p, url: await signedPhotoUrl(p.path) })),
-  );
+  const signed = await signedPhotoUrls(photos.map((p) => p.path));
+  const photoItems = photos.map((p) => ({ p, url: signed.get(p.path) ?? null }));
   const serviceById = new Map(services.map((s) => [s.id, s.name]));
   const catById = new Map(categories.map((c) => [c.id, c.name]));
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -191,8 +191,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               {photoItems.map(({ p, url }) => (
                 <div key={p.id} className="group relative overflow-hidden rounded-xl border border-edge bg-cream">
                   {url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={url} alt={p.kind} className="aspect-square w-full object-cover" />
+                    <div className="relative aspect-square w-full">
+                      <RemoteImage src={url} alt={p.kind} fill className="object-cover" sizes="200px" />
+                    </div>
                   ) : (
                     <div className="grid aspect-square w-full place-items-center text-xs text-ink-faint">Unavailable</div>
                   )}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2 } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { listBookings, listClients } from "@/lib/db/queries";
+import { listClients, completedVisitCounts } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -18,11 +18,10 @@ export default async function ClientsPage({
   if (!c) redirect("/login");
   const { sb, tech } = c;
   const sp = await searchParams;
-  const [clients, bookings] = await Promise.all([listClients(sb, tech.id), listBookings(sb, tech.id)]);
-  const visitsByClient = new Map<string, number>();
-  for (const b of bookings) {
-    if (b.status === "completed") visitsByClient.set(b.clientId, (visitsByClient.get(b.clientId) ?? 0) + 1);
-  }
+  const [clients, visitsByClient] = await Promise.all([
+    listClients(sb, tech.id),
+    completedVisitCounts(sb, tech.id),
+  ]);
 
   return (
     <div className="space-y-6">

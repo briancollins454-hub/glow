@@ -49,6 +49,15 @@
       animation: none;
     }
   }
+  @media (max-width: 1023px) {
+    body::before,
+    body::after {
+      display: none;
+    }
+    body {
+      background-image: none;
+    }
+  }
   /* No element may drag the page sideways; inner scroll strips still work. */
   html,
   body {
@@ -65,7 +74,7 @@
   }
   /* Glassy raised panel on the dark canvas */
   .card {
-    @apply rounded-2xl border border-edge bg-surface/80 shadow-card backdrop-blur-sm;
+    @apply rounded-2xl border border-edge bg-surface/80 shadow-card backdrop-blur-sm max-lg:backdrop-blur-none;
   }
   /* 16px on mobile so iOS Safari doesn't auto-zoom when an input is focused */
   .input {

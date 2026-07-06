@@ -6,7 +6,7 @@ import { getClient, markThreadRead, threadMessages } from "@/lib/db/queries";
 import { isLive } from "@/lib/subscriptions";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Trash2 } from "lucide-react";
-import { MessageThread } from "@/components/messages/message-thread";
+import { LazyMessageThread } from "@/components/messages/lazy-message-thread";
 import { sendMessageAction, deleteConversationAction } from "../actions";
 
 export default async function DashboardThreadPage({
@@ -61,7 +61,7 @@ export default async function DashboardThreadPage({
       </div>
 
       <div className="card flex min-h-0 flex-1 flex-col p-4">
-        <MessageThread
+        <LazyMessageThread
           initialMessages={messages}
           me="tech"
           token={client.messageToken}

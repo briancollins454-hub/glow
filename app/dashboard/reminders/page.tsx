@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { BellRing, Mail, MessageSquare, Play, CheckCircle2 } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { getTechById, listBookings, listClients, listReminders, listServices } from "@/lib/db/queries";
+import { getBookingsByIds, getClientsByIds, getTechById, listReminders, listServices } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,14 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
   const { sb, tech } = c;
   const { ran } = await searchParams;
 
-  const [reminders, bookings, clients, services] = await Promise.all([
+  const [reminders, services] = await Promise.all([
     listReminders(sb, tech.id),
-    listBookings(sb, tech.id),
-    listClients(sb, tech.id),
     listServices(sb, tech.id),
   ]);
+  const bookingIds = [...new Set(reminders.map((r) => r.bookingId))];
+  const bookings = await getBookingsByIds(sb, bookingIds);
+  const clientIds = [...new Set(bookings.map((b) => b.clientId))];
+  const clients = await getClientsByIds(sb, clientIds);
   const bookingById = new Map(bookings.map((b) => [b.id, b]));
   const clientById = new Map(clients.map((c) => [c.id, c]));
   const serviceById = new Map(services.map((s) => [s.id, s]));
