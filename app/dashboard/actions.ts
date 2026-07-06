@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
-import { getDashboardContext } from "@/lib/auth/session";
+import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
 import { slugify, randomId, randomToken } from "@/lib/utils";
 import {
@@ -150,6 +150,7 @@ export async function updateSettingsAction(formData: FormData) {
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
+  invalidateDashboardTech(tech.authUserId);
   redirect("/dashboard/settings?saved=1");
 }
 

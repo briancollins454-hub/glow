@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Refreshes the Supabase auth session cookie on each request and guards the
-// dashboard. Public routes (booking page, pay links, landing) are unaffected.
+// Refreshes the Supabase auth session cookie on auth/API requests.
+// Dashboard routes are excluded — layout handles auth with a fast local session read.
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -32,11 +32,11 @@ export async function updateSession(request: NextRequest) {
   );
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
   const path = request.nextUrl.pathname;
-  if (!user && path.startsWith("/dashboard")) {
+  if (!session?.user && path.startsWith("/dashboard")) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

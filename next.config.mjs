@@ -14,6 +14,12 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "5mb",
     },
+    // Next.js 15 defaults dynamic staleTime to 0 — every click refetches the server.
+    // Restore client router cache so repeat navigation feels instant.
+    staleTimes: {
+      dynamic: 60,
+      static: 300,
+    },
   },
   images: supabaseHost
     ? {

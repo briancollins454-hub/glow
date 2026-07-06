@@ -55,6 +55,7 @@ export function SidebarNav({ unread = 0, admin = false }: { unread?: number; adm
           <Link
             key={item.href}
             href={item.href}
+            prefetch
             className={cn(
               "flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition lg:shrink",
               active

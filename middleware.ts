@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
+    // Auth pages + protected APIs only. Dashboard nav skips middleware entirely.
     "/login",
     "/signup",
     "/forgot",
@@ -15,5 +15,6 @@ export const config = {
     "/api/account/:path*",
     "/api/reports/:path*",
     "/api/google/:path*",
+    "/api/dashboard/:path*",
   ],
 };

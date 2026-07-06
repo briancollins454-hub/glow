@@ -1,0 +1,19 @@
+/** All dashboard routes — used for link prefetching on load. */
+export const DASHBOARD_ROUTES = [
+  "/dashboard",
+  "/dashboard/bookings",
+  "/dashboard/messages",
+  "/dashboard/clients",
+  "/dashboard/services",
+  "/dashboard/availability",
+  "/dashboard/forms",
+  "/dashboard/reminders",
+  "/dashboard/reviews",
+  "/dashboard/reports",
+  "/dashboard/payments",
+  "/dashboard/billing",
+  "/dashboard/import",
+  "/dashboard/settings",
+  "/dashboard/help",
+  "/dashboard/feedback",
+] as const;
