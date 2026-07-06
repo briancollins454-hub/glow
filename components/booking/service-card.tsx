@@ -28,7 +28,7 @@ export function ServiceCard({
         <ServicePhoto src={photoUrl} alt={service.name} />
       ) : (
         <div
-          className="relative aspect-[2/1] w-full shrink-0"
+          className="relative aspect-square w-full shrink-0"
           style={{
             background: `linear-gradient(135deg, ${withAlpha(brand, 0.35)} 0%, ${withAlpha(brand, 0.08)} 100%)`,
           }}
