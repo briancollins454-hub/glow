@@ -36,7 +36,7 @@ export function BookingHero({
               src={coverUrl}
               alt=""
               fill
-              className="object-cover"
+              position="center 25%"
               sizes="100vw"
             />
             <div
@@ -82,7 +82,7 @@ export function BookingHero({
                   src={avatarUrl}
                   alt={businessName}
                   fill
-                  className="object-cover"
+                  position="center 30%"
                   sizes="112px"
                 />
               ) : (
