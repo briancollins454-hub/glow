@@ -78,12 +78,12 @@ export function BookingStepInteractive({
       {/* Service summary card */}
       <div className="overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card">
         {photoUrl && (
-          <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <div className="relative aspect-[2/1] w-full shrink-0 overflow-hidden">
             <RemoteImage
               src={photoUrl}
               alt={service.name}
               fill
-              className="object-cover"
+              position="center 30%"
               sizes="640px"
             />
             <div

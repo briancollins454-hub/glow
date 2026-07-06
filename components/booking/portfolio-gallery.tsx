@@ -28,14 +28,15 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
               type="button"
               onClick={() => setLightbox(p)}
               className={`group relative overflow-hidden rounded-xl border border-edge bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ${
-                i === 0 && items.length >= 3 ? "col-span-2 row-span-2 aspect-square sm:aspect-auto sm:min-h-[220px]" : "aspect-square"
+                i === 0 && items.length >= 3 ? "col-span-2 row-span-2 aspect-[4/5] sm:aspect-[3/4]" : "aspect-square"
               }`}
             >
               <RemoteImage
                 src={p.url}
                 alt={`${p.kind} work`}
                 fill
-                className="object-cover transition duration-500 group-hover:scale-105"
+                position="center 35%"
+                className="transition duration-500 group-hover:scale-105"
                 sizes={i === 0 ? "(max-width: 640px) 100vw, 50vw" : "(max-width: 640px) 50vw, 25vw"}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />

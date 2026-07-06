@@ -25,19 +25,20 @@ export function ServiceCard({
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition duration-300 hover:-translate-y-0.5 hover:border-white/15 hover:shadow-soft"
     >
       {photoUrl ? (
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-cream">
+        <div className="relative aspect-[3/2] w-full shrink-0 overflow-hidden bg-cream">
           <RemoteImage
             src={photoUrl}
             alt={service.name}
             fill
-            className="object-cover transition duration-500 group-hover:scale-[1.03]"
+            position="center 30%"
+            className="transition duration-500 group-hover:scale-[1.03]"
             sizes="(max-width: 640px) 100vw, 640px"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-cream/80 via-transparent to-transparent opacity-60" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-cream/70 via-cream/10 to-transparent" />
         </div>
       ) : (
         <div
-          className="relative aspect-[16/10] w-full"
+          className="relative aspect-[3/2] w-full shrink-0"
           style={{
             background: `linear-gradient(135deg, ${withAlpha(brand, 0.35)} 0%, ${withAlpha(brand, 0.08)} 100%)`,
           }}
