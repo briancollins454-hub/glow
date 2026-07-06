@@ -1,21 +1,24 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Lightbulb } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label, Select, Textarea } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { submitFeedbackAction } from "../actions";
 
-export const metadata = { title: "Share an idea" };
+export default function FeedbackPage() {
+  return (
+    <AsyncDashboardPage<Record<string, never>> pageKey="feedback">
+      {() => <FeedbackView />}
+    </AsyncDashboardPage>
+  );
+}
 
-export default async function FeedbackPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sent?: string }>;
-}) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sent } = await searchParams;
+function FeedbackView() {
+  const searchParams = useSearchParams();
+  const sent = searchParams.get("sent");
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

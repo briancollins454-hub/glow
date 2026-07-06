@@ -1,27 +1,34 @@
+"use client";
+
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2 } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { listClients, completedVisitCounts } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { addClientAction } from "../actions";
+import type { Client } from "@/lib/db/types";
 
-export default async function ClientsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ import?: string; n?: string; s?: string }>;
-}) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const sp = await searchParams;
-  const [clients, visitsByClient] = await Promise.all([
-    listClients(sb, tech.id),
-    completedVisitCounts(sb, tech.id),
-  ]);
+type ClientsData = {
+  clients: Client[];
+  visitsByClient: Record<string, number>;
+};
+
+export default function ClientsPage() {
+  return (
+    <AsyncDashboardPage<ClientsData> pageKey="clients">
+      {(data) => <ClientsView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function ClientsView({ clients, visitsByClient }: ClientsData) {
+  const searchParams = useSearchParams();
+  const importStatus = searchParams.get("import");
+  const n = searchParams.get("n");
+  const s = searchParams.get("s");
 
   return (
     <div className="space-y-6">
@@ -30,18 +37,18 @@ export default async function ClientsPage({
         <p className="text-sm text-ink-soft">Notes, warnings and blocked clients live here.</p>
       </div>
 
-      {sp.import === "done" && (
+      {importStatus === "done" && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          <CheckCircle2 className="h-4 w-4" /> Imported {sp.n} client{sp.n === "1" ? "" : "s"}
-          {Number(sp.s) > 0 && ` (${sp.s} skipped: duplicates or missing names)`}.
+          <CheckCircle2 className="h-4 w-4" /> Imported {n} client{n === "1" ? "" : "s"}
+          {Number(s) > 0 && ` (${s} skipped: duplicates or missing names)`}.
         </div>
       )}
-      {sp.import === "badformat" && (
+      {importStatus === "badformat" && (
         <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
           Couldn&apos;t find name columns in that file. Export your client list as CSV and try again.
         </div>
       )}
-      {sp.import === "empty" && (
+      {importStatus === "empty" && (
         <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
       )}
 
@@ -75,7 +82,7 @@ export default async function ClientsPage({
         <CardContent className="space-y-2">
           {clients.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No clients yet.</p>}
           {clients.map((c) => {
-            const visits = visitsByClient.get(c.id) ?? 0;
+            const visits = visitsByClient[c.id] ?? 0;
             return (
               <Link key={c.id} href={`/dashboard/clients/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card">
                 <div className="min-w-0">

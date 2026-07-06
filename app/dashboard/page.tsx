@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   CalendarDays,
@@ -8,82 +10,55 @@ import {
   Lightbulb,
   TrendingUp,
 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { getDashboardContext } from "@/lib/auth/session";
-import {
-  countBlacklistedClients,
-  countNoShowBookings,
-  countTodayBookings,
-  countUpcomingBookings,
-  listClients,
-  listInsightBookings,
-  listRecentPayments,
-  listServices,
-  listUpcomingBookings,
-  sumMonthIncome,
-  sumOutstandingBalances,
-} from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime, fmtRelativeDays } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
-import { buildBusinessInsights, type BusinessInsight } from "@/lib/insights";
+import type { BusinessInsight } from "@/lib/insights";
+import type { Booking, Client, Service, Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
-export default async function DashboardOverview() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
+type HomeData = {
+  tech: Tech;
+  upcoming: Booking[];
+  services: Service[];
+  monthIncome: number;
+  outstanding: number;
+  todayCount: number;
+  upcomingCount: number;
+  blacklisted: number;
+  noShows: number;
+  insights: BusinessInsight[];
+  clientById: Record<string, Client>;
+  serviceById: Record<string, Service>;
+};
 
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  const todayStr = fmtDate(nowIso);
-  const dayStart = `${todayStr}T00:00:00.000Z`;
-  const dayEnd = `${todayStr}T23:59:59.999Z`;
-  const insightFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const insightTo = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+export default function DashboardOverview() {
+  return (
+    <AsyncDashboardPage<HomeData> pageKey="home">
+      {(data) => <HomeView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
 
-  const [
-    upcoming,
-    services,
-    monthIncome,
-    outstanding,
-    todayCount,
-    upcomingCount,
-    blacklisted,
-    noShows,
-    insightBookings,
-    recentPayments,
-    clients,
-  ] = await Promise.all([
-    listUpcomingBookings(sb, tech.id, nowIso, 20),
-    listServices(sb, tech.id),
-    sumMonthIncome(sb, tech.id, monthStart.toISOString()),
-    sumOutstandingBalances(sb, tech.id, nowIso),
-    countTodayBookings(sb, tech.id, dayStart, dayEnd),
-    countUpcomingBookings(sb, tech.id, nowIso),
-    countBlacklistedClients(sb, tech.id),
-    countNoShowBookings(sb, tech.id),
-    listInsightBookings(sb, tech.id, insightFrom, insightTo),
-    listRecentPayments(sb, tech.id, insightFrom),
-    listClients(sb, tech.id),
-  ]);
-
-  const clientById = new Map(clients.map((c) => [c.id, c]));
-  const serviceById = new Map(services.map((s) => [s.id, s]));
-  const insights = buildBusinessInsights({
-    bookings: insightBookings,
-    clients,
-    payments: recentPayments,
-    services,
-  });
-
+function HomeView({
+  tech,
+  upcoming,
+  services,
+  monthIncome,
+  outstanding,
+  todayCount,
+  upcomingCount,
+  blacklisted,
+  noShows,
+  insights,
+  clientById,
+  serviceById,
+}: HomeData) {
   const live = isLive(tech);
   const isTester = tech.signupOffer === "tester";
   const setupSteps: SetupStep[] = [
@@ -187,10 +162,10 @@ export default async function DashboardOverview() {
               <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <p className="truncate font-medium">{clientById.get(b.clientId)?.name}</p>
+                    <p className="truncate font-medium">{clientById[b.clientId]?.name}</p>
                     <span className="hidden sm:inline-flex">{statusBadge(b.status)}</span>
                   </div>
-                  <p className="truncate text-xs text-ink-faint">{serviceById.get(b.serviceId)?.name}</p>
+                  <p className="truncate text-xs text-ink-faint">{serviceById[b.serviceId]?.name}</p>
                 </div>
                 <div className="shrink-0 text-right text-sm">
                   <p className="font-medium">{fmtTime(b.startIso)}</p>

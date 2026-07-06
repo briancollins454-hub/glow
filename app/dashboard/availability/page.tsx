@@ -1,12 +1,14 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Trash2, CalendarOff } from "lucide-react";
-import { redirect } from "next/navigation";
-import { getDashboardContext } from "@/lib/auth/session";
-import { listTimeOff, listWorkingHours } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { fmtDateTime } from "@/lib/format";
 import { saveAvailabilityAction, addTimeOffAction, deleteTimeOffAction } from "../actions";
+import type { TimeOff, WorkingHour } from "@/lib/db/types";
 
 const DAYS = [
   { weekday: 1, label: "Monday" },
@@ -22,12 +24,22 @@ function minToHHMM(min: number): string {
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
 
-export default async function AvailabilityPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const { saved } = await searchParams;
-  const [hours, offs] = await Promise.all([listWorkingHours(sb, tech.id), listTimeOff(sb, tech.id)]);
+type AvailabilityData = {
+  hours: WorkingHour[];
+  offs: TimeOff[];
+};
+
+export default function AvailabilityPage() {
+  return (
+    <AsyncDashboardPage<AvailabilityData> pageKey="availability">
+      {(data) => <AvailabilityView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function AvailabilityView({ hours, offs }: AvailabilityData) {
+  const searchParams = useSearchParams();
+  const saved = searchParams.get("saved");
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+"use client";
+
 import { Plus, BellRing, Trash2 } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { listBookingsInWindow, listClients, listServices, listWaitlist } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -11,25 +11,28 @@ import { statusBadge } from "@/components/dashboard/status";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
-import type { Booking } from "@/lib/db/types";
+import type { Booking, Client, Service, WaitlistEntry } from "@/lib/db/types";
 
-export default async function BookingsPage() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
+type BookingsData = {
+  bookings: Booking[];
+  services: Service[];
+  clients: Client[];
+  waitlist: WaitlistEntry[];
+  now: number;
+};
 
-  const now = Date.now();
-  const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
-  const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
-  const [bookings, services, clients, waitlist] = await Promise.all([
-    listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
-    listServices(sb, tech.id),
-    listClients(sb, tech.id),
-    listWaitlist(sb, tech.id).catch(() => []),
-  ]);
+export default function BookingsPage() {
+  return (
+    <AsyncDashboardPage<BookingsData> pageKey="bookings">
+      {(data) => <BookingsView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function BookingsView({ bookings, services, clients, waitlist, now }: BookingsData) {
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
-  const clientById = new Map(clients.map((c) => [c.id, c.name]));
-  const serviceById = new Map(services.map((s) => [s.id, s.name]));
+  const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
+  const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
 
   const todayStr = fmtDate(new Date().toISOString());
   const notCancelled = bookings.filter((b) => b.status !== "cancelled");
@@ -49,12 +52,12 @@ export default async function BookingsPage() {
     <div key={b.id} className={`flex items-center justify-between gap-2 rounded-xl border border-edge px-4 py-3 ${muted ? "bg-white/[0.03] opacity-70" : "bg-cream"}`}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="truncate font-medium">{clientById.get(b.clientId) ?? "Client"}</p>
+          <p className="truncate font-medium">{clientById[b.clientId] ?? "Client"}</p>
           {statusBadge(b.status)}
           {b.depositStatus === "forfeited" && <Badge tone="red">Deposit kept</Badge>}
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">
-          {serviceById.get(b.serviceId) ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}
+          {serviceById[b.serviceId] ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}
         </p>
         <p className="mt-0.5 text-xs text-ink-faint">
           <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
@@ -167,7 +170,7 @@ export default async function BookingsPage() {
                 <div className="min-w-0">
                   <p className="font-medium">{w.name}</p>
                   <p className="truncate text-xs text-ink-faint">
-                    {w.serviceId ? serviceById.get(w.serviceId) ?? "Any service" : "Any service"}
+                    {w.serviceId ? serviceById[w.serviceId] ?? "Any service" : "Any service"}
                     {" · "}
                     {w.dateStr ? `wants ${fmtDate(`${w.dateStr}T12:00:00Z`)}` : "any day"}
                     {" · "}

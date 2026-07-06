@@ -1,6 +1,8 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, CheckCircle2, Copy, Download, KeyRound, ShieldAlert } from "lucide-react";
-import { redirect } from "next/navigation";
-import { getDashboardContext } from "@/lib/auth/session";
+import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -29,11 +31,17 @@ const GOOGLE_MSG: Record<string, string> = {
   failed: "Google Calendar connection failed. Please try again.",
 };
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pw?: string; pwerr?: string; calendar?: string; closure?: string; google?: string }> }) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { tech } = c;
-  const { saved, pw, pwerr, calendar, closure, google } = await searchParams;
+export default function SettingsPage() {
+  const { tech } = useDashboardAuth();
+  const searchParams = useSearchParams();
+  if (!tech) return null;
+
+  const saved = searchParams.get("saved");
+  const pw = searchParams.get("pw");
+  const pwerr = searchParams.get("pwerr");
+  const calendar = searchParams.get("calendar");
+  const closure = searchParams.get("closure");
+  const google = searchParams.get("google");
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
   const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
 

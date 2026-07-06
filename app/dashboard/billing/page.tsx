@@ -1,6 +1,9 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, CreditCard, Sparkles, Clock, Gift } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
+import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,28 +11,31 @@ import { Input, Label } from "@/components/ui/input";
 import { isLive, planLabel } from "@/lib/subscriptions";
 import { stripeConfigured } from "@/lib/stripe";
 import { startCheckoutAction, manageBillingAction } from "./actions";
+import type { Tech } from "@/lib/db/types";
 
 const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const { status } = await searchParams;
+type BillingData = {
+  referredCount: number;
+};
+
+export default function BillingPage() {
+  const { tech } = useDashboardAuth();
+  if (!tech) return null;
+
+  return (
+    <AsyncDashboardPage<BillingData> pageKey="billing">
+      {(data) => <BillingView tech={tech} referredCount={data.referredCount} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function BillingView({ tech, referredCount }: { tech: Tech; referredCount: number }) {
+  const searchParams = useSearchParams();
+  const status = searchParams.get("status");
   const live = isLive(tech);
   const configured = stripeConfigured();
   const isTester = tech.signupOffer === "tester";
-
-  // RLS hides other techs' rows, so count referrals with the service client.
-  const { supabaseService, serviceConfigured } = await import("@/lib/supabase/service");
-  let referredCount = 0;
-  if (serviceConfigured()) {
-    const { count } = await supabaseService()
-      .from("techs")
-      .select("id", { count: "exact", head: true })
-      .eq("referredBy", tech.handle);
-    referredCount = count ?? 0;
-  }
 
   return (
     <div className="space-y-6">

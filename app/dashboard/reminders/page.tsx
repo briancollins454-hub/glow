@@ -1,50 +1,57 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { BellRing, Mail, MessageSquare, Play, CheckCircle2 } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { getBookingsByIds, getClientsByIds, getTechById, listReminders, listServices } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
 import { renderReminderText, labelForKind } from "@/lib/notify";
 import { runRemindersAction } from "../actions";
-import type { Reminder } from "@/lib/db/types";
+import type { Booking, Client, Reminder, Service, Tech } from "@/lib/db/types";
 
-export default async function RemindersPage({ searchParams }: { searchParams: Promise<{ ran?: string }> }) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const { ran } = await searchParams;
+type RemindersData = {
+  reminders: Reminder[];
+  services: Service[];
+  bookings: Booking[];
+  clients: Client[];
+  tech: Tech;
+};
 
-  const [reminders, services] = await Promise.all([
-    listReminders(sb, tech.id),
-    listServices(sb, tech.id),
-  ]);
-  const bookingIds = [...new Set(reminders.map((r) => r.bookingId))];
-  const bookings = await getBookingsByIds(sb, bookingIds);
-  const clientIds = [...new Set(bookings.map((b) => b.clientId))];
-  const clients = await getClientsByIds(sb, clientIds);
-  const bookingById = new Map(bookings.map((b) => [b.id, b]));
-  const clientById = new Map(clients.map((c) => [c.id, c]));
-  const serviceById = new Map(services.map((s) => [s.id, s]));
+export default function RemindersPage() {
+  return (
+    <AsyncDashboardPage<RemindersData> pageKey="reminders">
+      {(data) => <RemindersView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function RemindersView({ reminders, services, bookings, clients, tech }: RemindersData) {
+  const searchParams = useSearchParams();
+  const ran = searchParams.get("ran");
+
+  const bookingById = Object.fromEntries(bookings.map((b) => [b.id, b]));
+  const clientById = Object.fromEntries(clients.map((c) => [c.id, c]));
+  const serviceById = Object.fromEntries(services.map((s) => [s.id, s]));
 
   const preview = (r: Reminder) => {
-    const booking = bookingById.get(r.bookingId);
+    const booking = bookingById[r.bookingId];
     if (!booking) return r.preview || "(booking not found)";
     return (
       r.preview ||
       renderReminderText({
         reminder: r,
         booking,
-        client: clientById.get(booking.clientId) ?? null,
-        service: serviceById.get(booking.serviceId) ?? null,
+        client: clientById[booking.clientId] ?? null,
+        service: serviceById[booking.serviceId] ?? null,
         tech,
       })
     );
   };
   const clientName = (r: Reminder) => {
-    const b = bookingById.get(r.bookingId);
-    return (b && clientById.get(b.clientId)?.name) || "Client";
+    const b = bookingById[r.bookingId];
+    return (b && clientById[b.clientId]?.name) || "Client";
   };
 
   const scheduled = reminders.filter((r) => r.status === "scheduled");

@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles, ChevronUp, ChevronDown } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { listAddons, listCategories, listServices } from "@/lib/db/queries";
-import { signedPhotoUrls } from "@/lib/storage";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,33 +21,27 @@ import {
   addAddonAction,
   deleteAddonAction,
 } from "../actions";
+import type { ServiceAddon, ServiceCategory, Service } from "@/lib/db/types";
 
-export default async function ServicesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ open?: string }>;
-}) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const { open } = await searchParams;
-  const [categories, services, addons] = await Promise.all([
-    listCategories(sb, tech.id),
-    listServices(sb, tech.id),
-    listAddons(sb, tech.id),
-  ]);
-  const fullSets = services.filter((s) => !s.isInfill);
-  const catById = new Map(categories.map((c) => [c.id, c.name]));
-  const photoUrls = await signedPhotoUrls(
-    services.filter((s) => s.photoPath).map((s) => s.photoPath!),
+type ServicesData = {
+  categories: ServiceCategory[];
+  services: Service[];
+  addons: ServiceAddon[];
+  photoByService: Record<string, string>;
+};
+
+export default function ServicesPage() {
+  return (
+    <AsyncDashboardPage<ServicesData> pageKey="services">
+      {(data) => <ServicesView {...data} />}
+    </AsyncDashboardPage>
   );
-  const photoByService = new Map<string, string>();
-  for (const s of services) {
-    if (s.photoPath) {
-      const url = photoUrls.get(s.photoPath);
-      if (url) photoByService.set(s.id, url);
-    }
-  }
+}
+
+function ServicesView({ categories, services, addons, photoByService }: ServicesData) {
+  const searchParams = useSearchParams();
+  const open = searchParams.get("open") ?? undefined;
+  const catById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
   return (
     <div className="space-y-6">
@@ -56,7 +50,6 @@ export default async function ServicesPage({
         <p className="text-sm text-ink-soft">Set prices, deposits, patch-test rules and infill windows.</p>
       </div>
 
-      {/* Both "add" forms are folded away behind a tap so the page stays calm. */}
       <details className="card" open={categories.length === 0}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
           <span className="flex items-center gap-2 font-medium"><FolderPlus className="h-5 w-5 text-brand-400" /> Add a category</span>
@@ -170,7 +163,7 @@ export default async function ServicesPage({
                     {s.requiresPatchTest && <Badge tone="amber"><ShieldCheck className="h-3 w-3" /> Patch test</Badge>}
                   </div>
                   <p className="mt-0.5 text-xs text-ink-faint">
-                    {catById.get(s.categoryId)} · {minutesToLabel(s.durationMin)} · {gbp(s.pricePennies)} · {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
+                    {catById[s.categoryId]} · {minutesToLabel(s.durationMin)} · {gbp(s.pricePennies)} · {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
                   </p>
                 </div>
                 <span className="text-xs font-medium text-brand-400 group-open:hidden">Edit</span>
@@ -181,16 +174,16 @@ export default async function ServicesPage({
                 <div className="mt-4 border-t border-edge pt-4">
                   <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><ImagePlus className="h-4 w-4 text-brand-400" /> Photo on your booking page</p>
                   <div className="flex flex-wrap items-center gap-3">
-                    {photoByService.has(s.id) && (
+                    {photoByService[s.id] && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photoByService.get(s.id)!} alt={s.name} className="h-16 w-16 rounded-xl object-cover" />
+                      <img src={photoByService[s.id]} alt={s.name} className="h-16 w-16 rounded-xl object-cover" />
                     )}
                     <form action={setServicePhotoAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="serviceId" value={s.id} />
                       <input type="file" name="photo" accept="image/*" required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
-                      <SubmitButton size="sm" pendingLabel="Uploading…">{photoByService.has(s.id) ? "Replace" : "Upload"}</SubmitButton>
+                      <SubmitButton size="sm" pendingLabel="Uploading…">{photoByService[s.id] ? "Replace" : "Upload"}</SubmitButton>
                     </form>
-                    {photoByService.has(s.id) && (
+                    {photoByService[s.id] && (
                       <form action={removeServicePhotoAction}>
                         <input type="hidden" name="serviceId" value={s.id} />
                         <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10">Remove</Button>

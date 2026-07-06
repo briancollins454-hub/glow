@@ -1,6 +1,8 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ImportPreview } from "@/components/dashboard/import-preview";
@@ -9,14 +11,20 @@ import { importClientsAction, importServicesAction, importBookingsAction } from 
 const fileInputClass =
   "text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300";
 
-export default async function ImportPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ import?: string; what?: string; n?: string; s?: string }>;
-}) {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const sp = await searchParams;
+export default function ImportPage() {
+  return (
+    <AsyncDashboardPage<Record<string, never>> pageKey="import">
+      {() => <ImportView />}
+    </AsyncDashboardPage>
+  );
+}
+
+function ImportView() {
+  const searchParams = useSearchParams();
+  const importStatus = searchParams.get("import");
+  const what = searchParams.get("what");
+  const n = searchParams.get("n");
+  const s = searchParams.get("s");
 
   return (
     <div className="space-y-6">
@@ -30,19 +38,19 @@ export default async function ImportPage({
         </p>
       </div>
 
-      {sp.import === "done" && (
+      {importStatus === "done" && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          <CheckCircle2 className="h-4 w-4" /> Imported {sp.n} {sp.what}
-          {Number(sp.s) > 0 && ` (${sp.s} skipped: duplicates, unknown services, or missing details)`}.
+          <CheckCircle2 className="h-4 w-4" /> Imported {n} {what}
+          {Number(s) > 0 && ` (${s} skipped: duplicates, unknown services, or missing details)`}.
         </div>
       )}
-      {sp.import === "badformat" && (
+      {importStatus === "badformat" && (
         <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
           Couldn&apos;t recognise the columns in that file. Make sure it&apos;s the CSV export described below,
           or email it to support@glow-uk.com and we&apos;ll sort it for you.
         </div>
       )}
-      {sp.import === "empty" && (
+      {importStatus === "empty" && (
         <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
       )}
 

@@ -1,32 +1,35 @@
-import { notFound, redirect } from "next/navigation";
+"use client";
+
+import { notFound } from "next/navigation";
 import { Crown, PoundSterling, Users, XCircle, ShieldAlert, FlaskConical } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { isAdminTech } from "@/lib/admin";
-import { supabaseService } from "@/lib/supabase/service";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
 import type { AccountClosureRequest, Tech } from "@/lib/db/types";
 import { setCompAction, setTesterOfferAction } from "./actions";
 
-export const metadata = { title: "Owner", robots: { index: false, follow: false } };
-
 const LIVE = ["trialing", "active", "comped"];
 
-export default async function AdminPage() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  // Hidden from everyone who isn't the owner - the page simply doesn't exist.
-  if (!isAdminTech(c.tech)) notFound();
+type AdminSuccess = { techs: Tech[]; closures: AccountClosureRequest[] };
 
-  const sb = supabaseService();
-  const [{ data: techsData }, { data: closuresData }] = await Promise.all([
-    sb.from("techs").select("*").order("createdAt", { ascending: false }),
-    sb.from("account_closure_requests").select("*").eq("status", "requested").order("requestedAt", { ascending: false }),
-  ]);
-  const techs = (techsData ?? []) as Tech[];
-  const closures = (closuresData ?? []) as AccountClosureRequest[];
-  const techById = new Map(techs.map((t) => [t.id, t]));
+type AdminData = { forbidden: true } | AdminSuccess;
+
+export default function AdminPage() {
+  return (
+    <AsyncDashboardPage<AdminData> pageKey="admin">
+      {(data) => <AdminGate data={data} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function AdminGate({ data }: { data: AdminData }) {
+  if ("forbidden" in data) notFound();
+  return <AdminView techs={data.techs} closures={data.closures} />;
+}
+
+function AdminView({ techs, closures }: { techs: Tech[]; closures: AccountClosureRequest[] }) {
+  const techById = Object.fromEntries(techs.map((t) => [t.id, t]));
 
   const active = techs.filter((t) => LIVE.includes(t.subscriptionStatus));
   const cancelled = techs.filter((t) => t.subscriptionStatus === "canceled");
@@ -60,7 +63,7 @@ export default async function AdminPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {closures.map((r) => {
-              const t = techById.get(r.techId);
+              const t = techById[r.techId];
               return (
                 <div key={r.id} className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
                   <p className="font-medium">{t?.businessName ?? r.techId} <span className="text-ink-faint">· {t?.email}</span></p>

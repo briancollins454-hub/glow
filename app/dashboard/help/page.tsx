@@ -1,17 +1,14 @@
-import { redirect } from "next/navigation";
-import { LifeBuoy } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
+"use client";
 
-export const metadata = { title: "Help" };
+import { LifeBuoy } from "lucide-react";
+import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
-// Deliberately written in the plainest possible English: short sentences,
-// numbered taps, no jargon. This is the "read it once and you're fine" manual.
-export default async function HelpPage() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { tech } = c;
+export default function HelpPage() {
+  const { tech } = useDashboardAuth();
+  if (!tech) return null;
+
   const myLink = `${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}`;
 
   return (

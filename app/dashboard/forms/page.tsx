@@ -1,12 +1,13 @@
-import { redirect } from "next/navigation";
+"use client";
+
 import { Plus, Trash2, ClipboardList } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { listQuestions } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { addQuestionAction, deleteQuestionAction } from "../actions";
+import type { ConsultationQuestion } from "@/lib/db/types";
 
 const typeLabel: Record<string, string> = {
   text: "Short text",
@@ -14,12 +15,19 @@ const typeLabel: Record<string, string> = {
   yesno: "Yes / No",
 };
 
-export default async function FormsPage() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const questions = await listQuestions(sb, tech.id);
+type FormsData = {
+  questions: ConsultationQuestion[];
+};
 
+export default function FormsPage() {
+  return (
+    <AsyncDashboardPage<FormsData> pageKey="forms">
+      {(data) => <FormsView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
+
+function FormsView({ questions }: FormsData) {
   return (
     <div className="space-y-6">
       <div>

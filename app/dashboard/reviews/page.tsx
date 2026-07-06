@@ -1,21 +1,27 @@
-import { redirect } from "next/navigation";
+"use client";
+
 import { Star, Trash2, Eye, EyeOff } from "lucide-react";
-import { getDashboardContext } from "@/lib/auth/session";
-import { getClientNameMap, listReviewsForTech } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
 import { deleteReviewAction, setReviewStatusAction } from "../actions";
+import type { Review } from "@/lib/db/types";
 
-export default async function ReviewsPage() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
-  const reviews = await listReviewsForTech(sb, tech.id);
-  const clientById = await getClientNameMap(
-    sb,
-    reviews.map((r) => r.clientId),
+type ReviewsData = {
+  reviews: Review[];
+  clientById: Record<string, string>;
+};
+
+export default function ReviewsPage() {
+  return (
+    <AsyncDashboardPage<ReviewsData> pageKey="reviews">
+      {(data) => <ReviewsView {...data} />}
+    </AsyncDashboardPage>
   );
+}
+
+function ReviewsView({ reviews, clientById }: ReviewsData) {
   const approved = reviews.filter((r) => r.status === "approved");
   const avg = approved.length
     ? (approved.reduce((s, r) => s + r.rating, 0) / approved.length).toFixed(1)
@@ -56,7 +62,7 @@ export default async function ReviewsPage() {
                     <Star key={n} className={`h-4 w-4 ${n <= r.rating ? "fill-amber-400 text-amber-400" : "text-ink-faint"}`} />
                   ))}
                 </span>
-                <p className="font-medium">{clientById.get(r.clientId) ?? "Client"}</p>
+                <p className="font-medium">{clientById[r.clientId] ?? "Client"}</p>
                 <span className="text-xs text-ink-faint">{fmtDate(r.createdAt)}</span>
                 {r.status === "approved" && <Badge tone="green">On your page</Badge>}
                 {r.status === "pending" && <Badge tone="amber">Waiting</Badge>}

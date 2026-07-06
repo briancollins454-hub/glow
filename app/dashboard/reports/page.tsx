@@ -1,27 +1,31 @@
-import { redirect } from "next/navigation";
+"use client";
+
 import { Download, PoundSterling, CheckCircle2, XCircle, ShieldX } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
-import { getDashboardContext } from "@/lib/auth/session";
-import { getReportSummary } from "@/lib/db/queries";
+import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { gbp, TZ } from "@/lib/format";
+import type { ReportSummary } from "@/lib/db/queries";
 
-export default async function ReportsPage() {
-  const c = await getDashboardContext();
-  if (!c) redirect("/login");
-  const { sb, tech } = c;
+export default function ReportsPage() {
+  return (
+    <AsyncDashboardPage<ReportSummary> pageKey="reports">
+      {(data) => <ReportsView {...data} />}
+    </AsyncDashboardPage>
+  );
+}
 
-  const {
-    totalIncome,
-    depositsTotal,
-    balancesTotal,
-    completed,
-    noShows,
-    forfeited,
-    byMonth: months,
-    byService: svcRows,
-  } = await getReportSummary(sb, tech.id);
+function ReportsView({
+  totalIncome,
+  depositsTotal,
+  balancesTotal,
+  completed,
+  noShows,
+  forfeited,
+  byMonth: months,
+  byService: svcRows,
+}: ReportSummary) {
   const maxService = Math.max(1, ...svcRows.map(([, v]) => v));
 
   return (
