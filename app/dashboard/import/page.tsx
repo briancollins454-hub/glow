@@ -94,10 +94,11 @@ function ImportView() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-brand-400" /> Step 3 · Appointments</CardTitle>
           <CardDescription>
-            Import after services and clients. Needs columns like &quot;Client&quot;, &quot;Service&quot; and
-            &quot;Date&quot; (plus &quot;Time&quot; or &quot;Status&quot; if your export has them). Past appointments load as
-            history; future ones are confirmed with quiet reminders - no emails are sent to
-            clients during import. Rows with services we can&apos;t match are skipped and counted.
+            Import after services and clients. Needs columns like &quot;Client&quot;, &quot;Service&quot; (or
+            &quot;Services&quot; from Fresha) and &quot;Date&quot; / &quot;Scheduled date&quot; (Fresha also puts the
+            full time in &quot;Scheduled time&quot; or &quot;Start time&quot;). Past appointments load as history;
+            future ones are confirmed with quiet reminders — no emails are sent to clients during import.
+            Rows with services we can&apos;t match are skipped and counted.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -115,7 +116,7 @@ function ImportView() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-ink-soft">
           <p><strong className="text-ink">Square:</strong> Dashboard → Customers → Import/Export → Export; Items &amp; Services → Actions → Export library.</p>
-          <p><strong className="text-ink">Fresha:</strong> Settings → Data &amp; privacy → Export data (clients and appointments CSVs).</p>
+          <p><strong className="text-ink">Fresha:</strong> Sales → Appointments → pick your date range → Export → CSV (needs Client, Services and Scheduled date/time columns). Privacy export works too.</p>
           <p><strong className="text-ink">Timely:</strong> Setup → Data export → Customers / Appointments.</p>
           <p><strong className="text-ink">Booksy:</strong> Clients → ⋯ menu → Export client list (email their support for appointment exports).</p>
           <p className="pt-1 text-xs text-ink-faint">
