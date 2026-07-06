@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles, ChevronUp, ChevronDown } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listAddons, listCategories, listServices } from "@/lib/db/queries";
 import { signedPhotoUrl } from "@/lib/storage";
@@ -15,6 +15,7 @@ import {
   addCategoryAction,
   deleteCategoryAction,
   deleteServiceAction,
+  moveServiceAction,
   setServicePhotoAction,
   removeServicePhotoAction,
   addAddonAction,
@@ -126,12 +127,39 @@ export default async function ServicesPage({
       <Card>
         <CardHeader>
           <CardTitle>Your services ({services.length})</CardTitle>
-          <CardDescription>Click a service to edit it.</CardDescription>
+          <CardDescription>Tap a service to edit it. Use the arrows to change the order shown on your booking page.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {services.length === 0 && <p className="text-sm text-ink-faint">No services yet.</p>}
-          {services.map((s) => (
-            <details key={s.id} open={open === s.id} className="group rounded-xl border border-edge bg-cream">
+          {services.map((s, i) => (
+            <div key={s.id} className="flex items-stretch gap-2">
+              <div className="flex flex-col justify-center gap-1">
+                <form action={moveServiceAction}>
+                  <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="dir" value="up" />
+                  <button
+                    type="submit"
+                    disabled={i === 0}
+                    className="grid h-8 w-8 place-items-center rounded-lg border border-edge text-ink-soft transition hover:bg-white/[0.06] disabled:opacity-30"
+                    title="Move up"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                </form>
+                <form action={moveServiceAction}>
+                  <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="dir" value="down" />
+                  <button
+                    type="submit"
+                    disabled={i === services.length - 1}
+                    className="grid h-8 w-8 place-items-center rounded-lg border border-edge text-ink-soft transition hover:bg-white/[0.06] disabled:opacity-30"
+                    title="Move down"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </form>
+              </div>
+              <details open={open === s.id} className="group min-w-0 flex-1 rounded-xl border border-edge bg-cream">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -199,7 +227,8 @@ export default async function ServicesPage({
                   <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /> Delete service</Button>
                 </form>
               </div>
-            </details>
+              </details>
+            </div>
           ))}
         </CardContent>
       </Card>

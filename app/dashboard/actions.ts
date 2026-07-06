@@ -382,6 +382,28 @@ export async function saveServiceAction(formData: FormData) {
   redirect(existing ? `/dashboard/services?open=${id}` : "/dashboard/services");
 }
 
+/** Move a service up/down in the list (dashboard + public booking page order). */
+export async function moveServiceAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const dir = formData.get("dir") === "up" ? -1 : 1;
+
+  const services = await listServices(sb, tech.id);
+  const idx = services.findIndex((s) => s.id === id);
+  const target = idx + dir;
+  if (idx !== -1 && target >= 0 && target < services.length) {
+    // Normalise sort orders to the current display order, then swap the pair.
+    const order = services.map((s) => s.id);
+    [order[idx], order[target]] = [order[target], order[idx]];
+    await Promise.all(
+      order.map((sid, i) => (services.find((s) => s.id === sid)!.sortOrder === i ? null : updateService(sb, sid, { sortOrder: i }))),
+    );
+    revalidatePath("/dashboard/services");
+    revalidatePath(`/${tech.handle}`);
+  }
+  redirect("/dashboard/services");
+}
+
 export async function deleteServiceAction(formData: FormData) {
   const { sb, tech } = await ctx();
   await deleteService(sb, String(formData.get("id") ?? ""));
