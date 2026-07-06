@@ -10,13 +10,16 @@ import {
   Lock,
   ShieldCheck,
   RefreshCw,
+  Clock,
 } from "lucide-react";
 import type { ConsultationQuestion, Service, ServiceAddon, Tech } from "@/lib/db/types";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
+import { RemoteImage } from "@/components/ui/remote-image";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
+import { withAlpha } from "@/lib/booking/brand";
 import { createPublicBookingAction, joinWaitlistAction } from "@/app/[handle]/actions";
 
 type DayOption = { dateStr: string; slots: string[] };
@@ -43,6 +46,7 @@ export function BookingStepInteractive({
   wl,
   initialDate,
   initialSlot,
+  photoUrl,
 }: {
   tech: Tech;
   service: Service;
@@ -55,51 +59,100 @@ export function BookingStepInteractive({
   wl?: string;
   initialDate?: string;
   initialSlot?: string;
+  photoUrl?: string;
 }) {
   const deposit = depositFor(service);
   const balance = Math.max(0, service.pricePennies - deposit);
   const [slot, setSlot] = useState(initialSlot ?? "");
+  const step = !slot ? 1 : 2;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <Link href={`/${tech.handle}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink">
+    <div className="space-y-6 animate-fade-in">
+      <Link
+        href={`/${tech.handle}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
+      >
         <ArrowLeft className="h-4 w-4" /> All services
       </Link>
 
-      <div className="card p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl font-semibold">{service.name}</h2>
-            {service.description && <p className="mt-1 text-sm text-ink-soft">{service.description}</p>}
-          </div>
-          <div className="text-right">
-            <p className="text-xl font-semibold">{gbp(service.pricePennies)}</p>
-            <p className="text-xs text-ink-faint">{minutesToLabel(service.durationMin)}</p>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-cream p-3 text-sm sm:grid-cols-3">
-          <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} />
-          <Stat label="Balance on the day" value={gbp(balance)} />
-          <Stat label="Cancellation" value={`${tech.cancellationWindowHours}h notice`} />
-        </div>
-        {(service.requiresPatchTest || service.isInfill) && (
-          <div className="mt-3 space-y-2">
-            {service.requiresPatchTest && (
-              <Notice tone="amber" icon={<ShieldCheck className="h-4 w-4" />}>
-                A valid patch test is required before this service.
-              </Notice>
-            )}
-            {service.isInfill && (
-              <Notice tone="violet" icon={<RefreshCw className="h-4 w-4" />}>
-                Infills are for returning clients within {service.infillMaxGapDays} days of their last appointment.
-              </Notice>
-            )}
+      {/* Service summary card */}
+      <div className="overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card">
+        {photoUrl && (
+          <div className="relative aspect-[21/9] w-full overflow-hidden">
+            <RemoteImage
+              src={photoUrl}
+              alt={service.name}
+              fill
+              className="object-cover"
+              sizes="640px"
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(180deg, transparent 30%, ${withAlpha("#0b0910", 0.85)} 100%)`,
+              }}
+            />
           </div>
         )}
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-faint">
+                You&apos;re booking
+              </p>
+              <h2 className="mt-1 font-display text-2xl font-semibold leading-tight text-ink sm:text-3xl">
+                {service.name}
+              </h2>
+              {service.description && (
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">{service.description}</p>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="font-display text-2xl font-semibold text-ink">
+                {gbp(service.pricePennies)}
+              </p>
+              <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-ink-faint">
+                <Clock className="h-3.5 w-3.5" />
+                {minutesToLabel(service.durationMin)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl border border-edge bg-cream/50 p-3 text-sm sm:gap-3 sm:p-4">
+            <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} highlight={deposit > 0} brand={brand} />
+            <Stat label="Balance on the day" value={gbp(balance)} />
+            <Stat label="Cancellation" value={`${tech.cancellationWindowHours}h notice`} />
+          </div>
+
+          {(service.requiresPatchTest || service.isInfill) && (
+            <div className="mt-4 space-y-2">
+              {service.requiresPatchTest && (
+                <Notice tone="amber" icon={<ShieldCheck className="h-4 w-4" />}>
+                  A valid patch test is required before this service.
+                </Notice>
+              )}
+              {service.isInfill && (
+                <Notice tone="violet" icon={<RefreshCw className="h-4 w-4" />}>
+                  Infills are for returning clients within {service.infillMaxGapDays} days of their
+                  last appointment.
+                </Notice>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-3 text-sm">
+        <StepDot n={1} label="Pick a time" active={step >= 1} done={step > 1} brand={brand} />
+        <div className="h-px flex-1 bg-edge" />
+        <StepDot n={2} label="Your details" active={step >= 2} done={false} brand={brand} />
       </div>
 
       {err && ERR[err] && (
-        <Notice tone="red" icon={<AlertTriangle className="h-4 w-4" />}>{ERR[err]}</Notice>
+        <Notice tone="red" icon={<AlertTriangle className="h-4 w-4" />}>
+          {ERR[err]}
+        </Notice>
       )}
 
       {!live && (
@@ -116,11 +169,13 @@ export function BookingStepInteractive({
 
       {live &&
         (days.length === 0 ? (
-          <div className="card p-6 text-center text-sm text-ink-soft">
+          <div className="rounded-2xl border border-edge bg-surface/80 p-8 text-center text-sm text-ink-soft">
             No available times in the next two weeks. Please check back soon.
           </div>
         ) : (
-          <div className="card p-5">
+          <div className="rounded-2xl border border-edge bg-surface/80 p-5 sm:p-6">
+            <h3 className="font-display text-lg font-semibold text-ink">Choose your appointment</h3>
+            <p className="mt-1 text-sm text-ink-soft">Pick a date and time that works for you.</p>
             <DateSlotPicker
               days={days}
               initialDate={initialDate}
@@ -132,12 +187,12 @@ export function BookingStepInteractive({
         ))}
 
       {live && wl !== "1" && (
-        <details className="card">
-          <summary className="cursor-pointer list-none p-4 text-sm font-medium text-ink-soft">
+        <details className="rounded-2xl border border-edge bg-surface/80">
+          <summary className="cursor-pointer list-none p-4 text-sm font-medium text-ink-soft [&::-webkit-details-marker]:hidden">
             Can&apos;t see a time that works?{" "}
             <span style={{ color: brand }}>Join the cancellation list</span>
           </summary>
-          <form action={joinWaitlistAction} className="space-y-3 border-t border-edge p-4">
+          <form action={joinWaitlistAction} className="space-y-3 border-t border-edge p-4 sm:p-5">
             <input type="hidden" name="handle" value={tech.handle} />
             <input type="hidden" name="serviceId" value={service.id} />
             <p className="text-sm text-ink-soft">
@@ -152,7 +207,7 @@ export function BookingStepInteractive({
               <div>
                 <input name="date" type="date" className="input" />
                 <p className="mt-1 text-xs text-ink-faint">
-                  Only want a certain day? Pick it - or leave blank for any day.
+                  Only want a certain day? Pick it — or leave blank for any day.
                 </p>
               </div>
             </div>
@@ -168,13 +223,15 @@ export function BookingStepInteractive({
       )}
 
       {live && slot && (
-        <div className="card p-5">
-          <h3 className="font-semibold">Your details</h3>
-          <p className="mt-0.5 text-sm text-ink-soft">
-            Booking {service.name} on{" "}
-            <strong>{formatInTimeZone(new Date(slot), TZ, "EEE d MMM 'at' HH:mm")}</strong>
+        <div className="rounded-2xl border border-edge bg-surface/80 p-5 sm:p-6">
+          <h3 className="font-display text-lg font-semibold text-ink">Your details</h3>
+          <p className="mt-1 text-sm text-ink-soft">
+            Booking <strong className="text-ink">{service.name}</strong> on{" "}
+            <strong className="text-ink">
+              {formatInTimeZone(new Date(slot), TZ, "EEE d MMM 'at' HH:mm")}
+            </strong>
           </p>
-          <form action={createPublicBookingAction} className="mt-4 space-y-3">
+          <form action={createPublicBookingAction} className="mt-5 space-y-4">
             <input type="hidden" name="handle" value={tech.handle} />
             <input type="hidden" name="serviceId" value={service.id} />
             <input type="hidden" name="slot" value={slot} />
@@ -185,12 +242,12 @@ export function BookingStepInteractive({
             <input name="phone" placeholder="Mobile number" className="input" />
 
             {addons.length > 0 && (
-              <div className="space-y-2 border-t border-edge pt-3">
+              <div className="space-y-2 border-t border-edge pt-4">
                 <p className="text-sm font-medium text-ink">Extras (optional)</p>
                 {addons.map((a) => (
                   <label
                     key={a.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-3 text-sm"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-3 text-sm transition hover:border-white/15"
                   >
                     <span className="flex items-center gap-2.5">
                       <input
@@ -208,13 +265,13 @@ export function BookingStepInteractive({
             )}
 
             {questions.length > 0 && (
-              <div className="space-y-3 border-t border-edge pt-3">
+              <div className="space-y-3 border-t border-edge pt-4">
                 <p className="text-sm font-medium text-ink">A few quick questions</p>
                 {questions.map((q) => (
                   <div key={q.id}>
                     <label className="mb-1 block text-sm text-ink-soft">
                       {q.prompt}
-                      {q.required && <span className="text-red-500"> *</span>}
+                      {q.required && <span className="text-red-400"> *</span>}
                     </label>
                     {q.type === "longtext" ? (
                       <textarea name={`q_${q.id}`} required={q.required} className="input min-h-[70px]" />
@@ -244,12 +301,12 @@ export function BookingStepInteractive({
                 <Link href="/privacy" className="text-brand-400 underline-offset-2 hover:underline">
                   privacy policy
                 </Link>
-                . My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from
-                the total.
+                . My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is
+                deducted from the total.
               </span>
             </label>
             <SubmitButton
-              className="w-full bg-none py-3 font-semibold shadow-none"
+              className="w-full bg-none py-3.5 text-base font-semibold shadow-soft"
               style={{ backgroundColor: brand }}
               pendingLabel="Securing your slot…"
             >
@@ -258,7 +315,7 @@ export function BookingStepInteractive({
             </SubmitButton>
             {(process.env.NEXT_PUBLIC_STRIPE_TEST_MODE === "1" ||
               (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test")) && (
-              <p className="text-center text-xs text-ink-faint">Test mode - no real payment is taken.</p>
+              <p className="text-center text-xs text-ink-faint">Test mode — no real payment is taken.</p>
             )}
           </form>
         </div>
@@ -267,11 +324,56 @@ export function BookingStepInteractive({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  highlight,
+  brand,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  brand?: string;
+}) {
   return (
     <div>
-      <p className="text-xs text-ink-faint">{label}</p>
-      <p className="font-semibold">{value}</p>
+      <p className="text-[11px] text-ink-faint sm:text-xs">{label}</p>
+      <p
+        className="mt-0.5 font-semibold"
+        style={highlight && brand ? { color: brand } : undefined}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function StepDot({
+  n,
+  label,
+  active,
+  done,
+  brand,
+}: {
+  n: number;
+  label: string;
+  active: boolean;
+  done: boolean;
+  brand: string;
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${active ? "text-ink" : "text-ink-faint"}`}>
+      <span
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+        style={
+          done || active
+            ? { backgroundColor: brand, color: "white" }
+            : { backgroundColor: "rgba(255,255,255,0.08)", color: "inherit" }
+        }
+      >
+        {done ? "✓" : n}
+      </span>
+      <span className="hidden font-medium sm:inline">{label}</span>
     </div>
   );
 }
@@ -286,13 +388,13 @@ function Notice({
   children: React.ReactNode;
 }) {
   const map = {
-    amber: "bg-amber-500/10 text-amber-800",
-    violet: "bg-violet-50 text-violet-800",
-    red: "bg-red-500/10 text-red-300",
+    amber: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+    violet: "border-violet-500/20 bg-violet-500/10 text-violet-200",
+    red: "border-red-500/20 bg-red-500/10 text-red-300",
   };
   return (
-    <div className={`flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm ${map[tone]}`}>
-      <span className="mt-0.5">{icon}</span>
+    <div className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-sm ${map[tone]}`}>
+      <span className="mt-0.5 shrink-0">{icon}</span>
       <span>{children}</span>
     </div>
   );
