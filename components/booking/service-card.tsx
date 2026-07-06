@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Service } from "@/lib/db/types";
-import { RemoteImage } from "@/components/ui/remote-image";
+import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { withAlpha } from "@/lib/booking/brand";
@@ -25,20 +25,10 @@ export function ServiceCard({
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition duration-300 hover:-translate-y-0.5 hover:border-white/15 hover:shadow-soft"
     >
       {photoUrl ? (
-        <div className="relative aspect-[3/2] w-full shrink-0 overflow-hidden bg-cream">
-          <RemoteImage
-            src={photoUrl}
-            alt={service.name}
-            fill
-            position="center 30%"
-            className="transition duration-500 group-hover:scale-[1.03]"
-            sizes="(max-width: 640px) 100vw, 640px"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-cream/70 via-cream/10 to-transparent" />
-        </div>
+        <ServicePhoto src={photoUrl} alt={service.name} />
       ) : (
         <div
-          className="relative aspect-[3/2] w-full shrink-0"
+          className="relative aspect-[2/1] w-full shrink-0"
           style={{
             background: `linear-gradient(135deg, ${withAlpha(brand, 0.35)} 0%, ${withAlpha(brand, 0.08)} 100%)`,
           }}

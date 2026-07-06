@@ -57,11 +57,14 @@ function pickHeroImages(
   portfolio: { url: string }[],
 ): { coverUrl?: string; avatarUrl?: string } {
   const serviceWithPhoto = services.find((s) => photoUrls.has(s.id));
+  // Portfolio shots are usually single finished results; service uploads are often
+  // square before/after composites that look duplicated in a wide hero crop.
   const coverUrl =
-    (serviceWithPhoto && photoUrls.get(serviceWithPhoto.id)) ||
     portfolio[0]?.url ||
+    (serviceWithPhoto && photoUrls.get(serviceWithPhoto.id)) ||
     undefined;
-  const avatarUrl = coverUrl;
+  const avatarUrl =
+    (serviceWithPhoto && photoUrls.get(serviceWithPhoto.id)) || portfolio[0]?.url || undefined;
   return { coverUrl, avatarUrl };
 }
 

@@ -32,7 +32,7 @@ export default function PublicBookingLoading() {
           <div className="h-7 w-28 animate-pulse rounded bg-white/10" />
           {[1, 2].map((i) => (
             <div key={i} className="overflow-hidden rounded-2xl border border-edge bg-surface">
-              <div className="aspect-[16/10] animate-pulse bg-white/5" />
+              <div className="aspect-[2/1] animate-pulse bg-white/5" />
               <div className="space-y-3 p-5">
                 <div className="flex justify-between">
                   <div className="h-6 w-40 animate-pulse rounded bg-white/10" />

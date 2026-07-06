@@ -16,10 +16,9 @@ import type { ConsultationQuestion, Service, ServiceAddon, Tech } from "@/lib/db
 import { SubmitButton } from "@/components/ui/submit-button";
 import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
-import { RemoteImage } from "@/components/ui/remote-image";
+import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
-import { withAlpha } from "@/lib/booking/brand";
 import { createPublicBookingAction, joinWaitlistAction } from "@/app/[handle]/actions";
 
 type DayOption = { dateStr: string; slots: string[] };
@@ -77,23 +76,7 @@ export function BookingStepInteractive({
 
       {/* Service summary card */}
       <div className="overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card">
-        {photoUrl && (
-          <div className="relative aspect-[2/1] w-full shrink-0 overflow-hidden">
-            <RemoteImage
-              src={photoUrl}
-              alt={service.name}
-              fill
-              position="center 30%"
-              sizes="640px"
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(180deg, transparent 30%, ${withAlpha("#0b0910", 0.85)} 100%)`,
-              }}
-            />
-          </div>
-        )}
+        {photoUrl && <ServicePhoto src={photoUrl} alt={service.name} sizes="640px" />}
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
