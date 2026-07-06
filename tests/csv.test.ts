@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { col, moneyToPennies, parseCsv, parseCsvLine, toMinutes, appointmentColumnsOk, appointmentWhenRaw, missingAppointmentGroups, parseAppointmentWhen } from "@/lib/csv";
+import { col, moneyToPennies, parseCsv, parseCsvLine, toMinutes, appointmentColumnsOk, appointmentWhenRaw, missingAppointmentGroups, parseAppointmentWhen, isPlausibleServiceName } from "@/lib/csv";
 
 describe("parseCsvLine", () => {
   it("splits simple lines", () => {
@@ -22,6 +22,16 @@ describe("parseCsv", () => {
   it("skips blank lines", () => {
     const { rows } = parseCsv("name\n\nJane\n\n");
     expect(rows).toEqual([["Jane"]]);
+  });
+  it("handles newlines inside quoted fields (Fresha descriptions)", () => {
+    const { headers, rows } = parseCsv(
+      'Category,Service name,Description,Duration,Price\n"Brow treatments","Henna brows","Henna is a natural\ndye that lasts weeks","30min","30.00"\n',
+    );
+    expect(headers).toEqual(["category", "servicename", "description", "duration", "price"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0][1]).toBe("Henna brows");
+    expect(rows[0][2]).toContain("natural");
+    expect(rows[0][2]).toContain("weeks");
   });
 });
 
@@ -60,6 +70,14 @@ describe("Fresha appointment imports", () => {
       dateRaw: "2024-07-06 10:30:00",
       timeRaw: "",
     });
+  });
+});
+
+describe("isPlausibleServiceName", () => {
+  it("rejects misparsed CSV fragments", () => {
+    expect(isPlausibleServiceName("Henna brows")).toBe(true);
+    expect(isPlausibleServiceName(",Exclusive Deals,Henna Brows,Not required")).toBe(false);
+    expect(isPlausibleServiceName("Henna is a natural")).toBe(true);
   });
 });
 

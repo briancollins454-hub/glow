@@ -32,11 +32,54 @@ export function parseCsvLine(line: string): string[] {
   return out.map((s) => s.trim());
 }
 
+/** Parse full CSV text, including newlines inside quoted fields (Fresha descriptions). */
+export function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cur = "";
+  let inQ = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"' && text[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') {
+        inQ = false;
+      } else {
+        cur += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQ = true;
+    } else if (ch === ",") {
+      row.push(cur.trim());
+      cur = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cur.trim());
+      if (row.some((cell) => cell.length > 0)) rows.push(row);
+      row = [];
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+
+  row.push(cur.trim());
+  if (row.some((cell) => cell.length > 0)) rows.push(row);
+
+  return rows;
+}
+
 export function parseCsv(text: string): ParsedCsv {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
-  const rows = lines.slice(1).map(parseCsvLine);
+  const table = parseCsvRows(text);
+  if (table.length === 0) return { headers: [], rows: [] };
+  const headers = table[0].map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
+  const rows = table.slice(1).filter((r) => r.some((cell) => cell.trim()));
   return { headers, rows };
 }
 
@@ -97,6 +140,23 @@ export const IMPORT_COLS = {
   ],
   appointmentDuration: ["duration", "durationmin", "durationminutes", "durationmins", "servicelength"],
 } as const;
+
+export const IMPORT_SERVICE_COLS = {
+  name: ["servicename", "service", "name", "itemname", "treatmentname", "title", "item"],
+  price: ["price", "retailprice", "priceamount", "amount", "cost"],
+  duration: ["duration", "durationmin", "durationminutes", "durationmins", "servicelength", "length"],
+  category: ["category", "categoryname", "servicecategory", "group", "type"],
+  description: ["description", "details", "servicedescription"],
+} as const;
+
+/** Skip rows that are clearly misparsed CSV fragments (multiline description bugs, etc.). */
+export function isPlausibleServiceName(name: string): boolean {
+  const n = name.trim();
+  if (!n || n.length > 120) return false;
+  if ((n.match(/,/g) ?? []).length >= 2) return false;
+  if (/^[,;\s]+/.test(n)) return false;
+  return true;
+}
 
 export type ImportAppointmentGroup = "client" | "service" | "date";
 
