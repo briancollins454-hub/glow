@@ -944,15 +944,15 @@ export async function importServicesAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes } = await import("@/lib/csv");
+  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
-  const iName = col(headers, "name", "servicename", "service", "itemname", "treatmentname", "title", "item");
-  const iPrice = col(headers, "price", "amount", "cost", "retailprice", "priceamount", "netsale", "grosssale");
-  const iDuration = col(headers, "duration", "durationmin", "durationminutes", "durationmins", "length", "servicelength");
-  const iCategory = col(headers, "category", "categoryname", "servicecategory", "group", "type");
-  const iDesc = col(headers, "description", "details", "servicedescription");
+  const iName = col(headers, ...IMPORT_SERVICE_COLS.name);
+  const iPrice = col(headers, ...IMPORT_SERVICE_COLS.price);
+  const iDuration = col(headers, ...IMPORT_SERVICE_COLS.duration);
+  const iCategory = col(headers, ...IMPORT_SERVICE_COLS.category);
+  const iDesc = col(headers, ...IMPORT_SERVICE_COLS.description);
 
   if (iName === -1) redirect("/dashboard/import?import=badformat");
 
@@ -981,7 +981,10 @@ export async function importServicesAction(formData: FormData) {
 
   for (const cols of rows) {
     const name = (cols[iName] ?? "").trim();
-    if (!name || existingNames.has(name.toLowerCase())) { skipped++; continue; }
+    if (!name || !isPlausibleServiceName(name) || existingNames.has(name.toLowerCase())) {
+      skipped++;
+      continue;
+    }
     const pricePennies = iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : 0;
     const durationMin = safeMinutes(iDuration !== -1 ? toMinutes(cols[iDuration] ?? "") : 60);
     const categoryId = await ensureCategory(iCategory !== -1 ? cols[iCategory] ?? "" : "");
