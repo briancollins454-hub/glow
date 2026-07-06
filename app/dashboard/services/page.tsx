@@ -218,7 +218,10 @@ function ServicesView({ categories, services, addons, photoByService }: Services
 
                 <form action={deleteServiceAction} className="mt-4 border-t border-edge pt-3">
                   <input type="hidden" name="id" value={s.id} />
-                  <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /> Delete service</Button>
+                  <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10">
+                    <Trash2 className="h-4 w-4" /> Delete service
+                  </Button>
+                  <p className="mt-1 text-xs text-ink-faint">Also removes any imported appointments linked to this service.</p>
                 </form>
               </div>
               </details>
