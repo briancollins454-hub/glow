@@ -1,4 +1,4 @@
-const CACHE_NAME = "glow-shell-v1";
+const CACHE_NAME = "glow-shell-v2";
 const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-maskable-512.png"];
 
 self.addEventListener("install", (event) => {

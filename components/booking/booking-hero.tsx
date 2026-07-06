@@ -1,5 +1,5 @@
 import { Instagram, MapPin, Star } from "lucide-react";
-import { RemoteImage } from "@/components/ui/remote-image";
+import { HeroPhoto, AvatarPhoto } from "@/components/booking/service-photo";
 import { initials, shade, withAlpha } from "@/lib/booking/brand";
 
 export function BookingHero({
@@ -32,13 +32,7 @@ export function BookingHero({
       <div className="absolute inset-0">
         {coverUrl ? (
           <>
-            <RemoteImage
-              src={coverUrl}
-              alt=""
-              fill
-              position="center 25%"
-              sizes="100vw"
-            />
+            <HeroPhoto src={coverUrl} alt="" />
             <div
               className="absolute inset-0"
               style={{
@@ -78,13 +72,7 @@ export function BookingHero({
           >
             <div className="relative h-24 w-24 overflow-hidden rounded-[1.2rem] bg-cream sm:h-28 sm:w-28">
               {avatarUrl ? (
-                <RemoteImage
-                  src={avatarUrl}
-                  alt={businessName}
-                  fill
-                  position="center 30%"
-                  sizes="112px"
-                />
+                <AvatarPhoto src={avatarUrl} alt={businessName} />
               ) : (
                 <div
                   className="flex h-full w-full items-center justify-center font-display text-2xl font-semibold text-white sm:text-3xl"
