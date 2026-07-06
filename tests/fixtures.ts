@@ -175,6 +175,7 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     googleCalendarEmail: null,
     googleConnectedAt: null,
     rebookNudgesEnabled: true,
+    signupOffer: "",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
