@@ -6,6 +6,7 @@ import { unreadCountForTech } from "@/lib/db/queries";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { InstallPrompt } from "@/components/dashboard/install-prompt";
+import { isAdminTech } from "@/lib/admin";
 import { logoutAction } from "@/app/(auth)/actions";
 
 export default async function DashboardLayout({
@@ -72,7 +73,7 @@ export default async function DashboardLayout({
       <div className="container-page grid gap-6 py-6 pb-28 lg:grid-cols-[220px_1fr] lg:pb-6">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
           <div className="card max-w-full lg:py-1">
-            <SidebarNav unread={unread} />
+            <SidebarNav unread={unread} admin={isAdminTech(tech)} />
           </div>
         </aside>
         <main className="min-w-0">{children}</main>

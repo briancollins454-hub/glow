@@ -18,6 +18,7 @@ import {
   FolderInput,
   Settings,
   LifeBuoy,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,11 +40,14 @@ const items = [
   { href: "/dashboard/help", label: "Help", icon: LifeBuoy },
 ];
 
-export function SidebarNav({ unread = 0 }: { unread?: number }) {
+export function SidebarNav({ unread = 0, admin = false }: { unread?: number; admin?: boolean }) {
   const pathname = usePathname();
+  const navItems = admin
+    ? [...items, { href: "/dashboard/admin", label: "Owner", icon: Crown, exact: false }]
+    : items;
   return (
     <nav className="flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
-      {items.map((item) => {
+      {navItems.map((item) => {
         const active = item.exact
           ? pathname === item.href
           : pathname === item.href || pathname.startsWith(item.href + "/");
