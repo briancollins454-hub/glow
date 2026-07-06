@@ -307,12 +307,16 @@ export async function addCategoryAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const name = String(formData.get("name") ?? "").trim();
   if (name) {
-    await createCategory(sb, {
-      techId: tech.id,
-      name,
-      patchTestValidityDays: clampInt(String(formData.get("validityDays") ?? ""), 1, 3650, 180),
-      patchTestMinLeadHours: clampInt(String(formData.get("minLeadHours") ?? ""), 0, 336, 24),
-    });
+    // Double-click guard: one category per name.
+    const existing = await listCategories(sb, tech.id);
+    if (!existing.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      await createCategory(sb, {
+        techId: tech.id,
+        name,
+        patchTestValidityDays: clampInt(String(formData.get("validityDays") ?? ""), 1, 3650, 180),
+        patchTestMinLeadHours: clampInt(String(formData.get("minLeadHours") ?? ""), 0, 336, 24),
+      });
+    }
   }
   revalidatePath("/dashboard/services");
   redirect("/dashboard/services");
@@ -772,14 +776,18 @@ export async function addAddonAction(formData: FormData) {
   const price = poundsToPennies(String(formData.get("pricePounds") ?? "0"));
   const service = await getService(sb, serviceId);
   if (service && service.techId === tech.id && name) {
-    const { createAddon } = await import("@/lib/db/queries");
-    await createAddon(sb, {
-      techId: tech.id,
-      serviceId,
-      name,
-      pricePennies: Math.max(0, price),
-      active: true,
-    });
+    const { createAddon, addonsForService } = await import("@/lib/db/queries");
+    // Double-click guard: one extra per name on a service.
+    const existing = await addonsForService(sb, serviceId);
+    if (!existing.some((a) => a.active && a.name.toLowerCase() === name.toLowerCase())) {
+      await createAddon(sb, {
+        techId: tech.id,
+        serviceId,
+        name,
+        pricePennies: Math.max(0, price),
+        active: true,
+      });
+    }
   }
   revalidatePath("/dashboard/services");
   // Land back with this service's panel open so adding several extras flows.

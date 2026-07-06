@@ -6,6 +6,7 @@ import { signedPhotoUrl } from "@/lib/storage";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
@@ -73,7 +74,11 @@ export default async function ServicesPage({
               <Input name="minLeadHours" type="number" min={0} defaultValue={24} />
               <p className="mt-1 text-xs text-ink-faint">e.g. 24 = the test must be done at least a day before, so reactions have time to show.</p>
             </div>
-            <div className="sm:col-span-3"><Button type="submit" variant="secondary" className="w-full"><Plus className="h-4 w-4" /> Add category</Button></div>
+            <div className="sm:col-span-3">
+              <SubmitButton size="lg" className="w-full" pendingLabel="Adding your category…">
+                <Plus className="h-5 w-5" /> Add category
+              </SubmitButton>
+            </div>
           </form>
           {categories.length > 0 && (
             <div className="mt-4 space-y-2">
@@ -154,7 +159,7 @@ export default async function ServicesPage({
                     <form action={setServicePhotoAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="serviceId" value={s.id} />
                       <input type="file" name="photo" accept="image/*" required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
-                      <Button type="submit" variant="secondary" size="sm">{photoUrls.has(s.id) ? "Replace" : "Upload"}</Button>
+                      <SubmitButton size="sm" pendingLabel="Uploading…">{photoUrls.has(s.id) ? "Replace" : "Upload"}</SubmitButton>
                     </form>
                     {photoUrls.has(s.id) && (
                       <form action={removeServicePhotoAction}>
@@ -182,7 +187,9 @@ export default async function ServicesPage({
                       <input type="hidden" name="serviceId" value={s.id} />
                       <div className="min-w-32 flex-1"><Label>Extra name</Label><Input name="name" placeholder="Wispy" required /></div>
                       <div className="w-28"><Label>Price (£)</Label><Input name="pricePounds" type="number" min={0} step="0.01" placeholder="5.00" required /></div>
-                      <Button type="submit" variant="secondary" size="sm"><Plus className="h-4 w-4" /> Add</Button>
+                      <SubmitButton pendingLabel="Adding…">
+                        <Plus className="h-4 w-4" /> Add extra
+                      </SubmitButton>
                     </form>
                   </div>
                 </div>
