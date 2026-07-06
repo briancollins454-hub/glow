@@ -56,3 +56,10 @@ The update script only runs `npm install`. Each session, start the services:
   integrations; the app runs fully without their env vars (stubbed / best-effort).
 - After editing `supabase/dev-schema.sql`, apply it with `npx supabase db reset`
   (which re-runs the seed) and then re-run `node scripts/seed.mjs` for demo data.
+- Booking gating (non-obvious): the seeded demo tech has `subscriptionStatus = 'none'`,
+  so the public page shows "This studio isn't accepting online bookings just yet"
+  (`isLive` needs `trialing`/`active`/`comped`). Set it to `comped` to demo public
+  booking without Stripe billing. Client deposits go through **real Stripe Connect**
+  (`lib/payments.ts`) whenever `connectChargesEnabled = true`; with it `false`
+  (default) the booking confirms directly and the deposit is "taken in person" — this
+  is the only way to complete a public booking without live Stripe test keys.
