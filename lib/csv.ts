@@ -1,6 +1,9 @@
 // Tolerant CSV parsing for migration imports (Square / Booksy / Timely / Fresha
 // exports all differ; we normalise headers and match flexibly).
 
+import { fromZonedTime } from "date-fns-tz";
+import { TZ } from "@/lib/format";
+
 export interface ParsedCsv {
   /** Normalised headers: lowercase, letters only ("First Name" -> "firstname") */
   headers: string[];
@@ -77,10 +80,21 @@ export const IMPORT_COLS = {
     "starttime",
     "time",
     "appointmenttime",
+    "apptslot",
   ],
   appointmentStatus: ["status", "appointmentstatus", "bookingstatus"],
   appointmentEmail: ["email", "clientemail", "customeremail", "emailaddress"],
-  appointmentPrice: ["netsale", "grosssale", "price", "amount", "retailprice", "priceamount", "total"],
+  appointmentPrice: [
+    "netsales",
+    "netsale",
+    "grosssales",
+    "grosssale",
+    "price",
+    "amount",
+    "retailprice",
+    "priceamount",
+    "total",
+  ],
   appointmentDuration: ["duration", "durationmin", "durationminutes", "durationmins", "servicelength"],
 } as const;
 
@@ -121,14 +135,96 @@ export function appointmentWhenRaw(
     iTime !== -1 && iTime !== iScheduledTime && iTime !== iStartTime ? (cols[iTime] ?? "").trim() : "";
 
   const hasDatePart = (s: string) => /\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s);
+  const hasClockTime = (s: string) => /\d{1,2}:\d{2}/.test(s);
+
+  // Fresha Scheduled date often already includes the time ("04 Jul 2026, 3:00pm").
+  if (dateOnly && hasClockTime(dateOnly)) return { dateRaw: dateOnly, timeRaw: "" };
 
   // Fresha often puts a full timestamp in Scheduled time / Start time.
   if (scheduled && hasDatePart(scheduled)) return { dateRaw: scheduled, timeRaw: "" };
-  if (start && hasDatePart(start) && /\d{1,2}:\d{2}/.test(start)) return { dateRaw: start, timeRaw: "" };
+  if (start && hasDatePart(start) && hasClockTime(start)) return { dateRaw: start, timeRaw: "" };
   if (dateOnly && (scheduled || timeOnly)) return { dateRaw: dateOnly, timeRaw: scheduled || timeOnly };
   if (dateOnly) return { dateRaw: dateOnly, timeRaw: "" };
   if (scheduled) return { dateRaw: scheduled, timeRaw: "" };
   return { dateRaw: start, timeRaw: timeOnly };
+}
+
+const MONTHS: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
+
+/** Normalise service names for fuzzy CSV matching (trim, lowercase, collapse spaces). */
+export function normalizeImportName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Parse appointment date/time strings from Fresha and other UK exports.
+ * Fresha uses "04 Jul 2026, 3:00pm" in Scheduled date — not handled by Date.parse.
+ */
+export function parseAppointmentWhen(dateRaw: string, timeRaw = ""): Date | null {
+  let s = `${dateRaw.trim()} ${timeRaw.trim()}`.trim();
+  if (!s) return null;
+
+  // Fresha: "04 Jul 2026, 3:00pm" / "23 Jun 2026, 9:51pm"
+  const fresha = s.match(
+    /^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4}),?\s+(\d{1,2}):(\d{2})\s*(am|pm)?$/i,
+  );
+  if (fresha) {
+    const day = parseInt(fresha[1], 10);
+    const mon = MONTHS[fresha[2].toLowerCase().slice(0, 3)];
+    const year = parseInt(fresha[3], 10);
+    if (mon === undefined) return null;
+    let hour = parseInt(fresha[4], 10);
+    const min = parseInt(fresha[5], 10);
+    const ap = (fresha[6] ?? "").toLowerCase();
+    if (ap === "pm" && hour < 12) hour += 12;
+    if (ap === "am" && hour === 12) hour = 0;
+    const local = `${year}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+    const d = fromZonedTime(local, TZ);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // Appt slot fallback: "15:00:00-16:10:00" paired with a separate date field.
+  const slot = timeRaw.match(/^(\d{1,2}):(\d{2})/);
+  if (slot && dateRaw && !timeRaw.includes(",")) {
+    const slotTime = `${slot[1]}:${slot[2]}`;
+    const withSlot = parseAppointmentWhen(`${dateRaw.trim()} ${slotTime}`, "");
+    if (withSlot) return withSlot;
+  }
+
+  // UK numeric dates: 04/07/2026 or 04/07/2026 15:30
+  const uk = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(.*)$/);
+  if (uk) {
+    const yyyy = uk[3].length === 2 ? `20${uk[3]}` : uk[3];
+    s = `${yyyy}-${uk[2].padStart(2, "0")}-${uk[1].padStart(2, "0")}${uk[4]}`;
+  }
+
+  if (/z$|[+-]\d{2}:?\d{2}$/i.test(s)) {
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ]?(\d{1,2})?:?(\d{2})?/);
+  if (m) {
+    const local = `${m[1]}-${m[2]}-${m[3]}T${(m[4] ?? "9").padStart(2, "0")}:${m[5] ?? "00"}`;
+    const d = fromZonedTime(local, TZ);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /** Postgres integer max — keep imports well below this. */

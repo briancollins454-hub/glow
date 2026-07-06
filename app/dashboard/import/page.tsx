@@ -50,6 +50,13 @@ function ImportView() {
           or email it to support@glow-uk.com and we&apos;ll sort it for you.
         </div>
       )}
+      {importStatus === "none" && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          No appointments were imported ({s} rows skipped). This usually means the dates couldn&apos;t be read,
+          or the service names in the file don&apos;t exactly match your Glow services list. Try re-importing
+          after the latest update, or email the file to support@glow-uk.com.
+        </div>
+      )}
       {importStatus === "empty" && (
         <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
       )}

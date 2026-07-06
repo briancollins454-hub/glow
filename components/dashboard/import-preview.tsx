@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   IMPORT_APPOINTMENT_GROUPS,
+  IMPORT_COLS,
   appointmentColumnsOk,
+  appointmentWhenRaw,
   col,
   missingAppointmentGroups,
   parseCsv,
@@ -60,7 +62,22 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
         (kind === "appointments"
           ? appointmentColumnsOk(parsed.headers)
           : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
-      const sample = parsed.rows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "";
+      const sample =
+        kind === "appointments"
+          ? (() => {
+              const row = parsed.rows[0];
+              if (!row) return "";
+              const iClient = col(parsed.headers, ...IMPORT_COLS.appointmentClient);
+              const iService = col(parsed.headers, ...IMPORT_COLS.appointmentService);
+              const iDate = col(parsed.headers, ...IMPORT_COLS.appointmentDate);
+              const parts = [
+                iClient !== -1 ? row[iClient] : "",
+                iService !== -1 ? row[iService] : "",
+                iDate !== -1 ? row[iDate] : "",
+              ].filter(Boolean);
+              return parts.join(" · ");
+            })()
+          : (parsed.rows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "");
       const detail = ok ? "" : describeMissing(kind, parsed.headers);
       setState({ rows: parsed.rows.length, ok, sample, detail });
     };
