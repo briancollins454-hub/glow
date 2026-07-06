@@ -944,13 +944,13 @@ export async function importServicesAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, moneyToPennies, toMinutes } = await import("@/lib/csv");
+  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
   const iName = col(headers, "name", "servicename", "service", "itemname", "treatmentname", "title", "item");
-  const iPrice = col(headers, "price", "amount", "cost", "retailprice", "priceamount");
-  const iDuration = col(headers, "duration", "durationmin", "durationminutes", "durationmins", "length", "time", "servicelength");
+  const iPrice = col(headers, "price", "amount", "cost", "retailprice", "priceamount", "netsale", "grosssale");
+  const iDuration = col(headers, "duration", "durationmin", "durationminutes", "durationmins", "length", "servicelength");
   const iCategory = col(headers, "category", "categoryname", "servicecategory", "group", "type");
   const iDesc = col(headers, "description", "details", "servicedescription");
 
@@ -983,7 +983,7 @@ export async function importServicesAction(formData: FormData) {
     const name = (cols[iName] ?? "").trim();
     if (!name || existingNames.has(name.toLowerCase())) { skipped++; continue; }
     const pricePennies = iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : 0;
-    const durationMin = iDuration !== -1 ? toMinutes(cols[iDuration] ?? "") : 60;
+    const durationMin = safeMinutes(iDuration !== -1 ? toMinutes(cols[iDuration] ?? "") : 60);
     const categoryId = await ensureCategory(iCategory !== -1 ? cols[iCategory] ?? "" : "");
 
     await createService(sb, {
@@ -1016,7 +1016,7 @@ export async function importBookingsAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, appointmentWhenRaw, IMPORT_COLS } = await import("@/lib/csv");
+  const { parseCsv, col, appointmentWhenRaw, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
@@ -1024,6 +1024,8 @@ export async function importBookingsAction(formData: FormData) {
   const iEmail = col(headers, ...IMPORT_COLS.appointmentEmail);
   const iService = col(headers, ...IMPORT_COLS.appointmentService);
   const iStatus = col(headers, ...IMPORT_COLS.appointmentStatus);
+  const iPrice = col(headers, ...IMPORT_COLS.appointmentPrice);
+  const iDuration = col(headers, ...IMPORT_COLS.appointmentDuration);
 
   if (iClient === -1 || iService === -1) redirect("/dashboard/import?import=badformat");
   const hasDate =
@@ -1074,6 +1076,14 @@ export async function importBookingsAction(formData: FormData) {
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) { skipped++; continue; }
 
+    const rowPrice =
+      iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : safePennies(service.pricePennies);
+    const pricePennies = rowPrice > 0 ? rowPrice : safePennies(service.pricePennies);
+    const durationMin =
+      iDuration !== -1
+        ? safeMinutes(toMinutes(cols[iDuration] ?? ""), service.durationMin)
+        : safeMinutes(service.durationMin);
+
     const client = await findOrCreateClient(sb, tech.id, {
       name: clientName,
       email: iEmail !== -1 ? (cols[iEmail] ?? "").trim() : "",
@@ -1102,12 +1112,12 @@ export async function importBookingsAction(formData: FormData) {
       clientId: client.id,
       serviceId: service.id,
       startIso: when.toISOString(),
-      endIso: new Date(startMs + service.durationMin * 60 * 1000).toISOString(),
+      endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
       status,
-      pricePennies: service.pricePennies,
+      pricePennies,
       depositPennies: 0,
       depositStatus: "none",
-      balancePennies: isPast ? 0 : service.pricePennies,
+      balancePennies: isPast ? 0 : pricePennies,
       balanceStatus: isPast ? "paid" : "unpaid",
       balanceToken: newToken(),
       isPatchTest: false,

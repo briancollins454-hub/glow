@@ -69,6 +69,11 @@ describe("moneyToPennies", () => {
     expect(moneyToPennies("45.5")).toBe(4550);
     expect(moneyToPennies("not money")).toBe(0);
   });
+
+  it("rejects large integer IDs mistaken for prices", () => {
+    expect(moneyToPennies("23759921")).toBe(0);
+    expect(moneyToPennies("2375992100")).toBe(0);
+  });
 });
 
 describe("toMinutes", () => {
@@ -78,5 +83,9 @@ describe("toMinutes", () => {
     expect(toMinutes("1:30")).toBe(90);
     expect(toMinutes("90 min")).toBe(90);
     expect(toMinutes("")).toBe(0);
+  });
+
+  it("rejects huge bare numbers that are probably IDs", () => {
+    expect(toMinutes("2375992100")).toBe(60);
   });
 });
