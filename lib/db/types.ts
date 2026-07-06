@@ -70,6 +70,8 @@ export interface Tech {
   googleConnectedAt: string | null;
   // Automated "time to rebook" emails to lapsed clients.
   rebookNudgesEnabled: boolean;
+  // Offer captured at signup ("tester" = invited £1 first month; "" = standard).
+  signupOffer: string;
   createdAt: string;
 }
 
