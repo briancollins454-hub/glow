@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { getDashboardContext } from "@/lib/auth/session";
 import { updateTech } from "@/lib/db/queries";
 import { stripe, OFFERS, PRICES, ensureCoupon } from "@/lib/stripe";
@@ -25,10 +24,9 @@ export async function startCheckoutAction(formData: FormData) {
   const plan = formData.get("plan") === "annual" ? "annual" : "monthly";
   const promo = String(formData.get("promo") ?? "").trim().toUpperCase();
 
-  // Intro offer: testers (unlisted link sets a cookie) get £1 first month;
-  // everyone else gets 50% off the first month. Monthly plan only.
-  const jar = await cookies();
-  const isTester = jar.get("glow_offer")?.value === "tester";
+  // Intro offer: the account's signup offer decides (set once at signup).
+  // Testers get £1 first month; everyone else 50% off. Monthly plan only.
+  const isTester = tech.signupOffer === "tester";
   const offer = plan === "monthly" ? (isTester ? OFFERS.tester1 : OFFERS.firstMonth50) : "";
 
   const s = stripe();

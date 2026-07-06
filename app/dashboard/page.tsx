@@ -9,7 +9,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { getDashboardContext } from "@/lib/auth/session";
 import { listBookings, listClients, listPayments, listServices } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,7 +58,7 @@ export default async function DashboardOverview() {
   const insights = buildBusinessInsights({ bookings, clients, payments, services });
 
   const live = isLive(tech);
-  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
+  const isTester = tech.signupOffer === "tester";
   const setupSteps: SetupStep[] = [
     {
       title: "Add your first service",

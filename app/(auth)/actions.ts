@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseService } from "@/lib/supabase/service";
 import {
@@ -63,6 +64,11 @@ export async function signupAction(formData: FormData) {
   const refRaw = slugify(String(formData.get("ref") ?? ""));
   const referrer = refRaw && refRaw !== candidate ? await getTechByHandle(admin, refRaw) : null;
 
+  // Capture the signup offer on the ACCOUNT. The cookie only decides the offer
+  // at this moment; afterwards the account owns it, so it can't leak to other
+  // accounts created in the same browser.
+  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
+
   const techId = randomId("tech");
   const tech = await createTech(admin, {
     id: techId,
@@ -81,6 +87,7 @@ export async function signupAction(formData: FormData) {
     noShowFeePct: 100,
     referredBy: referrer?.handle ?? null,
     calendarToken: randomToken(),
+    signupOffer: isTester ? "tester" : "",
   });
 
   await replaceWorkingHours(

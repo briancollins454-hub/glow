@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { CheckCircle2, CreditCard, Sparkles, Clock, Gift } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,7 +18,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const { status } = await searchParams;
   const live = isLive(tech);
   const configured = stripeConfigured();
-  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
+  const isTester = tech.signupOffer === "tester";
 
   // RLS hides other techs' rows, so count referrals with the service client.
   const { supabaseService, serviceConfigured } = await import("@/lib/supabase/service");

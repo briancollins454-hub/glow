@@ -99,7 +99,8 @@ type ManagedTechField =
   | "googleCalendarId"
   | "googleCalendarEmail"
   | "googleConnectedAt"
-  | "rebookNudgesEnabled";
+  | "rebookNudgesEnabled"
+  | "signupOffer";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;
