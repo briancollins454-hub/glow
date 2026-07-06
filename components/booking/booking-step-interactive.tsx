@@ -76,7 +76,7 @@ export function BookingStepInteractive({
 
       {/* Service summary card */}
       <div className="overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card">
-        {photoUrl && <ServicePhoto src={photoUrl} alt={service.name} sizes="640px" />}
+        {photoUrl && <ServicePhoto src={photoUrl} alt={service.name} />}
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
