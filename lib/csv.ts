@@ -80,6 +80,8 @@ export const IMPORT_COLS = {
   ],
   appointmentStatus: ["status", "appointmentstatus", "bookingstatus"],
   appointmentEmail: ["email", "clientemail", "customeremail", "emailaddress"],
+  appointmentPrice: ["netsale", "grosssale", "price", "amount", "retailprice", "priceamount", "total"],
+  appointmentDuration: ["duration", "durationmin", "durationminutes", "durationmins", "servicelength"],
 } as const;
 
 export type ImportAppointmentGroup = "client" | "service" | "date";
@@ -129,10 +131,34 @@ export function appointmentWhenRaw(
   return { dateRaw: start, timeRaw: timeOnly };
 }
 
-/** "£45.00", "45", "45.5" -> pennies. NaN-safe. */
+/** Postgres integer max — keep imports well below this. */
+export const PG_INT_MAX = 2_147_483_647;
+
+/** Sensible upper bound for beauty service prices (£5,000). */
+export const MAX_PENNIES = 500_000;
+
+/** Sensible upper bound for appointment duration (8 hours). */
+export const MAX_MINUTES = 480;
+
+export function safePennies(pennies: number, fallback = 0): number {
+  if (!Number.isFinite(pennies) || pennies < 0) return fallback;
+  return Math.min(Math.round(pennies), MAX_PENNIES);
+}
+
+export function safeMinutes(minutes: number, fallback = 60): number {
+  if (!Number.isFinite(minutes) || minutes <= 0) return fallback;
+  return Math.min(Math.round(minutes), MAX_MINUTES);
+}
+
+/** "£45.00", "45", "45.5" -> pennies. NaN-safe. Rejects large integer IDs. */
 export function moneyToPennies(raw: string): number {
-  const n = parseFloat(raw.replace(/[^0-9.]/g, ""));
-  return Number.isNaN(n) ? 0 : Math.round(n * 100);
+  const s = raw.trim();
+  if (!s) return 0;
+  const n = parseFloat(s.replace(/[^0-9.]/g, ""));
+  if (Number.isNaN(n) || n < 0) return 0;
+  // Fresha/Square IDs and phone fragments often land in price columns — not GBP.
+  if (!s.includes(".") && n >= 100_000) return 0;
+  return safePennies(Math.round(n * 100));
 }
 
 /** "1h 30m", "90", "90 min", "1:30" -> minutes. */
@@ -140,10 +166,15 @@ export function toMinutes(raw: string): number {
   const s = raw.trim().toLowerCase();
   if (!s) return 0;
   const hm = s.match(/^(\d+):(\d{2})$/);
-  if (hm) return parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10);
+  if (hm) return safeMinutes(parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10));
   const h = s.match(/(\d+(?:\.\d+)?)\s*h/);
   const m = s.match(/(\d+)\s*m/);
-  if (h || m) return Math.round((h ? parseFloat(h[1]) * 60 : 0) + (m ? parseInt(m[1], 10) : 0));
+  if (h || m) {
+    return safeMinutes(Math.round((h ? parseFloat(h[1]) * 60 : 0) + (m ? parseInt(m[1], 10) : 0)));
+  }
   const n = parseFloat(s.replace(/[^0-9.]/g, ""));
-  return Number.isNaN(n) ? 0 : Math.round(n);
+  if (Number.isNaN(n)) return 0;
+  // Large bare numbers are usually IDs, not minute counts.
+  if (n > MAX_MINUTES) return 60;
+  return safeMinutes(Math.round(n));
 }
