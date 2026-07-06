@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { saveServiceAction } from "@/app/dashboard/actions";
 import type { Service, ServiceCategory } from "@/lib/db/types";
@@ -126,7 +126,9 @@ export function ServiceForm({
           <input type="checkbox" name="active" defaultChecked={s ? s.active : true} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
           Active (visible on booking page)
         </label>
-        <Button type="submit">{s ? "Save changes" : "Add service"}</Button>
+        <SubmitButton size={s ? "md" : "lg"} pendingLabel={s ? "Saving your changes…" : "Adding your service…"}>
+          {s ? "Save changes" : "Add service"}
+        </SubmitButton>
       </div>
     </form>
   );
