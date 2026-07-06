@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { col, moneyToPennies, parseCsv, parseCsvLine, toMinutes } from "@/lib/csv";
+import { col, moneyToPennies, parseCsv, parseCsvLine, toMinutes, appointmentColumnsOk, appointmentWhenRaw, missingAppointmentGroups } from "@/lib/csv";
 
 describe("parseCsvLine", () => {
   it("splits simple lines", () => {
@@ -29,6 +29,37 @@ describe("col", () => {
   it("finds the first matching header", () => {
     expect(col(["clientname", "email"], "name", "clientname")).toBe(0);
     expect(col(["a", "b"], "missing")).toBe(-1);
+  });
+});
+
+describe("Fresha appointment imports", () => {
+  const freshaHeaders = parseCsv(
+    "Appointment reference,Client,Team member,Resource,Scheduled date,Scheduled time,Duration,Services,Status\n",
+  ).headers;
+
+  it("recognises Fresha Sales → Appointments export columns", () => {
+    expect(appointmentColumnsOk(freshaHeaders)).toBe(true);
+    expect(missingAppointmentGroups(freshaHeaders)).toEqual([]);
+  });
+
+  it("combines Fresha scheduled date and time", () => {
+    const { headers, rows } = parseCsv(
+      "Client,Services,Scheduled date,Scheduled time\nKayleigh Hastings,Classic Lash Extensions,06/07/2024,10:30\n",
+    );
+    expect(appointmentWhenRaw(rows[0], headers)).toEqual({
+      dateRaw: "06/07/2024",
+      timeRaw: "10:30",
+    });
+  });
+
+  it("uses Fresha scheduled time when it is a full timestamp", () => {
+    const { headers, rows } = parseCsv(
+      "Client,Services,Scheduled date,Scheduled time\nKayleigh Hastings,Classic Lash Extensions,,2024-07-06 10:30:00\n",
+    );
+    expect(appointmentWhenRaw(rows[0], headers)).toEqual({
+      dateRaw: "2024-07-06 10:30:00",
+      timeRaw: "",
+    });
   });
 });
 

@@ -1016,18 +1016,20 @@ export async function importBookingsAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col } = await import("@/lib/csv");
+  const { parseCsv, col, appointmentWhenRaw, IMPORT_COLS } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
-  const iClient = col(headers, "client", "clientname", "customer", "customername", "name", "fullname");
-  const iEmail = col(headers, "email", "clientemail", "customeremail", "emailaddress");
-  const iService = col(headers, "service", "servicename", "item", "treatment", "appointmentservice", "itemname");
-  const iDate = col(headers, "datetime", "date", "startsat", "start", "starttime", "appointmentdate", "startdate");
-  const iTime = col(headers, "time", "appointmenttime");
-  const iStatus = col(headers, "status", "appointmentstatus");
+  const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
+  const iEmail = col(headers, ...IMPORT_COLS.appointmentEmail);
+  const iService = col(headers, ...IMPORT_COLS.appointmentService);
+  const iStatus = col(headers, ...IMPORT_COLS.appointmentStatus);
 
-  if (iClient === -1 || iService === -1 || iDate === -1) redirect("/dashboard/import?import=badformat");
+  if (iClient === -1 || iService === -1) redirect("/dashboard/import?import=badformat");
+  const hasDate =
+    col(headers, ...IMPORT_COLS.appointmentDate) !== -1 ||
+    col(headers, ...IMPORT_COLS.appointmentTime) !== -1;
+  if (!hasDate) redirect("/dashboard/import?import=badformat");
 
   const services = await listServices(sb, tech.id);
   const serviceByName = new Map(services.map((s) => [s.name.toLowerCase(), s]));
@@ -1067,7 +1069,8 @@ export async function importBookingsAction(formData: FormData) {
   for (const cols of rows) {
     const clientName = (cols[iClient] ?? "").trim();
     const serviceName = (cols[iService] ?? "").trim().toLowerCase();
-    const when = parseWhen(cols[iDate] ?? "", iTime !== -1 ? cols[iTime] ?? "" : "");
+    const { dateRaw, timeRaw } = appointmentWhenRaw(cols, headers);
+    const when = parseWhen(dateRaw, timeRaw);
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) { skipped++; continue; }
 
