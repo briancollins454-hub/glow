@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { col, moneyToPennies, parseCsv, parseCsvLine, toMinutes, appointmentColumnsOk, appointmentWhenRaw, missingAppointmentGroups } from "@/lib/csv";
+import { col, moneyToPennies, parseCsv, parseCsvLine, toMinutes, appointmentColumnsOk, appointmentWhenRaw, missingAppointmentGroups, parseAppointmentWhen } from "@/lib/csv";
 
 describe("parseCsvLine", () => {
   it("splits simple lines", () => {
@@ -60,6 +60,21 @@ describe("Fresha appointment imports", () => {
       dateRaw: "2024-07-06 10:30:00",
       timeRaw: "",
     });
+  });
+});
+
+describe("parseAppointmentWhen", () => {
+  it("parses Fresha scheduled date strings", () => {
+    const d = parseAppointmentWhen("04 Jul 2026, 3:00pm");
+    expect(d).not.toBeNull();
+    expect(d!.getFullYear()).toBe(2026);
+    expect(d!.getMonth()).toBe(6);
+    expect(d!.getDate()).toBe(4);
+  });
+
+  it("parses UK slash dates", () => {
+    const d = parseAppointmentWhen("04/07/2026", "15:30");
+    expect(d).not.toBeNull();
   });
 });
 

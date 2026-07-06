@@ -1016,7 +1016,7 @@ export async function importBookingsAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, appointmentWhenRaw, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes } = await import("@/lib/csv");
+  const { parseCsv, col, appointmentWhenRaw, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
@@ -1034,45 +1034,23 @@ export async function importBookingsAction(formData: FormData) {
   if (!hasDate) redirect("/dashboard/import?import=badformat");
 
   const services = await listServices(sb, tech.id);
-  const serviceByName = new Map(services.map((s) => [s.name.toLowerCase(), s]));
+  const serviceByName = new Map(services.map((s) => [normalizeImportName(s.name), s]));
   const existingBookings = await listBookings(sb, tech.id);
   const { createBooking: createBookingRow } = await import("@/lib/db/queries");
   const { rescheduleReminders } = await import("@/lib/bookings");
   const { randomToken: newToken } = await import("@/lib/utils");
 
-  // UK exports commonly use dd/mm/yyyy; times are naive local (Europe/London),
-  // so interpret them in the tech's timezone rather than the server's (UTC).
-  const parseWhen = (dateRaw: string, timeRaw: string): Date | null => {
-    let s = dateRaw.trim();
-    if (timeRaw?.trim()) s = `${s} ${timeRaw.trim()}`;
-    const uk = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(.*)$/);
-    if (uk) {
-      const yyyy = uk[3].length === 2 ? `20${uk[3]}` : uk[3];
-      s = `${yyyy}-${uk[2].padStart(2, "0")}-${uk[1].padStart(2, "0")}${uk[4]}`;
-    }
-    // Already has an explicit offset/zone: trust it.
-    if (/z$|[+-]\d{2}:?\d{2}$/i.test(s)) {
-      const d = new Date(s);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ]?(\d{1,2})?:?(\d{2})?/);
-    if (!m) {
-      const d = new Date(s);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    const local = `${m[1]}-${m[2]}-${m[3]}T${(m[4] ?? "9").padStart(2, "0")}:${m[5] ?? "00"}`;
-    const d = fromZonedTime(local, TZ);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
+  // UK exports commonly use dd/mm/yyyy or Fresha "04 Jul 2026, 3:00pm".
+  // Times are naive local (Europe/London), not server UTC.
 
   let imported = 0;
   let skipped = 0;
 
   for (const cols of rows) {
     const clientName = (cols[iClient] ?? "").trim();
-    const serviceName = (cols[iService] ?? "").trim().toLowerCase();
+    const serviceName = normalizeImportName(cols[iService] ?? "");
     const { dateRaw, timeRaw } = appointmentWhenRaw(cols, headers);
-    const when = parseWhen(dateRaw, timeRaw);
+    const when = parseAppointmentWhen(dateRaw, timeRaw);
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) { skipped++; continue; }
 
@@ -1136,6 +1114,9 @@ export async function importBookingsAction(formData: FormData) {
 
   await audit(sb, tech.id, "appointments_imported", "import", "appointments", { imported, skipped, rows: rows.length });
   revalidatePath("/dashboard/bookings");
+  if (imported === 0 && skipped > 0) {
+    redirect(`/dashboard/import?import=none&what=appointments&n=0&s=${skipped}`);
+  }
   redirect(`/dashboard/import?import=done&what=appointments&n=${imported}&s=${skipped}`);
 }
 
