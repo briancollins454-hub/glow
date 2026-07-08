@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Service, ServiceCategory } from "@/lib/db/types";
+import {
+  defaultOpenCategoryId,
+  groupServicesForMenu,
+} from "@/lib/booking/service-groups";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
@@ -128,6 +132,62 @@ function ServiceAccordionItem({
   );
 }
 
+function CategorySection({
+  id,
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-edge bg-surface/80">
+      <button
+        type="button"
+        id={`category-${id}`}
+        aria-expanded={open}
+        aria-controls={`category-panel-${id}`}
+        onClick={() => onToggle(id)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.03] sm:px-5"
+      >
+        <div className="min-w-0">
+          <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+            {title}
+          </h2>
+          <p className="mt-0.5 text-xs font-medium uppercase tracking-wider text-ink-faint">
+            {count} service{count !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 shrink-0 text-ink-faint transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      <div
+        id={`category-panel-${id}`}
+        role="region"
+        aria-labelledby={`category-${id}`}
+        hidden={!open}
+        className={cn(!open && "hidden")}
+      >
+        <div className="grid gap-3 border-t border-edge px-4 py-4 sm:px-5 sm:py-5">
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function ServiceMenu({
   categories,
   services,
@@ -141,8 +201,18 @@ export function ServiceMenu({
   brand: string;
   photoUrls: Map<string, string>;
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const toggle = (id: string) => setOpenId((current) => (current === id ? null : id));
+  const groups = groupServicesForMenu(categories, services);
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(() =>
+    defaultOpenCategoryId(groups),
+  );
+  const [openServiceId, setOpenServiceId] = useState<string | null>(null);
+
+  const toggleCategory = (id: string) => {
+    setOpenCategoryId((current) => (current === id ? null : id));
+    setOpenServiceId(null);
+  };
+
+  const toggleService = (id: string) => setOpenServiceId((current) => (current === id ? null : id));
 
   if (services.length === 0) {
     return (
@@ -152,48 +222,30 @@ export function ServiceMenu({
     );
   }
 
-  const grouped = categories.filter((c) => services.some((s) => s.categoryId === c.id));
-  const uncategorised = services.filter((s) => !grouped.some((c) => c.id === s.categoryId));
-
-  const renderServices = (list: Service[]) => (
-    <div className="grid gap-3">
-      {list.map((s) => (
-        <ServiceAccordionItem
-          key={s.id}
-          service={s}
-          handle={handle}
-          brand={brand}
-          photoUrl={photoUrls.get(s.id)}
-          open={openId === s.id}
-          onToggle={toggle}
-        />
-      ))}
-    </div>
-  );
-
   return (
-    <div id="services" className="scroll-mt-6 space-y-8 animate-fade-in">
-      {grouped.map((cat) => (
-        <section key={cat.id}>
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">{cat.name}</h2>
-            <span className="text-xs font-medium uppercase tracking-wider text-ink-faint">
-              {services.filter((s) => s.categoryId === cat.id).length} service
-              {services.filter((s) => s.categoryId === cat.id).length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          {renderServices(services.filter((s) => s.categoryId === cat.id))}
-        </section>
+    <div id="services" className="scroll-mt-6 space-y-3 animate-fade-in">
+      {groups.map((group) => (
+        <CategorySection
+          key={group.id}
+          id={group.id}
+          title={group.title}
+          count={group.services.length}
+          open={openCategoryId === group.id}
+          onToggle={toggleCategory}
+        >
+          {group.services.map((service) => (
+            <ServiceAccordionItem
+              key={service.id}
+              service={service}
+              handle={handle}
+              brand={brand}
+              photoUrl={photoUrls.get(service.id)}
+              open={openServiceId === service.id}
+              onToggle={toggleService}
+            />
+          ))}
+        </CategorySection>
       ))}
-
-      {uncategorised.length > 0 && (
-        <section>
-          {grouped.length > 0 && (
-            <h2 className="mb-3 font-display text-2xl font-semibold tracking-tight text-ink">More services</h2>
-          )}
-          {renderServices(uncategorised)}
-        </section>
-      )}
     </div>
   );
 }
