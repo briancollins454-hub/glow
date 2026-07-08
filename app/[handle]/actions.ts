@@ -49,7 +49,7 @@ export async function joinWaitlistAction(formData: FormData) {
   });
   redirect(`/${handle}?service=${serviceId}&wl=1`);
 }
-import { createConfirmedBooking, createPendingOnlineBooking, loyaltyDiscountFor } from "@/lib/bookings";
+import { createConfirmedBooking, createPendingApprovalBooking, createPendingOnlineBooking, loyaltyDiscountFor } from "@/lib/bookings";
 import { createDepositCheckout } from "@/lib/payments";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 
@@ -161,6 +161,22 @@ export async function createPublicBookingAction(formData: FormData) {
       await createFormResponse(sb, { techId: tech!.id, clientId: client.id, bookingId, answers });
     }
   };
+
+  if (tech!.requiresBookingApproval) {
+    const pending = await createPendingApprovalBooking({
+      sb,
+      tech: tech!,
+      service: service!,
+      client,
+      startIso: slotIso,
+      addons,
+      discountPennies,
+    });
+    await saveAnswers(pending.id);
+    const { notifyTechOfBookingRequest } = await import("@/lib/notify");
+    await notifyTechOfBookingRequest(sb, pending);
+    redirect(`/${tech!.handle}/requested/${pending.balanceToken}`);
+  }
 
   // If a deposit applies and the tech can take card payments, send the client to
   // Stripe Checkout on the tech's connected account. Otherwise confirm now

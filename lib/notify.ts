@@ -272,3 +272,102 @@ export async function sendReviewRequestEmail(sb: SupabaseClient, booking: Bookin
     idempotencyKey: `review-request/${booking.id}`,
   });
 }
+
+/** Email the tech when a client submits a booking that needs approval. */
+export async function notifyTechOfBookingRequest(
+  sb: SupabaseClient,
+  booking: Booking,
+): Promise<void> {
+  const [client, service, tech] = await Promise.all([
+    getClient(sb, booking.clientId),
+    getService(sb, booking.serviceId),
+    getTechById(sb, booking.techId),
+  ]);
+  if (!tech?.email || !client || !service || !booking.approvalToken) return;
+
+  const when = fmtDateTime(booking.startIso);
+  const approveUrl = `${APP_URL}/approve/${booking.approvalToken}`;
+  const brand = tech.brandColor || "#db2777";
+  const html = brandedEmail({
+    brand,
+    businessName: tech.businessName || "Glow",
+    heading: "New booking request",
+    bodyHtml: `<strong>${client.name}</strong> requested <strong>${service.name}</strong> on <strong>${when}</strong>.<br/><br/>Approve to send them a deposit link (or confirm straight away if no deposit applies).`,
+    buttonLabel: "Review & approve",
+    buttonUrl: approveUrl,
+  });
+  await sendEmail({
+    to: tech.email,
+    subject: `Booking request from ${client.name}`,
+    html,
+    text: `${client.name} requested ${service.name} on ${when}. Approve: ${approveUrl}`,
+    idempotencyKey: `booking-request/${booking.id}`,
+  });
+}
+
+/** Client email after approval — deposit link or confirmation. */
+export async function notifyClientBookingApproved(
+  client: Client,
+  tech: Tech,
+  service: Service,
+  booking: Booking,
+): Promise<void> {
+  if (!client.email) return;
+  const brand = tech.brandColor || "#db2777";
+  const biz = tech.businessName || "your beauty studio";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const when = fmtDateTime(booking.startIso);
+  const actionUrl = `${APP_URL}/${tech.handle}/booked/${booking.balanceToken}`;
+
+  const needsDeposit = booking.status === "pending" && booking.depositPennies > 0;
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: needsDeposit ? "You're approved — pay your deposit" : "You're booked in!",
+    bodyHtml: needsDeposit
+      ? `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>.<br/><br/>Pay your <strong>${gbp(booking.depositPennies)}</strong> deposit now to secure the slot.`
+      : `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>. See you then!`,
+    buttonLabel: needsDeposit ? `Pay ${gbp(booking.depositPennies)} deposit` : "View booking",
+    buttonUrl: actionUrl,
+  });
+  await sendEmail({
+    to: client.email,
+    subject: needsDeposit
+      ? `${biz} approved your booking — deposit due`
+      : `Your booking with ${biz} is confirmed`,
+    html,
+    text: needsDeposit
+      ? `Hi ${name}, ${biz} approved your ${service.name} on ${when}. Pay your deposit: ${actionUrl}`
+      : `Hi ${name}, your ${service.name} with ${biz} on ${when} is confirmed. ${actionUrl}`,
+    idempotencyKey: `booking-approved/${booking.id}`,
+  });
+}
+
+export async function notifyClientBookingDeclined(
+  client: Client,
+  tech: Tech,
+  service: Service,
+  booking: Booking,
+): Promise<void> {
+  if (!client.email) return;
+  const brand = tech.brandColor || "#db2777";
+  const biz = tech.businessName || "your beauty studio";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const when = fmtDateTime(booking.startIso);
+  const rebookUrl = `${APP_URL}/${tech.handle}?service=${service.id}`;
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: "Booking not available",
+    bodyHtml: `Hi ${name},<br/><br/>Unfortunately ${biz} couldn't take your <strong>${service.name}</strong> request for <strong>${when}</strong>.<br/><br/>You're welcome to pick another time.`,
+    buttonLabel: "Choose another time",
+    buttonUrl: rebookUrl,
+  });
+  await sendEmail({
+    to: client.email,
+    subject: `Update on your booking request with ${biz}`,
+    html,
+    text: `Hi ${name}, ${biz} couldn't take your ${service.name} request for ${when}. Pick another time: ${rebookUrl}`,
+    idempotencyKey: `booking-declined/${booking.id}`,
+  });
+}

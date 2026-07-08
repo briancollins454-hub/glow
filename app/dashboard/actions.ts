@@ -148,6 +148,7 @@ export async function updateSettingsAction(formData: FormData) {
     loyaltyDiscountPct: clampInt(get("loyaltyDiscountPct"), 0, 50, tech.loyaltyDiscountPct),
     noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
+    requiresBookingApproval: formData.get("requiresBookingApproval") === "on",
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
@@ -594,6 +595,32 @@ export async function setBookingStatusAction(formData: FormData) {
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/clients/${booking!.clientId}`);
   redirect("/dashboard/bookings");
+}
+
+export async function approveBookingRequestDashboardAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const booking = await getBooking(sb, id);
+  if (!booking || booking.techId !== tech.id) redirect("/dashboard/bookings");
+  const { approveBookingRequest } = await import("@/lib/bookings");
+  await approveBookingRequest(sb, booking);
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${id}`);
+  revalidatePath(`/${tech.handle}`);
+  redirect(`/dashboard/bookings/${id}`);
+}
+
+export async function declineBookingRequestDashboardAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const booking = await getBooking(sb, id);
+  if (!booking || booking.techId !== tech.id) redirect("/dashboard/bookings");
+  const { declineBookingRequest } = await import("@/lib/bookings");
+  await declineBookingRequest(sb, booking);
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${id}`);
+  revalidatePath(`/${tech.handle}`);
+  redirect(`/dashboard/bookings/${id}`);
 }
 
 export async function addManualBookingAction(formData: FormData) {

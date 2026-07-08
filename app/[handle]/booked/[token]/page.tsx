@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { CalendarPlus, CheckCircle2, CalendarHeart, CreditCard, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle } from "@/lib/db/queries";
-import { confirmCheckoutPaid } from "@/lib/payments";
+import { confirmCheckoutPaid, createDepositCheckout } from "@/lib/payments";
 import { applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
-import { cancelClientBookingAction } from "./actions";
+import { cancelClientBookingAction, payDepositAction } from "./actions";
+import { isPaymentsReady } from "@/lib/subscriptions";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -38,7 +39,9 @@ export default async function BookedPage({
 
   const service = await getService(sb, booking.serviceId);
   const brand = tech.brandColor || "#db2777";
-  const awaitingDeposit = booking.status === "pending" && booking.depositPennies > 0;
+  const needsDeposit =
+    booking.status === "pending" && booking.depositPennies > 0 && booking.depositStatus !== "paid";
+  const awaitingStripeReturn = needsDeposit && !!session_id;
   const canSelfCancel =
     booking.status !== "cancelled" &&
     booking.status !== "completed" &&
@@ -50,12 +53,20 @@ export default async function BookedPage({
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
           <div className="px-6 py-8 text-center text-white" style={{ backgroundColor: brand }}>
-            {awaitingDeposit ? (
+            {awaitingStripeReturn ? (
               <>
                 <Clock className="mx-auto h-12 w-12" />
                 <h1 className="mt-3 font-display text-2xl font-semibold">Almost there…</h1>
                 <p className="mt-1 text-sm text-white/85">
                   We&apos;re confirming your deposit. Refresh in a moment if this doesn&apos;t update.
+                </p>
+              </>
+            ) : needsDeposit ? (
+              <>
+                <Clock className="mx-auto h-12 w-12" />
+                <h1 className="mt-3 font-display text-2xl font-semibold">Approved — pay deposit</h1>
+                <p className="mt-1 text-sm text-white/85">
+                  Pay now to secure your slot with {tech.businessName}.
                 </p>
               </>
             ) : (
@@ -79,7 +90,20 @@ export default async function BookedPage({
                 <XCircle className="h-4 w-4" /> This booking has been cancelled.
               </div>
             )}
-            {booking.status !== "cancelled" && booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !awaitingDeposit && (
+            {needsDeposit && !awaitingStripeReturn && isPaymentsReady(tech) && (
+              <form action={payDepositAction}>
+                <input type="hidden" name="handle" value={tech.handle} />
+                <input type="hidden" name="token" value={booking.balanceToken} />
+                <button
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white"
+                  style={{ backgroundColor: brand }}
+                >
+                  <CreditCard className="h-4 w-4" /> Pay {gbp(booking.depositPennies)} deposit
+                </button>
+              </form>
+            )}
+            {booking.status !== "cancelled" && booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !needsDeposit && (
               <Link href={`/pay/${booking.balanceToken}`} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
                 <CreditCard className="h-4 w-4" /> Pay balance now (optional)
               </Link>
