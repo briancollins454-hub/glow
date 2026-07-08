@@ -18,6 +18,7 @@ import { signedPhotoUrls } from "@/lib/storage";
 import { availableDays } from "@/lib/rules";
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
+import { isValidPublicHandle } from "@/lib/utils";
 import type { ConsultationQuestion, Review, ServiceAddon, Tech } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
 import { BookingHero } from "@/components/booking/booking-hero";
@@ -35,6 +36,7 @@ export async function generateMetadata({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
+  if (!isValidPublicHandle(handle)) return {};
   const tech = await getTechByHandle(supabaseService(), handle);
   if (!tech) return {};
   const title = `${tech.businessName} - book online`;
@@ -90,6 +92,7 @@ export default async function PublicBookingPage({
 }) {
   const { handle } = await params;
   const sp = await searchParams;
+  if (!isValidPublicHandle(handle)) notFound();
   const sb = supabaseService();
   const tech = await getTechByHandle(sb, handle);
   if (!tech) notFound();

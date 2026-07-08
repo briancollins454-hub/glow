@@ -14,6 +14,11 @@ export function slugify(input: string): string {
     .slice(0, 40);
 }
 
+/** Matches handles created by slugify — used to reject scanner paths like wp-config.php. */
+export function isValidPublicHandle(handle: string): boolean {
+  return /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(handle);
+}
+
 export function randomId(prefix = ""): string {
   const s = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   return prefix ? `${prefix}_${s}` : s;

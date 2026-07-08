@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarPlus, CheckCircle2, CalendarHeart, CreditCard, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle } from "@/lib/db/queries";
+import { isValidPublicHandle } from "@/lib/utils";
 import { confirmCheckoutPaid } from "@/lib/payments";
 import { applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
@@ -19,6 +20,7 @@ export default async function BookedPage({
 }) {
   const { handle, token } = await params;
   const { session_id, cancelled } = await searchParams;
+  if (!isValidPublicHandle(handle)) notFound();
   const sb = supabaseService();
   const [tech, initialBooking] = await Promise.all([
     getTechByHandle(sb, handle),

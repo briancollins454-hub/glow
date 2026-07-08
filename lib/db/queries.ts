@@ -42,7 +42,8 @@ export async function getTechById(sb: SB, id: string): Promise<Tech | null> {
   return data as Tech | null;
 }
 export async function getTechByHandle(sb: SB, handle: string): Promise<Tech | null> {
-  const { data, error } = await sb.from("techs").select("*").ilike("handle", handle).maybeSingle();
+  const normalized = handle.trim().toLowerCase();
+  const { data, error } = await sb.from("techs").select("*").eq("handle", normalized).maybeSingle();
   if (error) throw new Error(error.message);
   return data as Tech | null;
 }
