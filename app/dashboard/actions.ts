@@ -407,8 +407,12 @@ export async function moveServiceAction(formData: FormData) {
 
 export async function deleteServiceAction(formData: FormData) {
   const { sb, tech } = await ctx();
-  await deleteService(sb, String(formData.get("id") ?? ""));
+  const id = String(formData.get("id") ?? "");
+  const service = await getService(sb, id);
+  if (!service || service.techId !== tech.id) redirect("/dashboard/services");
+  await deleteService(sb, id);
   revalidatePath("/dashboard/services");
+  revalidatePath("/dashboard/bookings");
   revalidatePath(`/${tech.handle}`);
   redirect("/dashboard/services");
 }

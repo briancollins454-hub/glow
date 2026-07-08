@@ -154,6 +154,17 @@ export async function updateService(sb: SB, id: string, patch: Partial<Service>)
   if (error) throw new Error(error.message);
 }
 export async function deleteService(sb: SB, id: string): Promise<void> {
+  const bookings = await bookingsForService(sb, id);
+  for (const booking of bookings) {
+    await deleteBooking(sb, booking.id);
+  }
+  const { error: infillErr } = await sb
+    .from("services")
+    .update({ fullSetServiceId: null })
+    .eq("fullSetServiceId", id);
+  if (infillErr) throw new Error(infillErr.message);
+  const { error: waitlistErr } = await sb.from("waitlist_entries").delete().eq("serviceId", id);
+  if (waitlistErr) throw new Error(waitlistErr.message);
   const { error } = await sb.from("services").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
@@ -614,6 +625,10 @@ export async function updateBooking(sb: SB, id: string, patch: Partial<Booking>)
 export async function deleteBooking(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("bookings").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+export async function bookingsForService(sb: SB, serviceId: string): Promise<Booking[]> {
+  const { data, error } = await sb.from("bookings").select("*").eq("serviceId", serviceId);
+  return must(data as Booking[], error) ?? [];
 }
 /** Skip any still-scheduled reminders for a booking (used when rescheduling). */
 export async function skipScheduledReminders(sb: SB, bookingId: string): Promise<void> {
