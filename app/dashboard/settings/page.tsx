@@ -124,6 +124,21 @@ export default function SettingsPage() {
             <div><Label htmlFor="defaultDepositPct">Deposit you usually take (%)</Label><Input id="defaultDepositPct" name="defaultDepositPct" type="number" min={0} max={100} defaultValue={tech.defaultDepositPct} /></div>
             <div><Label htmlFor="cancellationWindowHours">Notice needed to cancel (hours)</Label><Input id="cancellationWindowHours" name="cancellationWindowHours" type="number" min={0} max={336} defaultValue={tech.cancellationWindowHours} /></div>
             <div><Label htmlFor="noShowFeePct">No-show charge (% of price)</Label><Input id="noShowFeePct" name="noShowFeePct" type="number" min={0} max={100} defaultValue={tech.noShowFeePct} /></div>
+            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-3">
+              <input
+                type="checkbox"
+                name="requiresBookingApproval"
+                defaultChecked={tech.requiresBookingApproval}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              />
+              <span>
+                <span className="font-medium">Approve bookings before clients pay</span>
+                <span className="mt-0.5 block text-xs text-ink-faint">
+                  When on, you get an email for each request. Approve first — then the client gets a deposit link.
+                  Off by default; your current flow stays the same.
+                </span>
+              </span>
+            </label>
             <p className="text-xs text-ink-faint sm:col-span-3">Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit. No-shows are flagged on the client&apos;s record.</p>
           </CardContent>
         </Card>

@@ -5,13 +5,36 @@ import { supabaseService } from "@/lib/supabase/service";
 import {
   createAuditEvent,
   getBookingByToken,
+  getService,
   getTechByHandle,
   paymentsForBooking,
   skipScheduledReminders,
   updateBooking,
 } from "@/lib/db/queries";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
-import { refundOnConnect } from "@/lib/payments";
+import { createDepositCheckout, refundOnConnect } from "@/lib/payments";
+import { isPaymentsReady } from "@/lib/subscriptions";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+export async function payDepositAction(formData: FormData) {
+  const handle = String(formData.get("handle") ?? "");
+  const token = String(formData.get("token") ?? "");
+  const sb = supabaseService();
+  const [tech, booking] = await Promise.all([
+    getTechByHandle(sb, handle),
+    getBookingByToken(sb, token),
+  ]);
+  if (!tech || !booking || booking.techId !== tech.id) redirect(`/${handle}`);
+  if (booking.status !== "pending" || booking.depositStatus === "paid" || booking.depositPennies <= 0) {
+    redirect(`/${handle}/booked/${token}`);
+  }
+  if (!isPaymentsReady(tech)) redirect(`/${handle}/booked/${token}`);
+  const service = await getService(sb, booking.serviceId);
+  if (!service) redirect(`/${handle}/booked/${token}`);
+  const url = await createDepositCheckout(tech, service, booking, APP_URL);
+  redirect(url);
+}
 
 export async function cancelClientBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
@@ -22,7 +45,11 @@ export async function cancelClientBookingAction(formData: FormData) {
     getBookingByToken(sb, token),
   ]);
   if (!tech || !booking || booking.techId !== tech.id) redirect(`/${handle}`);
-  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "no_show") {
+  if (
+    booking.status === "cancelled" ||
+    booking.status === "completed" ||
+    booking.status === "no_show"
+  ) {
     redirect(`/${handle}/booked/${token}?cancelled=1`);
   }
 

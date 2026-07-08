@@ -10,6 +10,7 @@ import { sendReminder } from "@/lib/notify";
 import { randomToken } from "@/lib/utils";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, Service, Tech } from "@/lib/db/types";
+import { isPaymentsReady } from "@/lib/subscriptions";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -102,6 +103,7 @@ export async function createConfirmedBooking({
     balancePennies: balance,
     balanceStatus: fullyPaid || balance === 0 ? "paid" : "unpaid",
     balanceToken: randomToken(),
+    approvalToken: null,
     isPatchTest,
     notes,
     lashMap: "",
@@ -172,6 +174,7 @@ export async function createPendingOnlineBooking({
     balancePennies: balance,
     balanceStatus: balance > 0 ? "unpaid" : "paid",
     balanceToken: randomToken(),
+    approvalToken: null,
     isPatchTest,
     notes,
     lashMap: "",
@@ -180,6 +183,98 @@ export async function createPendingOnlineBooking({
     addons,
     discountPennies,
   });
+}
+
+/** Booking request awaiting tech approval before deposit or confirmation. */
+export async function createPendingApprovalBooking({
+  sb,
+  tech,
+  service,
+  client,
+  startIso,
+  isPatchTest = false,
+  notes = "",
+  addons = [],
+  discountPennies = 0,
+}: BaseParams): Promise<Booking> {
+  const start = new Date(startIso);
+  const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
+  const { price, deposit, balance } = amounts(service, addons, discountPennies);
+
+  return createBooking(sb, {
+    techId: tech.id,
+    clientId: client.id,
+    serviceId: service.id,
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    status: "pending_approval",
+    pricePennies: price,
+    depositPennies: deposit,
+    depositStatus: "none",
+    balancePennies: balance,
+    balanceStatus: balance > 0 ? "unpaid" : "paid",
+    balanceToken: randomToken(),
+    approvalToken: randomToken(),
+    isPatchTest,
+    notes,
+    lashMap: "",
+    lashCurl: "",
+    lashLength: "",
+    addons,
+    discountPennies,
+  });
+}
+
+/** Tech approved a request — client pays deposit next, or booking confirms immediately. */
+export async function approveBookingRequest(sb: SupabaseClient, booking: Booking): Promise<Booking> {
+  if (booking.status !== "pending_approval") return booking;
+
+  const { getClient, getService, getTechById } = await import("@/lib/db/queries");
+  const { notifyClientBookingApproved } = await import("@/lib/notify");
+  const [tech, service, client] = await Promise.all([
+    getTechById(sb, booking.techId),
+    getService(sb, booking.serviceId),
+    getClient(sb, booking.clientId),
+  ]);
+  if (!tech || !service || !client) throw new Error("Booking data missing");
+
+  const needsDeposit = booking.depositPennies > 0 && isPaymentsReady(tech);
+  if (needsDeposit) {
+    await updateBooking(sb, booking.id, { status: "pending", approvalToken: null });
+    const updated = { ...booking, status: "pending" as const, approvalToken: null };
+    await notifyClientBookingApproved(client, tech, service, updated);
+    return updated;
+  }
+
+  await updateBooking(sb, booking.id, { status: "confirmed", approvalToken: null });
+  const confirmed = { ...booking, status: "confirmed" as const, approvalToken: null };
+  await scheduleReminders(sb, confirmed);
+  try {
+    await syncBookingToGoogle(sb, tech, confirmed);
+  } catch {
+    // Calendar sync is best-effort.
+  }
+  return confirmed;
+}
+
+/** Tech declined a booking request — slot is released. */
+export async function declineBookingRequest(sb: SupabaseClient, booking: Booking): Promise<Booking> {
+  if (booking.status !== "pending_approval") return booking;
+
+  const { getClient, getService, getTechById } = await import("@/lib/db/queries");
+  const { notifyClientBookingDeclined } = await import("@/lib/notify");
+  const [tech, service, client] = await Promise.all([
+    getTechById(sb, booking.techId),
+    getService(sb, booking.serviceId),
+    getClient(sb, booking.clientId),
+  ]);
+
+  await updateBooking(sb, booking.id, { status: "cancelled", approvalToken: null });
+  const cancelled = { ...booking, status: "cancelled" as const, approvalToken: null };
+  if (tech && service && client) {
+    await notifyClientBookingDeclined(client, tech, service, cancelled);
+  }
+  return cancelled;
 }
 
 /** Mark a deposit paid (idempotent): confirm the booking + schedule reminders. */

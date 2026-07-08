@@ -2,6 +2,7 @@
 // The runtime store is swappable (local JSON now, Supabase in Phase D) behind lib/db/repo.ts.
 
 export type BookingStatus =
+  | "pending_approval"
   | "pending"
   | "confirmed"
   | "completed"
@@ -70,6 +71,8 @@ export interface Tech {
   googleConnectedAt: string | null;
   // Automated "time to rebook" emails to lapsed clients.
   rebookNudgesEnabled: boolean;
+  // When on, new online bookings wait for tech approval before deposit/confirmation.
+  requiresBookingApproval: boolean;
   // Offer captured at signup ("tester" = invited £1 first month; "" = standard).
   signupOffer: string;
   createdAt: string;
@@ -200,6 +203,8 @@ export interface Booking {
   balancePennies: number;
   balanceStatus: BalanceStatus;
   balanceToken: string;
+  /** Secret link for the tech to approve/decline a pending request. */
+  approvalToken: string | null;
   isPatchTest: boolean;
   notes: string;
   // Lash record for this appointment (free text, tech-facing)

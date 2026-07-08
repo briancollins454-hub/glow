@@ -100,6 +100,7 @@ type ManagedTechField =
   | "googleCalendarEmail"
   | "googleConnectedAt"
   | "rebookNudgesEnabled"
+  | "requiresBookingApproval"
   | "signupOffer";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
@@ -317,7 +318,7 @@ export async function listBlockingBookingsInRange(
     .eq("techId", techId)
     .gte("startIso", fromIso)
     .lt("startIso", toIso)
-    .in("status", ["pending", "confirmed", "completed"])
+    .in("status", ["pending_approval", "pending", "confirmed", "completed"])
     .order("startIso");
   return must(data as Booking[], error) ?? [];
 }
@@ -606,15 +607,25 @@ export async function getBookingByToken(sb: SB, token: string): Promise<Booking 
   if (error) throw new Error(error.message);
   return data as Booking | null;
 }
+export async function getBookingByApprovalToken(sb: SB, token: string): Promise<Booking | null> {
+  const { data, error } = await sb.from("bookings").select("*").eq("approvalToken", token).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Booking | null;
+}
 export async function bookingsForClient(sb: SB, techId: string, clientId: string): Promise<Booking[]> {
   const { data, error } = await sb.from("bookings").select("*").eq("techId", techId).eq("clientId", clientId).order("startIso");
   return must(data as Booking[], error) ?? [];
 }
 export async function createBooking(
   sb: SB,
-  b: Omit<Booking, "id" | "createdAt" | "googleEventId"> & Partial<Pick<Booking, "googleEventId">>,
+  b: Omit<Booking, "id" | "createdAt" | "googleEventId" | "approvalToken"> &
+    Partial<Pick<Booking, "googleEventId" | "approvalToken">>,
 ): Promise<Booking> {
-  const { data, error } = await sb.from("bookings").insert({ ...b, id: randomId("bk") }).select("*").single();
+  const { data, error } = await sb
+    .from("bookings")
+    .insert({ ...b, approvalToken: b.approvalToken ?? null, id: randomId("bk") })
+    .select("*")
+    .single();
   return must(data as Booking, error);
 }
 export async function updateBooking(sb: SB, id: string, patch: Partial<Booking>): Promise<void> {
