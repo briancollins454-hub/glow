@@ -45,8 +45,9 @@ import { createConfirmedBooking } from "@/lib/bookings";
 import { deleteGoogleEventForBooking, syncBookingToGoogle } from "@/lib/google-calendar";
 import { refundOnConnect } from "@/lib/payments";
 import { processDueReminders } from "@/lib/scheduler";
-import type { PhotoKind } from "@/lib/db/types";
+import type { PhotoKind, Service } from "@/lib/db/types";
 import type { BookingStatus, DepositType, QuestionType, WorkingHour } from "@/lib/db/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function ctx() {
   const c = await getDashboardContext();
@@ -393,16 +394,42 @@ export async function moveServiceAction(formData: FormData) {
   const idx = services.findIndex((s) => s.id === id);
   const target = idx + dir;
   if (idx !== -1 && target >= 0 && target < services.length) {
-    // Normalise sort orders to the current display order, then swap the pair.
     const order = services.map((s) => s.id);
     [order[idx], order[target]] = [order[target], order[idx]];
-    await Promise.all(
-      order.map((sid, i) => (services.find((s) => s.id === sid)!.sortOrder === i ? null : updateService(sb, sid, { sortOrder: i }))),
-    );
+    await applyServiceOrder(sb, tech.id, order, services);
     revalidatePath("/dashboard/services");
     revalidatePath(`/${tech.handle}`);
   }
   redirect("/dashboard/services");
+}
+
+/** Drag-and-drop reorder — no page reload. */
+export async function reorderServicesAction(order: string[]): Promise<{ ok: boolean }> {
+  const { sb, tech } = await ctx();
+  const services = await listServices(sb, tech.id);
+  const owned = new Set(services.map((s) => s.id));
+  if (order.length !== services.length || order.some((id) => !owned.has(id))) {
+    return { ok: false };
+  }
+  await applyServiceOrder(sb, tech.id, order, services);
+  revalidatePath("/dashboard/services");
+  revalidatePath(`/${tech.handle}`);
+  return { ok: true };
+}
+
+async function applyServiceOrder(
+  sb: SupabaseClient,
+  techId: string,
+  order: string[],
+  services: Service[],
+) {
+  await Promise.all(
+    order.map((sid, i) => {
+      const service = services.find((s) => s.id === sid);
+      if (!service || service.techId !== techId || service.sortOrder === i) return null;
+      return updateService(sb, sid, { sortOrder: i });
+    }),
+  );
 }
 
 export async function deleteServiceAction(formData: FormData) {
