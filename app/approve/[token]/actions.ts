@@ -11,7 +11,7 @@ export async function approveBookingFromEmailAction(formData: FormData) {
   const booking = await getBookingByApprovalToken(sb, token);
   if (!booking) redirect("/");
   await approveBookingRequest(sb, booking);
-  redirect(`/approve/${token}?done=approved`);
+  redirect(`/approve/${token}?done=approved&bid=${booking.id}`);
 }
 
 export async function declineBookingFromEmailAction(formData: FormData) {
@@ -20,5 +20,5 @@ export async function declineBookingFromEmailAction(formData: FormData) {
   const booking = await getBookingByApprovalToken(sb, token);
   if (!booking) redirect("/");
   await declineBookingRequest(sb, booking);
-  redirect(`/approve/${token}?done=declined`);
+  redirect(`/approve/${token}?done=declined&bid=${booking.id}`);
 }
