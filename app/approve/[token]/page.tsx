@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
-import { getBookingByApprovalToken, getClient, getService, getTechById } from "@/lib/db/queries";
+import { getBookingByApprovalToken, getBooking, getClient, getService, getTechById } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
 import { approveBookingFromEmailAction, declineBookingFromEmailAction } from "./actions";
+import { ApproveDoneRedirect } from "@/components/booking/approve-done-redirect";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -13,12 +14,16 @@ export default async function ApproveBookingPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ done?: string }>;
+  searchParams: Promise<{ done?: string; bid?: string }>;
 }) {
   const { token } = await params;
-  const { done } = await searchParams;
+  const { done, bid } = await searchParams;
   const sb = supabaseService();
-  const booking = await getBookingByApprovalToken(sb, token);
+
+  let booking = await getBookingByApprovalToken(sb, token);
+  if (!booking && bid && (done === "approved" || done === "declined")) {
+    booking = await getBooking(sb, bid);
+  }
   if (!booking) notFound();
 
   const [tech, service, client] = await Promise.all([
@@ -90,11 +95,15 @@ export default async function ApproveBookingPage({
               </div>
             )}
             <Link
-              href="/dashboard/bookings"
+              href={`/dashboard/bookings/${booking.id}`}
               className="flex w-full items-center justify-center rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]"
             >
-              Open dashboard
+              Open in dashboard
             </Link>
+            <ApproveDoneRedirect
+              bookingId={booking.id}
+              enabled={done === "approved" || done === "declined"}
+            />
           </div>
         </div>
       </div>
