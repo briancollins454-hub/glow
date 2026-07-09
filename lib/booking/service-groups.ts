@@ -47,6 +47,16 @@ export function groupServicesForMenu(
   return groups;
 }
 
+/** DOM id for a category block on the public booking page. */
+export function categorySectionId(groupId: string): string {
+  return `services-cat-${groupId}`;
+}
+
+/** DOM id for an individual service card. */
+export function serviceSectionId(serviceId: string): string {
+  return `service-${serviceId}`;
+}
+
 /** Single-category pages open by default so existing simple setups feel unchanged. */
 export function defaultOpenCategoryId(groups: ServiceGroup[]): string | null {
   return groups.length === 1 ? groups[0]!.id : null;
