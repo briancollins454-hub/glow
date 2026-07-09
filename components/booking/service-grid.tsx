@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Service, ServiceCategory } from "@/lib/db/types";
-import { groupServicesForMenu } from "@/lib/booking/service-groups";
+import { groupServicesForMenu, categorySectionId, serviceSectionId } from "@/lib/booking/service-groups";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { withAlpha } from "@/lib/booking/brand";
@@ -20,7 +20,10 @@ function ServiceCard({
   const deposit = depositFor(service);
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition hover:border-white/15 hover:shadow-glow">
+    <article
+      id={serviceSectionId(service.id)}
+      className="group scroll-mt-28 flex h-full flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition hover:border-white/15 hover:shadow-glow"
+    >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-cream">
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -114,7 +117,7 @@ export function ServiceGrid({
       </div>
 
       {groups.map((group) => (
-        <div key={group.id} className="space-y-5">
+        <div key={group.id} id={categorySectionId(group.id)} className="scroll-mt-28 space-y-5">
           {groups.length > 1 && (
             <h3 className="font-display text-xl font-semibold text-ink">{group.title}</h3>
           )}

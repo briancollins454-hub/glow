@@ -31,6 +31,8 @@ import { TrustStrip } from "@/components/booking/trust-strip";
 import { BookingFooterCta } from "@/components/booking/booking-footer-cta";
 import { StickyBookCta } from "@/components/booking/sticky-book-cta";
 import { trackPageView } from "@/lib/page-views";
+import { groupServicesForMenu } from "@/lib/booking/service-groups";
+import type { ServiceNavGroup } from "@/components/booking/booking-header";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -181,6 +183,13 @@ export default async function PublicBookingPage({
 
   const brand = tech.brandColor || "#db2777";
   const minPrice = services.length ? Math.min(...services.map((s) => s.pricePennies)) : 0;
+  const serviceNavGroups: ServiceNavGroup[] = groupServicesForMenu(categories, services).map(
+    (group) => ({
+      id: group.id,
+      title: group.title,
+      services: group.services.map((s) => ({ id: s.id, name: s.name })),
+    }),
+  );
 
   if (selected) {
     return (
@@ -221,6 +230,7 @@ export default async function PublicBookingPage({
         brand={brand}
         profileUrl={profileUrl}
         hasServices={services.length > 0}
+        serviceGroups={serviceNavGroups}
       />
 
       <BookingBanner
