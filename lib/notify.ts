@@ -112,13 +112,25 @@ function truncate(s: string, n = 200): string {
   return t.length > n ? t.slice(0, n - 1) + "\u2026" : t;
 }
 
+/** Unique subject per message so inbox apps don't collapse separate notifications into one thread. */
+function messageEmailSubject(senderLabel: string, body: string): string {
+  const preview = truncate(body, 55).replace(/\s+/g, " ");
+  return `${senderLabel}: "${preview}"`;
+}
+
 /** Email a client that their tech sent them a message, linking to their thread. */
-export async function notifyClientOfMessage(client: Client, tech: Tech, body: string): Promise<boolean> {
+export async function notifyClientOfMessage(
+  client: Client,
+  tech: Tech,
+  body: string,
+  messageId: string,
+): Promise<boolean> {
   if (!client.email?.trim()) return false;
   const biz = tech.businessName || "your beauty studio";
   const brand = tech.brandColor || "#db2777";
   const url = `${APP_URL}/m/${client.messageToken}`;
   const name = client.name?.split(" ")[0] ?? "there";
+  const subject = messageEmailSubject(biz, body);
   const html = brandedEmail({
     brand,
     businessName: biz,
@@ -129,17 +141,24 @@ export async function notifyClientOfMessage(client: Client, tech: Tech, body: st
   });
   return sendEmail({
     to: client.email.trim(),
-    subject: `New message from ${biz}`,
+    subject,
     html,
     text: `${biz} sent you a message: "${truncate(body)}"\n\nView & reply: ${url}`,
+    idempotencyKey: `message-notify/client/${messageId}`,
   });
 }
 
 /** Email a tech that a client replied, linking to the dashboard thread. */
-export async function notifyTechOfMessage(tech: Tech, client: Client, body: string): Promise<void> {
+export async function notifyTechOfMessage(
+  tech: Tech,
+  client: Client,
+  body: string,
+  messageId: string,
+): Promise<void> {
   if (!tech.email) return;
   const brand = tech.brandColor || "#db2777";
   const url = `${APP_URL}/dashboard/messages/${client.id}`;
+  const subject = messageEmailSubject(client.name, body);
   const html = brandedEmail({
     brand,
     businessName: tech.businessName || "Glow",
@@ -150,9 +169,10 @@ export async function notifyTechOfMessage(tech: Tech, client: Client, body: stri
   });
   await sendEmail({
     to: tech.email,
-    subject: `New message from ${client.name}`,
+    subject,
     html,
     text: `${client.name} replied: "${truncate(body)}"\n\nOpen: ${url}`,
+    idempotencyKey: `message-notify/tech/${messageId}`,
   });
 }
 

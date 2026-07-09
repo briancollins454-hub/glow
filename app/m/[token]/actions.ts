@@ -30,7 +30,7 @@ export async function sendClientMessageAction(token: string, body: string): Prom
     body: text,
   });
   try {
-    await notifyTechOfMessage(tech, client, text);
+    await notifyTechOfMessage(tech, client, text, message.id);
   } catch {
     // Email is best-effort; the in-app message is already saved.
   }
