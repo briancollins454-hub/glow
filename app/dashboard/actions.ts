@@ -138,6 +138,7 @@ export async function updateSettingsAction(formData: FormData) {
     name: get("name"),
     handle,
     bio: get("bio"),
+    tagline: get("tagline"),
     brandColor: get("brandColor") || tech.brandColor,
     instagram: get("instagram").replace(/^@/, ""),
     tiktok: get("tiktok").replace(/^@/, ""),
@@ -154,6 +155,76 @@ export async function updateSettingsAction(formData: FormData) {
   revalidatePath(`/${handle}`);
   invalidateDashboardTech(tech.authUserId);
   redirect("/dashboard/settings?saved=1");
+}
+
+async function uploadBrandImage(
+  tech: { id: string; handle: string; authUserId: string | null },
+  file: File,
+  kind: "cover" | "profile",
+): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `brand/${tech.id}/${kind}.${ext}`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  await uploadPhoto(path, bytes, file.type || "image/jpeg", { upsert: true });
+  return path;
+}
+
+export async function uploadBrandCoverAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const file = formData.get("cover") as File | null;
+  if (!file || file.size === 0) redirect("/dashboard/settings?photoerr=1");
+  try {
+    if (tech.coverPhotoPath) await removePhoto(tech.coverPhotoPath).catch(() => {});
+    const path = await uploadBrandImage(tech, file, "cover");
+    await updateTech(sb, tech.id, { coverPhotoPath: path });
+    revalidatePath("/dashboard/settings");
+    revalidatePath(`/${tech.handle}`);
+    invalidateDashboardTech(tech.authUserId);
+    redirect("/dashboard/settings?cover=1");
+  } catch {
+    redirect("/dashboard/settings?photoerr=1");
+  }
+}
+
+export async function uploadBrandProfileAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const file = formData.get("profile") as File | null;
+  if (!file || file.size === 0) redirect("/dashboard/settings?photoerr=1");
+  try {
+    if (tech.profilePhotoPath) await removePhoto(tech.profilePhotoPath).catch(() => {});
+    const path = await uploadBrandImage(tech, file, "profile");
+    await updateTech(sb, tech.id, { profilePhotoPath: path });
+    revalidatePath("/dashboard/settings");
+    revalidatePath(`/${tech.handle}`);
+    invalidateDashboardTech(tech.authUserId);
+    redirect("/dashboard/settings?profile=1");
+  } catch {
+    redirect("/dashboard/settings?photoerr=1");
+  }
+}
+
+export async function removeBrandCoverAction() {
+  const { sb, tech } = await ctx();
+  if (tech.coverPhotoPath) {
+    await removePhoto(tech.coverPhotoPath).catch(() => {});
+    await updateTech(sb, tech.id, { coverPhotoPath: null });
+  }
+  revalidatePath("/dashboard/settings");
+  revalidatePath(`/${tech.handle}`);
+  invalidateDashboardTech(tech.authUserId);
+  redirect("/dashboard/settings?cover=removed");
+}
+
+export async function removeBrandProfileAction() {
+  const { sb, tech } = await ctx();
+  if (tech.profilePhotoPath) {
+    await removePhoto(tech.profilePhotoPath).catch(() => {});
+    await updateTech(sb, tech.id, { profilePhotoPath: null });
+  }
+  revalidatePath("/dashboard/settings");
+  revalidatePath(`/${tech.handle}`);
+  invalidateDashboardTech(tech.authUserId);
+  redirect("/dashboard/settings?profile=removed");
 }
 
 export async function ensureCalendarTokenAction() {

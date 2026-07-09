@@ -31,6 +31,9 @@ export interface Tech {
   handle: string;
   businessName: string;
   bio: string;
+  tagline: string;
+  coverPhotoPath: string | null;
+  profilePhotoPath: string | null;
   brandColor: string;
   instagram: string;
   tiktok: string;
