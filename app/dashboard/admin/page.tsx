@@ -1,17 +1,18 @@
 "use client";
 
 import { notFound } from "next/navigation";
-import { Crown, PoundSterling, Users, XCircle, ShieldAlert, FlaskConical } from "lucide-react";
+import { Crown, PoundSterling, Users, XCircle, ShieldAlert, FlaskConical, Eye, UserCheck } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
 import type { AccountClosureRequest, Tech } from "@/lib/db/types";
+import type { PlatformTraffic } from "@/lib/traffic-stats";
 import { setCompAction, setTesterOfferAction } from "./actions";
 
 const LIVE = ["trialing", "active", "comped"];
 
-type AdminSuccess = { techs: Tech[]; closures: AccountClosureRequest[] };
+type AdminSuccess = { techs: Tech[]; closures: AccountClosureRequest[]; traffic: PlatformTraffic };
 
 type AdminData = { forbidden: true } | AdminSuccess;
 
@@ -25,10 +26,18 @@ export default function AdminPage() {
 
 function AdminGate({ data }: { data: AdminData }) {
   if ("forbidden" in data) notFound();
-  return <AdminView techs={data.techs} closures={data.closures} />;
+  return <AdminView techs={data.techs} closures={data.closures} traffic={data.traffic} />;
 }
 
-function AdminView({ techs, closures }: { techs: Tech[]; closures: AccountClosureRequest[] }) {
+function AdminView({
+  techs,
+  closures,
+  traffic,
+}: {
+  techs: Tech[];
+  closures: AccountClosureRequest[];
+  traffic: PlatformTraffic;
+}) {
   const techById = Object.fromEntries(techs.map((t) => [t.id, t]));
 
   const active = techs.filter((t) => LIVE.includes(t.subscriptionStatus));
@@ -54,6 +63,92 @@ function AdminView({ techs, closures }: { techs: Tech[]; closures: AccountClosur
         <Stat icon={XCircle} tone="amber" label="Cancelled" value={String(cancelled.length)} hint={`${pastDue.length} past due`} />
         <Stat icon={ShieldAlert} tone="red" label="Closure requests" value={String(closures.length)} hint="awaiting action" />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Eye className="h-5 w-5 text-brand-400" /> Site traffic
+          </CardTitle>
+          <CardDescription>
+            Real visits to glow-uk.com and public booking pages. Unique visitors are estimated per day (no cookies, no raw IPs stored).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <TrafficStat label="Today" views={traffic.today.views} visitors={traffic.today.visitors} />
+            <TrafficStat label="Last 7 days" views={traffic.last7Days.views} visitors={traffic.last7Days.visitors} />
+            <TrafficStat label="Last 30 days" views={traffic.last30Days.views} visitors={traffic.last30Days.visitors} />
+            <TrafficStat label="All time" views={traffic.allTime.views} visitors={traffic.allTime.visitors} />
+          </div>
+
+          {traffic.daily.length > 0 && (
+            <div>
+              <p className="mb-2 text-sm font-medium">Daily breakdown (last 30 days)</p>
+              <div className="overflow-x-auto rounded-xl border border-edge">
+                <table className="w-full min-w-[320px] text-left text-sm">
+                  <thead className="bg-white/[0.03] text-xs text-ink-faint">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Date</th>
+                      <th className="px-4 py-2 font-medium">Views</th>
+                      <th className="px-4 py-2 font-medium">Visitors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {traffic.daily.map((row) => (
+                      <tr key={row.day} className="border-t border-edge">
+                        <td className="px-4 py-2">{fmtDate(`${row.day}T12:00:00.000Z`)}</td>
+                        <td className="px-4 py-2">{row.views.toLocaleString()}</td>
+                        <td className="px-4 py-2">{row.visitors.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-sm font-medium">Top pages (30 days)</p>
+              {traffic.topPaths.length === 0 ? (
+                <p className="text-sm text-ink-faint">No visits recorded yet. Traffic will appear here as people browse the site.</p>
+              ) : (
+                <div className="space-y-2">
+                  {traffic.topPaths.map((row) => (
+                    <div key={row.path} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
+                      <span className="font-medium">{row.path}</span>
+                      <span className="text-ink-faint">
+                        {row.views.toLocaleString()} views · {row.visitors.toLocaleString()} visitors
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Top booking pages (30 days)</p>
+              {traffic.topTechs.length === 0 ? (
+                <p className="text-sm text-ink-faint">No booking page visits yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {traffic.topTechs.map((row) => (
+                    <div key={row.techId} className="flex items-center justify-between rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
+                      <div>
+                        <p className="font-medium">{row.businessName}</p>
+                        <a href={`/${row.handle}`} target="_blank" className="text-xs text-brand-400 hover:underline">/{row.handle}</a>
+                      </div>
+                      <span className="text-ink-faint">
+                        {row.views.toLocaleString()} views · {row.visitors.toLocaleString()} visitors
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {closures.length > 0 && (
         <Card>
@@ -125,6 +220,22 @@ function AdminView({ techs, closures }: { techs: Tech[]; closures: AccountClosur
           })}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function TrafficStat({ label, views, visitors }: { label: string; views: number; visitors: number }) {
+  return (
+    <div className="rounded-xl border border-edge bg-cream p-4">
+      <p className="text-xs font-medium text-ink-faint">{label}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-2xl font-semibold">
+        <Eye className="h-5 w-5 text-brand-400" />
+        {views.toLocaleString()}
+      </p>
+      <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-faint">
+        <UserCheck className="h-3.5 w-3.5" />
+        {visitors.toLocaleString()} unique visitors
+      </p>
     </div>
   );
 }

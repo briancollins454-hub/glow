@@ -29,6 +29,7 @@ import {
 } from "@/lib/db/queries";
 import { signedPhotoUrls } from "@/lib/storage";
 import { isAdminTech } from "@/lib/admin";
+import { getPlatformTraffic } from "@/lib/traffic-stats";
 import { buildBusinessInsights } from "@/lib/insights";
 import { fmtDate } from "@/lib/format";
 import type { Tech } from "@/lib/db/types";
@@ -214,15 +215,16 @@ export async function loadDashboardPageData(
     case "admin": {
       if (!isAdminTech(tech)) return { forbidden: true };
       const adminSb = supabaseService();
-      const [{ data: techsData }, { data: closuresData }] = await Promise.all([
+      const [{ data: techsData }, { data: closuresData }, traffic] = await Promise.all([
         adminSb.from("techs").select("*").order("createdAt", { ascending: false }),
         adminSb
           .from("account_closure_requests")
           .select("*")
           .eq("status", "requested")
           .order("requestedAt", { ascending: false }),
+        getPlatformTraffic(),
       ]);
-      return { techs: techsData ?? [], closures: closuresData ?? [] };
+      return { techs: techsData ?? [], closures: closuresData ?? [], traffic };
     }
     default:
       throw new Error(`Unknown dashboard page: ${key}`);
