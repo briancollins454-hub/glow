@@ -61,6 +61,7 @@ export default async function ClientThreadPage({
               supabaseAnonKey={process.env.SUPABASE_ANON_KEY!}
               onSend={send}
               brand={brand}
+              pollSync
               emptyHint="Send a message and we'll get back to you here."
             />
           </div>
