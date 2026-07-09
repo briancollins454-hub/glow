@@ -113,8 +113,8 @@ function truncate(s: string, n = 200): string {
 }
 
 /** Email a client that their tech sent them a message, linking to their thread. */
-export async function notifyClientOfMessage(client: Client, tech: Tech, body: string): Promise<void> {
-  if (!client.email) return;
+export async function notifyClientOfMessage(client: Client, tech: Tech, body: string): Promise<boolean> {
+  if (!client.email?.trim()) return false;
   const biz = tech.businessName || "your beauty studio";
   const brand = tech.brandColor || "#db2777";
   const url = `${APP_URL}/m/${client.messageToken}`;
@@ -127,8 +127,8 @@ export async function notifyClientOfMessage(client: Client, tech: Tech, body: st
     buttonLabel: "View & reply",
     buttonUrl: url,
   });
-  await sendEmail({
-    to: client.email,
+  return sendEmail({
+    to: client.email.trim(),
     subject: `New message from ${biz}`,
     html,
     text: `${biz} sent you a message: "${truncate(body)}"\n\nView & reply: ${url}`,

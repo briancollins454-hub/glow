@@ -21,7 +21,16 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
-import { updateClientAction, addPatchTestAction, deletePatchTestAction, deleteClientAction, deleteFormResponseAction } from "../../actions";
+import { ClientMessageLink } from "@/components/messages/client-message-link";
+import {
+  updateClientAction,
+  addPatchTestAction,
+  deletePatchTestAction,
+  deleteClientAction,
+  deleteFormResponseAction,
+} from "../../actions";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const c = await getDashboardContext();
@@ -66,6 +75,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           </Link>
         )}
       </div>
+
+      {isLive(tech) && (
+        <ClientMessageLink url={`${APP_URL}/m/${client.messageToken}`} />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

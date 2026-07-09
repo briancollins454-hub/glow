@@ -5,8 +5,17 @@ import { createMessage, getClient } from "@/lib/db/queries";
 import { notifyClientOfMessage } from "@/lib/notify";
 import { isLive } from "@/lib/subscriptions";
 import type { Message } from "@/lib/db/types";
+import { revalidatePath } from "next/cache";
 
-type SendResult = { ok: boolean; message?: Message; error?: string };
+export type SendResult = {
+  ok: boolean;
+  message?: Message;
+  error?: string;
+  /** Whether the client was emailed about this message. */
+  emailSent?: boolean;
+  /** Human-readable note when email was not sent. */
+  emailNote?: string;
+};
 
 /** Delete an entire conversation with a client. */
 export async function deleteConversationAction(formData: FormData) {
@@ -34,12 +43,28 @@ export async function sendMessageAction(clientId: string, body: string): Promise
     return { ok: false, error: "Messaging needs an active plan. Subscribe in Billing to reply to clients." };
   }
   const client = await getClient(sb, clientId);
-  if (!client) return { ok: false, error: "Client not found" };
+  if (!client || client.techId !== tech.id) return { ok: false, error: "Client not found" };
+
   const message = await createMessage(sb, { techId: tech.id, clientId, sender: "tech", body: text });
-  try {
-    await notifyClientOfMessage(client, tech, text);
-  } catch {
-    // Email is best-effort; the in-app message is already saved.
+
+  let emailSent = false;
+  let emailNote: string | undefined;
+  if (!client.email?.trim()) {
+    emailNote =
+      "Saved in chat, but this client has no email on file. Share their private message link so they can see your reply.";
+  } else {
+    try {
+      emailSent = await notifyClientOfMessage(client, tech, text);
+      if (!emailSent) {
+        emailNote = "Message saved, but the email notification could not be sent. Share their message link instead.";
+      }
+    } catch {
+      emailNote = "Message saved, but the email notification failed. Share their message link instead.";
+    }
   }
-  return { ok: true, message };
+
+  revalidatePath("/dashboard/messages");
+  revalidatePath(`/dashboard/messages/${clientId}`);
+
+  return { ok: true, message, emailSent, emailNote };
 }

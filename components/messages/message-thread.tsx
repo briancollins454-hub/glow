@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { Send } from "lucide-react";
 import type { Message, MessageSender } from "@/lib/db/types";
-
-type SendResult = { ok: boolean; message?: Message; error?: string };
+import type { SendResult } from "@/app/dashboard/messages/actions";
+import { clearDashboardCache } from "@/lib/dashboard/client-cache";
 
 export function MessageThread({
   initialMessages,
@@ -16,6 +16,7 @@ export function MessageThread({
   onSend,
   brand,
   emptyHint,
+  pollSync = false,
 }: {
   initialMessages: Message[];
   me: MessageSender;
@@ -25,16 +26,22 @@ export function MessageThread({
   onSend: (body: string) => Promise<SendResult>;
   brand: string;
   emptyHint?: string;
+  /** Poll for new messages (client threads — backup when realtime misses). */
+  pollSync?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Timestamps are locale/timezone dependent, so only render them after mount to
-  // avoid a server/client hydration mismatch (React #418).
+  const [notice, setNotice] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => setMounted(true), []);
 
@@ -60,6 +67,26 @@ export function MessageThread({
   }, [supabaseUrl, supabaseAnonKey, token]);
 
   useEffect(() => {
+    if (!pollSync) return;
+    const sync = async () => {
+      const list = messagesRef.current;
+      const last = list[list.length - 1]?.createdAt;
+      const qs = new URLSearchParams({ token });
+      if (last) qs.set("after", last);
+      try {
+        const res = await fetch(`/api/messages/sync?${qs}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { messages?: Message[] };
+        for (const m of data.messages ?? []) upsert(m);
+      } catch {
+        // Best-effort polling.
+      }
+    };
+    const interval = window.setInterval(sync, 12_000);
+    return () => window.clearInterval(interval);
+  }, [pollSync, token]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -69,6 +96,7 @@ export function MessageThread({
     if (!text || sending) return;
     setSending(true);
     setError(null);
+    setNotice(null);
     const res = await onSend(text);
     setSending(false);
     if (!res.ok || !res.message) {
@@ -78,10 +106,19 @@ export function MessageThread({
     setBody("");
     upsert(res.message);
     channelRef.current?.send({ type: "broadcast", event: "msg", payload: res.message });
+    if (me === "tech") {
+      clearDashboardCache("messages");
+      if (res.emailNote) setNotice(res.emailNote);
+    }
   }
 
   return (
     <div className="flex h-full flex-col">
+      {notice && (
+        <p className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+          {notice}
+        </p>
+      )}
       <div className="flex-1 space-y-3 overflow-y-auto p-1">
         {messages.length === 0 && (
           <p className="py-10 text-center text-sm text-ink-faint">

@@ -7,7 +7,10 @@ import { isLive } from "@/lib/subscriptions";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Trash2 } from "lucide-react";
 import { LazyMessageThread } from "@/components/messages/lazy-message-thread";
+import { ClientMessageLink } from "@/components/messages/client-message-link";
 import { sendMessageAction, deleteConversationAction } from "../actions";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
 export default async function DashboardThreadPage({
   params,
@@ -35,6 +38,8 @@ export default async function DashboardThreadPage({
   await markThreadRead(sb, clientId, "client");
   const messages = await threadMessages(sb, clientId);
   const send = sendMessageAction.bind(null, clientId);
+  const messageUrl = `${APP_URL}/m/${client.messageToken}`;
+  const hasEmail = !!client.email?.trim();
 
   return (
     <div className="flex h-[calc(100dvh-16rem)] flex-col space-y-4 lg:h-[calc(100dvh-8rem)]">
@@ -60,6 +65,8 @@ export default async function DashboardThreadPage({
         </form>
       </div>
 
+      {!hasEmail && <ClientMessageLink url={messageUrl} />}
+
       <div className="card flex min-h-0 flex-1 flex-col p-4">
         <LazyMessageThread
           initialMessages={messages}
@@ -69,7 +76,11 @@ export default async function DashboardThreadPage({
           supabaseAnonKey={process.env.SUPABASE_ANON_KEY!}
           onSend={send}
           brand={tech.brandColor || "#db2777"}
-          emptyHint={`Send ${client.name.split(" ")[0]} a message - they'll get an email with a private link to reply.`}
+          emptyHint={
+            hasEmail
+              ? `Send ${client.name.split(" ")[0]} a message. They'll get an email with a private link to reply.`
+              : `${client.name.split(" ")[0]} has no email on file. Copy their message link above so they can see your replies.`
+          }
         />
       </div>
     </div>
