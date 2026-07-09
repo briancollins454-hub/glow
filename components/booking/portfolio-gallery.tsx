@@ -13,7 +13,7 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
 
   return (
     <>
-      <section className="animate-fade-in">
+      <section id="work" className="scroll-mt-24 animate-fade-in">
         <div className="mb-4 flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-brand-400" />
           <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">

@@ -15,7 +15,7 @@ export function StickyBookCta({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const hero = document.querySelector("header");
+    const hero = document.querySelector("[data-booking-hero]");
     if (!hero) return;
 
     const observer = new IntersectionObserver(

@@ -13,7 +13,7 @@ export function ReviewsSection({
   if (reviews.length === 0) return null;
 
   return (
-    <section className="animate-fade-in">
+    <section id="reviews" className="scroll-mt-24 animate-fade-in">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex items-center gap-2">
           <Star className="h-5 w-5 fill-amber-400 text-amber-400" />

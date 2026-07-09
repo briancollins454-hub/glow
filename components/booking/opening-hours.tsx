@@ -8,10 +8,10 @@ export function OpeningHours({ hours }: { hours: { label: string; value: string 
   const todayLabel = dayNames[today];
 
   return (
-    <section className="rounded-2xl border border-edge bg-surface/80 p-5 shadow-card">
+    <section id="hours" className="scroll-mt-24 rounded-2xl border border-edge bg-surface/80 p-5 shadow-card sm:p-6">
       <div className="flex items-center gap-2">
         <Clock className="h-4 w-4 text-brand-400" />
-        <h2 className="font-display text-lg font-semibold text-ink">Opening hours</h2>
+        <h2 className="font-display text-2xl font-semibold text-ink">Opening hours</h2>
       </div>
       <dl className="mt-4 space-y-2 text-sm">
         {hours.map((d) => {

@@ -18,13 +18,17 @@ import { signedPhotoUrls } from "@/lib/storage";
 import { availableDays } from "@/lib/rules";
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
-import type { ConsultationQuestion, Review, ServiceAddon, Tech } from "@/lib/db/types";
+import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
-import { BookingHero } from "@/components/booking/booking-hero";
-import { ServiceMenu } from "@/components/booking/service-menu";
+import { BookingHeader, BookingFlowHeader } from "@/components/booking/booking-header";
+import { BookingBanner } from "@/components/booking/booking-banner";
+import { BookingAbout } from "@/components/booking/booking-about";
+import { ServiceGrid } from "@/components/booking/service-grid";
 import { PortfolioGallery } from "@/components/booking/portfolio-gallery";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { OpeningHours } from "@/components/booking/opening-hours";
+import { TrustStrip } from "@/components/booking/trust-strip";
+import { BookingFooterCta } from "@/components/booking/booking-footer-cta";
 import { StickyBookCta } from "@/components/booking/sticky-book-cta";
 import { trackPageView } from "@/lib/page-views";
 
@@ -40,6 +44,7 @@ export async function generateMetadata({
   if (!tech) return {};
   const title = `${tech.businessName} - book online`;
   const description =
+    tech.tagline?.trim() ||
     tech.bio ||
     `Book ${tech.businessName} online. Secure your slot with a deposit. Powered by Glow.`;
   return {
@@ -51,23 +56,6 @@ export async function generateMetadata({
 }
 
 export const revalidate = 60;
-
-function pickHeroImages(
-  services: { id: string; photoPath: string | null }[],
-  photoUrls: Map<string, string>,
-  portfolio: { url: string }[],
-): { coverUrl?: string; avatarUrl?: string } {
-  const serviceWithPhoto = services.find((s) => photoUrls.has(s.id));
-  // Portfolio shots are usually single finished results; service uploads are often
-  // square before/after composites that look duplicated in a wide hero crop.
-  const coverUrl =
-    portfolio[0]?.url ||
-    (serviceWithPhoto && photoUrls.get(serviceWithPhoto.id)) ||
-    undefined;
-  const avatarUrl =
-    (serviceWithPhoto && photoUrls.get(serviceWithPhoto.id)) || portfolio[0]?.url || undefined;
-  return { coverUrl, avatarUrl };
-}
 
 function buildOpeningHours(hours: Awaited<ReturnType<typeof listWorkingHours>>) {
   const hhmm = (m: number) =>
@@ -128,6 +116,10 @@ export default async function PublicBookingPage({
   let ratingCount = 0;
   let portfolio: { id: string; url: string; kind: string }[] = [];
   let selectedPhotoUrl: string | undefined;
+  let coverUrl: string | undefined;
+  let profileUrl: string | undefined;
+
+  const brandPaths = [tech.coverPhotoPath, tech.profilePhotoPath].filter(Boolean) as string[];
 
   if (!selected) {
     const [hours, approvedReviews, allPhotos] = await Promise.all([
@@ -136,12 +128,17 @@ export default async function PublicBookingPage({
       listClientPhotosForTech(sb, tech.id).catch(() => []),
     ]);
 
-    const consented = allPhotos.filter((p) => p.consent && p.kind !== "other").slice(0, 8);
+    const consented = allPhotos.filter((p) => p.consent && p.kind !== "other").slice(0, 12);
     const photoPaths = [
+      ...brandPaths,
       ...services.filter((s) => s.photoPath).map((s) => s.photoPath!),
       ...consented.map((p) => p.path),
     ];
     const signed = await signedPhotoUrls(photoPaths);
+
+    if (tech.coverPhotoPath) coverUrl = signed.get(tech.coverPhotoPath);
+    if (tech.profilePhotoPath) profileUrl = signed.get(tech.profilePhotoPath);
+
     for (const s of services) {
       if (s.photoPath) {
         const url = signed.get(s.photoPath);
@@ -171,86 +168,118 @@ export default async function PublicBookingPage({
       .filter((p): p is NonNullable<typeof p> => p !== null);
 
     openingHours = buildOpeningHours(hours);
-  } else if (selected.photoPath) {
-    const signed = await signedPhotoUrls([selected.photoPath]);
-    selectedPhotoUrl = signed.get(selected.photoPath);
+  } else {
+    const paths = [
+      ...brandPaths,
+      ...(selected.photoPath ? [selected.photoPath] : []),
+    ];
+    const signed = await signedPhotoUrls(paths);
+    if (selected.photoPath) selectedPhotoUrl = signed.get(selected.photoPath);
+    if (tech.coverPhotoPath) coverUrl = signed.get(tech.coverPhotoPath);
+    if (tech.profilePhotoPath) profileUrl = signed.get(tech.profilePhotoPath);
   }
 
   const brand = tech.brandColor || "#db2777";
-  const minPrice = services.length
-    ? Math.min(...services.map((s) => s.pricePennies))
-    : 0;
-  const heroImages = !selected
-    ? pickHeroImages(services, photoUrls, portfolio)
-    : { coverUrl: selectedPhotoUrl, avatarUrl: selectedPhotoUrl };
+  const minPrice = services.length ? Math.min(...services.map((s) => s.pricePennies)) : 0;
+
+  if (selected) {
+    return (
+      <div className="min-h-screen bg-cream">
+        <BookingFlowHeader businessName={tech.businessName} handle={tech.handle} />
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <BookingStepInteractive
+            tech={tech}
+            service={selected}
+            brand={brand}
+            days={days}
+            live={live}
+            questions={questions}
+            addons={addons}
+            err={sp.err}
+            wl={sp.wl}
+            initialDate={sp.date}
+            initialSlot={sp.slot}
+            photoUrl={selectedPhotoUrl}
+          />
+        </main>
+        <footer className="mx-auto max-w-3xl px-4 pb-8 text-center text-xs text-ink-faint">
+          <p>
+            Powered by{" "}
+            <Link href="/" className="font-medium text-brand-400 hover:text-brand-300">
+              Glow
+            </Link>
+          </p>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream pb-24 lg:pb-16">
-      <BookingHero
+      <BookingHeader
         businessName={tech.businessName}
-        bio={tech.bio || undefined}
         brand={brand}
-        coverUrl={heroImages.coverUrl}
-        avatarUrl={heroImages.avatarUrl}
-        location={tech.location || undefined}
-        instagram={tech.instagram || undefined}
-        ratingAvg={ratingAvg}
-        ratingCount={ratingCount}
+        profileUrl={profileUrl}
+        hasServices={services.length > 0}
       />
 
-      <main className="mx-auto max-w-2xl px-4">
-        {!selected ? (
-          <div className="-mt-6 space-y-10 sm:-mt-8">
-            {portfolio.length > 0 && <PortfolioGallery items={portfolio} />}
+      <BookingBanner
+        businessName={tech.businessName}
+        tagline={tech.tagline}
+        brand={brand}
+        coverUrl={coverUrl}
+        hasServices={services.length > 0}
+      />
 
-            {reviews.length > 0 && (
-              <ReviewsSection reviews={reviews} ratingAvg={ratingAvg} ratingCount={ratingCount} />
-            )}
+      <main className="mx-auto max-w-5xl space-y-14 px-4 py-10 sm:px-6 sm:py-14">
+        <BookingAbout
+          bio={tech.bio}
+          location={tech.location || undefined}
+          instagram={tech.instagram || undefined}
+          tiktok={tech.tiktok || undefined}
+          ratingAvg={ratingAvg}
+          ratingCount={ratingCount}
+        />
 
-            <ServiceMenu
-              categories={categories}
-              services={services}
-              handle={tech.handle}
-              brand={brand}
-              photoUrls={photoUrls}
-            />
+        <ServiceGrid
+          categories={categories}
+          services={services}
+          handle={tech.handle}
+          brand={brand}
+          photoUrls={photoUrls}
+        />
 
-            <OpeningHours hours={openingHours} />
+        {portfolio.length > 0 && <PortfolioGallery items={portfolio} />}
 
-            <StickyBookCta
-              minPriceLabel={gbp(minPrice)}
-              brand={brand}
-              serviceCount={services.length}
-            />
-          </div>
-        ) : (
-          <div className="-mt-6 sm:-mt-8">
-            <BookingStepInteractive
-              tech={tech}
-              service={selected}
-              brand={brand}
-              days={days}
-              live={live}
-              questions={questions}
-              addons={addons}
-              err={sp.err}
-              wl={sp.wl}
-              initialDate={sp.date}
-              initialSlot={sp.slot}
-              photoUrl={selectedPhotoUrl}
-            />
-          </div>
+        {reviews.length > 0 && (
+          <ReviewsSection reviews={reviews} ratingAvg={ratingAvg} ratingCount={ratingCount} />
         )}
+
+        {openingHours.length > 0 && <OpeningHours hours={openingHours} />}
+
+        <TrustStrip />
+
+        <BookingFooterCta
+          brand={brand}
+          minPriceLabel={gbp(minPrice)}
+          serviceCount={services.length}
+        />
       </main>
 
-      <footer className="mx-auto mt-14 max-w-2xl px-4 pb-6 text-center text-xs text-ink-faint">
+      <footer className="mx-auto max-w-5xl border-t border-edge px-4 py-8 text-center text-xs text-ink-faint sm:px-6">
         <p>
-          No hidden fees · deposits shown upfront · powered by{" "}
+          Secure online booking · deposits shown upfront · powered by{" "}
           <Link href="/" className="font-medium text-brand-400 hover:text-brand-300">
             Glow
           </Link>
         </p>
       </footer>
+
+      <StickyBookCta
+        minPriceLabel={gbp(minPrice)}
+        brand={brand}
+        serviceCount={services.length}
+      />
     </div>
   );
 }

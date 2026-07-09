@@ -13,6 +13,7 @@ import {
   requestAccountClosureAction,
   updateSettingsAction,
 } from "../actions";
+import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -101,6 +102,16 @@ export default function SettingsPage() {
               </div>
               <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-faint"><Copy className="h-3 w-3" /> Share glow.app/{tech.handle} in your Instagram &amp; TikTok bio.</p>
             </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="tagline">Tagline</Label>
+              <Input
+                id="tagline"
+                name="tagline"
+                defaultValue={tech.tagline}
+                placeholder="Lash & brow specialist in Glasgow"
+              />
+              <p className="mt-1.5 text-xs text-ink-faint">Short headline on your booking page banner.</p>
+            </div>
             <div className="sm:col-span-2"><Label htmlFor="bio">Bio</Label><Textarea id="bio" name="bio" defaultValue={tech.bio} /></div>
             <div><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={tech.location} /></div>
             <div>
@@ -112,6 +123,9 @@ export default function SettingsPage() {
             </div>
             <div><Label htmlFor="instagram">Instagram handle</Label><Input id="instagram" name="instagram" defaultValue={tech.instagram} placeholder="bellarosebeauty" /></div>
             <div><Label htmlFor="tiktok">TikTok handle</Label><Input id="tiktok" name="tiktok" defaultValue={tech.tiktok} placeholder="bellarosebeauty" /></div>
+            <div className="sm:col-span-2">
+              <PageBrandingUploads tech={tech} />
+            </div>
           </CardContent>
         </Card>
 
