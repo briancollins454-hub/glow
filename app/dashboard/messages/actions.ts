@@ -54,7 +54,10 @@ export async function sendMessageAction(clientId: string, body: string): Promise
       "Saved in chat, but this client has no email on file. Share their private message link so they can see your reply.";
   } else {
     try {
-      emailSent = await notifyClientOfMessage(client, tech, text);
+      for (let attempt = 0; attempt < 3 && !emailSent; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 400 * attempt));
+        emailSent = await notifyClientOfMessage(client, tech, text, message.id);
+      }
       if (!emailSent) {
         emailNote = "Message saved, but the email notification could not be sent. Share their message link instead.";
       }

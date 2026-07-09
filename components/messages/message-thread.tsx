@@ -37,11 +37,6 @@ export function MessageThread({
   const [mounted, setMounted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const messagesRef = useRef(messages);
-
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
 
   useEffect(() => setMounted(true), []);
 
@@ -68,22 +63,38 @@ export function MessageThread({
 
   useEffect(() => {
     if (!pollSync) return;
+
+    const mergeThread = (fresh: Message[]) => {
+      setMessages((prev) => {
+        const byId = new Map(prev.map((m) => [m.id, m]));
+        for (const m of fresh) byId.set(m.id, m);
+        return Array.from(byId.values()).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+      });
+    };
+
     const sync = async () => {
-      const list = messagesRef.current;
-      const last = list[list.length - 1]?.createdAt;
-      const qs = new URLSearchParams({ token });
-      if (last) qs.set("after", last);
       try {
-        const res = await fetch(`/api/messages/sync?${qs}`);
+        const res = await fetch(`/api/messages/sync?${new URLSearchParams({ token })}`);
         if (!res.ok) return;
         const data = (await res.json()) as { messages?: Message[] };
-        for (const m of data.messages ?? []) upsert(m);
+        mergeThread(data.messages ?? []);
       } catch {
         // Best-effort polling.
       }
     };
-    const interval = window.setInterval(sync, 12_000);
-    return () => window.clearInterval(interval);
+
+    void sync();
+    const interval = window.setInterval(sync, 5_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void sync();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [pollSync, token]);
 
   useEffect(() => {
