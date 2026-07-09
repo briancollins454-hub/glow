@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
+import { trackPageView } from "@/lib/page-views";
 
 export const revalidate = 3600;
 
@@ -56,6 +57,8 @@ const COMPARISON = [
 ];
 
 export default function HomePage() {
+  trackPageView({ path: "/" });
+
   return (
     <div className="min-h-screen">
       <header className="container-page flex items-center justify-between py-6">

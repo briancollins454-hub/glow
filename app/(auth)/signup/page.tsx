@@ -4,6 +4,7 @@ import { CalendarHeart, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { signupAction } from "../actions";
+import { trackPageView } from "@/lib/page-views";
 
 const errors: Record<string, string> = {
   email: "An account with that email already exists.",
@@ -17,6 +18,8 @@ export default async function SignupPage({
 }) {
   const { error, ref } = await searchParams;
   const isTester = (await cookies()).get("glow_offer")?.value === "tester";
+  trackPageView({ path: "/signup" });
+
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">

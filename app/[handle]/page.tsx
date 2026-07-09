@@ -26,6 +26,7 @@ import { PortfolioGallery } from "@/components/booking/portfolio-gallery";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { OpeningHours } from "@/components/booking/opening-hours";
 import { StickyBookCta } from "@/components/booking/sticky-book-cta";
+import { trackPageView } from "@/lib/page-views";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -93,6 +94,8 @@ export default async function PublicBookingPage({
   const sb = supabaseService();
   const tech = await getTechByHandle(sb, handle);
   if (!tech) notFound();
+
+  trackPageView({ techId: tech.id, path: `/${handle}` });
 
   const [categories, services] = await Promise.all([
     listCategories(sb, tech.id),
