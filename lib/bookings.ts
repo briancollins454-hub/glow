@@ -26,6 +26,7 @@ interface BaseParams {
   addons?: BookingAddon[];
   /** Loyalty (or other) discount off the price. */
   discountPennies?: number;
+  pairedBookingId?: string | null;
   /** Risk tier for public bookings (drives deposit). Omit for manual bookings. */
   riskTier?: RiskTier | null;
   /** Override computed deposit (manual bookings). */
@@ -94,11 +95,13 @@ export async function createConfirmedBooking({
   depositOverridePennies = null,
   addons = [],
   discountPennies = 0,
+  pairedBookingId = null,
   riskTier = null,
   autoApproved = false,
 }: BaseParams & {
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
+  depositOverridePennies?: number | null;
 }): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
@@ -130,6 +133,7 @@ export async function createConfirmedBooking({
     balanceStatus: fullyPaid || balance === 0 ? "paid" : "unpaid",
     balanceToken: randomToken(),
     approvalToken: null,
+    pairedBookingId,
     riskTier,
     autoApproved,
     isPatchTest,
@@ -184,6 +188,7 @@ export async function createPendingOnlineBooking({
   notes = "",
   addons = [],
   discountPennies = 0,
+  pairedBookingId = null,
   riskTier = null,
   autoApproved = false,
 }: BaseParams): Promise<Booking> {
@@ -211,6 +216,7 @@ export async function createPendingOnlineBooking({
     balanceStatus: balance > 0 ? "unpaid" : "paid",
     balanceToken: randomToken(),
     approvalToken: null,
+    pairedBookingId,
     riskTier,
     autoApproved,
     isPatchTest,
@@ -234,6 +240,7 @@ export async function createPendingApprovalBooking({
   notes = "",
   addons = [],
   discountPennies = 0,
+  pairedBookingId = null,
   riskTier = null,
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
@@ -260,6 +267,7 @@ export async function createPendingApprovalBooking({
     balanceStatus: balance > 0 ? "unpaid" : "paid",
     balanceToken: randomToken(),
     approvalToken: randomToken(),
+    pairedBookingId,
     riskTier,
     autoApproved: false,
     isPatchTest,
@@ -457,4 +465,72 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
       sentAtIso: null,
     });
   }
+}
+
+export type PairedBookingResult = {
+  patchBooking: Booking;
+};
+
+/** Create the patch-test half of a paired booking (always confirmed). */
+export async function createPairedPatchTestBooking({
+  sb,
+  tech,
+  client,
+  treatmentService,
+  patchTestService,
+  category,
+  patchSlotIso,
+}: {
+  sb: SupabaseClient;
+  tech: Tech;
+  client: Client;
+  treatmentService: Service;
+  patchTestService: Service;
+  category: { patchTestValidityDays: number } | null;
+  patchSlotIso: string;
+}): Promise<Booking> {
+  const { createPatchTest } = await import("@/lib/db/queries");
+  const { markRetestsTestBooked } = await import("@/lib/product-change");
+
+  const patchBooking = await createConfirmedBooking({
+    sb,
+    tech,
+    service: patchTestService,
+    client,
+    startIso: patchSlotIso,
+    isPatchTest: true,
+    notes: "Patch test booked online with treatment",
+    addons: [],
+    discountPennies: 0,
+  });
+
+  const performed = new Date(patchSlotIso);
+  const expires = new Date(
+    performed.getTime() + (category?.patchTestValidityDays ?? 180) * 24 * 60 * 60 * 1000,
+  );
+  await createPatchTest(sb, {
+    techId: tech.id,
+    clientId: client.id,
+    categoryId: treatmentService.categoryId,
+    performedAtIso: performed.toISOString(),
+    expiresAtIso: expires.toISOString(),
+    result: "pending",
+    bookingId: patchBooking.id,
+    notes: "Booked online",
+    invalidatedAtIso: null,
+    invalidationEventId: null,
+  });
+
+  await markRetestsTestBooked(sb, tech.id, client.id, treatmentService.categoryId);
+
+  return patchBooking;
+}
+
+export async function linkPairedBookings(
+  sb: SupabaseClient,
+  patchBookingId: string,
+  treatmentBookingId: string,
+): Promise<void> {
+  await updateBooking(sb, patchBookingId, { pairedBookingId: treatmentBookingId });
+  await updateBooking(sb, treatmentBookingId, { pairedBookingId: patchBookingId });
 }

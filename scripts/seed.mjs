@@ -80,12 +80,14 @@ async function main() {
     { id: "cat_brows", techId: T, name: "Brows", patchTestValidityDays: 180, patchTestMinLeadHours: 48 },
   ]);
 
-  const svc = (id, categoryId, name, description, durationMin, price, depositValue, requiresPatchTest, isInfill, fullSetServiceId, infillMaxGapDays, sortOrder) => ({
+  const svc = (id, categoryId, name, description, durationMin, price, depositValue, requiresPatchTest, isInfill, fullSetServiceId, infillMaxGapDays, sortOrder, isPatchTestService = false) => ({
     id, techId: T, categoryId, name, description, durationMin, pricePennies: price,
-    depositType: "percent", depositValue, requiresPatchTest, isInfill,
+    depositType: "percent", depositValue, requiresPatchTest, isPatchTestService, isInfill,
     fullSetServiceId, infillMaxGapDays, active: true, sortOrder,
   });
   await sb.from("services").insert([
+    svc("svc_lash_patch", "cat_lashes", "Patch Test", "Quick lash adhesive patch test (booked with your treatment).", 15, 0, 0, false, false, null, 21, -1, true),
+    svc("svc_brow_patch", "cat_brows", "Patch Test", "Quick brow tint patch test (booked with your treatment).", 15, 0, 0, false, false, null, 56, -1, true),
     svc("svc_lash_full", "cat_lashes", "Classic Full Set", "A full set of classic individual lashes for natural length and definition.", 120, 5500, 30, true, false, null, 21, 0),
     svc("svc_lash_infill", "cat_lashes", "Classic Infill (2-3 weeks)", "Top-up your existing classic set. Within 3 weeks of your last appointment.", 75, 3500, 30, true, true, "svc_lash_full", 21, 1),
     svc("svc_lash_hybrid", "cat_lashes", "Hybrid Full Set", "A mix of classic and volume lashes for added texture and fullness.", 135, 6500, 30, true, false, null, 21, 2),

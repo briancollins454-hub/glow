@@ -5,10 +5,10 @@ import { X } from "lucide-react";
 
 export function RetestBookingNotice({
   businessName,
-  messageUrl,
+  bookUrl,
 }: {
   businessName: string;
-  messageUrl?: string;
+  bookUrl?: string;
 }) {
   return (
     <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -16,16 +16,16 @@ export function RetestBookingNotice({
         <p>
           <strong className="font-semibold text-amber-50">Patch test needed.</strong>{" "}
           {businessName} has changed products and you need a quick re-test before your next treatment.
-          {messageUrl ? (
+          {bookUrl ? (
             <>
               {" "}
-              <Link href={messageUrl} className="font-medium underline hover:text-white">
-                Message them to arrange a time
+              <Link href={bookUrl} className="font-medium underline hover:text-white">
+                Book your patch test and treatment now
               </Link>
               .
             </>
           ) : (
-            " Please contact them to arrange a convenient time."
+            " Pick a treatment below to book your patch test and appointment together."
           )}
         </p>
         <button

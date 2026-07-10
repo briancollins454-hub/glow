@@ -197,7 +197,7 @@ export async function notifyClientOfPatchTestRetest(opts: {
   const biz = tech.businessName || "your beauty studio";
   const brand = tech.brandColor || "#db2777";
   const name = client.name?.split(" ")[0] ?? "there";
-  const arrangeUrl = `${APP_URL}/${tech.handle}?retest=${categoryId}`;
+  const arrangeUrl = `${APP_URL}/${tech.handle}?retest=${categoryId}&pair=1`;
   const messageUrl = `${APP_URL}/m/${client.messageToken}`;
 
   const upcomingLine = hasUpcoming && futureBooking

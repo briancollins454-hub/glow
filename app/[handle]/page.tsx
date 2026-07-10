@@ -9,17 +9,19 @@ import {
   listTimeOff,
   listWorkingHours,
   getTechByHandle,
+  getCategory,
   addonsForService,
   listApprovedReviews,
   listClientPhotosForTech,
   getClientNameMap,
 } from "@/lib/db/queries";
 import { signedPhotoUrls } from "@/lib/storage";
-import { availableDays } from "@/lib/rules";
+import { availableDays, canOfferPairedPatchTest, findPatchTestService } from "@/lib/rules";
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
+import { PairedBookingStepInteractive } from "@/components/booking/paired-booking-step-interactive";
 import { BookingHeader, BookingFlowHeader } from "@/components/booking/booking-header";
 import { BookingBanner } from "@/components/booking/booking-banner";
 import { BookingAbout } from "@/components/booking/booking-about";
@@ -78,7 +80,7 @@ export default async function PublicBookingPage({
   searchParams,
 }: {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ service?: string; date?: string; slot?: string; err?: string; wl?: string; retest?: string }>;
+  searchParams: Promise<{ service?: string; date?: string; slot?: string; patchSlot?: string; pair?: string; err?: string; wl?: string; retest?: string }>;
 }) {
   const { handle } = await params;
   const sp = await searchParams;
@@ -93,23 +95,40 @@ export default async function PublicBookingPage({
     listServices(sb, tech.id, { activeOnly: true }),
   ]);
   const selected = sp.service ? services.find((s) => s.id === sp.service) ?? null : null;
+  const patchTestService =
+    selected && canOfferPairedPatchTest(selected, services)
+      ? findPatchTestService(services, selected.categoryId)
+      : null;
+  const usePairedFlow =
+    !!selected &&
+    !!patchTestService &&
+    (sp.pair === "1" || (!!sp.retest && sp.retest === selected.categoryId));
 
   const live = isLive(tech);
   let days: DayOption[] = [];
+  let patchTestDays: DayOption[] = [];
+  let minLeadHours = 24;
   let questions: ConsultationQuestion[] = [];
   let addons: ServiceAddon[] = [];
   if (selected && live) {
     const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    const [workingHours, timeOff, bookings, qs, adds] = await Promise.all([
+    const [workingHours, timeOff, bookings, qs, adds, category] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listTimeOff(sb, tech.id),
       listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
       listQuestions(sb, tech.id, { activeOnly: true }),
       addonsForService(sb, selected.id, { activeOnly: true }),
+      getCategory(sb, selected.categoryId),
     ]);
-    days = availableDays(selected, { workingHours, timeOff, bookings }, 14);
+    const ctx = { workingHours, timeOff, bookings };
+    minLeadHours = category?.patchTestMinLeadHours ?? 24;
     questions = qs;
     addons = adds;
+    if (usePairedFlow && patchTestService) {
+      patchTestDays = availableDays(patchTestService, ctx, 14);
+    } else {
+      days = availableDays(selected, ctx, 14);
+    }
   }
 
   const photoUrls = new Map<string, string>();
@@ -197,20 +216,42 @@ export default async function PublicBookingPage({
       <div className="min-h-screen bg-cream">
         <BookingFlowHeader businessName={tech.businessName} handle={tech.handle} />
         <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-          <BookingStepInteractive
-            tech={tech}
-            service={selected}
-            brand={brand}
-            days={days}
-            live={live}
-            questions={questions}
-            addons={addons}
-            err={sp.err}
-            wl={sp.wl}
-            initialDate={sp.date}
-            initialSlot={sp.slot}
-            photoUrl={selectedPhotoUrl}
-          />
+          {usePairedFlow && patchTestService ? (
+            <PairedBookingStepInteractive
+              tech={tech}
+              treatmentService={selected}
+              patchTestService={patchTestService}
+              brand={brand}
+              patchTestDays={patchTestDays}
+              minLeadHours={minLeadHours}
+              live={live}
+              questions={questions}
+              addons={addons}
+              err={sp.err}
+              wl={sp.wl}
+              initialPatchSlot={sp.patchSlot}
+              initialTreatmentSlot={sp.slot}
+              photoUrl={selectedPhotoUrl}
+            />
+          ) : (
+            <BookingStepInteractive
+              tech={tech}
+              service={selected}
+              brand={brand}
+              days={days}
+              live={live}
+              questions={questions}
+              addons={addons}
+              err={sp.err}
+              wl={sp.wl}
+              initialDate={sp.date}
+              initialSlot={sp.slot}
+              photoUrl={selectedPhotoUrl}
+              pairBookingUrl={
+                patchTestService ? `/${tech.handle}?service=${selected.id}&pair=1` : undefined
+              }
+            />
+          )}
         </main>
         <footer className="mx-auto max-w-3xl px-4 pb-8 text-center text-xs text-ink-faint">
           <p>
@@ -244,7 +285,21 @@ export default async function PublicBookingPage({
 
       <main className="mx-auto max-w-5xl space-y-14 px-4 py-10 sm:px-6 sm:py-14">
         {sp.retest && !selected && (
-          <RetestBookingNotice businessName={tech.businessName} />
+          <RetestBookingNotice
+            businessName={tech.businessName}
+            bookUrl={(() => {
+              const treatment = services.find(
+                (s) =>
+                  s.requiresPatchTest &&
+                  !s.isPatchTestService &&
+                  s.categoryId === sp.retest &&
+                  canOfferPairedPatchTest(s, services),
+              );
+              return treatment
+                ? `/${tech.handle}?service=${treatment.id}&pair=1&retest=${sp.retest}`
+                : undefined;
+            })()}
+          />
         )}
 
         <BookingAbout

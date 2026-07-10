@@ -121,6 +121,8 @@ export interface Service {
   // For percent: 0-100. For fixed: pennies. For none: ignored.
   depositValue: number;
   requiresPatchTest: boolean;
+  /** Short patch-test appointment for this category (hidden from the public menu). */
+  isPatchTestService: boolean;
   isInfill: boolean;
   fullSetServiceId: string | null;
   infillMaxGapDays: number;
@@ -218,6 +220,8 @@ export interface Booking {
   balanceToken: string;
   /** Secret link for the tech to approve/decline a pending request. */
   approvalToken: string | null;
+  /** Linked booking when patch test + treatment are booked together. */
+  pairedBookingId: string | null;
   /** Client risk at booking time (drives deposit tier). */
   riskTier: RiskTier | null;
   /** True when rules mode auto-approved without tech review. */

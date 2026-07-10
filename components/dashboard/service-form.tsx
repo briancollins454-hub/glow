@@ -70,6 +70,16 @@ export function ServiceForm({
         Requires a valid patch test
       </label>
 
+      <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+        <input type="checkbox" name="isPatchTestService" defaultChecked={s?.isPatchTestService} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+        <span>
+          <span className="font-medium">This is the patch test appointment</span>
+          <span className="mt-0.5 block text-xs text-ink-faint">
+            Hidden from your public menu. Clients book it automatically when pairing with a treatment.
+          </span>
+        </span>
+      </label>
+
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
         <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
         This is an infill / top-up (returning clients only)

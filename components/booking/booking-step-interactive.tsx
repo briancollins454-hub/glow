@@ -46,6 +46,7 @@ export function BookingStepInteractive({
   initialDate,
   initialSlot,
   photoUrl,
+  pairBookingUrl,
 }: {
   tech: Tech;
   service: Service;
@@ -59,6 +60,7 @@ export function BookingStepInteractive({
   initialDate?: string;
   initialSlot?: string;
   photoUrl?: string;
+  pairBookingUrl?: string;
 }) {
   const deposit = depositFor(service);
   const balance = Math.max(0, service.pricePennies - deposit);
@@ -112,6 +114,15 @@ export function BookingStepInteractive({
               {service.requiresPatchTest && (
                 <Notice tone="amber" icon={<ShieldCheck className="h-4 w-4" />}>
                   A valid patch test is required before this service.
+                  {pairBookingUrl && (
+                    <>
+                      {" "}
+                      <Link href={pairBookingUrl} className="font-medium underline hover:text-white">
+                        Book patch test and treatment together
+                      </Link>
+                      .
+                    </>
+                  )}
                 </Notice>
               )}
               {service.isInfill && (
