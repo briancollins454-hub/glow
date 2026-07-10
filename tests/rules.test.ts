@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkInfill, checkPatchTest, daySlots, depositFor, evaluateEligibility } from "@/lib/rules";
+import { checkInfill, checkPatchTest, daySlots, depositFor, evaluateEligibility, canOfferPairedPatchTest, validatePairedPatchTestTiming } from "@/lib/rules";
 import { makeBooking, makeCategory, makeClient, makePatchTest, makeService, makeWorkingHour } from "./fixtures";
 
 describe("depositFor", () => {
@@ -95,6 +95,44 @@ describe("evaluateEligibility", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.blacklisted).toBe(true);
+  });
+});
+
+describe("validatePairedPatchTestTiming", () => {
+  const patch = makeService({ id: "pt", durationMin: 15, isPatchTestService: true });
+  const category = makeCategory({ patchTestMinLeadHours: 24 });
+
+  it("accepts treatment far enough after patch test ends", () => {
+    const result = validatePairedPatchTestTiming(
+      patch,
+      "2026-07-10T10:00:00.000Z",
+      "2026-07-12T10:00:00.000Z",
+      category,
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects treatment too soon after patch test", () => {
+    const result = validatePairedPatchTestTiming(
+      patch,
+      "2026-07-10T10:00:00.000Z",
+      "2026-07-10T12:00:00.000Z",
+      category,
+    );
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("canOfferPairedPatchTest", () => {
+  const patch = makeService({ id: "pt", isPatchTestService: true, categoryId: "cat_1" });
+  const treatment = makeService({ requiresPatchTest: true, categoryId: "cat_1" });
+
+  it("is true when a patch test service exists for the category", () => {
+    expect(canOfferPairedPatchTest(treatment, [treatment, patch])).toBe(true);
+  });
+
+  it("is false without a patch test service", () => {
+    expect(canOfferPairedPatchTest(treatment, [treatment])).toBe(false);
   });
 });
 

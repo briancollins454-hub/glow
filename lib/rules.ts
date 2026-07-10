@@ -147,6 +147,7 @@ export function checkPatchTest(
   // A test is valid if it passed, happened far enough before the appointment,
   // and hasn't expired by the appointment date.
   const valid = tests.find((p) => {
+    if (p.invalidatedAtIso) return false;
     const expires = new Date(p.expiresAtIso).getTime();
     const performed = new Date(p.performedAtIso).getTime();
     const minLeadMs = (ctx.category?.patchTestMinLeadHours ?? 0) * 60 * 60 * 1000;
@@ -242,4 +243,58 @@ export function evaluateEligibility(
   const infill = checkInfill(service, client, appointmentStartIso, ctx);
   const blacklisted = !!client?.isBlacklisted;
   return { ok: patch.ok && infill.ok && !blacklisted, patch, infill, blacklisted };
+}
+
+// ---------------- Paired patch test booking ----------------
+export function findPatchTestService(services: Service[], categoryId: string): Service | null {
+  return (
+    services.find((s) => s.active && s.isPatchTestService && s.categoryId === categoryId) ?? null
+  );
+}
+
+export function canOfferPairedPatchTest(treatmentService: Service, services: Service[]): boolean {
+  if (!treatmentService.requiresPatchTest || treatmentService.isPatchTestService) return false;
+  return !!findPatchTestService(services, treatmentService.categoryId);
+}
+
+/** Treatment slots that start far enough after a patch-test appointment ends. */
+export function treatmentSlotsAfterPatchTest(
+  treatmentService: Service,
+  patchTestService: Service,
+  patchSlotIso: string,
+  category: ServiceCategory | null,
+  ctx: AvailabilityCtx,
+  count = 14,
+  nowMs = Date.now(),
+): { dateStr: string; slots: string[] }[] {
+  const minLeadMs = (category?.patchTestMinLeadHours ?? 24) * 60 * 60 * 1000;
+  const earliestTreatmentMs =
+    new Date(patchSlotIso).getTime() + patchTestService.durationMin * 60 * 1000 + minLeadMs;
+
+  return availableDays(treatmentService, ctx, 60, nowMs)
+    .map((d) => ({
+      ...d,
+      slots: d.slots.filter((s) => new Date(s).getTime() >= earliestTreatmentMs),
+    }))
+    .filter((d) => d.slots.length > 0)
+    .slice(0, count);
+}
+
+export function validatePairedPatchTestTiming(
+  patchTestService: Service,
+  patchSlotIso: string,
+  treatmentSlotIso: string,
+  category: ServiceCategory | null,
+): { ok: boolean; reason: string } {
+  const minLeadMs = (category?.patchTestMinLeadHours ?? 24) * 60 * 60 * 1000;
+  const patchEndMs = new Date(patchSlotIso).getTime() + patchTestService.durationMin * 60 * 1000;
+  const treatmentStartMs = new Date(treatmentSlotIso).getTime();
+  if (treatmentStartMs < patchEndMs + minLeadMs) {
+    const hours = category?.patchTestMinLeadHours ?? 24;
+    return {
+      ok: false,
+      reason: `Your treatment must be at least ${hours} hours after your patch test finishes.`,
+    };
+  }
+  return { ok: true, reason: "" };
 }

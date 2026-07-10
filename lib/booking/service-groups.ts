@@ -20,6 +20,7 @@ export function groupServicesForMenu(
   const byCategory = new Map<string, Service[]>();
 
   for (const service of services) {
+    if (service.isPatchTestService) continue;
     const bucket = categoryIds.has(service.categoryId) ? service.categoryId : UNCATEGORISED_ID;
     const list = byCategory.get(bucket) ?? [];
     list.push(service);
