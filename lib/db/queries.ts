@@ -859,6 +859,19 @@ export async function listReactionCheckins(sb: SB, techId: string): Promise<Reac
     .order("createdAt", { ascending: false });
   return must(data as ReactionCheckin[], error) ?? [];
 }
+export async function reactionCheckinsForClient(
+  sb: SB,
+  techId: string,
+  clientId: string,
+): Promise<ReactionCheckin[]> {
+  const { data, error } = await sb
+    .from("reaction_checkins")
+    .select("*")
+    .eq("techId", techId)
+    .eq("clientId", clientId)
+    .order("createdAt", { ascending: false });
+  return must(data as ReactionCheckin[], error) ?? [];
+}
 export async function dueReactionCheckins(sb: SB, nowIso: string): Promise<ReactionCheckin[]> {
   const { data, error } = await sb
     .from("reaction_checkins")

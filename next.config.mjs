@@ -32,6 +32,7 @@ const nextConfig = {
         ],
       }
     : undefined,
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default withBundleAnalyzer(nextConfig);
