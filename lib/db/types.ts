@@ -311,6 +311,8 @@ export interface ProductChangeRetest {
 
 export type ProductType = "adhesive" | "tint" | "lift" | "other";
 export type ReactionSeverity = "mild" | "moderate" | "severe";
+export type ReactionCheckinStatus = "scheduled" | "sent" | "responded" | "skipped";
+export type ReactionCheckinResponse = "fine" | "reaction";
 
 export interface Product {
   id: string;
@@ -359,6 +361,23 @@ export interface ClientReaction {
   patchTestId: string | null;
   bookingId: string | null;
   notes: string;
+  createdAt: string;
+}
+
+export interface ReactionCheckin {
+  id: string;
+  techId: string;
+  clientId: string;
+  categoryId: string;
+  patchTestId: string | null;
+  bookingId: string | null;
+  token: string;
+  sendAtIso: string;
+  sentAtIso: string | null;
+  status: ReactionCheckinStatus;
+  response: ReactionCheckinResponse | null;
+  symptoms: string;
+  reactionId: string | null;
   createdAt: string;
 }
 

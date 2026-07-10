@@ -7,7 +7,7 @@ import { sendReminder } from "@/lib/notify";
 export async function processDueReminders(
   sb: SupabaseClient,
   nowIso = new Date().toISOString(),
-): Promise<{ sent: number; skipped: number }> {
+): Promise<{ sent: number; skipped: number; checkinsSent?: number; checkinsSkipped?: number }> {
   const due = await dueReminders(sb, nowIso);
   let sent = 0;
   let skipped = 0;
@@ -32,5 +32,17 @@ export async function processDueReminders(
     await sendReminder(sb, reminder);
     sent++;
   }
-  return { sent, skipped };
+
+  let checkinsSent = 0;
+  let checkinsSkipped = 0;
+  try {
+    const { processDueReactionCheckins } = await import("@/lib/reaction-checkin");
+    const checkins = await processDueReactionCheckins(sb, nowIso);
+    checkinsSent = checkins.sent;
+    checkinsSkipped = checkins.skipped;
+  } catch {
+    // Migration may be pending.
+  }
+
+  return { sent, skipped, checkinsSent, checkinsSkipped };
 }

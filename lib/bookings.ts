@@ -508,7 +508,7 @@ export async function createPairedPatchTestBooking({
   const expires = new Date(
     performed.getTime() + (category?.patchTestValidityDays ?? 180) * 24 * 60 * 60 * 1000,
   );
-  await createPatchTest(sb, {
+  const patchTest = await createPatchTest(sb, {
     techId: tech.id,
     clientId: client.id,
     categoryId: treatmentService.categoryId,
@@ -520,6 +520,20 @@ export async function createPairedPatchTestBooking({
     invalidatedAtIso: null,
     invalidationEventId: null,
   });
+
+  try {
+    const { scheduleReactionCheckin } = await import("@/lib/reaction-checkin");
+    await scheduleReactionCheckin(sb, {
+      techId: tech.id,
+      clientId: client.id,
+      categoryId: treatmentService.categoryId,
+      anchorIso: patchSlotIso,
+      patchTestId: patchTest.id,
+      bookingId: patchBooking.id,
+    });
+  } catch {
+    // Best-effort if migration pending.
+  }
 
   await markRetestsTestBooked(sb, tech.id, client.id, treatmentService.categoryId);
 

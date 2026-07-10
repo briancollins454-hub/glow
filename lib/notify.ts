@@ -494,3 +494,97 @@ export async function notifyClientBookingDeclined(
     idempotencyKey: `booking-declined/${booking.id}`,
   });
 }
+
+/** 48-hour reaction check-in email/SMS with link to one-tap response page. */
+export async function notifyClientOfReactionCheckin(
+  sb: SupabaseClient,
+  checkin: import("@/lib/db/types").ReactionCheckin,
+): Promise<boolean> {
+  const { getCategory } = await import("@/lib/db/queries");
+  const [client, tech, category] = await Promise.all([
+    getClient(sb, checkin.clientId),
+    getTechById(sb, checkin.techId),
+    getCategory(sb, checkin.categoryId),
+  ]);
+  if (!client || !tech) return false;
+  if (!client.email?.trim() && !client.phone) return false;
+
+  const biz = tech.businessName || "your beauty studio";
+  const brand = tech.brandColor || "#db2777";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const catName = category?.name?.toLowerCase() ?? "your treatment";
+  const url = `${APP_URL}/checkin/${checkin.token}`;
+
+  const bodyHtml =
+    `Hi ${name},<br/><br/>` +
+    `It's been 48 hours since your ${catName} patch test or treatment at ${biz}. ` +
+    `Delayed reactions can sometimes show up around now.<br/><br/>` +
+    `Are you experiencing any redness, swelling, itching or irritation?`;
+
+  const text =
+    `Hi ${name}, it's been 48 hours since your visit to ${biz}. ` +
+    `Any redness, swelling or irritation? Let us know: ${url}`;
+
+  let sent = false;
+
+  if (client.email?.trim()) {
+    const html = brandedEmail({
+      brand,
+      businessName: biz,
+      heading: "Quick check-in",
+      bodyHtml,
+      buttonLabel: "Reply in one tap",
+      buttonUrl: url,
+    });
+    sent = await sendEmail({
+      to: client.email.trim(),
+      subject: `${biz}: how is your skin after your ${catName} appointment?`,
+      html,
+      text,
+      idempotencyKey: `reaction-checkin/${checkin.id}`,
+    });
+  }
+
+  if (!sent && smsConfigured() && client.phone) {
+    const smsBody =
+      `Hi ${name}, ${biz} checking in 48h after your ${catName} appointment. ` +
+      `Any redness or irritation? Reply here: ${url}`;
+    sent = await sendSms(client.phone, smsBody);
+  }
+
+  return sent;
+}
+
+/** Alert the tech when a client reports a reaction via the check-in link. */
+export async function notifyTechOfReactionReport(
+  sb: SupabaseClient,
+  checkin: import("@/lib/db/types").ReactionCheckin,
+  symptoms: string,
+): Promise<void> {
+  const [client, tech] = await Promise.all([
+    getClient(sb, checkin.clientId),
+    getTechById(sb, checkin.techId),
+  ]);
+  if (!tech?.email || !client) return;
+
+  const brand = tech.brandColor || "#db2777";
+  const url = `${APP_URL}/dashboard/clients/${client.id}`;
+  const html = brandedEmail({
+    brand,
+    businessName: tech.businessName || "Glow",
+    heading: `${client.name} reported a reaction`,
+    bodyHtml:
+      `<strong>${client.name}</strong> responded to the 48-hour check-in and reported symptoms:<br/><br/>` +
+      `<em>&ldquo;${truncate(symptoms || "Reaction reported")}&rdquo;</em><br/><br/>` +
+      `A reaction record has been added to their client file.`,
+    buttonLabel: "View client",
+    buttonUrl: url,
+  });
+  await sendEmail({
+    to: tech.email,
+    subject: `Reaction reported: ${client.name}`,
+    html,
+    text: `${client.name} reported a reaction via the 48-hour check-in: "${truncate(symptoms)}"\n\nView: ${url}`,
+    idempotencyKey: `reaction-checkin-report/${checkin.id}`,
+  });
+}
