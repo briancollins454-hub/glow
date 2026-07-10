@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/auth/session";
-import { createAuditEvent, updateTech } from "@/lib/db/queries";
+import { createAuditEvent, getTechById, updateTech } from "@/lib/db/queries";
 import {
   exchangeGoogleCode,
   googleAccountEmail,
   googleCalendarConfigured,
   googleRedirectUri,
+  syncUpcomingBookingsToGoogle,
 } from "@/lib/google-calendar";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -39,6 +40,22 @@ export async function GET(request: Request) {
       entityId: c.tech.id,
       metadata: { email },
     });
+
+    const updated = await getTechById(c.sb, c.tech.id);
+    if (updated) {
+      const sync = await syncUpcomingBookingsToGoogle(c.sb, updated);
+      await createAuditEvent(c.sb, {
+        techId: c.tech.id,
+        actor: "system",
+        action: "google_calendar_backfill",
+        entityType: "tech",
+        entityId: c.tech.id,
+        metadata: sync,
+      });
+      redirect(
+        `/dashboard/settings?google=connected&synced=${sync.synced}&failed=${sync.failed}&skipped=${sync.skipped}`,
+      );
+    }
   } catch {
     redirect("/dashboard/settings?google=failed");
   }

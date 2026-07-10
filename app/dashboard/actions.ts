@@ -43,7 +43,12 @@ import {
 } from "@/lib/db/queries";
 import { uploadPhoto, removePhoto } from "@/lib/storage";
 import { createConfirmedBooking } from "@/lib/bookings";
-import { deleteGoogleEventForBooking, syncBookingToGoogle } from "@/lib/google-calendar";
+import {
+  deleteGoogleEventForBooking,
+  googleConnected,
+  syncBookingToGoogle,
+  syncUpcomingBookingsToGoogle,
+} from "@/lib/google-calendar";
 import { refundOnConnect } from "@/lib/payments";
 import { processDueReminders } from "@/lib/scheduler";
 import type { PhotoKind, Service } from "@/lib/db/types";
@@ -341,6 +346,39 @@ export async function disconnectGoogleCalendarAction() {
   await audit(sb, tech.id, "google_calendar_disconnected", "tech", tech.id);
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?google=disconnected");
+}
+
+/** Push all upcoming confirmed bookings to Google Calendar (backfill + repair). */
+export async function syncGoogleCalendarAction() {
+  const { sb, tech } = await ctx();
+  if (!googleConnected(tech)) redirect("/dashboard/settings?google=not_connected");
+  const result = await syncUpcomingBookingsToGoogle(sb, tech);
+  await audit(sb, tech.id, "google_calendar_sync", "tech", tech.id, result);
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/bookings");
+  redirect(
+    `/dashboard/settings?google=synced&synced=${result.synced}&failed=${result.failed}&skipped=${result.skipped}`,
+  );
+}
+
+/** Push one booking to Google Calendar. */
+export async function syncBookingGoogleAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const booking = await getBooking(sb, id);
+  if (!booking || booking.techId !== tech.id) redirect("/dashboard/bookings");
+  if (!googleConnected(tech)) redirect(`/dashboard/bookings/${id}?google=not_connected`);
+
+  const result = await syncBookingToGoogle(sb, tech, booking);
+  await audit(sb, tech.id, "google_calendar_booking_sync", "booking", id, {
+    ok: result.ok,
+    reason: "reason" in result ? result.reason : undefined,
+    eventId: "eventId" in result ? result.eventId : undefined,
+  });
+  revalidatePath(`/dashboard/bookings/${id}`);
+  redirect(
+    `/dashboard/bookings/${id}?google=${result.ok ? "synced" : "failed"}${!result.ok && "reason" in result ? `&reason=${encodeURIComponent(result.reason)}` : ""}`,
+  );
 }
 
 // ---------------- Availability ----------------
