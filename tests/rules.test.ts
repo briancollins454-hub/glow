@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { checkInfill, checkPatchTest, daySlots, depositFor, evaluateEligibility, canOfferPairedPatchTest, validatePairedPatchTestTiming } from "@/lib/rules";
-import { makeBooking, makeCategory, makeClient, makePatchTest, makeService, makeWorkingHour } from "./fixtures";
+import {
+  bookingAmounts,
+  canOfferPairedPatchTest,
+  checkInfill,
+  checkPatchTest,
+  daySlots,
+  depositFor,
+  depositForRisk,
+  evaluateEligibility,
+  needsManualApproval,
+  scoreClientRisk,
+  validatePairedPatchTestTiming,
+} from "@/lib/rules";
+import { makeBooking, makeCategory, makeClient, makePatchTest, makeService, makeTech, makeWorkingHour } from "./fixtures";
 
 describe("depositFor", () => {
   it("computes percentage deposits", () => {
@@ -168,5 +180,73 @@ describe("daySlots", () => {
     const wh = makeWorkingHour({ lastStartMinutes: 10 * 60 }); // last start 10:00 London
     const slots = daySlots(service, dateStr, { workingHours: [wh], timeOff: [], bookings: [] }, now);
     expect(slots[slots.length - 1]).toBe("2030-07-10T09:00:00.000Z");
+  });
+});
+
+describe("scoreClientRisk", () => {
+  const tech = makeTech();
+
+  it("marks VIPs as trusted", () => {
+    expect(scoreClientRisk(makeClient({ isVip: true }), { completedVisits: 0 }, tech)).toBe("low");
+  });
+
+  it("marks new clients as standard risk", () => {
+    expect(scoreClientRisk(makeClient(), { completedVisits: 0 }, tech)).toBe("medium");
+  });
+
+  it("marks warning clients as higher risk", () => {
+    expect(scoreClientRisk(makeClient({ warningNote: "Allergic reaction" }), { completedVisits: 5 }, tech)).toBe(
+      "high",
+    );
+  });
+
+  it("marks repeat no-shows as higher risk", () => {
+    expect(scoreClientRisk(makeClient({ noShowCount: 2 }), { completedVisits: 3 }, tech)).toBe("high");
+  });
+
+  it("marks regulars as trusted", () => {
+    expect(scoreClientRisk(makeClient(), { completedVisits: 3 }, tech)).toBe("low");
+  });
+});
+
+describe("depositForRisk", () => {
+  const service = makeService({ pricePennies: 5000, depositType: "percent", depositValue: 30 });
+  const tech = makeTech({ depositTierMediumPct: 50, depositTierHighPct: 100 });
+
+  it("uses the service deposit for trusted clients", () => {
+    expect(depositForRisk(service, tech, "low", 5000)).toBe(1500);
+  });
+
+  it("raises the deposit for standard-risk clients", () => {
+    expect(depositForRisk(service, tech, "medium", 5000)).toBe(2500);
+  });
+
+  it("can require full prepay for higher-risk clients", () => {
+    expect(depositForRisk(service, tech, "high", 5000)).toBe(5000);
+  });
+});
+
+describe("needsManualApproval", () => {
+  it("never requires approval when mode is off", () => {
+    expect(needsManualApproval(makeTech({ approvalMode: "off" }), "high")).toBe(false);
+  });
+
+  it("always requires approval in manual mode", () => {
+    expect(needsManualApproval(makeTech({ approvalMode: "manual" }), "low")).toBe(true);
+  });
+
+  it("auto-approves trusted clients in rules mode", () => {
+    expect(needsManualApproval(makeTech({ approvalMode: "rules" }), "low")).toBe(false);
+    expect(needsManualApproval(makeTech({ approvalMode: "rules" }), "medium")).toBe(true);
+  });
+});
+
+describe("bookingAmounts", () => {
+  it("applies risk tier to the deposit on the full price", () => {
+    const tech = makeTech({ depositTierMediumPct: 50 });
+    const service = makeService({ pricePennies: 6000, depositType: "percent", depositValue: 30 });
+    const { price, deposit } = bookingAmounts(service, tech, "medium", [], 0);
+    expect(price).toBe(6000);
+    expect(deposit).toBe(3000);
   });
 });

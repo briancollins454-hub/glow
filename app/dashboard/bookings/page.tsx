@@ -8,6 +8,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
+import { riskTierLabel, riskTierTone } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
@@ -54,6 +55,9 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="truncate font-medium">{clientById[b.clientId] ?? "Client"}</p>
           {statusBadge(b.status)}
+          {b.riskTier && b.status === "pending_approval" && (
+            <Badge tone={riskTierTone(b.riskTier)}>{riskTierLabel(b.riskTier)}</Badge>
+          )}
           {b.depositStatus === "forfeited" && <Badge tone="red">Deposit kept</Badge>}
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">

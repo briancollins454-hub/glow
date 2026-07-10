@@ -5,11 +5,11 @@ import {
   createReminder,
   updateBooking,
 } from "@/lib/db/queries";
-import { depositFor } from "@/lib/rules";
+import { depositFor, bookingAmounts } from "@/lib/rules";
 import { sendReminder } from "@/lib/notify";
 import { randomToken } from "@/lib/utils";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
-import type { Booking, BookingAddon, Client, Service, Tech } from "@/lib/db/types";
+import type { Booking, BookingAddon, Client, RiskTier, Service, Tech } from "@/lib/db/types";
 import { isPaymentsReady } from "@/lib/subscriptions";
 
 const HOUR = 60 * 60 * 1000;
@@ -27,6 +27,12 @@ interface BaseParams {
   /** Loyalty (or other) discount off the price. */
   discountPennies?: number;
   pairedBookingId?: string | null;
+  /** Risk tier for public bookings (drives deposit). Omit for manual bookings. */
+  riskTier?: RiskTier | null;
+  /** Override computed deposit (manual bookings). */
+  depositOverridePennies?: number | null;
+  /** Set when rules mode auto-approved without tech review. */
+  autoApproved?: boolean;
 }
 
 function amounts(service: Service, addons: BookingAddon[] = [], discountPennies = 0) {
@@ -34,6 +40,23 @@ function amounts(service: Service, addons: BookingAddon[] = [], discountPennies 
   const price = Math.max(0, service.pricePennies + extras - discountPennies);
   const deposit = Math.min(depositFor(service), price);
   return { price, deposit, balance: Math.max(0, price - deposit) };
+}
+
+function resolveAmounts(
+  service: Service,
+  tech: Tech,
+  addons: BookingAddon[],
+  discountPennies: number,
+  riskTier?: RiskTier | null,
+  depositOverridePennies?: number | null,
+) {
+  const computed =
+    riskTier != null
+      ? bookingAmounts(service, tech, riskTier, addons, discountPennies)
+      : amounts(service, addons, discountPennies);
+  if (depositOverridePennies == null) return computed;
+  const deposit = Math.min(Math.max(0, depositOverridePennies), computed.price);
+  return { ...computed, deposit, balance: Math.max(0, computed.price - deposit) };
 }
 
 /**
@@ -73,6 +96,8 @@ export async function createConfirmedBooking({
   addons = [],
   discountPennies = 0,
   pairedBookingId = null,
+  riskTier = null,
+  autoApproved = false,
 }: BaseParams & {
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
@@ -80,7 +105,10 @@ export async function createConfirmedBooking({
 }): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const base = amounts(service, addons, discountPennies);
+  const base =
+    riskTier != null
+      ? resolveAmounts(service, tech, addons, discountPennies, riskTier)
+      : amounts(service, addons, discountPennies);
   const price = base.price;
   const deposit =
     depositOverridePennies !== null
@@ -106,6 +134,8 @@ export async function createConfirmedBooking({
     balanceToken: randomToken(),
     approvalToken: null,
     pairedBookingId,
+    riskTier,
+    autoApproved,
     isPatchTest,
     notes,
     lashMap: "",
@@ -159,10 +189,18 @@ export async function createPendingOnlineBooking({
   addons = [],
   discountPennies = 0,
   pairedBookingId = null,
+  riskTier = null,
+  autoApproved = false,
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const { price, deposit, balance } = amounts(service, addons, discountPennies);
+  const { price, deposit, balance } = resolveAmounts(
+    service,
+    tech,
+    addons,
+    discountPennies,
+    riskTier,
+  );
 
   return createBooking(sb, {
     techId: tech.id,
@@ -179,6 +217,8 @@ export async function createPendingOnlineBooking({
     balanceToken: randomToken(),
     approvalToken: null,
     pairedBookingId,
+    riskTier,
+    autoApproved,
     isPatchTest,
     notes,
     lashMap: "",
@@ -201,10 +241,17 @@ export async function createPendingApprovalBooking({
   addons = [],
   discountPennies = 0,
   pairedBookingId = null,
+  riskTier = null,
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
-  const { price, deposit, balance } = amounts(service, addons, discountPennies);
+  const { price, deposit, balance } = resolveAmounts(
+    service,
+    tech,
+    addons,
+    discountPennies,
+    riskTier,
+  );
 
   return createBooking(sb, {
     techId: tech.id,
@@ -221,6 +268,8 @@ export async function createPendingApprovalBooking({
     balanceToken: randomToken(),
     approvalToken: randomToken(),
     pairedBookingId,
+    riskTier,
+    autoApproved: false,
     isPatchTest,
     notes,
     lashMap: "",

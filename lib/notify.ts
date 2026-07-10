@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
+import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsConfigured } from "@/lib/sms";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
@@ -384,6 +385,7 @@ export async function sendReviewRequestEmail(sb: SupabaseClient, booking: Bookin
 export async function notifyTechOfBookingRequest(
   sb: SupabaseClient,
   booking: Booking,
+  ctx?: { completedVisits?: number },
 ): Promise<void> {
   const [client, service, tech] = await Promise.all([
     getClient(sb, booking.clientId),
@@ -395,11 +397,25 @@ export async function notifyTechOfBookingRequest(
   const when = fmtDateTime(booking.startIso);
   const approveUrl = `${APP_URL}/approve/${booking.approvalToken}`;
   const brand = tech.brandColor || "#db2777";
+  const riskLine = booking.riskTier
+    ? `<br/><br/>Client risk: <strong>${riskTierLabel(booking.riskTier)}</strong>`
+    : "";
+  const visits = ctx?.completedVisits ?? 0;
+  const signalParts: string[] = [];
+  if (visits > 0) signalParts.push(`${visits} completed visit${visits === 1 ? "" : "s"}`);
+  if (client.noShowCount > 0) signalParts.push(`${client.noShowCount} no-show${client.noShowCount === 1 ? "" : "s"}`);
+  if (client.warningNote?.trim()) signalParts.push("warning on file");
+  const signalLine = signalParts.length
+    ? `<br/>${signalParts.join(" · ")}`
+    : "<br/>New or unproven client";
   const html = brandedEmail({
     brand,
     businessName: tech.businessName || "Glow",
     heading: "New booking request",
-    bodyHtml: `<strong>${client.name}</strong> requested <strong>${service.name}</strong> on <strong>${when}</strong>.<br/><br/>Approve to send them a deposit link (or confirm straight away if no deposit applies).`,
+    bodyHtml:
+      `<strong>${client.name}</strong> requested <strong>${service.name}</strong> on <strong>${when}</strong>.` +
+      `${riskLine}${signalLine}<br/><br/>Deposit if approved: <strong>${gbp(booking.depositPennies)}</strong> of ${gbp(booking.pricePennies)}.` +
+      `<br/><br/>Approve to send them a deposit link (or confirm straight away if no deposit applies).`,
     buttonLabel: "Review & approve",
     buttonUrl: approveUrl,
   });
@@ -407,7 +423,7 @@ export async function notifyTechOfBookingRequest(
     to: tech.email,
     subject: `Booking request from ${client.name}`,
     html,
-    text: `${client.name} requested ${service.name} on ${when}. Approve: ${approveUrl}`,
+    text: `${client.name} requested ${service.name} on ${when}. Deposit: ${gbp(booking.depositPennies)}. Approve: ${approveUrl}`,
     idempotencyKey: `booking-request/${booking.id}`,
   });
 }

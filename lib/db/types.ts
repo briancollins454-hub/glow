@@ -9,6 +9,8 @@ export type BookingStatus =
   | "cancelled"
   | "no_show";
 
+export type ApprovalMode = "off" | "manual" | "rules";
+export type RiskTier = "low" | "medium" | "high";
 export type DepositType = "percent" | "fixed" | "none";
 export type DepositStatus = "none" | "paid" | "forfeited" | "refunded";
 export type BalanceStatus = "none" | "unpaid" | "paid" | "refunded";
@@ -77,6 +79,13 @@ export interface Tech {
   rebookNudgesEnabled: boolean;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
+  // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.
+  approvalMode: ApprovalMode;
+  // Deposit as % of total price for medium / high-risk clients (capped at 100).
+  depositTierMediumPct: number;
+  depositTierHighPct: number;
+  // Completed visits needed before a client counts as trusted (rules mode).
+  autoApproveMinVisits: number;
   // Offer captured at signup ("tester" = invited £1 first month; "" = standard).
   signupOffer: string;
   createdAt: string;
@@ -213,6 +222,10 @@ export interface Booking {
   approvalToken: string | null;
   /** Linked booking when patch test + treatment are booked together. */
   pairedBookingId: string | null;
+  /** Client risk at booking time (drives deposit tier). */
+  riskTier: RiskTier | null;
+  /** True when rules mode auto-approved without tech review. */
+  autoApproved: boolean;
   isPatchTest: boolean;
   notes: string;
   // Lash record for this appointment (free text, tech-facing)

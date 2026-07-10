@@ -2,12 +2,16 @@ import { fromZonedTime } from "date-fns-tz";
 import { TZ } from "@/lib/format";
 import type {
   Booking,
+  BookingAddon,
   Client,
   PatchTest,
   Service,
   ServiceCategory,
+  Tech,
   TimeOff,
   WorkingHour,
+  ApprovalMode,
+  RiskTier,
 } from "@/lib/db/types";
 
 const SLOT_STEP_MIN = 15;
@@ -23,6 +27,86 @@ export function depositFor(service: Service): number {
   if (service.depositType === "none") return 0;
   if (service.depositType === "fixed") return service.depositValue;
   return Math.round((service.pricePennies * service.depositValue) / 100);
+}
+
+export function effectiveApprovalMode(
+  tech: Pick<Tech, "approvalMode" | "requiresBookingApproval">,
+): ApprovalMode {
+  if (tech.approvalMode && tech.approvalMode !== "off") return tech.approvalMode;
+  return tech.requiresBookingApproval ? "manual" : "off";
+}
+
+export interface ClientRiskContext {
+  completedVisits: number;
+}
+
+/** Score a client for deposit tier and approval rules. */
+export function scoreClientRisk(
+  client: Client | null,
+  ctx: ClientRiskContext,
+  tech: Pick<Tech, "autoApproveMinVisits">,
+): RiskTier {
+  if (client?.warningNote?.trim()) return "high";
+  if ((client?.noShowCount ?? 0) >= 2) return "high";
+  if ((client?.noShowCount ?? 0) === 1) return "medium";
+  const trusted =
+    !!client?.isVip ||
+    ctx.completedVisits >= Math.max(1, tech.autoApproveMinVisits ?? 2);
+  if (trusted) return "low";
+  if (ctx.completedVisits === 0) return "medium";
+  return "medium";
+}
+
+export function depositForRisk(
+  service: Service,
+  tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct">,
+  riskTier: RiskTier,
+  pricePennies: number,
+): number {
+  const base = Math.min(depositFor(service), pricePennies);
+  if (riskTier === "low") return base;
+  if (riskTier === "medium") {
+    const tiered = Math.round((pricePennies * tech.depositTierMediumPct) / 100);
+    return Math.min(Math.max(base, tiered), pricePennies);
+  }
+  const tiered = Math.round((pricePennies * tech.depositTierHighPct) / 100);
+  return Math.min(Math.max(base, tiered), pricePennies);
+}
+
+export function bookingAmounts(
+  service: Service,
+  tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct">,
+  riskTier: RiskTier,
+  addons: BookingAddon[] = [],
+  discountPennies = 0,
+): { price: number; deposit: number; balance: number } {
+  const extras = addons.reduce((s, a) => s + a.pricePennies, 0);
+  const price = Math.max(0, service.pricePennies + extras - discountPennies);
+  const deposit = depositForRisk(service, tech, riskTier, price);
+  return { price, deposit, balance: Math.max(0, price - deposit) };
+}
+
+/** Whether a public booking needs tech approval before deposit or confirmation. */
+export function needsManualApproval(
+  tech: Pick<Tech, "approvalMode" | "requiresBookingApproval">,
+  riskTier: RiskTier,
+): boolean {
+  const mode = effectiveApprovalMode(tech);
+  if (mode === "off") return false;
+  if (mode === "manual") return true;
+  return riskTier !== "low";
+}
+
+export function riskTierLabel(tier: RiskTier): string {
+  if (tier === "low") return "Trusted";
+  if (tier === "medium") return "Standard";
+  return "Higher risk";
+}
+
+export function riskTierTone(tier: RiskTier): "green" | "amber" | "red" {
+  if (tier === "low") return "green";
+  if (tier === "medium") return "amber";
+  return "red";
 }
 
 // ---------------- Availability ----------------
