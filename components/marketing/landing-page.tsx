@@ -444,7 +444,8 @@ export default function LandingPage() {
             <ButtonLink
               href="/signup"
               size="lg"
-              className="min-h-12 bg-white text-brand-700 shadow-none hover:bg-white/90"
+              variant="outline"
+              className="min-h-12 border-transparent bg-white font-semibold text-brand-900 shadow-lg hover:bg-neutral-50 hover:text-brand-950"
             >
               Start for £9.50
             </ButtonLink>
