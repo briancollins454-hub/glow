@@ -15,7 +15,7 @@ export type ServiceNavGroup = {
 };
 
 const NAV = [
-  { id: "work", label: "Work" },
+  { id: "gallery", label: "Gallery" },
   { id: "reviews", label: "Reviews" },
   { id: "hours", label: "Hours" },
 ] as const;

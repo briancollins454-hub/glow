@@ -10,8 +10,6 @@ export function ReviewsSection({
   ratingAvg: number;
   ratingCount: number;
 }) {
-  if (reviews.length === 0) return null;
-
   return (
     <section id="reviews" className="scroll-mt-24 animate-fade-in">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -21,24 +19,31 @@ export function ReviewsSection({
             What clients say
           </h2>
         </div>
-        <div className="flex items-center gap-1.5 text-sm text-ink-soft">
-          <span className="flex items-center gap-0.5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Star
-                key={n}
-                className={`h-3.5 w-3.5 ${
-                  n <= Math.round(ratingAvg)
-                    ? "fill-amber-400 text-amber-400"
-                    : "text-ink-faint"
-                }`}
-              />
-            ))}
-          </span>
-          <span className="font-medium text-ink">{ratingAvg.toFixed(1)}</span>
-          <span className="text-ink-faint">({ratingCount})</span>
-        </div>
+        {reviews.length > 0 && (
+          <div className="flex items-center gap-1.5 text-sm text-ink-soft">
+            <span className="flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star
+                  key={n}
+                  className={`h-3.5 w-3.5 ${
+                    n <= Math.round(ratingAvg)
+                      ? "fill-amber-400 text-amber-400"
+                      : "text-ink-faint"
+                  }`}
+                />
+              ))}
+            </span>
+            <span className="font-medium text-ink">{ratingAvg.toFixed(1)}</span>
+            <span className="text-ink-faint">({ratingCount})</span>
+          </div>
+        )}
       </div>
 
+      {reviews.length === 0 ? (
+        <p className="rounded-2xl border border-edge bg-surface/80 px-5 py-8 text-center text-sm text-ink-soft">
+          Client reviews will show here once people leave feedback after their appointments.
+        </p>
+      ) : (
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-3">
         {reviews.map(({ review, clientLabel }) => (
           <article
@@ -76,6 +81,7 @@ export function ReviewsSection({
           </article>
         ))}
       </div>
+      )}
     </section>
   );
 }

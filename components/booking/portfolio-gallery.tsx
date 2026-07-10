@@ -9,18 +9,21 @@ type PortfolioItem = { id: string; url: string; kind: string };
 export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
   const [lightbox, setLightbox] = useState<PortfolioItem | null>(null);
 
-  if (items.length === 0) return null;
-
   return (
     <>
-      <section id="work" className="scroll-mt-24 animate-fade-in">
+      <section id="gallery" className="scroll-mt-24 animate-fade-in">
         <div className="mb-4 flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-brand-400" />
           <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-            Recent work
+            Gallery
           </h2>
         </div>
 
+        {items.length === 0 ? (
+          <p className="rounded-2xl border border-edge bg-surface/80 px-5 py-8 text-center text-sm text-ink-soft">
+            Before and after photos will appear here once they&apos;re added.
+          </p>
+        ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
           {items.map((p, i) => (
             <button
@@ -46,6 +49,7 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
             </button>
           ))}
         </div>
+        )}
       </section>
 
       {lightbox && (
