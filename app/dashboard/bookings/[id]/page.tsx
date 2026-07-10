@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
-import { ArrowLeft, CheckCircle2, Banknote, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Banknote, Trash2, Beaker } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { getBooking, getClient, getService, listServices } from "@/lib/db/queries";
+import {
+  getBooking,
+  getClient,
+  getService,
+  listProductBatches,
+  listProducts,
+  listServices,
+  productUsagesForClient,
+} from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -12,28 +20,46 @@ import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
 import { statusBadge } from "@/components/dashboard/status";
 import { gbp, TZ } from "@/lib/format";
-import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction } from "../../actions";
+import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
 
 export default async function EditBookingPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; err?: string }>;
+  searchParams: Promise<{ saved?: string; err?: string; usage?: string }>;
 }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
   const { id } = await params;
-  const { saved, err } = await searchParams;
+  const { saved, err, usage } = await searchParams;
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
-  const [client, service, services] = await Promise.all([
+  const [client, service, services, products, batches, usages] = await Promise.all([
     getClient(sb, booking.clientId),
     getService(sb, booking.serviceId),
     listServices(sb, tech.id, { activeOnly: true }),
+    listProducts(sb, tech.id),
+    listProductBatches(sb, tech.id),
+    productUsagesForClient(sb, tech.id, booking.clientId),
   ]);
+
+  const productById = new Map(products.map((p) => [p.id, p]));
+  const activeBatches = batches.filter((b) => !b.retiredAtIso);
+  const batchOptions = activeBatches
+    .map((batch) => {
+      const product = productById.get(batch.productId);
+      if (!product || product.categoryId !== service?.categoryId) return null;
+      const lot = batch.lotNumber ? ` · Lot ${batch.lotNumber}` : "";
+      return {
+        batch,
+        label: `${product.name}${product.brand ? ` (${product.brand})` : ""}${lot}`,
+      };
+    })
+    .filter((o): o is NonNullable<typeof o> => o != null);
+  const bookingUsages = usages.filter((u) => u.bookingId === booking.id);
 
   // Prefill the picker with the booking's current local date/time.
   const currentLocal = formatInTimeZone(new Date(booking.startIso), TZ, "yyyy-MM-dd'T'HH:mm");
@@ -59,6 +85,11 @@ export default async function EditBookingPage({
       {err && (
         <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
           Please pick a service, date and time.
+        </div>
+      )}
+      {usage && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" /> Product batch logged for this appointment.
         </div>
       )}
 
@@ -182,6 +213,48 @@ export default async function EditBookingPage({
           )}
         </CardContent>
       </Card>
+
+      {batchOptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Beaker className="h-4 w-4 text-brand-400" /> Products used
+            </CardTitle>
+            <CardDescription>
+              Log which batch was used on this client for traceability if they report a reaction later.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {bookingUsages.length > 0 && (
+              <ul className="space-y-2 text-sm">
+                {bookingUsages.map((u) => {
+                  const batch = batches.find((b) => b.id === u.batchId);
+                  const product = batch ? productById.get(batch.productId) : null;
+                  return (
+                    <li key={u.id} className="rounded-xl border border-edge bg-cream px-4 py-2.5">
+                      {product?.name ?? "Product"}
+                      {batch?.lotNumber && <span className="text-ink-faint"> · Lot {batch.lotNumber}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <form action={logBookingProductUsageAction} className="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="bookingId" value={booking.id} />
+              <div className="min-w-48 flex-1">
+                <Label>Batch</Label>
+                <Select name="batchId" required defaultValue="">
+                  <option value="" disabled>Choose batch</option>
+                  {batchOptions.map((o) => (
+                    <option key={o.batch.id} value={o.batch.id}>{o.label}</option>
+                  ))}
+                </Select>
+              </div>
+              <SubmitButton variant="secondary" pendingLabel="Logging…">Log product</SubmitButton>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

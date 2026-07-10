@@ -13,6 +13,7 @@ import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
 import { ProductChangePanel } from "@/components/dashboard/product-change-panel";
+import { ProductsBatchesPanel } from "@/components/dashboard/products-batches-panel";
 import { RetestQueue } from "@/components/dashboard/retest-queue";
 import {
   addCategoryAction,
@@ -23,7 +24,8 @@ import {
   addAddonAction,
   deleteAddonAction,
 } from "../actions";
-import type { Booking, Client, ProductChangeRetest, ServiceAddon, ServiceCategory, Service } from "@/lib/db/types";
+import type { Booking, Client, Product, ProductChangeRetest, ServiceAddon, ServiceCategory, Service } from "@/lib/db/types";
+import type { batchSummaries } from "@/lib/product-batches";
 
 type ServicesData = {
   categories: ServiceCategory[];
@@ -33,6 +35,8 @@ type ServicesData = {
   retests: ProductChangeRetest[];
   clients: Client[];
   bookings: Booking[];
+  products: Product[];
+  batchSummaries: Awaited<ReturnType<typeof batchSummaries>>;
 };
 
 export default function ServicesPage() {
@@ -51,6 +55,8 @@ function ServicesView({
   retests,
   clients,
   bookings,
+  products,
+  batchSummaries: batchSummary,
 }: ServicesData) {
   const searchParams = useSearchParams();
   const open = searchParams.get("open") ?? undefined;
@@ -58,6 +64,8 @@ function ServicesView({
   const retestErr = searchParams.get("retesterr");
   const affected = searchParams.get("affected");
   const notified = searchParams.get("notified");
+  const productDone = searchParams.get("product");
+  const batchDone = searchParams.get("batch");
   const catById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
   return (
@@ -79,9 +87,29 @@ function ServicesView({
       {retestErr && (
         <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{retestErr}</div>
       )}
+      {productDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Product added to your catalog.</span>
+        </div>
+      )}
+      {batchDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>New batch opened. You can link it when recording patch tests or completing appointments.</span>
+        </div>
+      )}
 
       {categories.length > 0 && (
-        <ProductChangePanel categories={categories} services={services} />
+        <ProductChangePanel categories={categories} services={services} products={products} />
+      )}
+
+      {categories.length > 0 && (
+        <ProductsBatchesPanel
+          categories={categories}
+          products={products}
+          batchSummaries={batchSummary}
+        />
       )}
 
       <RetestQueue retests={retests} clients={clients} categories={categories} bookings={bookings} />

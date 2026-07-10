@@ -31,6 +31,13 @@ export type ProductChangeInput = {
   categoryIds: string[];
   serviceIds: string[];
   note?: string;
+  /** Optional new batch opened with this product change. */
+  newBatch?: {
+    productId: string;
+    lotNumber?: string;
+    openedAtIso?: string;
+    expiresAtIso?: string;
+  };
 };
 
 export type ProductChangeResult = {
@@ -164,8 +171,23 @@ export async function executeProductChange(
     techId: tech.id,
     note: input.note?.trim() ?? "",
     scopeSummary: summary,
+    newBatchId: null,
     createdAt: nowIso,
   });
+
+  let newBatchId: string | null = null;
+  if (input.newBatch?.productId) {
+    const { openProductBatch } = await import("@/lib/product-batches");
+    const batch = await openProductBatch(sb, tech.id, {
+      productId: input.newBatch.productId,
+      lotNumber: input.newBatch.lotNumber,
+      openedAtIso: input.newBatch.openedAtIso,
+      expiresAtIso: input.newBatch.expiresAtIso,
+      changeEventId: eventId,
+    });
+    newBatchId = batch.id;
+    await sb.from("product_change_events").update({ newBatchId }).eq("id", eventId);
+  }
 
   for (const categoryId of categoryIds) {
     await sb.from("product_change_event_categories").insert({
