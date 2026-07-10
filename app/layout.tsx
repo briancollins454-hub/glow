@@ -17,33 +17,33 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: "Glow - booking for beauty techs",
+    default: "Booking system for lash, nail and brow techs UK | Glow",
     template: "%s | Glow",
   },
   description:
-    "A fee-free, branded booking platform for self-employed beauty techs. Deposits, no-show protection, patch-test tracking and infill timing rules built in.",
+    "UK booking system for self-employed lash, nail and brow techs. Patch test gating, infill rules, deposits via Stripe to your bank, 0% commission. £19/mo flat.",
   keywords: [
-    "beauty booking system",
-    "lash tech booking",
-    "nail tech booking",
+    "booking system lash tech UK",
+    "nail tech booking UK",
     "brow tech booking",
-    "booking deposits",
-    "no-show protection",
-    "beauty techs",
+    "patch test booking system",
+    "beauty tech deposits",
+    "no commission booking",
+    "lash tech insurance patch test",
   ],
   openGraph: {
     type: "website",
     siteName: "Glow",
-    title: "Glow - booking for beauty techs",
+    title: "Booking system for lash, nail and brow techs UK | Glow",
     description:
-      "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
+      "Patch test gating, infill rules, deposits straight to your bank. Built for UK beauty techs. 0% commission, £19/mo flat.",
     url: APP_URL,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Glow - booking for beauty techs",
+    title: "Booking system for lash, nail and brow techs UK | Glow",
     description:
-      "Your booking page, your rules. Deposits, patch tests, infill timing and reminders built in. 0% commission.",
+      "Patch test gating, infill rules, deposits straight to your bank. Built for UK beauty techs. 0% commission, £19/mo flat.",
   },
   robots: { index: true, follow: true },
   // iPhone "Add to Home Screen": full-screen app experience with dark status bar.
