@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { ApprovalMode } from "@/lib/db/types";
 import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
 import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
@@ -133,6 +134,10 @@ export async function updateSettingsAction(formData: FormData) {
     handle = tech.handle;
   }
 
+  const approvalRaw = get("approvalMode");
+  const approvalMode: ApprovalMode =
+    approvalRaw === "manual" || approvalRaw === "rules" ? approvalRaw : "off";
+
   await updateTech(sb, tech.id, {
     businessName: get("businessName") || tech.businessName,
     name: get("name"),
@@ -149,7 +154,11 @@ export async function updateSettingsAction(formData: FormData) {
     loyaltyDiscountPct: clampInt(get("loyaltyDiscountPct"), 0, 50, tech.loyaltyDiscountPct),
     noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
-    requiresBookingApproval: formData.get("requiresBookingApproval") === "on",
+    approvalMode,
+    requiresBookingApproval: approvalMode === "manual",
+    autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),
+    depositTierMediumPct: clampInt(get("depositTierMediumPct"), 0, 100, tech.depositTierMediumPct ?? 50),
+    depositTierHighPct: clampInt(get("depositTierHighPct"), 0, 100, tech.depositTierHighPct ?? 100),
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
@@ -1258,6 +1267,8 @@ export async function importBookingsAction(formData: FormData) {
       balancePennies: isPast ? 0 : pricePennies,
       balanceStatus: isPast ? "paid" : "unpaid",
       balanceToken: newToken(),
+      riskTier: null,
+      autoApproved: false,
       isPatchTest: false,
       notes: "Imported",
       lashMap: "",

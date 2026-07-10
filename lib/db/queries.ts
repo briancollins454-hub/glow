@@ -103,6 +103,10 @@ type ManagedTechField =
   | "googleConnectedAt"
   | "rebookNudgesEnabled"
   | "requiresBookingApproval"
+  | "approvalMode"
+  | "depositTierMediumPct"
+  | "depositTierHighPct"
+  | "autoApproveMinVisits"
   | "signupOffer";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
