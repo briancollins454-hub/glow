@@ -1,11 +1,13 @@
 "use client";
 
-import { Download, PoundSterling, CheckCircle2, XCircle, ShieldX } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Download, FileText, PoundSterling, CheckCircle2, XCircle, ShieldX } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { gbp, TZ } from "@/lib/format";
+import { selectableTaxYears } from "@/lib/tax-year";
 import type { ReportSummary } from "@/lib/db/queries";
 
 export default function ReportsPage() {
@@ -26,6 +28,8 @@ function ReportsView({
   byMonth: months,
   byService: svcRows,
 }: ReportSummary) {
+  const taxYears = useMemo(() => selectableTaxYears(), []);
+  const [taxYear, setTaxYear] = useState(() => taxYears[0]!.startYear);
   const maxService = Math.max(1, ...svcRows.map(([, v]) => v));
 
   return (
@@ -33,10 +37,41 @@ function ReportsView({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold">Tax &amp; income</h1>
-          <p className="text-sm text-ink-soft">A simple view for your Self Assessment. Export the raw records as CSV.</p>
+          <p className="text-sm text-ink-soft">
+            A simple view for your Self Assessment. Download a tax-year PDF pack or export raw CSV.
+          </p>
         </div>
-        <ButtonLink href="/api/reports/export" variant="outline"><Download className="h-4 w-4" /> Export CSV</ButtonLink>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm text-ink-soft">
+            Tax year{" "}
+            <select
+              value={taxYear}
+              onChange={(e) => setTaxYear(parseInt(e.target.value, 10))}
+              className="ml-1 rounded-lg border border-edge bg-cream px-2 py-1.5 text-sm text-ink"
+            >
+              {taxYears.map((y) => (
+                <option key={y.startYear} value={y.startYear}>
+                  {y.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <ButtonLink href={`/api/reports/tax-pack?year=${taxYear}`} variant="secondary">
+            <FileText className="h-4 w-4" /> Tax pack PDF
+          </ButtonLink>
+          <ButtonLink href="/api/reports/export" variant="outline">
+            <Download className="h-4 w-4" /> Export CSV
+          </ButtonLink>
+        </div>
       </div>
+
+      <Card className="border-brand-500/20 bg-brand-500/5">
+        <CardContent className="p-4 text-sm text-ink-soft">
+          <strong className="text-ink">Self Assessment tax pack</strong> — PDF summary for the UK tax year
+          (6 April – 5 April): turnover, monthly breakdown, income by service, and every payment transaction.
+          Not tax advice — check against your Stripe payouts and keep expense receipts.
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={PoundSterling} tone="green" label="Total income" value={gbp(totalIncome)} />
