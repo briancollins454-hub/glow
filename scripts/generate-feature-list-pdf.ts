@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { buildFeatureListPdf, featureListFilename } from "../lib/feature-list-pdf";
+import { buildFeatureGuidePdf, featureGuideFilename } from "../lib/feature-list-pdf";
 
 async function main() {
   const generatedAt = new Date();
-  const pdf = await buildFeatureListPdf(generatedAt);
-  const filename = featureListFilename(generatedAt);
+  const pdf = await buildFeatureGuidePdf(generatedAt);
+  const filename = featureGuideFilename(generatedAt);
   const outDir = path.join(process.cwd(), "brand");
   await mkdir(outDir, { recursive: true });
   const outPath = path.join(outDir, filename);

@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { CAMPAIGN_THEMES, CHAPTERS, POSITIONING } from "./feature-list-content";
 
 type PdfCtx = {
   doc: PDFKit.PDFDocument;
@@ -6,333 +7,163 @@ type PdfCtx = {
   right: number;
   contentWidth: number;
   y: number;
-};
-
-type Section = {
-  title: string;
-  intro?: string;
-  bullets?: string[];
-  table?: { headers: string[]; rows: string[][] };
+  pageNum: number;
 };
 
 const BRAND = "#db2777";
 const INK = "#1f1726";
 const SOFT = "#564a5e";
 const FAINT = "#8a7f91";
-
-const SECTIONS: Section[] = [
-  {
-    title: "Platform & business model",
-    bullets: [
-      "UK-focused booking platform for solo lash, nail and brow techs",
-      "Flat pricing: £9.50 first month, then £19/mo (or £180/year); 0% commission on client payments",
-      "No marketplace — clients book your branded page, not a directory",
-      "Stripe Connect — deposits and card payments go straight to the tech's bank",
-      "Subscription billing via Stripe (monthly/annual, tester £1 offer, referral credits)",
-      "Referral programme — refer a tech, get a free month when they subscribe",
-      "Plan gating — live online bookings require an active plan/trial",
-      "GDPR data export and account closure request from Settings",
-      "Owner/admin panel — accounts, MRR, testers, closure requests, site traffic analytics",
-      "Feedback / feature requests page and in-app Help guide",
-      "Demo studio (Bella Rose) with reset option",
-    ],
-  },
-  {
-    title: "Public booking page (/{handle})",
-    bullets: [
-      "Branded mini-site: business name, bio, location, brand colour",
-      "Cover banner, profile photo, service gallery photos, portfolio gallery",
-      "Services grouped by category; optional add-ons at checkout",
-      "Opening hours, approved reviews, Instagram/TikTok links, sticky Book now CTA",
-      "Real-time availability slots (15-min steps; respects hours, time off, existing bookings)",
-      "Consultation form at checkout (custom questions: text, long text, yes/no)",
-      "Patch test gating — blocks booking if no valid pass",
-      "Infill rules — returning clients only, within your window",
-      "Blocked clients cannot book online",
-      "Booking approval flow — approve/decline before deposit (manual or rules-based)",
-      "Risk-tiered deposits — low/medium/high based on client history",
-      "Paired patch test + treatment — book test and treatment in one flow",
-      "Loyalty discount applied automatically for repeat/VIP clients",
-      "Waitlist — join when fully booked; emailed when a slot opens",
-      "Deposit payment via Stripe; balance pay link before the appointment",
-      "Booking confirmation and approval-pending pages",
-      "DM quote deep link — ?service=…&quote=… pre-fills from a quote link",
-      "Privacy-friendly page view tracking (no cookies)",
-    ],
-  },
-  {
-    title: "Dashboard areas",
-    table: {
-      headers: ["Area", "What it does"],
-      rows: [
-        ["Home", "Today's overview, income, outstanding balances, insights, onboarding, running late"],
-        ["Calendar", "All bookings, status changes, manual bookings, running late"],
-        ["Messages", "Client messaging threads + DM quote panel"],
-        ["Clients", "Profiles, patch tests, photos, reactions, evidence pack"],
-        ["Services", "Categories, services, add-ons, products/batches, product change, retest queue, price rise"],
-        ["Opening hours", "Weekly schedule + time off"],
-        ["Forms", "Consultation questions"],
-        ["Reminders", "Scheduled/sent reminders, reaction check-ins, infill nudges, pre-care"],
-        ["Reviews", "Approve/reject; show on public page"],
-        ["Income", "Tax & income reports, CSV export, tax pack PDF"],
-        ["Get paid", "Stripe Connect onboarding"],
-        ["My plan", "Subscribe, manage billing, referral link"],
-        ["Move to Glow", "CSV import (services, clients, appointments)"],
-        ["Settings", "Branding, protection policy, Google Calendar, iCal feed, loyalty, pre-care toggle"],
-        ["Help", "How-to guide"],
-        ["Owner", "Platform admin (owner only)"],
-      ],
-    },
-  },
-  {
-    title: "Booking & diary",
-    bullets: [
-      "Online bookings from public page; manual bookings from dashboard",
-      "Statuses: pending approval, pending, confirmed, completed, cancelled, no-show",
-      "Deposit forfeiture on late cancel / no-show (configurable cancellation window)",
-      "No-show counter on client profile; balance tracking (unpaid/paid/refunded/forfeited)",
-      "Booking detail page with full actions",
-      "Google Calendar sync — create/update/cancel appointments automatically",
-      "iCal feed — subscribe in Apple Calendar etc.",
-      "Business insights on home (quiet week, outstanding balances, no-show risk, top service)",
-    ],
-  },
-  {
-    title: "Booking rules engine",
-    bullets: [
-      "Patch test validity per category (expiry days, minimum lead time before appointment)",
-      "Patch test pass/fail recording with expiry dates",
-      "Infill max gap days — must have completed visit within window",
-      "Full set vs infill linking",
-      "Blacklist / warning notes — block or flag risky clients",
-      "VIP flag — trusted client + loyalty always on",
-      "Booking approval modes — off, manual, or rules-based",
-      "Auto-approve returning clients after N visits",
-      "Risk tiers — low / medium / high with tiered deposit %",
-    ],
-  },
-  {
-    title: "Payments & protection",
-    bullets: [
-      "Per-service deposits — % or fixed or none",
-      "Risk-based deposit tiers (medium/high % configurable)",
-      "Stripe Connect deposits and balance payments",
-      "Pay balance link (tokenised URL)",
-      "Refund logic on cancellation (inside/outside window)",
-      "No-show deposit forfeit; payment history per booking",
-      "Income reporting — total, deposits, balances, forfeited, by month, by service",
-    ],
-  },
-  {
-    title: "Automations & reminders (cron every 15 min)",
-    bullets: [
-      "Booking confirmation — on book",
-      "24-hour reminder — day before (email + SMS when configured)",
-      "Balance due reminder — before appointment",
-      "Aftercare email — on mark completed",
-      "Review request — on mark completed",
-      "Rebooking nudge — 30+ days since last visit, no upcoming booking",
-      "Waitlist alert — when a slot opens from cancellation",
-      "Patch test re-test notification — after product change",
-      "48h reaction check-in — after patch test / chemical treatment",
-      "Infill deadline nudge — before infill window closes",
-      "Pre-care confirmation — 48h before appointment",
-      "Running late cascade — one-tap notify remaining clients today",
-      "Reminders preview page with Run due now button",
-      "Marketing opt-out (PECR) — rebooking emails respect unsubscribe",
-      "Pre-care toggle in Settings",
-    ],
-  },
-  {
-    title: "Client management",
-    bullets: [
-      "Client profiles — contact details, notes, visit history",
-      "Patch tests — pass/fail, expiry, category, product batch used",
-      "Client photos — upload with consent (before/after etc.)",
-      "Consultation form responses stored on profile",
-      "Adverse reactions — severity, symptoms, linked batch/booking",
-      "Reaction check-in responses from client link",
-      "VIP / blocked / no-show badges; private warning notes",
-      "Loyalty discount — after N visits (VIP always qualifies)",
-      "Client messaging — private thread via /m/{token} (no client app needed)",
-      "Evidence pack PDF — full compliance export per client",
-    ],
-  },
-  {
-    title: "Compliance & ops features (1–12)",
-    table: {
-      headers: ["#", "Feature", "Summary"],
-      rows: [
-        ["1", "Product-change re-flag", "Log product switch → invalidate patch tests → retest queue + notifications"],
-        ["2", "Risk approval + tiered deposits", "Rules-based approval; deposit % scales with client risk"],
-        ["3", "Paired patch test bookings", "Book patch test + treatment together in one flow"],
-        ["4", "Product batches + reaction tracing", "Products, lot numbers, batch usage, adverse reaction logging"],
-        ["5", "48h reaction check-in", "Auto email/SMS; client replies via /checkin/{token}"],
-        ["6", "Evidence pack PDF", "One-click compliance PDF per client"],
-        ["7", "Infill deadline nudge", "Reminds clients to book infill before window closes"],
-        ["8", "Running late cascade", "One tap → email + SMS all remaining clients today"],
-        ["9", "Pre-care confirmations", "Prep instructions 48h before; client confirms via /precare/{token}"],
-        ["10", "Self Assessment tax pack", "UK tax year PDF: turnover, breakdowns, transactions"],
-        ["11", "Price rise assistant", "Preview % or £ increase, copy email/SMS/social, bulk apply"],
-        ["12", "DM quote links", "Generate quote → copy IG/WhatsApp text → client opens /q/{token} → Book now"],
-      ],
-    },
-  },
-  {
-    title: "Messaging & social selling",
-    bullets: [
-      "Inbox with unread badge; per-client conversation thread",
-      "DM quote panel — service, add-ons, price, deposit, note, copy + link",
-      "Public quote page (/q/{token}) with Book now CTA",
-    ],
-  },
-  {
-    title: "Reviews & reputation",
-    bullets: [
-      "Review requests after completed appointments",
-      "Star ratings from clients; approve before publish",
-      "Show on booking page toggle; reviews displayed on public page",
-    ],
-  },
-  {
-    title: "Tax, reports & imports",
-    bullets: [
-      "Income dashboard — totals, completed, no-shows, forfeited",
-      "Monthly and per-service breakdown; CSV export of payment data",
-      "Tax pack PDF by UK tax year (6 Apr – 5 Apr)",
-      "CSV import — services, clients, appointments (Square, Booksy, Timely, Fresha)",
-      "Import preview before saving; platform-specific export guides in dashboard",
-    ],
-  },
-  {
-    title: "Settings & account",
-    bullets: [
-      "Business profile, handle, bio, location, brand colour, Instagram, TikTok",
-      "Default deposit %, cancellation window, no-show fee %",
-      "Loyalty threshold and discount %",
-      "Booking approval mode and risk deposit tiers",
-      "Infill nudges on/off; pre-care confirmations on/off",
-      "Google Calendar connect/disconnect; iCal calendar feed URL",
-      "Password change; GDPR full account export; account closure request",
-      "Page branding photo uploads",
-    ],
-  },
-  {
-    title: "Auth & onboarding",
-    bullets: [
-      "Sign up / log in (Supabase Auth); password reset flow",
-      "Onboarding checklist on home (services → hours → go live → payments)",
-      "Signup offers (50% off, tester £1); referral attribution on signup",
-    ],
-  },
-  {
-    title: "Technical platform",
-    bullets: [
-      "Next.js App Router, TypeScript, Tailwind",
-      "Supabase (Postgres, Auth, Storage, RLS)",
-      "Stripe (subscriptions + Connect); Resend (email) + Twilio (SMS)",
-      "Vercel Cron for reminder scheduler",
-      "Rate limiting, monitoring hooks; 25 SQL migrations (0001–0025)",
-      "Mobile-first dashboard (bottom nav + sidebar)",
-    ],
-  },
-];
+const ACCENT_BG = "#fdf2f8";
 
 function ensureSpace(ctx: PdfCtx, needed: number): void {
-  const bottom = ctx.doc.page.height - 60;
+  const bottom = ctx.doc.page.height - 55;
   if (ctx.y + needed > bottom) {
     ctx.doc.addPage();
+    ctx.pageNum++;
     ctx.y = 50;
+    pageFooter(ctx);
   }
 }
 
-function sectionTitle(ctx: PdfCtx, title: string): void {
-  ensureSpace(ctx, 40);
-  ctx.y += 6;
-  ctx.doc.font("Helvetica-Bold").fontSize(12).fillColor(INK).text(title, ctx.left, ctx.y);
-  ctx.y += 18;
-  ctx.doc.moveTo(ctx.left, ctx.y).lineTo(ctx.right, ctx.y).strokeColor("#e8e0e8").stroke();
-  ctx.y += 10;
+function pageFooter(ctx: PdfCtx): void {
+  const y = ctx.doc.page.height - 40;
+  ctx.doc
+    .font("Helvetica")
+    .fontSize(7.5)
+    .fillColor(FAINT)
+    .text(`Glow Feature Guide · glow-uk.com · Page ${ctx.pageNum}`, ctx.left, y, {
+      width: ctx.contentWidth,
+      align: "center",
+    });
 }
 
-function bodyText(ctx: PdfCtx, text: string, opts: { bold?: boolean; size?: number; color?: string; gap?: number } = {}): void {
-  ensureSpace(ctx, 20);
+function bodyText(
+  ctx: PdfCtx,
+  text: string,
+  opts: { bold?: boolean; size?: number; color?: string; gap?: number; indent?: number } = {},
+): void {
+  ensureSpace(ctx, 18);
+  const x = ctx.left + (opts.indent ?? 0);
+  const w = ctx.contentWidth - (opts.indent ?? 0);
   ctx.doc
     .font(opts.bold ? "Helvetica-Bold" : "Helvetica")
     .fontSize(opts.size ?? 9.5)
     .fillColor(opts.color ?? SOFT)
-    .text(text, ctx.left, ctx.y, { width: ctx.contentWidth });
-  ctx.y += ctx.doc.heightOfString(text, { width: ctx.contentWidth }) + (opts.gap ?? 5);
+    .text(text, x, ctx.y, { width: w });
+  ctx.y += ctx.doc.heightOfString(text, { width: w }) + (opts.gap ?? 5);
 }
 
-function bulletList(ctx: PdfCtx, items: string[]): void {
+function labelValue(ctx: PdfCtx, label: string, value: string): void {
+  ensureSpace(ctx, 24);
+  ctx.doc.font("Helvetica-Bold").fontSize(8).fillColor(BRAND).text(label.toUpperCase(), ctx.left, ctx.y);
+  ctx.y += 11;
+  bodyText(ctx, value, { gap: 8 });
+}
+
+function bulletList(ctx: PdfCtx, items: string[], opts: { indent?: number; size?: number } = {}): void {
+  const indent = opts.indent ?? 0;
+  const textX = ctx.left + indent + 10;
+  const textWidth = ctx.contentWidth - indent - 10;
   for (const item of items) {
-    ensureSpace(ctx, 18);
-    const bulletX = ctx.left;
-    const textX = ctx.left + 12;
-    const textWidth = ctx.contentWidth - 12;
-    ctx.doc.font("Helvetica").fontSize(9.5).fillColor(SOFT).text("•", bulletX, ctx.y);
+    ensureSpace(ctx, 16);
+    ctx.doc
+      .font("Helvetica")
+      .fontSize(opts.size ?? 9)
+      .fillColor(SOFT)
+      .text("•", ctx.left + indent, ctx.y);
     ctx.doc.text(item, textX, ctx.y, { width: textWidth });
-    ctx.y += ctx.doc.heightOfString(item, { width: textWidth }) + 4;
+    ctx.y += ctx.doc.heightOfString(item, { width: textWidth }) + 3;
   }
   ctx.y += 4;
 }
 
-function simpleTable(ctx: PdfCtx, headers: string[], rows: string[][]): void {
-  const colCount = headers.length;
-  const colWidths =
-    colCount === 2
-      ? [ctx.contentWidth * 0.28, ctx.contentWidth * 0.72]
-      : [ctx.contentWidth * 0.06, ctx.contentWidth * 0.28, ctx.contentWidth * 0.66];
-
-  const rowHeight = (cells: string[], bold = false) => {
-    ctx.doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(8.5);
-    let maxH = 14;
-    for (let i = 0; i < cells.length; i++) {
-      const h = ctx.doc.heightOfString(cells[i] ?? "", { width: colWidths[i]! - 6 });
-      maxH = Math.max(maxH, h + 6);
-    }
-    return maxH;
-  };
-
-  ensureSpace(ctx, rowHeight(headers, true) + 8);
-  let x = ctx.left;
-  for (let i = 0; i < headers.length; i++) {
-    ctx.doc
-      .font("Helvetica-Bold")
-      .fontSize(8.5)
-      .fillColor(INK)
-      .text(headers[i]!, x + 3, ctx.y + 3, { width: colWidths[i]! - 6 });
-    x += colWidths[i]!;
-  }
-  ctx.y += rowHeight(headers, true);
-  ctx.doc.moveTo(ctx.left, ctx.y).lineTo(ctx.right, ctx.y).strokeColor("#e8e0e8").stroke();
-  ctx.y += 2;
-
-  for (const row of rows) {
-    const h = rowHeight(row);
-    ensureSpace(ctx, h + 4);
-    x = ctx.left;
-    for (let i = 0; i < row.length; i++) {
-      ctx.doc
-        .font("Helvetica")
-        .fontSize(8.5)
-        .fillColor(SOFT)
-        .text(row[i] ?? "", x + 3, ctx.y + 3, { width: colWidths[i]! - 6 });
-      x += colWidths[i]!;
-    }
-    ctx.y += h;
-    ctx.doc.moveTo(ctx.left, ctx.y).lineTo(ctx.right, ctx.y).strokeColor("#f0eaf0").stroke();
-  }
-  ctx.y += 8;
+function chapterDivider(ctx: PdfCtx, part: number, title: string, subtitle: string): void {
+  ctx.doc.addPage();
+  ctx.pageNum++;
+  ctx.y = 80;
+  ctx.doc.font("Helvetica").fontSize(10).fillColor(BRAND).text(`PART ${part}`, ctx.left, ctx.y);
+  ctx.y += 20;
+  ctx.doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text(title, ctx.left, ctx.y, { width: ctx.contentWidth });
+  ctx.y += ctx.doc.heightOfString(title, { width: ctx.contentWidth }) + 8;
+  ctx.doc.font("Helvetica").fontSize(12).fillColor(SOFT).text(subtitle, ctx.left, ctx.y, { width: ctx.contentWidth });
+  ctx.y += 36;
+  pageFooter(ctx);
 }
 
+function featureCard(ctx: PdfCtx, index: number, total: number): void {
+  // placeholder - filled by caller via closure pattern in build
+  void index;
+  void total;
+}
+
+function renderFeature(ctx: PdfCtx, num: number, total: number, f: (typeof CHAPTERS)[0]["features"][0]): void {
+  ensureSpace(ctx, 120);
+  ctx.y += 4;
+
+  // Card header band
+  const bandH = 52;
+  ensureSpace(ctx, bandH + 20);
+  ctx.doc.rect(ctx.left, ctx.y, ctx.contentWidth, bandH).fill(ACCENT_BG);
+  ctx.doc
+    .font("Helvetica")
+    .fontSize(8)
+    .fillColor(BRAND)
+    .text(`FEATURE ${num} OF ${total}`, ctx.left + 10, ctx.y + 8);
+  ctx.doc
+    .font("Helvetica-Bold")
+    .fontSize(13)
+    .fillColor(INK)
+    .text(f.name, ctx.left + 10, ctx.y + 20, { width: ctx.contentWidth - 20 });
+  ctx.doc
+    .font("Helvetica-BoldOblique")
+    .fontSize(10)
+    .fillColor(BRAND)
+    .text(`"${f.headline}"`, ctx.left + 10, ctx.y + 36, { width: ctx.contentWidth - 20 });
+  ctx.y += bandH + 12;
+
+  labelValue(ctx, "Poster / reel headline", f.headline);
+  labelValue(ctx, "One-line caption", f.tagline);
+  labelValue(ctx, "The problem", f.pain);
+  labelValue(ctx, "What it is", f.whatItIs);
+  labelValue(ctx, "How it works", f.howItWorks);
+
+  ensureSpace(ctx, 20);
+  ctx.doc.font("Helvetica-Bold").fontSize(8).fillColor(BRAND).text("KEY BENEFITS", ctx.left, ctx.y);
+  ctx.y += 11;
+  bulletList(ctx, f.benefits);
+
+  ensureSpace(ctx, 20);
+  ctx.doc.font("Helvetica-Bold").fontSize(8).fillColor(BRAND).text("MARKETING HOOKS — copy/paste for posts & scripts", ctx.left, ctx.y);
+  ctx.y += 11;
+  bulletList(ctx, f.marketingHooks, { size: 9 });
+
+  labelValue(ctx, "Where in Glow", f.whereInApp);
+  if (f.competitorAngle) {
+    labelValue(ctx, "Vs competitors", f.competitorAngle);
+  }
+
+  ctx.y += 6;
+  ctx.doc.moveTo(ctx.left, ctx.y).lineTo(ctx.right, ctx.y).strokeColor("#e8e0e8").stroke();
+  ctx.y += 14;
+}
+
+export const FEATURE_GUIDE_BASENAME = "Glow-Feature-Guide";
+
+export function featureGuideFilename(generatedAt = new Date()): string {
+  return `${FEATURE_GUIDE_BASENAME}-${generatedAt.toISOString().slice(0, 10)}.pdf`;
+}
+
+/** @deprecated Use featureGuideFilename */
 export function featureListFilename(generatedAt = new Date()): string {
-  const date = generatedAt.toISOString().slice(0, 10);
-  return `Glow-Feature-List-${date}.pdf`;
+  return featureGuideFilename(generatedAt);
 }
 
 export function buildFeatureListPdf(generatedAt = new Date()): Promise<Buffer> {
+  return buildFeatureGuidePdf(generatedAt);
+}
+
+export function buildFeatureGuidePdf(generatedAt = new Date()): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });
     const chunks: Buffer[] = [];
@@ -343,41 +174,156 @@ export function buildFeatureListPdf(generatedAt = new Date()): Promise<Buffer> {
     const left = 50;
     const right = doc.page.width - 50;
     const contentWidth = right - left;
-    const ctx: PdfCtx = { doc, left, right, contentWidth, y: 50 };
+    const ctx: PdfCtx = { doc, left, right, contentWidth, y: 50, pageNum: 1 };
 
-    doc.font("Helvetica-Bold").fontSize(20).fillColor(BRAND).text("Glow", left, ctx.y);
-    ctx.y += 26;
-    doc.font("Helvetica-Bold").fontSize(16).fillColor(INK).text("Full feature list", left, ctx.y);
-    ctx.y += 22;
+    const allFeatures = CHAPTERS.flatMap((c) => c.features);
+    const totalFeatures = allFeatures.length;
+
+    // ---- COVER ----
+    ctx.y = 120;
+    doc.font("Helvetica-Bold").fontSize(32).fillColor(BRAND).text("Glow", left, ctx.y);
+    ctx.y += 44;
+    doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text("Feature Guide", left, ctx.y);
+    ctx.y += 32;
     doc
       .font("Helvetica")
-      .fontSize(10)
+      .fontSize(12)
       .fillColor(SOFT)
-      .text("Booking system for UK solo lash, nail and brow techs", left, ctx.y);
-    ctx.y += 14;
-    doc.text(`Generated ${generatedAt.toISOString().slice(0, 10)} · glow-uk.com`, left, ctx.y);
+      .text("Marketing & product reference", left, ctx.y);
     ctx.y += 18;
+    doc.text("For posters, reels, ads, sales pages and internal planning", left, ctx.y);
+    ctx.y += 28;
+    doc.font("Helvetica").fontSize(10).fillColor(FAINT);
+    doc.text(`Generated ${generatedAt.toISOString().slice(0, 10)}`, left, ctx.y);
+    ctx.y += 14;
+    doc.text("glow-uk.com · UK lash, nail & brow techs", left, ctx.y);
+    ctx.y += 40;
+    doc.rect(left, ctx.y, contentWidth, 1).fill("#e8e0e8");
+    ctx.y += 20;
+    bodyText(ctx, POSITIONING.oneLiner, { size: 11, bold: true, color: INK, gap: 12 });
+    bodyText(ctx, POSITIONING.elevator, { size: 10, gap: 8 });
+    bodyText(ctx, `Audience: ${POSITIONING.audience}`, { size: 9, color: FAINT });
+    bodyText(ctx, `Pricing: ${POSITIONING.pricing}`, { size: 9, color: FAINT, gap: 16 });
+    pageFooter(ctx);
+
+    // ---- HOW TO USE ----
+    doc.addPage();
+    ctx.pageNum++;
+    ctx.y = 50;
+    doc.font("Helvetica-Bold").fontSize(16).fillColor(INK).text("How to use this guide", left, ctx.y);
+    ctx.y += 28;
     bodyText(
       ctx,
-      "Everything included in the flat £19/mo plan (0% commission). Features 1–12 are numbered compliance and operations tools shipped on main.",
+      "Each feature is structured the same way so you can lift content straight into marketing assets:",
       { gap: 10 },
     );
+    bulletList(ctx, [
+      "Headline — bold text for posters, Reels cover, carousel slide 1",
+      "Tagline — one sentence for captions, ad subcopy, email subject lines",
+      "The problem — the pain point to open a video script or testimonial prompt",
+      "What it is / How it works — product explainer copy and demo narration",
+      "Key benefits — bullet slides, comparison tables, landing page sections",
+      "Marketing hooks — ready-made social lines (edit to your voice)",
+      "Where in Glow — for tutorials, onboarding content, and support docs",
+    ]);
+    ctx.y += 8;
+    bodyText(ctx, "Part 8 at the end maps features to campaign themes (no-shows, patch tests, switching platforms, etc.).", {
+      gap: 12,
+    });
+    pageFooter(ctx);
 
-    for (const section of SECTIONS) {
-      sectionTitle(ctx, section.title);
-      if (section.intro) bodyText(ctx, section.intro);
-      if (section.bullets) bulletList(ctx, section.bullets);
-      if (section.table) simpleTable(ctx, section.table.headers, section.table.rows);
+    // ---- POSITIONING PILLARS ----
+    doc.addPage();
+    ctx.pageNum++;
+    ctx.y = 50;
+    doc.font("Helvetica-Bold").fontSize(16).fillColor(INK).text("Brand positioning pillars", left, ctx.y);
+    ctx.y += 28;
+    for (const pillar of POSITIONING.pillars) {
+      ensureSpace(ctx, 50);
+      doc.font("Helvetica-Bold").fontSize(11).fillColor(BRAND).text(pillar.title, left, ctx.y);
+      ctx.y += 16;
+      bodyText(ctx, pillar.body, { gap: 12 });
+    }
+    pageFooter(ctx);
+
+    // ---- TABLE OF CONTENTS ----
+    doc.addPage();
+    ctx.pageNum++;
+    ctx.y = 50;
+    doc.font("Helvetica-Bold").fontSize(16).fillColor(INK).text("Contents", left, ctx.y);
+    ctx.y += 28;
+    CHAPTERS.forEach((ch, i) => {
+      ensureSpace(ctx, 20);
+      doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text(`Part ${i + 1}: ${ch.title}`, left, ctx.y);
+      ctx.y += 14;
+      doc.font("Helvetica").fontSize(9).fillColor(SOFT).text(ch.subtitle, left + 12, ctx.y);
+      ctx.y += 12;
+      for (const f of ch.features) {
+        ensureSpace(ctx, 14);
+        doc.font("Helvetica").fontSize(8.5).fillColor(FAINT).text(`· ${f.name}`, left + 12, ctx.y);
+        ctx.y += 11;
+      }
+      ctx.y += 6;
+    });
+    ensureSpace(ctx, 20);
+    doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text("Part 8: Campaign theme map", left, ctx.y);
+    ctx.y += 14;
+    doc.font("Helvetica").fontSize(9).fillColor(SOFT).text("Poster and video series ideas grouped by message", left + 12, ctx.y);
+    pageFooter(ctx);
+
+    // ---- FEATURE CHAPTERS ----
+    let featureNum = 0;
+    CHAPTERS.forEach((chapter, chapterIdx) => {
+      chapterDivider(ctx, chapterIdx + 1, chapter.title, chapter.subtitle);
+      ctx.y = 50;
+      bodyText(ctx, chapter.intro, { gap: 16 });
+
+      for (const feature of chapter.features) {
+        featureNum++;
+        renderFeature(ctx, featureNum, totalFeatures, feature);
+      }
+    });
+
+    // ---- CAMPAIGN THEMES ----
+    chapterDivider(ctx, 8, "Campaign theme map", "Group features into poster series and video scripts");
+    ctx.y = 50;
+    bodyText(
+      ctx,
+      "Use these themes to plan content batches. Each row links to feature IDs in this guide — search the feature name for full copy.",
+      { gap: 14 },
+    );
+
+    for (const campaign of CAMPAIGN_THEMES) {
+      ensureSpace(ctx, 60);
+      doc.font("Helvetica-Bold").fontSize(11).fillColor(BRAND).text(campaign.theme, left, ctx.y);
+      ctx.y += 16;
+      bodyText(ctx, `Sample headline: "${campaign.sampleHeadline}"`, { bold: true, gap: 6 });
+      const names = campaign.features
+        .map((id) => allFeatures.find((f) => f.id === id)?.name)
+        .filter(Boolean) as string[];
+      bodyText(ctx, `Features: ${names.join(" · ")}`, { size: 8.5, color: FAINT, gap: 12 });
     }
 
-    ensureSpace(ctx, 40);
-    ctx.y += 8;
+    ctx.y += 10;
+    ensureSpace(ctx, 80);
+    doc.font("Helvetica-Bold").fontSize(12).fillColor(INK).text("Quick stats for marketing", left, ctx.y);
+    ctx.y += 20;
+    bulletList(ctx, [
+      `${totalFeatures} detailed features documented in this guide`,
+      "12 numbered compliance & ops features (product change through DM quotes)",
+      "£19/mo flat · 0% commission · all features included",
+      "Built for UK self-employed lash, nail and brow technicians",
+      "Import from Square, Booksy, Timely and Fresha",
+    ]);
+
+    ensureSpace(ctx, 50);
+    ctx.y += 16;
     doc
       .font("Helvetica")
-      .fontSize(8.5)
+      .fontSize(8)
       .fillColor(FAINT)
       .text(
-        "© Glow. Made for UK beauty techs. This document is a product reference, not a contract. Features and pricing may change.",
+        "© Glow. Marketing reference document — not a contract. Features and pricing may change. Regenerate from the repo with: npx tsx scripts/generate-feature-list-pdf.ts",
         left,
         ctx.y,
         { width: contentWidth, align: "center" },
@@ -386,3 +332,6 @@ export function buildFeatureListPdf(generatedAt = new Date()): Promise<Buffer> {
     doc.end();
   });
 }
+
+// silence unused
+void featureCard;
