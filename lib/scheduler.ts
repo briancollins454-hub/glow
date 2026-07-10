@@ -13,7 +13,12 @@ export async function processDueReminders(
   let skipped = 0;
 
   for (const reminder of due) {
-    const booking = await getBooking(sb, reminder.bookingId);
+    if (reminder.kind === "patch_test_retest") {
+      await markReminder(sb, reminder.id, { status: "skipped" });
+      skipped++;
+      continue;
+    }
+    const booking = reminder.bookingId ? await getBooking(sb, reminder.bookingId) : null;
     if (!booking || booking.status === "cancelled" || booking.status === "no_show") {
       await markReminder(sb, reminder.id, { status: "skipped" });
       skipped++;

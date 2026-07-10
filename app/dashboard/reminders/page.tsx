@@ -36,7 +36,8 @@ function RemindersView({ reminders, services, bookings, clients, tech }: Reminde
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s]));
 
   const preview = (r: Reminder) => {
-    const booking = bookingById[r.bookingId];
+    if (r.kind === "patch_test_retest") return r.preview || "Patch test re-test notification";
+    const booking = r.bookingId ? bookingById[r.bookingId] : null;
     if (!booking) return r.preview || "(booking not found)";
     return (
       r.preview ||
@@ -50,7 +51,8 @@ function RemindersView({ reminders, services, bookings, clients, tech }: Reminde
     );
   };
   const clientName = (r: Reminder) => {
-    const b = bookingById[r.bookingId];
+    if (r.clientId && clientById[r.clientId]?.name) return clientById[r.clientId]!.name;
+    const b = r.bookingId ? bookingById[r.bookingId] : null;
     return (b && clientById[b.clientId]?.name) || "Client";
   };
 

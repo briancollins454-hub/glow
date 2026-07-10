@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getBooking, getClient, getService, getTechById, markReminder } from "@/lib/db/queries";
+import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsConfigured } from "@/lib/sms";
@@ -31,6 +31,8 @@ export function renderReminderText({ reminder, booking, client, service, tech }:
       return `Hi ${name}, just a quick reminder your ${svc} is in a couple of hours (${when}). ${biz}`;
     case "balance_request":
       return `Hi ${name}, your remaining balance of ${gbp(booking.balancePennies)} for your ${svc} can be paid here before your appointment: ${payUrl}`;
+    case "patch_test_retest":
+      return reminder.preview || `Hi ${name}, ${biz} needs you to arrange a patch test before your appointment.`;
     default:
       return `Hi ${name}, a message about your booking with ${biz}.`;
   }
@@ -46,6 +48,8 @@ function subjectFor(kind: ReminderKind, biz: string): string {
       return `See you soon - your appointment is in 2 hours`;
     case "balance_request":
       return `Your remaining balance for ${biz}`;
+    case "patch_test_retest":
+      return `Patch test needed at ${biz}`;
   }
 }
 
@@ -104,6 +108,8 @@ export function labelForKind(kind: ReminderKind): string {
       return "2-hour reminder";
     case "balance_request":
       return "Balance request";
+    case "patch_test_retest":
+      return "Patch test re-test";
   }
 }
 
@@ -176,6 +182,86 @@ export async function notifyTechOfMessage(
   });
 }
 
+/** Notify a client their patch test is no longer valid after a product change. */
+export async function notifyClientOfPatchTestRetest(opts: {
+  sb: SupabaseClient;
+  tech: Tech;
+  client: Client;
+  categoryName: string;
+  categoryId: string;
+  hasUpcoming: boolean;
+  futureBooking: Booking | null;
+}): Promise<{ email: boolean; sms: boolean }> {
+  const { sb, tech, client, categoryName, categoryId, hasUpcoming, futureBooking } = opts;
+  const biz = tech.businessName || "your beauty studio";
+  const brand = tech.brandColor || "#db2777";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const arrangeUrl = `${APP_URL}/${tech.handle}?retest=${categoryId}`;
+  const messageUrl = `${APP_URL}/m/${client.messageToken}`;
+
+  const upcomingLine = hasUpcoming && futureBooking
+    ? `You have an appointment coming up on <strong>${fmtDateTime(futureBooking.startIso)}</strong>. `
+    : "";
+
+  const bodyHtml =
+    `Hi ${name},<br/><br/>` +
+    `${biz} has changed products used for <strong>${categoryName}</strong>. ` +
+    `${upcomingLine}You will need a quick patch test before your next treatment with us.<br/><br/>` +
+    `Reply on your private message link or get in touch to arrange a convenient time.`;
+
+  const text =
+    `Hi ${name}, ${biz} has changed products for ${categoryName}. ` +
+    `${hasUpcoming && futureBooking ? `You have an appointment on ${fmtDateTime(futureBooking.startIso)}. ` : ""}` +
+    `You need a patch test before your next treatment. Arrange it: ${arrangeUrl} Message: ${messageUrl}`;
+
+  const preview = text.slice(0, 200);
+  const nowIso = new Date().toISOString();
+  let email = false;
+  let sms = false;
+
+  if (client.email?.trim()) {
+    const html = brandedEmail({
+      brand,
+      businessName: biz,
+      heading: "Patch test needed",
+      bodyHtml,
+      buttonLabel: "Arrange your patch test",
+      buttonUrl: arrangeUrl,
+    });
+    email = await sendEmail({
+      to: client.email.trim(),
+      subject: `${biz}: patch test needed before your appointment`,
+      html,
+      text,
+      idempotencyKey: `patch-retest/${client.id}/${categoryId}/${nowIso.slice(0, 10)}`,
+    });
+  }
+
+  if (smsConfigured() && client.phone) {
+    const smsBody =
+      `${biz}: we've changed products for ${categoryName}. ` +
+      `${hasUpcoming ? "You have an appointment coming up. " : ""}` +
+      `Please arrange a patch test: ${arrangeUrl}`;
+    sms = await sendSms(client.phone, smsBody);
+  }
+
+  if (email || sms) {
+    await createReminder(sb, {
+      techId: tech.id,
+      bookingId: futureBooking?.id ?? null,
+      clientId: client.id,
+      channel: sms && !email ? "sms" : "email",
+      kind: "patch_test_retest",
+      sendAtIso: nowIso,
+      status: "sent",
+      preview,
+      sentAtIso: nowIso,
+    });
+  }
+
+  return { email, sms };
+}
+
 /**
  * Aftercare email sent when an appointment is marked completed: the service's
  * aftercare card plus a one-tap rebook button (infill if one exists).
@@ -232,6 +318,7 @@ export async function sendAftercareEmail(
 
 /** Render + send a reminder email via Resend, then record it. */
 export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Promise<void> {
+  if (!reminder.bookingId) return;
   const booking = await getBooking(sb, reminder.bookingId);
   if (!booking) return;
   const [client, service, tech] = await Promise.all([

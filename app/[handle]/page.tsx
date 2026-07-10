@@ -30,6 +30,7 @@ import { OpeningHours } from "@/components/booking/opening-hours";
 import { TrustStrip } from "@/components/booking/trust-strip";
 import { BookingFooterCta } from "@/components/booking/booking-footer-cta";
 import { StickyBookCta } from "@/components/booking/sticky-book-cta";
+import { RetestBookingNotice } from "@/components/booking/retest-booking-notice";
 import { trackPageView } from "@/lib/page-views";
 import { groupServicesForMenu } from "@/lib/booking/service-groups";
 import type { ServiceNavGroup } from "@/components/booking/booking-header";
@@ -77,7 +78,7 @@ export default async function PublicBookingPage({
   searchParams,
 }: {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ service?: string; date?: string; slot?: string; err?: string; wl?: string }>;
+  searchParams: Promise<{ service?: string; date?: string; slot?: string; err?: string; wl?: string; retest?: string }>;
 }) {
   const { handle } = await params;
   const sp = await searchParams;
@@ -242,6 +243,10 @@ export default async function PublicBookingPage({
       />
 
       <main className="mx-auto max-w-5xl space-y-14 px-4 py-10 sm:px-6 sm:py-14">
+        {sp.retest && !selected && (
+          <RetestBookingNotice businessName={tech.businessName} />
+        )}
+
         <BookingAbout
           bio={tech.bio}
           location={tech.location || undefined}

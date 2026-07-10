@@ -21,7 +21,8 @@ export type ReminderKind =
   | "confirmation"
   | "reminder_24h"
   | "reminder_2h"
-  | "balance_request";
+  | "balance_request"
+  | "patch_test_retest";
 
 export interface Tech {
   id: string;
@@ -245,13 +246,16 @@ export interface PatchTest {
   result: PatchTestResult;
   bookingId: string | null;
   notes: string;
+  invalidatedAtIso: string | null;
+  invalidationEventId: string | null;
   createdAt: string;
 }
 
 export interface Reminder {
   id: string;
   techId: string;
-  bookingId: string;
+  bookingId: string | null;
+  clientId: string | null;
   channel: ReminderChannel;
   kind: ReminderKind;
   sendAtIso: string;
@@ -259,6 +263,31 @@ export interface Reminder {
   preview: string;
   sentAtIso: string | null;
   createdAt: string;
+}
+
+export type PatchRetestStatus = "needs_test" | "test_booked" | "passed";
+
+export interface ProductChangeEvent {
+  id: string;
+  techId: string;
+  note: string;
+  scopeSummary: string;
+  createdAt: string;
+}
+
+export interface ProductChangeRetest {
+  id: string;
+  techId: string;
+  eventId: string;
+  clientId: string;
+  categoryId: string;
+  status: PatchRetestStatus;
+  hasFutureBooking: boolean;
+  futureBookingId: string | null;
+  notifiedAtIso: string | null;
+  resolvedAtIso: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type QuestionType = "text" | "longtext" | "yesno";

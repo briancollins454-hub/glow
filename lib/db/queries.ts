@@ -12,6 +12,8 @@ import type {
   MessageSender,
   Payment,
   PatchTest,
+  ProductChangeEvent,
+  ProductChangeRetest,
   Reminder,
   Review,
   Service,
@@ -677,6 +679,50 @@ export async function patchTestsForClient(sb: SB, techId: string, clientId: stri
 export async function createPatchTest(sb: SB, p: Omit<PatchTest, "id" | "createdAt">): Promise<PatchTest> {
   const { data, error } = await sb.from("patch_tests").insert({ ...p, id: randomId("pt") }).select("*").single();
   return must(data as PatchTest, error);
+}
+export async function updatePatchTest(sb: SB, id: string, patch: Partial<PatchTest>): Promise<void> {
+  const { error } = await sb.from("patch_tests").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Product change re-tests ----------------
+export async function createProductChangeEvent(
+  sb: SB,
+  e: ProductChangeEvent,
+): Promise<ProductChangeEvent> {
+  const { data, error } = await sb.from("product_change_events").insert(e).select("*").single();
+  return must(data as ProductChangeEvent, error);
+}
+export async function listProductChangeEvents(sb: SB, techId: string): Promise<ProductChangeEvent[]> {
+  const { data, error } = await sb
+    .from("product_change_events")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as ProductChangeEvent[], error) ?? [];
+}
+export async function listProductChangeRetests(sb: SB, techId: string): Promise<ProductChangeRetest[]> {
+  const { data, error } = await sb
+    .from("product_change_retests")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as ProductChangeRetest[], error) ?? [];
+}
+export async function createProductChangeRetest(
+  sb: SB,
+  r: ProductChangeRetest,
+): Promise<ProductChangeRetest> {
+  const { data, error } = await sb.from("product_change_retests").insert(r).select("*").single();
+  return must(data as ProductChangeRetest, error);
+}
+export async function updateProductChangeRetest(
+  sb: SB,
+  id: string,
+  patch: Partial<ProductChangeRetest>,
+): Promise<void> {
+  const { error } = await sb.from("product_change_retests").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 // ---------------- Reminders ----------------

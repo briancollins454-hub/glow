@@ -334,6 +334,7 @@ export async function rescheduleReminders(sb: SupabaseClient, booking: Booking):
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
+      clientId: null,
       channel: "email",
       kind: "reminder_24h",
       sendAtIso: new Date(remind24).toISOString(),
@@ -347,6 +348,7 @@ export async function rescheduleReminders(sb: SupabaseClient, booking: Booking):
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
+      clientId: null,
       channel: "email",
       kind: "balance_request",
       sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
@@ -369,6 +371,7 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
   const confirmation = await createReminder(sb, {
     techId: booking.techId,
     bookingId: booking.id,
+    clientId: null,
     channel: "email",
     kind: "confirmation",
     sendAtIso: new Date().toISOString(),
@@ -383,6 +386,7 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
+      clientId: null,
       channel: "email",
       kind: "reminder_24h",
       sendAtIso: new Date(remind24).toISOString(),
@@ -397,6 +401,7 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
+      clientId: null,
       channel: "email",
       kind: "balance_request",
       sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
