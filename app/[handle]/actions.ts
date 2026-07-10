@@ -19,7 +19,7 @@ import {
   addonsForService,
 } from "@/lib/db/queries";
 import type { BookingAddon, FormAnswer } from "@/lib/db/types";
-import { daySlots, dateStrInTz, depositFor, evaluateEligibility } from "@/lib/rules";
+import { daySlots, dateStrInTz, bookingAmounts, evaluateEligibility, needsManualApproval, scoreClientRisk } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
 import { createWaitlistEntry } from "@/lib/db/queries";
 
@@ -162,7 +162,11 @@ export async function createPublicBookingAction(formData: FormData) {
     }
   };
 
-  if (tech!.requiresBookingApproval) {
+  const riskTier = scoreClientRisk(client, { completedVisits }, tech!);
+  const manualApproval = needsManualApproval(tech!, riskTier);
+  const autoApproved = !manualApproval && tech!.approvalMode === "rules";
+
+  if (manualApproval) {
     const pending = await createPendingApprovalBooking({
       sb,
       tech: tech!,
@@ -171,17 +175,20 @@ export async function createPublicBookingAction(formData: FormData) {
       startIso: slotIso,
       addons,
       discountPennies,
+      riskTier,
     });
     await saveAnswers(pending.id);
     const { notifyTechOfBookingRequest } = await import("@/lib/notify");
-    await notifyTechOfBookingRequest(sb, pending);
+    await notifyTechOfBookingRequest(sb, pending, { completedVisits });
     redirect(`/${tech!.handle}/requested/${pending.balanceToken}`);
   }
+
+  const deposit = bookingAmounts(service!, tech!, riskTier, addons, discountPennies).deposit;
 
   // If a deposit applies and the tech can take card payments, send the client to
   // Stripe Checkout on the tech's connected account. Otherwise confirm now
   // (deposit settled in person).
-  if (depositFor(service!) > 0 && isPaymentsReady(tech!)) {
+  if (deposit > 0 && isPaymentsReady(tech!)) {
     const pending = await createPendingOnlineBooking({
       sb,
       tech: tech!,
@@ -190,6 +197,8 @@ export async function createPublicBookingAction(formData: FormData) {
       startIso: slotIso,
       addons,
       discountPennies,
+      riskTier,
+      autoApproved,
     });
     await saveAnswers(pending.id);
     const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
@@ -204,6 +213,8 @@ export async function createPublicBookingAction(formData: FormData) {
     startIso: slotIso,
     addons,
     discountPennies,
+    riskTier,
+    autoApproved,
   });
   await saveAnswers(booking.id);
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);

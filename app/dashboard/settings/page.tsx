@@ -153,22 +153,60 @@ export default function SettingsPage() {
             <div><Label htmlFor="defaultDepositPct">Deposit you usually take (%)</Label><Input id="defaultDepositPct" name="defaultDepositPct" type="number" min={0} max={100} defaultValue={tech.defaultDepositPct} /></div>
             <div><Label htmlFor="cancellationWindowHours">Notice needed to cancel (hours)</Label><Input id="cancellationWindowHours" name="cancellationWindowHours" type="number" min={0} max={336} defaultValue={tech.cancellationWindowHours} /></div>
             <div><Label htmlFor="noShowFeePct">No-show charge (% of price)</Label><Input id="noShowFeePct" name="noShowFeePct" type="number" min={0} max={100} defaultValue={tech.noShowFeePct} /></div>
-            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-3">
-              <input
-                type="checkbox"
-                name="requiresBookingApproval"
-                defaultChecked={tech.requiresBookingApproval}
-                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
-              />
-              <span>
-                <span className="font-medium">Approve bookings before clients pay</span>
-                <span className="mt-0.5 block text-xs text-ink-faint">
-                  When on, you get an email for each request. Approve first — then the client gets a deposit link.
-                  Off by default; your current flow stays the same.
+            <div className="space-y-3 sm:col-span-3">
+              <p className="text-sm font-medium">Booking approval</p>
+              <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="radio"
+                  name="approvalMode"
+                  value="off"
+                  defaultChecked={(tech.approvalMode ?? (tech.requiresBookingApproval ? "manual" : "off")) === "off"}
+                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium">Instant booking</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    Clients book and pay straight away. Risk-based deposits still apply below.
+                  </span>
                 </span>
-              </span>
-            </label>
-            <p className="text-xs text-ink-faint sm:col-span-3">Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit. No-shows are flagged on the client&apos;s record.</p>
+              </label>
+              <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="radio"
+                  name="approvalMode"
+                  value="rules"
+                  defaultChecked={(tech.approvalMode ?? "off") === "rules"}
+                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium">Smart rules (recommended)</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    Trusted regulars book instantly. New clients, no-shows and flagged clients need your approval first.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="radio"
+                  name="approvalMode"
+                  value="manual"
+                  defaultChecked={(tech.approvalMode ?? (tech.requiresBookingApproval ? "manual" : "off")) === "manual"}
+                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium">Approve every booking</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    You review every request before the client pays a deposit.
+                  </span>
+                </span>
+              </label>
+            </div>
+            <div><Label htmlFor="autoApproveMinVisits">Visits to count as trusted</Label><Input id="autoApproveMinVisits" name="autoApproveMinVisits" type="number" min={1} max={20} defaultValue={tech.autoApproveMinVisits ?? 2} /></div>
+            <div><Label htmlFor="depositTierMediumPct">Standard-risk deposit (% of price)</Label><Input id="depositTierMediumPct" name="depositTierMediumPct" type="number" min={0} max={100} defaultValue={tech.depositTierMediumPct ?? 50} /></div>
+            <div><Label htmlFor="depositTierHighPct">Higher-risk deposit (% of price)</Label><Input id="depositTierHighPct" name="depositTierHighPct" type="number" min={0} max={100} defaultValue={tech.depositTierHighPct ?? 100} /></div>
+            <p className="text-xs text-ink-faint sm:col-span-3">
+              Trusted clients pay your normal service deposit. Standard-risk clients (new or one visit) pay at least the higher of your usual deposit or the standard-risk %. Higher-risk clients (warning on file or 2+ no-shows) pay the higher-risk %. Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit.
+            </p>
           </CardContent>
         </Card>
 

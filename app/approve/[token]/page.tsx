@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
-import { getBookingByApprovalToken, getBooking, getClient, getService, getTechById } from "@/lib/db/queries";
+import { bookingsForClient, getBookingByApprovalToken, getBooking, getClient, getService, getTechById } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
+import { riskTierLabel, riskTierTone } from "@/lib/rules";
 import { approveBookingFromEmailAction, declineBookingFromEmailAction } from "./actions";
 import { ApproveDoneRedirect } from "@/components/booking/approve-done-redirect";
+import { ClientRiskSummary } from "@/components/dashboard/client-risk-summary";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -32,6 +35,9 @@ export default async function ApproveBookingPage({
     getClient(sb, booking.clientId),
   ]);
   if (!tech || !service || !client) notFound();
+
+  const priorBookings = await bookingsForClient(sb, tech.id, client.id);
+  const completedVisits = priorBookings.filter((b) => b.status === "completed").length;
 
   const brand = tech.brandColor || "#db2777";
   const resolved = done === "approved" || done === "declined" || booking.status !== "pending_approval";
@@ -64,12 +70,22 @@ export default async function ApproveBookingPage({
             )}
           </div>
           <div className="space-y-4 p-6">
-            <Row label="Client" value={client.name} />
+            <ClientRiskSummary
+              client={client}
+              completedVisits={completedVisits}
+              riskTier={booking.riskTier}
+            />
             <Row label="Service" value={service.name} />
             <Row label="When" value={fmtDateTime(booking.startIso)} />
             <Row label="Total" value={gbp(booking.pricePennies)} />
             {booking.depositPennies > 0 && (
               <Row label="Deposit after approval" value={gbp(booking.depositPennies)} />
+            )}
+            {booking.riskTier && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-faint">Risk tier</span>
+                <Badge tone={riskTierTone(booking.riskTier)}>{riskTierLabel(booking.riskTier)}</Badge>
+              </div>
             )}
             {!resolved && booking.status === "pending_approval" && (
               <div className="grid gap-2 pt-2">
