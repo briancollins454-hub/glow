@@ -11,6 +11,7 @@ import {
   disconnectGoogleCalendarAction,
   ensureCalendarTokenAction,
   requestAccountClosureAction,
+  syncGoogleCalendarAction,
   updateSettingsAction,
 } from "../actions";
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
@@ -25,11 +26,13 @@ const PW_ERRORS: Record<string, string> = {
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
 const GOOGLE_MSG: Record<string, string> = {
-  connected: "Google Calendar connected. New bookings will sync automatically.",
+  connected: "Google Calendar connected. Upcoming appointments are syncing now.",
   disconnected: "Google Calendar disconnected.",
   missing: "Google Calendar is not configured yet. Add Google OAuth credentials in the app environment.",
   denied: "Google Calendar connection was cancelled.",
   failed: "Google Calendar connection failed. Please try again.",
+  not_connected: "Connect Google Calendar first, then try syncing again.",
+  synced: "Appointments synced to Google Calendar.",
 };
 
 export default function SettingsPage() {
@@ -43,6 +46,9 @@ export default function SettingsPage() {
   const calendar = searchParams.get("calendar");
   const closure = searchParams.get("closure");
   const google = searchParams.get("google");
+  const googleSynced = searchParams.get("synced");
+  const googleFailed = searchParams.get("failed");
+  const googleSkipped = searchParams.get("skipped");
   const photoerr = searchParams.get("photoerr");
   const coverSaved = searchParams.get("cover");
   const profileSaved = searchParams.get("profile");
@@ -62,7 +68,27 @@ export default function SettingsPage() {
       {photoerr && <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">Photo upload failed. Use a JPG, PNG or WebP image and try again.</div>}
       {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
       {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
-      {google && <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm ${google === "connected" ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}><CalendarDays className="h-4 w-4" /> {GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}</div>}
+      {google && (
+        <div
+          className={`flex flex-col gap-1 rounded-xl px-4 py-3 text-sm ${
+            google === "connected" || google === "synced"
+              ? "bg-emerald-500/10 text-emerald-300"
+              : "bg-amber-500/10 text-amber-300"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 shrink-0" />
+            <span>
+              {google === "synced" || (google === "connected" && googleSynced)
+                ? `${GOOGLE_MSG.synced} ${googleSynced ?? "0"} added or updated${googleFailed && Number(googleFailed) > 0 ? `, ${googleFailed} failed` : ""}.`
+                : GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}
+            </span>
+          </div>
+          {googleSkipped && Number(googleSkipped) > 0 && (
+            <p className="pl-6 text-xs opacity-80">{googleSkipped} pending bookings were skipped (not confirmed yet).</p>
+          )}
+        </div>
+      )}
 
       <Card className="border-brand-500/30 bg-brand-500/10">
         <CardHeader>
@@ -70,18 +96,28 @@ export default function SettingsPage() {
             <CalendarDays className="h-5 w-5 text-brand-400" /> Google Calendar
           </CardTitle>
           <CardDescription>
-            Connect once. Glow will add, update and cancel appointments in Google Calendar automatically.
+            Connect once. Glow adds, updates and cancels appointments in Google Calendar automatically. Use sync if an appointment is missing.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {googleConnected ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3">
               <p className="text-sm text-emerald-300">
                 Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
               </p>
-              <form action={disconnectGoogleCalendarAction}>
-                <Button type="submit" variant="outline" size="sm">Disconnect</Button>
-              </form>
+              <div className="flex flex-wrap gap-2">
+                <form action={syncGoogleCalendarAction}>
+                  <Button type="submit" variant="secondary" size="sm">
+                    Sync appointments to Google
+                  </Button>
+                </form>
+                <form action={disconnectGoogleCalendarAction}>
+                  <Button type="submit" variant="outline" size="sm">Disconnect</Button>
+                </form>
+              </div>
+              <p className="text-xs text-ink-faint">
+                Sync pushes all upcoming confirmed bookings. Adding a client in Clients does not create a calendar event — add the appointment in Calendar.
+              </p>
             </div>
           ) : (
             <ButtonLink href="/api/google/calendar/connect" size="lg">
