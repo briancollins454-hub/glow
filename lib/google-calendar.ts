@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatInTimeZone } from "date-fns-tz";
 import { getClient, getService, listBookings, updateBooking } from "@/lib/db/queries";
 import type { Booking, Tech } from "@/lib/db/types";
+import { TZ } from "@/lib/format";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -27,7 +29,15 @@ export type GoogleBulkSyncResult = {
   synced: number;
   failed: number;
   skipped: number;
+  upcoming: number;
+  errors: string[];
+  googleEmail: string | null;
 };
+
+/** Google Calendar expects local wall-clock with timeZone, not a UTC `Z` timestamp. */
+function googleDateTime(iso: string): string {
+  return formatInTimeZone(new Date(iso), TZ, "yyyy-MM-dd'T'HH:mm:ss");
+}
 
 export function googleCalendarConfigured(): boolean {
   return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
@@ -121,8 +131,8 @@ function googleEventBody({
   return {
     summary: `${clientName} - ${serviceName}`,
     description: `Glow booking for ${tech.businessName}.`,
-    start: { dateTime: booking.startIso, timeZone: "Europe/London" },
-    end: { dateTime: booking.endIso, timeZone: "Europe/London" },
+    start: { dateTime: googleDateTime(booking.startIso), timeZone: TZ },
+    end: { dateTime: googleDateTime(booking.endIso), timeZone: TZ },
     extendedProperties: { private: { glowBookingId: booking.id } },
   };
 }
@@ -244,6 +254,7 @@ export async function syncUpcomingBookingsToGoogle(
 ): Promise<GoogleBulkSyncResult> {
   const bookings = await listBookings(sb, tech.id);
   const now = Date.now() - 15 * 60 * 1000;
+  // Confirmed upcoming appointments only — pending / pending_approval wait until confirmed.
   const upcoming = bookings.filter(
     (b) => b.status === "confirmed" && new Date(b.startIso).getTime() > now,
   );
@@ -251,20 +262,30 @@ export async function syncUpcomingBookingsToGoogle(
   let synced = 0;
   let failed = 0;
   let skipped = 0;
+  const errors: string[] = [];
 
   for (const booking of upcoming) {
     const result = await syncBookingToGoogle(sb, tech, booking);
     if (result.ok) {
-      if ("skipped" in result && result.skipped) skipped++;
+      if (result.skipped) skipped++;
       else synced++;
-    } else if ("skipped" in result && result.skipped) {
+    } else if (result.skipped) {
       skipped++;
+      if (errors.length < 3) errors.push(result.reason);
     } else {
       failed++;
+      if (errors.length < 3) errors.push(result.reason);
     }
   }
 
-  return { synced, failed, skipped };
+  return {
+    synced,
+    failed,
+    skipped,
+    upcoming: upcoming.length,
+    errors,
+    googleEmail: tech.googleCalendarEmail,
+  };
 }
 
 export async function deleteGoogleEventForBooking(tech: Tech, booking: Booking): Promise<void> {

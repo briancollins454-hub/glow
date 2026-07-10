@@ -11,6 +11,9 @@ type SyncResult = {
   synced: number;
   failed: number;
   skipped: number;
+  upcoming?: number;
+  errors?: string[];
+  googleEmail?: string | null;
   error?: string;
 };
 
@@ -18,21 +21,37 @@ function syncMessage(result: SyncResult): { tone: "ok" | "warn" | "error"; text:
   if (result.error) {
     return { tone: "error", text: result.error };
   }
+
+  const detail =
+    result.errors && result.errors.length > 0 ? ` Details: ${result.errors.join(" · ")}` : "";
+  const emailHint = result.googleEmail
+    ? ` Check the Google account ${result.googleEmail}.`
+    : "";
+
   if (result.failed > 0) {
     return {
       tone: "warn",
-      text: `Synced ${result.synced} appointment${result.synced === 1 ? "" : "s"}, but ${result.failed} failed. Try again or open a booking and tap Send to Google Calendar.`,
+      text: `Synced ${result.synced}, but ${result.failed} failed.${detail}${emailHint} Try Disconnect → Connect Google Calendar, then sync again.`,
     };
   }
-  if (result.synced === 0) {
+
+  if ((result.upcoming ?? 0) === 0 || (result.synced === 0 && result.failed === 0 && result.skipped === 0)) {
     return {
       tone: "warn",
-      text: "No upcoming confirmed appointments found. Add the booking in Calendar first — adding a client alone does not create a Google event.",
+      text: "No upcoming confirmed appointments found in Glow Calendar. Add the booking under Calendar → Add booking (Clients alone does not create a Google event).",
     };
   }
+
+  if (result.synced === 0 && result.skipped > 0) {
+    return {
+      tone: "warn",
+      text: `Found ${result.upcoming ?? result.skipped} booking(s) but none synced.${detail}${emailHint}`,
+    };
+  }
+
   return {
     tone: "ok",
-    text: `Synced ${result.synced} appointment${result.synced === 1 ? "" : "s"} to Google Calendar.`,
+    text: `Synced ${result.synced} appointment${result.synced === 1 ? "" : "s"} to Google Calendar.${emailHint}`,
   };
 }
 
@@ -62,7 +81,14 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
         });
         return;
       }
-      setResult({ synced: data.synced, failed: data.failed, skipped: data.skipped });
+      setResult({
+        synced: data.synced,
+        failed: data.failed,
+        skipped: data.skipped,
+        upcoming: data.upcoming,
+        errors: data.errors,
+        googleEmail: data.googleEmail,
+      });
       invalidateDashboardAuth();
     } catch {
       setResult({
@@ -130,7 +156,8 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
         </form>
       </div>
       <p className="text-xs text-ink-faint">
-        Sync pushes all upcoming confirmed bookings. Adding a client in Clients does not create a calendar event — add the appointment in Calendar.
+        Sync pushes all upcoming confirmed bookings to the Google account shown above.
+        If nothing appears, check you are looking at that same Google account, then try Disconnect → Connect again.
       </p>
     </div>
   );
