@@ -29,6 +29,77 @@ export function depositFor(service: Service): number {
   return Math.round((service.pricePennies * service.depositValue) / 100);
 }
 
+/** Resolve a tech policy amount that can be % or fixed £. */
+export function amountFromPolicy(
+  type: "percent" | "fixed" | "none" | null | undefined,
+  value: number | null | undefined,
+  fallbackPct: number,
+  pricePennies: number,
+): number {
+  const mode = type ?? "percent";
+  if (mode === "none") return 0;
+  if (mode === "fixed") return Math.min(Math.max(0, value ?? 0), pricePennies);
+  const pct = value ?? fallbackPct;
+  return Math.min(Math.round((pricePennies * pct) / 100), pricePennies);
+}
+
+export function depositForRisk(
+  service: Service,
+  tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct"> &
+    Partial<
+      Pick<
+        Tech,
+        | "depositTierMediumType"
+        | "depositTierHighType"
+        | "depositTierMediumValue"
+        | "depositTierHighValue"
+      >
+    >,
+  riskTier: RiskTier,
+  pricePennies: number,
+): number {
+  const base = Math.min(depositFor(service), pricePennies);
+  if (riskTier === "low") return base;
+  if (riskTier === "medium") {
+    const tiered = amountFromPolicy(
+      tech.depositTierMediumType,
+      tech.depositTierMediumValue,
+      tech.depositTierMediumPct ?? 50,
+      pricePennies,
+    );
+    return Math.min(Math.max(base, tiered), pricePennies);
+  }
+  const tiered = amountFromPolicy(
+    tech.depositTierHighType,
+    tech.depositTierHighValue,
+    tech.depositTierHighPct ?? 100,
+    pricePennies,
+  );
+  return Math.min(Math.max(base, tiered), pricePennies);
+}
+
+export function bookingAmounts(
+  service: Service,
+  tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct"> &
+    Partial<
+      Pick<
+        Tech,
+        | "depositTierMediumType"
+        | "depositTierHighType"
+        | "depositTierMediumValue"
+        | "depositTierHighValue"
+      >
+    >,
+  riskTier: RiskTier,
+  addons: BookingAddon[] = [],
+  discountPennies = 0,
+): { price: number; deposit: number; balance: number } {
+  const extras = addons.reduce((s, a) => s + a.pricePennies, 0);
+  const price = Math.max(0, service.pricePennies + extras - discountPennies);
+  const deposit = depositForRisk(service, tech, riskTier, price);
+  return { price, deposit, balance: Math.max(0, price - deposit) };
+}
+
 export function effectiveApprovalMode(
   tech: Pick<Tech, "approvalMode" | "requiresBookingApproval">,
 ): ApprovalMode {
@@ -55,35 +126,6 @@ export function scoreClientRisk(
   if (trusted) return "low";
   if (ctx.completedVisits === 0) return "medium";
   return "medium";
-}
-
-export function depositForRisk(
-  service: Service,
-  tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct">,
-  riskTier: RiskTier,
-  pricePennies: number,
-): number {
-  const base = Math.min(depositFor(service), pricePennies);
-  if (riskTier === "low") return base;
-  if (riskTier === "medium") {
-    const tiered = Math.round((pricePennies * tech.depositTierMediumPct) / 100);
-    return Math.min(Math.max(base, tiered), pricePennies);
-  }
-  const tiered = Math.round((pricePennies * tech.depositTierHighPct) / 100);
-  return Math.min(Math.max(base, tiered), pricePennies);
-}
-
-export function bookingAmounts(
-  service: Service,
-  tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct">,
-  riskTier: RiskTier,
-  addons: BookingAddon[] = [],
-  discountPennies = 0,
-): { price: number; deposit: number; balance: number } {
-  const extras = addons.reduce((s, a) => s + a.pricePennies, 0);
-  const price = Math.max(0, service.pricePennies + extras - discountPennies);
-  const deposit = depositForRisk(service, tech, riskTier, price);
-  return { price, deposit, balance: Math.max(0, price - deposit) };
 }
 
 /** Whether a public booking needs tech approval before deposit or confirmation. */

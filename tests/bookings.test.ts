@@ -16,4 +16,13 @@ describe("loyaltyDiscountFor", () => {
   it("does nothing when the programme is off", () => {
     expect(loyaltyDiscountFor({ loyaltyVisitThreshold: 0, loyaltyDiscountPct: 0 }, 10, 5000, true)).toBe(0);
   });
+  it("supports a fixed £ discount", () => {
+    expect(
+      loyaltyDiscountFor(
+        { loyaltyVisitThreshold: 5, loyaltyDiscountPct: 10, loyaltyDiscountType: "fixed", loyaltyDiscountValue: 750 },
+        5,
+        5000,
+      ),
+    ).toBe(750);
+  });
 });

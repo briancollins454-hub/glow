@@ -64,16 +64,20 @@ function resolveAmounts(
  * reaching the visit threshold (when the programme is switched on).
  */
 export function loyaltyDiscountFor(
-  tech: Pick<Tech, "loyaltyVisitThreshold" | "loyaltyDiscountPct">,
+  tech: Pick<Tech, "loyaltyVisitThreshold" | "loyaltyDiscountPct"> &
+    Partial<Pick<Tech, "loyaltyDiscountType" | "loyaltyDiscountValue">>,
   completedVisits: number,
   grossPennies: number,
   isVip = false,
 ): number {
-  if (tech.loyaltyDiscountPct <= 0) return 0;
+  const type = tech.loyaltyDiscountType ?? "percent";
+  const value = tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct;
+  if (value <= 0) return 0;
   const qualifies =
     isVip || (tech.loyaltyVisitThreshold > 0 && completedVisits >= tech.loyaltyVisitThreshold);
   if (!qualifies) return 0;
-  return Math.round((grossPennies * tech.loyaltyDiscountPct) / 100);
+  if (type === "fixed") return Math.min(value, grossPennies);
+  return Math.round((grossPennies * value) / 100);
 }
 
 export type ManualPaymentTaken = "none" | "deposit" | "full";

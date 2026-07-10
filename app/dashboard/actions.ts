@@ -144,6 +144,50 @@ export async function updateSettingsAction(formData: FormData) {
   const approvalMode: ApprovalMode =
     approvalRaw === "manual" || approvalRaw === "rules" ? approvalRaw : "off";
 
+  const parsePolicy = (
+    typeKey: string,
+    valueKey: string,
+    opts: { allowNone?: boolean; percentMax?: number; fallbackPct: number; fallbackType?: DepositType | "percent" | "fixed" },
+  ) => {
+    const allowNone = opts.allowNone ?? false;
+    const rawType = get(typeKey);
+    const type: DepositType | "percent" | "fixed" =
+      rawType === "fixed" || rawType === "percent" || (allowNone && rawType === "none")
+        ? (rawType as DepositType)
+        : (opts.fallbackType ?? "percent");
+    const raw = get(valueKey);
+    if (type === "none") return { type: "none" as const, value: 0, pctMirror: 0 };
+    if (type === "fixed") {
+      const pennies = poundsToPennies(raw);
+      return { type: "fixed" as const, value: pennies, pctMirror: opts.fallbackPct };
+    }
+    const pct = clampInt(raw, 0, opts.percentMax ?? 100, opts.fallbackPct);
+    return { type: "percent" as const, value: pct, pctMirror: pct };
+  };
+
+  const defaultDeposit = parsePolicy("defaultDepositType", "defaultDepositValue", {
+    allowNone: true,
+    fallbackPct: tech.defaultDepositPct,
+    fallbackType: tech.defaultDepositType ?? "percent",
+  });
+  const noShowFee = parsePolicy("noShowFeeType", "noShowFeeValue", {
+    fallbackPct: tech.noShowFeePct,
+    fallbackType: tech.noShowFeeType ?? "percent",
+  });
+  const mediumTier = parsePolicy("depositTierMediumType", "depositTierMediumValue", {
+    fallbackPct: tech.depositTierMediumPct ?? 50,
+    fallbackType: tech.depositTierMediumType ?? "percent",
+  });
+  const highTier = parsePolicy("depositTierHighType", "depositTierHighValue", {
+    fallbackPct: tech.depositTierHighPct ?? 100,
+    fallbackType: tech.depositTierHighType ?? "percent",
+  });
+  const loyalty = parsePolicy("loyaltyDiscountType", "loyaltyDiscountValue", {
+    percentMax: 50,
+    fallbackPct: tech.loyaltyDiscountPct,
+    fallbackType: tech.loyaltyDiscountType ?? "percent",
+  });
+
   await updateTech(sb, tech.id, {
     businessName: get("businessName") || tech.businessName,
     name: get("name"),
@@ -154,19 +198,29 @@ export async function updateSettingsAction(formData: FormData) {
     instagram: get("instagram").replace(/^@/, ""),
     tiktok: get("tiktok").replace(/^@/, ""),
     location: get("location"),
-    defaultDepositPct: clampInt(get("defaultDepositPct"), 0, 100, tech.defaultDepositPct),
+    defaultDepositType: defaultDeposit.type,
+    defaultDepositValue: defaultDeposit.value,
+    defaultDepositPct: defaultDeposit.type === "percent" ? defaultDeposit.value : tech.defaultDepositPct,
     cancellationWindowHours: clampInt(get("cancellationWindowHours"), 0, 336, tech.cancellationWindowHours),
     loyaltyVisitThreshold: clampInt(get("loyaltyVisitThreshold"), 0, 100, tech.loyaltyVisitThreshold),
-    loyaltyDiscountPct: clampInt(get("loyaltyDiscountPct"), 0, 50, tech.loyaltyDiscountPct),
-    noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
+    loyaltyDiscountType: loyalty.type === "none" ? "percent" : loyalty.type,
+    loyaltyDiscountValue: loyalty.value,
+    loyaltyDiscountPct: loyalty.type === "percent" ? loyalty.value : tech.loyaltyDiscountPct,
+    noShowFeeType: noShowFee.type === "none" ? "percent" : noShowFee.type,
+    noShowFeeValue: noShowFee.value,
+    noShowFeePct: noShowFee.type === "percent" ? noShowFee.value : tech.noShowFeePct,
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
     infillNudgesEnabled: formData.get("infillNudgesEnabled") === "on",
     preCareConfirmationsEnabled: formData.get("preCareConfirmationsEnabled") === "on",
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),
-    depositTierMediumPct: clampInt(get("depositTierMediumPct"), 0, 100, tech.depositTierMediumPct ?? 50),
-    depositTierHighPct: clampInt(get("depositTierHighPct"), 0, 100, tech.depositTierHighPct ?? 100),
+    depositTierMediumType: mediumTier.type === "none" ? "percent" : mediumTier.type,
+    depositTierMediumValue: mediumTier.value,
+    depositTierMediumPct: mediumTier.type === "percent" ? mediumTier.value : tech.depositTierMediumPct ?? 50,
+    depositTierHighType: highTier.type === "none" ? "percent" : highTier.type,
+    depositTierHighValue: highTier.value,
+    depositTierHighPct: highTier.type === "percent" ? highTier.value : tech.depositTierHighPct ?? 100,
   });
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
@@ -1290,8 +1344,13 @@ export async function importServicesAction(formData: FormData) {
       description: iDesc !== -1 ? (cols[iDesc] ?? "") : "",
       durationMin: durationMin || 60,
       pricePennies,
-      depositType: "percent",
-      depositValue: tech.defaultDepositPct,
+      depositType: tech.defaultDepositType ?? "percent",
+      depositValue:
+        tech.defaultDepositType === "fixed"
+          ? tech.defaultDepositValue ?? 0
+          : tech.defaultDepositType === "none"
+            ? 0
+            : tech.defaultDepositValue ?? tech.defaultDepositPct,
       requiresPatchTest: false,
       isPatchTestService: false,
       isInfill: false,
