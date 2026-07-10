@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const createReactionCheckin = vi.fn();
 const updateReactionCheckin = vi.fn();
