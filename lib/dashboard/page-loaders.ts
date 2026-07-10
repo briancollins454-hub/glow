@@ -20,6 +20,7 @@ import {
   listProducts,
   listQuestions,
   listRecentPayments,
+  listReactionCheckins,
   listReminders,
   listReviewsForTech,
   listServices,
@@ -180,9 +181,10 @@ export async function loadDashboardPageData(
       return { questions };
     }
     case "reminders": {
-      const [reminders, services] = await Promise.all([
+      const [reminders, services, checkins] = await Promise.all([
         listReminders(sb, tech.id),
         listServices(sb, tech.id),
+        listReactionCheckins(sb, tech.id).catch(() => []),
       ]);
       const bookingIds = [
         ...new Set(
@@ -197,7 +199,7 @@ export async function loadDashboardPageData(
         ]),
       ];
       const clients = await getClientsByIds(sb, clientIds);
-      return { reminders, services, bookings, clients, tech };
+      return { reminders, services, bookings, clients, checkins, tech };
     }
     case "reviews": {
       const reviews = await listReviewsForTech(sb, tech.id);

@@ -18,6 +18,7 @@ import type {
   ProductChangeRetest,
   ProductUsage,
   ClientReaction,
+  ReactionCheckin,
   Reminder,
   Review,
   Service,
@@ -833,6 +834,46 @@ export async function createClientReaction(sb: SB, r: Omit<ClientReaction, "id" 
 }
 export async function deleteClientReaction(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("client_reactions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Reaction check-ins ----------------
+export async function getReactionCheckin(sb: SB, id: string): Promise<ReactionCheckin | null> {
+  const { data, error } = await sb.from("reaction_checkins").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as ReactionCheckin | null;
+}
+export async function getReactionCheckinByToken(sb: SB, token: string): Promise<ReactionCheckin | null> {
+  const { data, error } = await sb.rpc("reaction_checkin_by_token", { lookup_token: token });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row as ReactionCheckin) ?? null;
+}
+export async function listReactionCheckins(sb: SB, techId: string): Promise<ReactionCheckin[]> {
+  const { data, error } = await sb
+    .from("reaction_checkins")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as ReactionCheckin[], error) ?? [];
+}
+export async function dueReactionCheckins(sb: SB, nowIso: string): Promise<ReactionCheckin[]> {
+  const { data, error } = await sb
+    .from("reaction_checkins")
+    .select("*")
+    .eq("status", "scheduled")
+    .lte("sendAtIso", nowIso);
+  return must(data as ReactionCheckin[], error) ?? [];
+}
+export async function createReactionCheckin(
+  sb: SB,
+  c: Omit<ReactionCheckin, "id" | "createdAt">,
+): Promise<ReactionCheckin> {
+  const { data, error } = await sb.from("reaction_checkins").insert({ ...c, id: randomId("rci") }).select("*").single();
+  return must(data as ReactionCheckin, error);
+}
+export async function updateReactionCheckin(sb: SB, id: string, patch: Partial<ReactionCheckin>): Promise<void> {
+  const { error } = await sb.from("reaction_checkins").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 }
 

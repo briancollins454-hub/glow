@@ -637,6 +637,20 @@ export async function addPatchTestAction(formData: FormData) {
         usedAtIso: performed.toISOString(),
       });
     }
+    if (result === "pass" || result === "pending") {
+      try {
+        const { scheduleReactionCheckin } = await import("@/lib/reaction-checkin");
+        await scheduleReactionCheckin(sb, {
+          techId: tech.id,
+          clientId,
+          categoryId,
+          anchorIso: performed.toISOString(),
+          patchTestId: patchTest.id,
+        });
+      } catch {
+        // Check-in scheduling is best-effort if migration is pending.
+      }
+    }
     const { resolveRetestsAfterPatchPass, markRetestsTestBooked } = await import("@/lib/product-change");
     if (result === "pass") {
       await resolveRetestsAfterPatchPass(sb, tech.id, clientId, categoryId);
@@ -672,6 +686,21 @@ export async function setBookingStatusAction(formData: FormData) {
       } catch {
         // Batch logging is best-effort; completing the booking always succeeds.
       }
+    }
+    try {
+      const service = await getService(sb, booking!.serviceId);
+      if (service?.requiresPatchTest && !service.isPatchTestService) {
+        const { scheduleReactionCheckin } = await import("@/lib/reaction-checkin");
+        await scheduleReactionCheckin(sb, {
+          techId: tech.id,
+          clientId: booking!.clientId,
+          categoryId: service.categoryId,
+          anchorIso: booking!.endIso || booking!.startIso,
+          bookingId: booking!.id,
+        });
+      }
+    } catch {
+      // Check-in scheduling is best-effort.
     }
     try {
       const { sendAftercareEmail } = await import("@/lib/notify");
