@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getDashboardContext } from "@/lib/auth/session";
+import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { createAuditEvent, getTechById, updateTech } from "@/lib/db/queries";
 import {
   exchangeGoogleCode,
@@ -32,6 +32,7 @@ export async function GET(request: Request) {
       googleCalendarEmail: email,
       googleConnectedAt: new Date().toISOString(),
     });
+    invalidateDashboardTech(c.tech.authUserId);
     await createAuditEvent(c.sb, {
       techId: c.tech.id,
       actor: "tech",

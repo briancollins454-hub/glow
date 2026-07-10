@@ -8,13 +8,12 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import {
   changePasswordAction,
-  disconnectGoogleCalendarAction,
   ensureCalendarTokenAction,
   requestAccountClosureAction,
-  syncGoogleCalendarAction,
   updateSettingsAction,
 } from "../actions";
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
+import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -33,6 +32,7 @@ const GOOGLE_MSG: Record<string, string> = {
   failed: "Google Calendar connection failed. Please try again.",
   not_connected: "Connect Google Calendar first, then try syncing again.",
   synced: "Appointments synced to Google Calendar.",
+  sync_error: "Google Calendar sync failed.",
 };
 
 export default function SettingsPage() {
@@ -49,11 +49,11 @@ export default function SettingsPage() {
   const googleSynced = searchParams.get("synced");
   const googleFailed = searchParams.get("failed");
   const googleSkipped = searchParams.get("skipped");
+  const googleReason = searchParams.get("reason");
   const photoerr = searchParams.get("photoerr");
   const coverSaved = searchParams.get("cover");
   const profileSaved = searchParams.get("profile");
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
-  const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
 
   return (
     <div className="space-y-6">
@@ -73,7 +73,9 @@ export default function SettingsPage() {
           className={`flex flex-col gap-1 rounded-xl px-4 py-3 text-sm ${
             google === "connected" || google === "synced"
               ? "bg-emerald-500/10 text-emerald-300"
-              : "bg-amber-500/10 text-amber-300"
+              : google === "sync_error"
+                ? "bg-red-500/10 text-red-300"
+                : "bg-amber-500/10 text-amber-300"
           }`}
         >
           <div className="flex items-center gap-2">
@@ -81,7 +83,9 @@ export default function SettingsPage() {
             <span>
               {google === "synced" || (google === "connected" && googleSynced)
                 ? `${GOOGLE_MSG.synced} ${googleSynced ?? "0"} added or updated${googleFailed && Number(googleFailed) > 0 ? `, ${googleFailed} failed` : ""}.`
-                : GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}
+                : google === "sync_error" && googleReason
+                  ? `${GOOGLE_MSG.sync_error} ${decodeURIComponent(googleReason)}`
+                  : GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}
             </span>
           </div>
           {googleSkipped && Number(googleSkipped) > 0 && (
@@ -100,30 +104,7 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {googleConnected ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-emerald-300">
-                Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <form action={syncGoogleCalendarAction}>
-                  <Button type="submit" variant="secondary" size="sm">
-                    Sync appointments to Google
-                  </Button>
-                </form>
-                <form action={disconnectGoogleCalendarAction}>
-                  <Button type="submit" variant="outline" size="sm">Disconnect</Button>
-                </form>
-              </div>
-              <p className="text-xs text-ink-faint">
-                Sync pushes all upcoming confirmed bookings. Adding a client in Clients does not create a calendar event — add the appointment in Calendar.
-              </p>
-            </div>
-          ) : (
-            <ButtonLink href="/api/google/calendar/connect" size="lg">
-              Connect Google Calendar
-            </ButtonLink>
-          )}
+          <GoogleCalendarPanel tech={tech} />
         </CardContent>
       </Card>
 

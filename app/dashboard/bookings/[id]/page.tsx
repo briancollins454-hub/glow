@@ -21,20 +21,21 @@ import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
 import { statusBadge } from "@/components/dashboard/status";
 import { gbp, TZ, fmtDateTime } from "@/lib/format";
-import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction, syncBookingGoogleAction } from "../../actions";
+import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
+import { GoogleBookingSyncButton } from "@/components/dashboard/google-booking-sync-button";
 
 export default async function EditBookingPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; err?: string; usage?: string; google?: string; reason?: string }>;
+  searchParams: Promise<{ saved?: string; err?: string; usage?: string }>;
 }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
   const { id } = await params;
-  const { saved, err, usage, google, reason } = await searchParams;
+  const { saved, err, usage } = await searchParams;
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
@@ -97,16 +98,6 @@ export default async function EditBookingPage({
       {usage && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           <CheckCircle2 className="h-4 w-4" /> Product batch logged for this appointment.
-        </div>
-      )}
-      {google === "synced" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          <CalendarDays className="h-4 w-4" /> Sent to Google Calendar.
-        </div>
-      )}
-      {google === "failed" && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-          Could not sync to Google Calendar{reason ? `: ${decodeURIComponent(reason)}` : "."} Try Settings → Sync appointments.
         </div>
       )}
 
@@ -186,19 +177,10 @@ export default async function EditBookingPage({
             <CardTitle className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-brand-400" /> Google Calendar
             </CardTitle>
-            <CardDescription>
-              {booking.googleEventId
-                ? "This booking is linked to Google Calendar. Sync again if the event looks wrong or is missing."
-                : "This booking has not been sent to Google Calendar yet."}
-            </CardDescription>
+            <CardDescription>Push this appointment to your connected Google Calendar.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={syncBookingGoogleAction}>
-              <input type="hidden" name="id" value={booking.id} />
-              <SubmitButton variant="secondary" size="sm" pendingLabel="Syncing…">
-                Send to Google Calendar
-              </SubmitButton>
-            </form>
+            <GoogleBookingSyncButton bookingId={booking.id} hasGoogleEvent={!!booking.googleEventId} />
           </CardContent>
         </Card>
       )}

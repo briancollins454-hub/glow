@@ -24,6 +24,7 @@ import {
   getClient,
   getService,
   getTechByHandle,
+  getTechById,
   listBookings,
   listCategories,
   listServices,
@@ -351,14 +352,21 @@ export async function disconnectGoogleCalendarAction() {
 /** Push all upcoming confirmed bookings to Google Calendar (backfill + repair). */
 export async function syncGoogleCalendarAction() {
   const { sb, tech } = await ctx();
-  if (!googleConnected(tech)) redirect("/dashboard/settings?google=not_connected");
-  const result = await syncUpcomingBookingsToGoogle(sb, tech);
-  await audit(sb, tech.id, "google_calendar_sync", "tech", tech.id, result);
-  revalidatePath("/dashboard/settings");
-  revalidatePath("/dashboard/bookings");
-  redirect(
-    `/dashboard/settings?google=synced&synced=${result.synced}&failed=${result.failed}&skipped=${result.skipped}`,
-  );
+  const fresh = (await getTechById(sb, tech.id)) ?? tech;
+  if (!googleConnected(fresh)) redirect("/dashboard/settings?google=not_connected");
+  try {
+    const result = await syncUpcomingBookingsToGoogle(sb, fresh);
+    await audit(sb, tech.id, "google_calendar_sync", "tech", tech.id, result);
+    invalidateDashboardTech(tech.authUserId);
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/bookings");
+    redirect(
+      `/dashboard/settings?google=synced&synced=${result.synced}&failed=${result.failed}&skipped=${result.skipped}`,
+    );
+  } catch (err) {
+    const message = encodeURIComponent(err instanceof Error ? err.message : "sync_failed");
+    redirect(`/dashboard/settings?google=sync_error&reason=${message}`);
+  }
 }
 
 /** Push one booking to Google Calendar. */
