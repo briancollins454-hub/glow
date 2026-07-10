@@ -173,7 +173,7 @@ export async function loadDashboardPageData(
           if (url) photoByService[s.id] = url;
         }
       }
-      return { categories, services, addons, photoByService, retests, clients, bookings, products, batchSummaries: batchSummary };
+      return { categories, services, addons, photoByService, retests, clients, bookings, products, batchSummaries: batchSummary, tech };
     }
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([

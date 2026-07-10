@@ -13,6 +13,7 @@ import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
 import { ProductChangePanel } from "@/components/dashboard/product-change-panel";
+import { PriceRisePanel } from "@/components/dashboard/price-rise-panel";
 import { ProductsBatchesPanel } from "@/components/dashboard/products-batches-panel";
 import { RetestQueue } from "@/components/dashboard/retest-queue";
 import {
@@ -24,7 +25,7 @@ import {
   addAddonAction,
   deleteAddonAction,
 } from "../actions";
-import type { Booking, Client, Product, ProductChangeRetest, ServiceAddon, ServiceCategory, Service } from "@/lib/db/types";
+import type { Booking, Client, Product, ProductChangeRetest, ServiceAddon, ServiceCategory, Service, Tech } from "@/lib/db/types";
 import type { batchSummaries } from "@/lib/product-batches";
 
 type ServicesData = {
@@ -37,6 +38,7 @@ type ServicesData = {
   bookings: Booking[];
   products: Product[];
   batchSummaries: Awaited<ReturnType<typeof batchSummaries>>;
+  tech: Tech;
 };
 
 export default function ServicesPage() {
@@ -57,9 +59,11 @@ function ServicesView({
   bookings,
   products,
   batchSummaries: batchSummary,
+  tech,
 }: ServicesData) {
   const searchParams = useSearchParams();
   const open = searchParams.get("open") ?? undefined;
+  const priceRiseDone = searchParams.get("pricerise");
   const retestDone = searchParams.get("retest");
   const retestErr = searchParams.get("retesterr");
   const affected = searchParams.get("affected");
@@ -99,6 +103,14 @@ function ServicesView({
           <span>New batch opened. You can link it when recording patch tests or completing appointments.</span>
         </div>
       )}
+      {priceRiseDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Menu prices updated. Share the announcement copy with your clients when you&apos;re ready.</span>
+        </div>
+      )}
+
+      {services.some((s) => s.active) && <PriceRisePanel services={services} tech={tech} />}
 
       {categories.length > 0 && (
         <ProductChangePanel categories={categories} services={services} products={products} />

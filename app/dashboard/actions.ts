@@ -1585,6 +1585,54 @@ export async function runningLateCascadeAction(formData: FormData) {
   }
 }
 
+// ---------------- Price rise assistant ----------------
+export async function applyPriceRiseAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  type Update = { id: string; pricePennies: number };
+  let updates: Update[] = [];
+  try {
+    updates = JSON.parse(String(formData.get("updates") ?? "[]")) as Update[];
+  } catch {
+    redirect("/dashboard/services?priceriseerr=invalid");
+  }
+  if (!Array.isArray(updates) || updates.length === 0) {
+    redirect("/dashboard/services?priceriseerr=empty");
+  }
+
+  const services = await listServices(sb, tech.id);
+  const serviceById = new Map(services.map((s) => [s.id, s]));
+  const applied: { id: string; from: number; to: number; name: string }[] = [];
+
+  for (const row of updates) {
+    const service = serviceById.get(row.id);
+    if (!service || service.techId !== tech.id) continue;
+    const pricePennies = Math.max(0, Math.round(row.pricePennies));
+    if (pricePennies === service.pricePennies) continue;
+    await updateService(sb, service.id, { pricePennies });
+    applied.push({
+      id: service.id,
+      name: service.name,
+      from: service.pricePennies,
+      to: pricePennies,
+    });
+  }
+
+  if (applied.length === 0) {
+    redirect("/dashboard/services?priceriseerr=empty");
+  }
+
+  await audit(sb, tech.id, "price_rise_applied", "tech", tech.id, {
+    mode: String(formData.get("mode") ?? ""),
+    value: String(formData.get("value") ?? ""),
+    effectiveDate: String(formData.get("effectiveDate") ?? ""),
+    services: applied,
+  });
+
+  revalidatePath("/dashboard/services");
+  revalidatePath(`/${tech.handle}`);
+  redirect(`/dashboard/services?pricerise=1&count=${applied.length}`);
+}
+
 // ---------------- Reminders ----------------
 export async function runRemindersAction() {
   const { sb } = await ctx();
