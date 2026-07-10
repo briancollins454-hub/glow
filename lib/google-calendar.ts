@@ -19,11 +19,21 @@ type TokenResponse = {
 
 type GoogleEventResponse = {
   id: string;
+  htmlLink?: string;
+  summary?: string;
+  start?: { dateTime?: string; timeZone?: string };
 };
 
 export type GoogleSyncResult =
-  | { ok: true; eventId?: string; skipped?: boolean }
+  | { ok: true; eventId?: string; htmlLink?: string; summary?: string; skipped?: boolean }
   | { ok: false; reason: string; skipped?: boolean };
+
+export type GoogleSyncedEvent = {
+  bookingId: string;
+  summary: string;
+  htmlLink: string | null;
+  startLocal: string;
+};
 
 export type GoogleBulkSyncResult = {
   synced: number;
@@ -32,6 +42,9 @@ export type GoogleBulkSyncResult = {
   upcoming: number;
   errors: string[];
   googleEmail: string | null;
+  calendarName: string | null;
+  calendarId: string | null;
+  events: GoogleSyncedEvent[];
 };
 
 /** Google Calendar expects local wall-clock with timeZone, not a UTC `Z` timestamp. */
@@ -115,6 +128,19 @@ export async function googleAccountEmail(accessToken: string): Promise<string> {
   if (!res.ok) return "";
   const json = (await res.json()) as { email?: string };
   return json.email ?? "";
+}
+
+async function googleCalendarMeta(
+  accessToken: string,
+  calendarId: string,
+): Promise<{ id: string; summary: string } | null> {
+  const res = await fetch(`${GOOGLE_CALENDAR_URL}/${encodeURIComponent(calendarId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  const json = (await res.json()) as { id?: string; summary?: string };
+  if (!json.id) return null;
+  return { id: json.id, summary: json.summary ?? json.id };
 }
 
 function googleEventBody({
@@ -241,7 +267,12 @@ export async function syncBookingToGoogle(
     if (event.id && event.id !== booking.googleEventId) {
       await updateBooking(sb, booking.id, { googleEventId: event.id });
     }
-    return { ok: true, eventId: event.id };
+    return {
+      ok: true,
+      eventId: event.id,
+      htmlLink: event.htmlLink,
+      summary: event.summary ?? body.summary,
+    };
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : "sync_failed" };
   }
@@ -263,12 +294,38 @@ export async function syncUpcomingBookingsToGoogle(
   let failed = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const events: GoogleSyncedEvent[] = [];
+  let calendarName: string | null = null;
+  let calendarId: string | null = tech.googleCalendarId;
+
+  if (googleConnected(tech) && tech.googleRefreshToken) {
+    try {
+      const accessToken = await accessTokenFromRefresh(tech.googleRefreshToken);
+      const meta = await googleCalendarMeta(accessToken, tech.googleCalendarId!);
+      if (meta) {
+        calendarName = meta.summary;
+        calendarId = meta.id;
+      }
+    } catch {
+      // Calendar metadata is best-effort for diagnostics.
+    }
+  }
 
   for (const booking of upcoming) {
     const result = await syncBookingToGoogle(sb, tech, booking);
     if (result.ok) {
       if (result.skipped) skipped++;
-      else synced++;
+      else {
+        synced++;
+        if (events.length < 5) {
+          events.push({
+            bookingId: booking.id,
+            summary: result.summary ?? "Appointment",
+            htmlLink: result.htmlLink ?? null,
+            startLocal: formatInTimeZone(new Date(booking.startIso), TZ, "EEE d MMM yyyy HH:mm"),
+          });
+        }
+      }
     } else if (result.skipped) {
       skipped++;
       if (errors.length < 3) errors.push(result.reason);
@@ -285,6 +342,9 @@ export async function syncUpcomingBookingsToGoogle(
     upcoming: upcoming.length,
     errors,
     googleEmail: tech.googleCalendarEmail,
+    calendarName,
+    calendarId,
+    events,
   };
 }
 

@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, CheckCircle2, Loader2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import type { Tech } from "@/lib/db/types";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { disconnectGoogleCalendarAction } from "@/app/dashboard/actions";
 import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
+
+type SyncedEvent = {
+  bookingId: string;
+  summary: string;
+  htmlLink: string | null;
+  startLocal: string;
+};
 
 type SyncResult = {
   synced: number;
@@ -14,6 +21,9 @@ type SyncResult = {
   upcoming?: number;
   errors?: string[];
   googleEmail?: string | null;
+  calendarName?: string | null;
+  calendarId?: string | null;
+  events?: SyncedEvent[];
   error?: string;
 };
 
@@ -24,14 +34,18 @@ function syncMessage(result: SyncResult): { tone: "ok" | "warn" | "error"; text:
 
   const detail =
     result.errors && result.errors.length > 0 ? ` Details: ${result.errors.join(" · ")}` : "";
-  const emailHint = result.googleEmail
-    ? ` Check the Google account ${result.googleEmail}.`
-    : "";
+  const where = [
+    result.googleEmail ? `account ${result.googleEmail}` : null,
+    result.calendarName ? `calendar “${result.calendarName}”` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const whereHint = where ? ` Sent to ${where}.` : "";
 
   if (result.failed > 0) {
     return {
       tone: "warn",
-      text: `Synced ${result.synced}, but ${result.failed} failed.${detail}${emailHint} Try Disconnect → Connect Google Calendar, then sync again.`,
+      text: `Synced ${result.synced}, but ${result.failed} failed.${detail}${whereHint} Try Disconnect → Connect Google Calendar, then sync again.`,
     };
   }
 
@@ -45,13 +59,13 @@ function syncMessage(result: SyncResult): { tone: "ok" | "warn" | "error"; text:
   if (result.synced === 0 && result.skipped > 0) {
     return {
       tone: "warn",
-      text: `Found ${result.upcoming ?? result.skipped} booking(s) but none synced.${detail}${emailHint}`,
+      text: `Found ${result.upcoming ?? result.skipped} booking(s) but none synced.${detail}${whereHint}`,
     };
   }
 
   return {
     tone: "ok",
-    text: `Synced ${result.synced} appointment${result.synced === 1 ? "" : "s"} to Google Calendar.${emailHint}`,
+    text: `Synced ${result.synced} appointment${result.synced === 1 ? "" : "s"}.${whereHint} Tap a link below to open it in Google — if the link works but your phone calendar is empty, you are looking at a different Google account.`,
   };
 }
 
@@ -88,6 +102,9 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
         upcoming: data.upcoming,
         errors: data.errors,
         googleEmail: data.googleEmail,
+        calendarName: data.calendarName,
+        calendarId: data.calendarId,
+        events: data.events,
       });
       invalidateDashboardAuth();
     } catch {
@@ -116,7 +133,7 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
 
       {feedback && (
         <div
-          className={`flex items-start gap-2 rounded-xl px-4 py-3 text-sm ${
+          className={`flex flex-col gap-2 rounded-xl px-4 py-3 text-sm ${
             feedback.tone === "ok"
               ? "bg-emerald-500/10 text-emerald-300"
               : feedback.tone === "error"
@@ -124,12 +141,37 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
                 : "bg-amber-500/10 text-amber-300"
           }`}
         >
-          {feedback.tone === "ok" ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          ) : (
-            <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="flex items-start gap-2">
+            {feedback.tone === "ok" ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : (
+              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <span>{feedback.text}</span>
+          </div>
+          {result?.events && result.events.length > 0 && (
+            <ul className="space-y-1.5 pl-6">
+              {result.events.map((event) => (
+                <li key={event.bookingId} className="text-xs">
+                  {event.htmlLink ? (
+                    <a
+                      href={event.htmlLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 underline underline-offset-2 hover:opacity-90"
+                    >
+                      {event.summary} · {event.startLocal}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <span>
+                      {event.summary} · {event.startLocal}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-          <span>{feedback.text}</span>
         </div>
       )}
 
@@ -156,8 +198,8 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
         </form>
       </div>
       <p className="text-xs text-ink-faint">
-        Sync pushes all upcoming confirmed bookings to the Google account shown above.
-        If nothing appears, check you are looking at that same Google account, then try Disconnect → Connect again.
+        Events go to the Google account shown above. After sync, use the links to open them in Google.
+        If the link opens but your phone calendar is empty, switch Google account on the phone.
       </p>
     </div>
   );
