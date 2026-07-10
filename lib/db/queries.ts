@@ -18,6 +18,7 @@ import type {
   ProductChangeRetest,
   ProductUsage,
   ClientReaction,
+  InfillDeadlineNudge,
   ReactionCheckin,
   Reminder,
   Review,
@@ -107,6 +108,7 @@ type ManagedTechField =
   | "googleCalendarEmail"
   | "googleConnectedAt"
   | "rebookNudgesEnabled"
+  | "infillNudgesEnabled"
   | "requiresBookingApproval"
   | "approvalMode"
   | "depositTierMediumPct"
@@ -874,6 +876,43 @@ export async function createReactionCheckin(
 }
 export async function updateReactionCheckin(sb: SB, id: string, patch: Partial<ReactionCheckin>): Promise<void> {
   const { error } = await sb.from("reaction_checkins").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Infill deadline nudges ----------------
+export async function listInfillDeadlineNudges(sb: SB, techId: string): Promise<InfillDeadlineNudge[]> {
+  const { data, error } = await sb
+    .from("infill_deadline_nudges")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as InfillDeadlineNudge[], error) ?? [];
+}
+export async function dueInfillDeadlineNudges(sb: SB, nowIso: string): Promise<InfillDeadlineNudge[]> {
+  const { data, error } = await sb
+    .from("infill_deadline_nudges")
+    .select("*")
+    .eq("status", "scheduled")
+    .lte("sendAtIso", nowIso);
+  return must(data as InfillDeadlineNudge[], error) ?? [];
+}
+export async function createInfillDeadlineNudge(
+  sb: SB,
+  n: Omit<InfillDeadlineNudge, "id" | "createdAt">,
+): Promise<InfillDeadlineNudge> {
+  const { data, error } = await sb
+    .from("infill_deadline_nudges")
+    .insert({ ...n, id: randomId("idn") })
+    .select("*")
+    .single();
+  return must(data as InfillDeadlineNudge, error);
+}
+export async function updateInfillDeadlineNudge(
+  sb: SB,
+  id: string,
+  patch: Partial<InfillDeadlineNudge>,
+): Promise<void> {
+  const { error } = await sb.from("infill_deadline_nudges").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 }
 

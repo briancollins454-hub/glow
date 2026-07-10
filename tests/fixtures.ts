@@ -185,6 +185,7 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     googleCalendarEmail: null,
     googleConnectedAt: null,
     rebookNudgesEnabled: true,
+    infillNudgesEnabled: true,
     requiresBookingApproval: false,
     approvalMode: "off",
     depositTierMediumPct: 50,

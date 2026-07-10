@@ -7,7 +7,14 @@ import { sendReminder } from "@/lib/notify";
 export async function processDueReminders(
   sb: SupabaseClient,
   nowIso = new Date().toISOString(),
-): Promise<{ sent: number; skipped: number; checkinsSent?: number; checkinsSkipped?: number }> {
+): Promise<{
+  sent: number;
+  skipped: number;
+  checkinsSent?: number;
+  checkinsSkipped?: number;
+  infillSent?: number;
+  infillSkipped?: number;
+}> {
   const due = await dueReminders(sb, nowIso);
   let sent = 0;
   let skipped = 0;
@@ -44,5 +51,16 @@ export async function processDueReminders(
     // Migration may be pending.
   }
 
-  return { sent, skipped, checkinsSent, checkinsSkipped };
+  let infillSent = 0;
+  let infillSkipped = 0;
+  try {
+    const { processInfillDeadlineNudges } = await import("@/lib/infill-nudge");
+    const infill = await processInfillDeadlineNudges(sb, nowIso);
+    infillSent = infill.sent;
+    infillSkipped = infill.skipped;
+  } catch {
+    // Migration may be pending.
+  }
+
+  return { sent, skipped, checkinsSent, checkinsSkipped, infillSent, infillSkipped };
 }
