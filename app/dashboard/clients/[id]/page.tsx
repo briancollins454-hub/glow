@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ShieldAlert, ShieldCheck, Plus, ImagePlus, Trash2, MessageSquare } from "lucide-react";
+import { ArrowLeft, ShieldAlert, ShieldCheck, Plus, ImagePlus, Trash2, MessageSquare, FileDown } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import {
   bookingsForClient,
@@ -88,10 +88,16 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         {client.isVip && <Badge tone="purple">VIP</Badge>}
         {client.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blocked</Badge>}
         {client.noShowCount > 0 && <Badge tone="amber">{client.noShowCount} no-show{client.noShowCount > 1 ? "s" : ""}</Badge>}
+        <a
+          href={`/api/clients/${client.id}/evidence-pack`}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-edge bg-cream px-3 py-2 text-sm font-medium text-ink-soft transition hover:text-ink"
+        >
+          <FileDown className="h-4 w-4" /> Evidence pack
+        </a>
         {isLive(tech) && (
           <Link
             href={`/dashboard/messages/${client.id}`}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
           >
             <MessageSquare className="h-4 w-4" /> Message
           </Link>
