@@ -691,3 +691,70 @@ export async function notifyClientRunningLate(opts: {
 
   return { email, sms };
 }
+
+function precareHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br/>");
+}
+
+/** Pre-care instructions email/SMS with link to confirm the client has read them. */
+export async function notifyClientOfPreCare(
+  tech: Tech,
+  client: Client,
+  booking: Booking,
+  service: Service,
+  row: import("@/lib/db/types").PreCareConfirmation,
+): Promise<boolean> {
+  const instructions = service.precareText?.trim();
+  if (!instructions) return false;
+  if (!client.email?.trim() && !client.phone) return false;
+
+  const biz = tech.businessName || "your beauty studio";
+  const brand = tech.brandColor || "#db2777";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const when = fmtDateTime(booking.startIso);
+  const url = `${APP_URL}/precare/${row.token}`;
+  const instructionsHtml = precareHtml(instructions);
+
+  const bodyHtml =
+    `Hi ${name},<br/><br/>` +
+    `Before your <strong>${service.name}</strong> on <strong>${when}</strong>, please read the preparation notes below.<br/><br/>` +
+    `<div style="margin-top:12px;padding:14px 16px;background:#faf6f3;border-radius:12px;color:#564a5e">${instructionsHtml}</div>` +
+    `<br/>Tap the button to confirm you&apos;ve read and understood them.`;
+
+  const text =
+    `Hi ${name}, prep for your ${service.name} on ${when} at ${biz}:\n\n` +
+    `${instructions}\n\nConfirm you've read this: ${url}`;
+
+  let sent = false;
+
+  if (client.email?.trim()) {
+    const html = brandedEmail({
+      brand,
+      businessName: biz,
+      heading: "Before your appointment",
+      bodyHtml,
+      buttonLabel: "I've read and understood",
+      buttonUrl: url,
+    });
+    sent = await sendEmail({
+      to: client.email.trim(),
+      subject: `${biz}: prep for your ${service.name} appointment`,
+      html,
+      text,
+      idempotencyKey: `precare/${row.id}`,
+    });
+  }
+
+  if (!sent && smsConfigured() && client.phone) {
+    const smsBody =
+      `Hi ${name}, ${biz}: prep for your ${service.name} on ${fmtTime(booking.startIso)}. ` +
+      `Please read and confirm: ${url}`;
+    sent = await sendSms(client.phone, smsBody);
+  }
+
+  return sent;
+}

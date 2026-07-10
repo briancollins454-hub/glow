@@ -14,6 +14,8 @@ export async function processDueReminders(
   checkinsSkipped?: number;
   infillSent?: number;
   infillSkipped?: number;
+  precareSent?: number;
+  precareSkipped?: number;
 }> {
   const due = await dueReminders(sb, nowIso);
   let sent = 0;
@@ -62,5 +64,16 @@ export async function processDueReminders(
     // Migration may be pending.
   }
 
-  return { sent, skipped, checkinsSent, checkinsSkipped, infillSent, infillSkipped };
+  let precareSent = 0;
+  let precareSkipped = 0;
+  try {
+    const { processDuePreCareConfirmations } = await import("@/lib/pre-care");
+    const precare = await processDuePreCareConfirmations(sb, nowIso);
+    precareSent = precare.sent;
+    precareSkipped = precare.skipped;
+  } catch {
+    // Migration may be pending.
+  }
+
+  return { sent, skipped, checkinsSent, checkinsSkipped, infillSent, infillSkipped, precareSent, precareSkipped };
 }

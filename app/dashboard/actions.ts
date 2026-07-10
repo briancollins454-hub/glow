@@ -155,6 +155,7 @@ export async function updateSettingsAction(formData: FormData) {
     noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
     infillNudgesEnabled: formData.get("infillNudgesEnabled") === "on",
+    preCareConfirmationsEnabled: formData.get("preCareConfirmationsEnabled") === "on",
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),
@@ -433,6 +434,7 @@ export async function saveServiceAction(formData: FormData) {
     active: formData.get("active") === "on",
     sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
     aftercareText: String(formData.get("aftercareText") ?? "").trim(),
+    precareText: String(formData.get("precareText") ?? "").trim(),
   };
 
   if (!data.name || !data.categoryId) {
@@ -761,6 +763,12 @@ export async function setBookingStatusAction(formData: FormData) {
     // Google Calendar sync is best-effort.
   }
   if (status === "cancelled") {
+    try {
+      const { skipPreCareForBooking } = await import("@/lib/pre-care");
+      await skipPreCareForBooking(sb, booking!.id);
+    } catch {
+      // Migration may be pending.
+    }
     try {
       const { notifyWaitlistForCancelledBooking } = await import("@/lib/waitlist");
       await notifyWaitlistForCancelledBooking(sb, { ...booking!, ...patch });

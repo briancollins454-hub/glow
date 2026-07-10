@@ -382,6 +382,14 @@ export async function applyBalancePaid(
 export async function rescheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
   const { skipScheduledReminders } = await import("@/lib/db/queries");
   await skipScheduledReminders(sb, booking.id);
+  try {
+    const { reschedulePreCareConfirmation } = await import("@/lib/pre-care");
+    const { getTechById } = await import("@/lib/db/queries");
+    const tech = await getTechById(sb, booking.techId);
+    if (tech) await reschedulePreCareConfirmation(sb, tech, booking);
+  } catch {
+    // Migration may be pending.
+  }
   const startMs = new Date(booking.startIso).getTime();
 
   const remind24 = startMs - 24 * HOUR;
@@ -464,6 +472,14 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
       preview: "",
       sentAtIso: null,
     });
+  }
+  try {
+    const { schedulePreCareConfirmation } = await import("@/lib/pre-care");
+    const { getTechById } = await import("@/lib/db/queries");
+    const tech = await getTechById(sb, booking.techId);
+    if (tech) await schedulePreCareConfirmation(sb, tech, booking);
+  } catch {
+    // Migration may be pending.
   }
 }
 

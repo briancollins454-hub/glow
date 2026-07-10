@@ -79,6 +79,8 @@ export interface Tech {
   rebookNudgesEnabled: boolean;
   // Remind clients to book an infill before their window closes.
   infillNudgesEnabled: boolean;
+  // Email/SMS pre-care instructions and ask clients to confirm before appointments.
+  preCareConfirmationsEnabled: boolean;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.
@@ -134,6 +136,8 @@ export interface Service {
   photoPath: string | null;
   // Aftercare instructions emailed to the client when the appointment completes
   aftercareText: string;
+  // Pre-care instructions sent before the appointment (client confirms via link)
+  precareText: string;
   createdAt: string;
 }
 
@@ -414,6 +418,21 @@ export interface LateCascadeNotification {
   bookingId: string;
   clientId: string;
   channel: ReminderChannel;
+  createdAt: string;
+}
+
+export type PreCareConfirmationStatus = "scheduled" | "sent" | "confirmed" | "skipped";
+
+export interface PreCareConfirmation {
+  id: string;
+  techId: string;
+  clientId: string;
+  bookingId: string;
+  token: string;
+  sendAtIso: string;
+  sentAtIso: string | null;
+  status: PreCareConfirmationStatus;
+  confirmedAtIso: string | null;
   createdAt: string;
 }
 

@@ -21,6 +21,7 @@ import type {
   InfillDeadlineNudge,
   LateCascadeEvent,
   LateCascadeNotification,
+  PreCareConfirmation,
   ReactionCheckin,
   Reminder,
   Review,
@@ -111,6 +112,7 @@ type ManagedTechField =
   | "googleConnectedAt"
   | "rebookNudgesEnabled"
   | "infillNudgesEnabled"
+  | "preCareConfirmationsEnabled"
   | "requiresBookingApproval"
   | "approvalMode"
   | "depositTierMediumPct"
@@ -159,8 +161,8 @@ export async function getService(sb: SB, id: string): Promise<Service | null> {
 }
 export async function createService(
   sb: SB,
-  s: Omit<Service, "id" | "createdAt" | "photoPath" | "aftercareText"> &
-    Partial<Pick<Service, "photoPath" | "aftercareText">>,
+  s: Omit<Service, "id" | "createdAt" | "photoPath" | "aftercareText" | "precareText"> &
+    Partial<Pick<Service, "photoPath" | "aftercareText" | "precareText">>,
 ): Promise<Service> {
   const { data, error } = await sb.from("services").insert({ ...s, id: randomId("svc") }).select("*").single();
   return must(data as Service, error);
@@ -961,6 +963,58 @@ export async function createLateCascadeNotification(
     .select("*")
     .single();
   return must(data as LateCascadeNotification, error);
+}
+
+// ---------------- Pre-care confirmations ----------------
+export async function listPreCareConfirmations(sb: SB, techId: string): Promise<PreCareConfirmation[]> {
+  const { data, error } = await sb
+    .from("pre_care_confirmations")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as PreCareConfirmation[], error) ?? [];
+}
+export async function getPreCareConfirmation(sb: SB, id: string): Promise<PreCareConfirmation | null> {
+  const { data, error } = await sb.from("pre_care_confirmations").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as PreCareConfirmation | null;
+}
+export async function getPreCareConfirmationByToken(
+  sb: SB,
+  token: string,
+): Promise<PreCareConfirmation | null> {
+  const { data, error } = await sb.rpc("pre_care_confirmation_by_token", { lookup_token: token });
+  if (error) throw new Error(error.message);
+  const rows = data as PreCareConfirmation[] | null;
+  return rows?.[0] ?? null;
+}
+export async function duePreCareConfirmations(sb: SB, nowIso: string): Promise<PreCareConfirmation[]> {
+  const { data, error } = await sb
+    .from("pre_care_confirmations")
+    .select("*")
+    .eq("status", "scheduled")
+    .lte("sendAtIso", nowIso)
+    .order("sendAtIso");
+  return must(data as PreCareConfirmation[], error) ?? [];
+}
+export async function createPreCareConfirmation(
+  sb: SB,
+  row: Omit<PreCareConfirmation, "id" | "createdAt">,
+): Promise<PreCareConfirmation> {
+  const { data, error } = await sb
+    .from("pre_care_confirmations")
+    .insert({ ...row, id: randomId("pcc") })
+    .select("*")
+    .single();
+  return must(data as PreCareConfirmation, error);
+}
+export async function updatePreCareConfirmation(
+  sb: SB,
+  id: string,
+  patch: Partial<PreCareConfirmation>,
+): Promise<void> {
+  const { error } = await sb.from("pre_care_confirmations").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 // ---------------- Reminders ----------------

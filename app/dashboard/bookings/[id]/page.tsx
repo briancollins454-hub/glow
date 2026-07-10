@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
-import { ArrowLeft, CheckCircle2, Banknote, Trash2, Beaker } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Banknote, Trash2, Beaker, ClipboardList } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import {
   getBooking,
@@ -12,6 +12,7 @@ import {
   listServices,
   productUsagesForClient,
 } from "@/lib/db/queries";
+import { preCareForBooking } from "@/lib/pre-care";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -19,7 +20,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
 import { statusBadge } from "@/components/dashboard/status";
-import { gbp, TZ } from "@/lib/format";
+import { gbp, TZ, fmtDateTime } from "@/lib/format";
 import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
 
 export default async function EditBookingPage({
@@ -37,13 +38,14 @@ export default async function EditBookingPage({
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
-  const [client, service, services, products, batches, usages] = await Promise.all([
+  const [client, service, services, products, batches, usages, preCare] = await Promise.all([
     getClient(sb, booking.clientId),
     getService(sb, booking.serviceId),
     listServices(sb, tech.id, { activeOnly: true }),
     listProducts(sb, tech.id),
     listProductBatches(sb, tech.id),
     productUsagesForClient(sb, tech.id, booking.clientId),
+    preCareForBooking(sb, booking.id).catch(() => null),
   ]);
 
   const productById = new Map(products.map((p) => [p.id, p]));
@@ -162,6 +164,53 @@ export default async function EditBookingPage({
           </form>
         </CardContent>
       </Card>
+
+      {service?.precareText?.trim() && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-sky-400" />
+              Pre-care
+            </CardTitle>
+            <CardDescription>
+              Instructions are emailed 48 hours before the appointment. Clients confirm via a one-tap link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="whitespace-pre-wrap rounded-xl border border-edge bg-cream px-4 py-3 text-sm text-ink-soft">
+              {service.precareText}
+            </p>
+            {preCare ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <Badge
+                  tone={
+                    preCare.status === "confirmed"
+                      ? "green"
+                      : preCare.status === "sent"
+                        ? "amber"
+                        : preCare.status === "scheduled"
+                          ? "blue"
+                          : "neutral"
+                  }
+                >
+                  {preCare.status === "confirmed"
+                    ? "Client confirmed"
+                    : preCare.status === "sent"
+                      ? "Sent — awaiting confirm"
+                      : preCare.status === "scheduled"
+                        ? `Scheduled ${fmtDateTime(preCare.sendAtIso)}`
+                        : "Skipped"}
+                </Badge>
+                {preCare.confirmedAtIso && (
+                  <span className="text-xs text-ink-faint">Confirmed {fmtDateTime(preCare.confirmedAtIso)}</span>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-faint">Pre-care will be scheduled when reminders are set for this booking.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

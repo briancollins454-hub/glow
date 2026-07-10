@@ -21,6 +21,7 @@ import {
   listQuestions,
   listRecentPayments,
   listInfillDeadlineNudges,
+  listPreCareConfirmations,
   listReactionCheckins,
   listReminders,
   listReviewsForTech,
@@ -193,26 +194,32 @@ export async function loadDashboardPageData(
       return { questions };
     }
     case "reminders": {
-      const [reminders, services, checkins, infillNudges] = await Promise.all([
+      const [reminders, services, checkins, infillNudges, preCare] = await Promise.all([
         listReminders(sb, tech.id),
         listServices(sb, tech.id),
         listReactionCheckins(sb, tech.id).catch(() => []),
         listInfillDeadlineNudges(sb, tech.id).catch(() => []),
+        listPreCareConfirmations(sb, tech.id).catch(() => []),
       ]);
       const bookingIds = [
-        ...new Set(
-          reminders.map((r) => r.bookingId).filter((id): id is string => id != null),
-        ),
+        ...new Set([
+          ...reminders.map((r) => r.bookingId).filter((id): id is string => id != null),
+          ...infillNudges.map((n) => n.baseBookingId),
+          ...preCare.map((p) => p.bookingId),
+        ]),
       ];
       const bookings = await getBookingsByIds(sb, bookingIds);
       const clientIds = [
         ...new Set([
           ...bookings.map((b) => b.clientId),
           ...reminders.map((r) => r.clientId).filter((id): id is string => id != null),
+          ...checkins.map((c) => c.clientId),
+          ...infillNudges.map((n) => n.clientId),
+          ...preCare.map((p) => p.clientId),
         ]),
       ];
       const clients = await getClientsByIds(sb, clientIds);
-      return { reminders, services, bookings, clients, checkins, infillNudges, tech };
+      return { reminders, services, bookings, clients, checkins, infillNudges, preCare, tech };
     }
     case "reviews": {
       const reviews = await listReviewsForTech(sb, tech.id);

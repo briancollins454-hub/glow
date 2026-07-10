@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
 import { renderReminderText, labelForKind } from "@/lib/notify";
 import { runRemindersAction } from "../actions";
-import type { Booking, Client, InfillDeadlineNudge, ReactionCheckin, Reminder, Service, Tech } from "@/lib/db/types";
+import type { Booking, Client, InfillDeadlineNudge, PreCareConfirmation, ReactionCheckin, Reminder, Service, Tech } from "@/lib/db/types";
 
 type RemindersData = {
   reminders: Reminder[];
@@ -18,6 +18,7 @@ type RemindersData = {
   clients: Client[];
   checkins: ReactionCheckin[];
   infillNudges: InfillDeadlineNudge[];
+  preCare: PreCareConfirmation[];
   tech: Tech;
 };
 
@@ -29,7 +30,7 @@ export default function RemindersPage() {
   );
 }
 
-function RemindersView({ reminders, services, bookings, clients, checkins, infillNudges, tech }: RemindersData) {
+function RemindersView({ reminders, services, bookings, clients, checkins, infillNudges, preCare, tech }: RemindersData) {
   const searchParams = useSearchParams();
   const ran = searchParams.get("ran");
 
@@ -64,6 +65,8 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
   const checkinsSent = checkins.filter((c) => c.status === "sent" || c.status === "responded");
   const infillScheduled = infillNudges.filter((n) => n.status === "scheduled");
   const infillDone = infillNudges.filter((n) => n.status === "sent" || n.status === "skipped");
+  const preCareScheduled = preCare.filter((p) => p.status === "scheduled");
+  const preCareDone = preCare.filter((p) => p.status !== "scheduled");
 
   const rowEl = (r: Reminder, done?: boolean) => (
     <div key={r.id} className="rounded-xl border border-edge bg-cream px-4 py-3">
@@ -84,7 +87,7 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold">Reminders</h1>
-          <p className="text-sm text-ink-soft">Confirmations, infill deadlines, reaction check-ins and more. Sent automatically every 15 minutes.</p>
+          <p className="text-sm text-ink-soft">Confirmations, pre-care, infill deadlines, reaction check-ins and more. Sent automatically every 15 minutes.</p>
         </div>
         <form action={runRemindersAction}><Button type="submit" variant="secondary"><Play className="h-4 w-4" /> Run due now</Button></form>
       </div>
@@ -155,6 +158,43 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
                 <span className="font-medium">{clientById[n.clientId]?.name ?? "Client"}</span>
                 <Badge tone={n.status === "sent" ? "green" : "neutral"}>
                   {n.status === "sent" ? "Sent" : "Skipped"}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-sky-400" /> Pre-care ({preCareScheduled.length} scheduled)</CardTitle>
+          <CardDescription>Sent 48 hours before appointments when a service has pre-care notes. Clients confirm via a one-tap link.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {preCareScheduled.length === 0 && preCareDone.length === 0 && (
+            <p className="py-3 text-center text-sm text-ink-faint">No pre-care confirmations yet. Add pre-care notes on a service to enable them.</p>
+          )}
+          {preCareScheduled.map((p) => (
+            <div key={p.id} className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">{clientById[p.clientId]?.name ?? "Client"}</span>
+                <Badge tone="blue">Pre-care</Badge>
+                <span className="text-xs text-ink-faint">Sends {fmtDateTime(p.sendAtIso)}</span>
+              </div>
+              {bookingById[p.bookingId] && (
+                <p className="mt-1 text-xs text-ink-faint">
+                  {serviceById[bookingById[p.bookingId]!.serviceId]?.name ?? "Service"} ·{" "}
+                  {fmtDateTime(bookingById[p.bookingId]!.startIso)}
+                </p>
+              )}
+            </div>
+          ))}
+          {preCareDone.slice(0, 15).map((p) => (
+            <div key={p.id} className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">{clientById[p.clientId]?.name ?? "Client"}</span>
+                <Badge tone={p.status === "confirmed" ? "green" : p.status === "sent" ? "amber" : "neutral"}>
+                  {p.status === "confirmed" ? "Confirmed" : p.status === "sent" ? "Awaiting confirm" : "Skipped"}
                 </Badge>
               </div>
             </div>

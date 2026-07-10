@@ -29,6 +29,7 @@ export function makeService(overrides: Partial<Service> = {}): Service {
     sortOrder: 0,
     photoPath: null,
     aftercareText: "",
+    precareText: "",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -186,6 +187,7 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     googleConnectedAt: null,
     rebookNudgesEnabled: true,
     infillNudgesEnabled: true,
+    preCareConfirmationsEnabled: true,
     requiresBookingApproval: false,
     approvalMode: "off",
     depositTierMediumPct: 50,

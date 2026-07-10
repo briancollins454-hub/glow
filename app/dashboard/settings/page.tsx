@@ -260,6 +260,20 @@ export default function SettingsPage() {
                 </span>
               </span>
             </label>
+            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                name="preCareConfirmationsEnabled"
+                defaultChecked={tech.preCareConfirmationsEnabled !== false}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              />
+              <span>
+                <span className="font-medium">Pre-care confirmations</span>
+                <span className="mt-0.5 block text-xs text-ink-faint">
+                  For services with pre-care notes, email clients 48 hours before their appointment and ask them to confirm they&apos;ve read the instructions.
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
 

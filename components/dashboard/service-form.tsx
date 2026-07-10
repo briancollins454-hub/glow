@@ -106,6 +106,18 @@ export function ServiceForm({
       )}
 
       <div className="sm:col-span-2">
+        <Label>Pre-care instructions (sent before the appointment)</Label>
+        <Textarea
+          name="precareText"
+          defaultValue={s?.precareText}
+          placeholder="e.g. Arrive with clean lashes, no mascara or oils. Avoid caffeine 2 hours before. Wear comfortable clothing…"
+        />
+        <p className="mt-1 text-xs text-ink-faint">
+          Sent 48 hours before the appointment. Clients confirm via a one-tap link. Leave blank to skip.
+        </p>
+      </div>
+
+      <div className="sm:col-span-2">
         <Label>Aftercare instructions (emailed after the appointment)</Label>
         <Textarea
           name="aftercareText"
