@@ -579,8 +579,22 @@ export async function productChangeAction(formData: FormData) {
   const categoryIds = formData.getAll("categoryId").map(String).filter(Boolean);
   const serviceIds = formData.getAll("serviceId").map(String).filter(Boolean);
   const note = String(formData.get("note") ?? "").trim();
+  const newProductId = String(formData.get("newBatchProductId") ?? "").trim();
+  const lotNumber = String(formData.get("newBatchLot") ?? "").trim();
+  const expiresAt = String(formData.get("newBatchExpires") ?? "").trim();
   try {
-    const result = await executeProductChange(sb, tech, { categoryIds, serviceIds, note });
+    const result = await executeProductChange(sb, tech, {
+      categoryIds,
+      serviceIds,
+      note,
+      newBatch: newProductId
+        ? {
+            productId: newProductId,
+            lotNumber: lotNumber || undefined,
+            expiresAtIso: expiresAt ? fromZonedTime(`${expiresAt}T23:59:59`, TZ).toISOString() : undefined,
+          }
+        : undefined,
+    });
     revalidatePath("/dashboard/services");
     revalidatePath("/dashboard/reminders");
     redirect(
@@ -597,11 +611,12 @@ export async function addPatchTestAction(formData: FormData) {
   const categoryId = String(formData.get("categoryId") ?? "");
   const performedDate = String(formData.get("performedAt") ?? "");
   const result = String(formData.get("result") ?? "pass") as "pending" | "pass" | "fail";
+  const batchId = String(formData.get("batchId") ?? "").trim();
   const category = categoryId ? await getCategory(sb, categoryId) : null;
   if (clientId && category && performedDate) {
     const performed = fromZonedTime(`${performedDate}T12:00:00`, TZ);
     const expires = new Date(performed.getTime() + category.patchTestValidityDays * 24 * 60 * 60 * 1000);
-    await createPatchTest(sb, {
+    const patchTest = await createPatchTest(sb, {
       techId: tech.id,
       clientId,
       categoryId,
@@ -613,6 +628,15 @@ export async function addPatchTestAction(formData: FormData) {
       invalidatedAtIso: null,
       invalidationEventId: null,
     });
+    if (batchId) {
+      const { logProductUsage } = await import("@/lib/product-batches");
+      await logProductUsage(sb, tech.id, {
+        batchId,
+        clientId,
+        patchTestId: patchTest.id,
+        usedAtIso: performed.toISOString(),
+      });
+    }
     const { resolveRetestsAfterPatchPass, markRetestsTestBooked } = await import("@/lib/product-change");
     if (result === "pass") {
       await resolveRetestsAfterPatchPass(sb, tech.id, clientId, categoryId);
@@ -636,6 +660,19 @@ export async function setBookingStatusAction(formData: FormData) {
   const patch: Partial<typeof booking> = { status };
 
   if (status === "completed" && booking!.status !== "completed") {
+    const batchId = String(formData.get("batchId") ?? "").trim();
+    if (batchId) {
+      try {
+        const { logProductUsage } = await import("@/lib/product-batches");
+        await logProductUsage(sb, tech.id, {
+          batchId,
+          clientId: booking!.clientId,
+          bookingId: booking!.id,
+        });
+      } catch {
+        // Batch logging is best-effort; completing the booking always succeeds.
+      }
+    }
     try {
       const { sendAftercareEmail } = await import("@/lib/notify");
       await sendAftercareEmail(sb, booking!);
@@ -1361,6 +1398,126 @@ export async function deleteQuestionAction(formData: FormData) {
   await deleteQuestion(sb, String(formData.get("id") ?? ""));
   revalidatePath("/dashboard/forms");
   redirect("/dashboard/forms");
+}
+
+// ---------------- Products & batches ----------------
+export async function addProductAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { createProduct } = await import("@/lib/db/queries");
+  const name = String(formData.get("name") ?? "").trim();
+  const categoryId = String(formData.get("categoryId") ?? "");
+  if (name && categoryId) {
+    const productType = String(formData.get("productType") ?? "other");
+    const valid = ["adhesive", "tint", "lift", "other"].includes(productType)
+      ? (productType as "adhesive" | "tint" | "lift" | "other")
+      : "other";
+    await createProduct(sb, {
+      techId: tech.id,
+      categoryId,
+      name,
+      brand: String(formData.get("brand") ?? "").trim(),
+      productType: valid,
+      active: true,
+    });
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services?product=1");
+}
+
+export async function deleteProductAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { deleteProduct, getProduct } = await import("@/lib/db/queries");
+  const id = String(formData.get("id") ?? "");
+  const product = await getProduct(sb, id);
+  if (product && product.techId === tech.id) await deleteProduct(sb, id);
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+export async function addBatchAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { openProductBatch } = await import("@/lib/product-batches");
+  const productId = String(formData.get("productId") ?? "");
+  const openedAt = String(formData.get("openedAt") ?? "").trim();
+  const expiresAt = String(formData.get("expiresAt") ?? "").trim();
+  if (productId) {
+    await openProductBatch(sb, tech.id, {
+      productId,
+      lotNumber: String(formData.get("lotNumber") ?? "").trim(),
+      openedAtIso: openedAt ? fromZonedTime(`${openedAt}T12:00:00`, TZ).toISOString() : undefined,
+      expiresAtIso: expiresAt ? fromZonedTime(`${expiresAt}T23:59:59`, TZ).toISOString() : undefined,
+      notes: String(formData.get("notes") ?? "").trim(),
+    });
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services?batch=1");
+}
+
+export async function retireBatchAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { getProductBatch, updateProductBatch } = await import("@/lib/db/queries");
+  const id = String(formData.get("id") ?? "");
+  const batch = await getProductBatch(sb, id);
+  if (batch && batch.techId === tech.id) {
+    await updateProductBatch(sb, id, { retiredAtIso: new Date().toISOString() });
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
+export async function logBookingProductUsageAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const bookingId = String(formData.get("bookingId") ?? "");
+  const batchId = String(formData.get("batchId") ?? "").trim();
+  const booking = await getBooking(sb, bookingId);
+  if (booking && booking.techId === tech.id && batchId) {
+    const { logProductUsage } = await import("@/lib/product-batches");
+    await logProductUsage(sb, tech.id, {
+      batchId,
+      clientId: booking.clientId,
+      bookingId: booking.id,
+    });
+  }
+  revalidatePath(`/dashboard/bookings/${bookingId}`);
+  redirect(`/dashboard/bookings/${bookingId}?usage=1`);
+}
+
+export async function addReactionAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { recordClientReaction } = await import("@/lib/product-batches");
+  const clientId = String(formData.get("clientId") ?? "");
+  const categoryId = String(formData.get("categoryId") ?? "");
+  const severity = String(formData.get("severity") ?? "mild");
+  const validSeverity = ["mild", "moderate", "severe"].includes(severity)
+    ? (severity as "mild" | "moderate" | "severe")
+    : "mild";
+  const onsetDate = String(formData.get("onsetAt") ?? "").trim();
+  const batchId = String(formData.get("batchId") ?? "").trim();
+  if (clientId && categoryId) {
+    await recordClientReaction(sb, tech.id, {
+      clientId,
+      categoryId,
+      severity: validSeverity,
+      symptoms: String(formData.get("symptoms") ?? "").trim(),
+      onsetIso: onsetDate ? fromZonedTime(`${onsetDate}T12:00:00`, TZ).toISOString() : undefined,
+      batchId: batchId || null,
+      patchTestId: String(formData.get("patchTestId") ?? "").trim() || null,
+      bookingId: String(formData.get("bookingId") ?? "").trim() || null,
+      notes: String(formData.get("notes") ?? "").trim(),
+    });
+  }
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}?reaction=1`);
+}
+
+export async function deleteReactionAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { deleteClientReaction } = await import("@/lib/db/queries");
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("clientId") ?? "");
+  await deleteClientReaction(sb, id);
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  redirect(`/dashboard/clients/${clientId}`);
 }
 
 // ---------------- Reminders ----------------

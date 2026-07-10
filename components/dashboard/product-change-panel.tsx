@@ -10,9 +10,11 @@ import { productChangeAction } from "@/app/dashboard/actions";
 export function ProductChangePanel({
   categories,
   services,
+  products = [],
 }: {
   categories: ServiceCategory[];
   services: Service[];
+  products?: { id: string; name: string; brand: string; categoryId: string }[];
 }) {
   const [mode, setMode] = useState<"category" | "services">("category");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
@@ -147,6 +149,40 @@ export function ProductChangePanel({
             placeholder="e.g. Switched to new adhesive brand"
           />
         </div>
+
+        {products.length > 0 && (
+          <div className="rounded-xl border border-edge bg-cream/60 p-4 space-y-3">
+            <p className="text-sm font-medium text-ink">Link a new batch (optional)</p>
+            <p className="text-xs text-ink-faint">
+              Open a fresh lot number at the same time as logging the product change.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Product</Label>
+                <select
+                  name="newBatchProductId"
+                  className="input w-full"
+                  defaultValue=""
+                >
+                  <option value="">Skip — no new batch</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.brand ? ` (${p.brand})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Lot number</Label>
+                <input name="newBatchLot" className="input w-full" placeholder="e.g. B98765" />
+              </div>
+              <div>
+                <Label>Expires (optional)</Label>
+                <input name="newBatchExpires" type="date" className="input w-full" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {!confirmOpen ? (
           <button

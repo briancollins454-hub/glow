@@ -17,6 +17,7 @@ import {
   listInsightBookings,
   listMessagesForTech,
   listProductChangeRetests,
+  listProducts,
   listQuestions,
   listRecentPayments,
   listReminders,
@@ -29,6 +30,7 @@ import {
   sumMonthIncome,
   sumOutstandingBalances,
 } from "@/lib/db/queries";
+import { batchSummaries } from "@/lib/product-batches";
 import { signedPhotoUrls } from "@/lib/storage";
 import { isAdminTech } from "@/lib/admin";
 import { getPlatformTraffic } from "@/lib/traffic-stats";
@@ -136,13 +138,16 @@ export async function loadDashboardPageData(
       return { bookings, services, clients, waitlist, now };
     }
     case "services": {
-      const [categories, services, addons, retests, clients, bookings] = await Promise.all([
+      const [categories, services, addons, retests, clients, bookings, products, batchSummary] =
+        await Promise.all([
         listCategories(sb, tech.id),
         listServices(sb, tech.id),
         listAddons(sb, tech.id),
         listProductChangeRetests(sb, tech.id),
         listClients(sb, tech.id),
         listBookings(sb, tech.id),
+        listProducts(sb, tech.id),
+        batchSummaries(sb, tech.id),
       ]);
       const signed = await signedPhotoUrls(
         services.filter((s) => s.photoPath).map((s) => s.photoPath!),
@@ -154,7 +159,7 @@ export async function loadDashboardPageData(
           if (url) photoByService[s.id] = url;
         }
       }
-      return { categories, services, addons, photoByService, retests, clients, bookings };
+      return { categories, services, addons, photoByService, retests, clients, bookings, products, batchSummaries: batchSummary };
     }
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([

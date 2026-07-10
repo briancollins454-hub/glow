@@ -12,8 +12,12 @@ import type {
   MessageSender,
   Payment,
   PatchTest,
+  Product,
+  ProductBatch,
   ProductChangeEvent,
   ProductChangeRetest,
+  ProductUsage,
+  ClientReaction,
   Reminder,
   Review,
   Service,
@@ -726,6 +730,109 @@ export async function updateProductChangeRetest(
   patch: Partial<ProductChangeRetest>,
 ): Promise<void> {
   const { error } = await sb.from("product_change_retests").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Products & batches ----------------
+export async function listProducts(sb: SB, techId: string): Promise<Product[]> {
+  const { data, error } = await sb
+    .from("products")
+    .select("*")
+    .eq("techId", techId)
+    .order("name");
+  return must(data as Product[], error) ?? [];
+}
+export async function getProduct(sb: SB, id: string): Promise<Product | null> {
+  const { data, error } = await sb.from("products").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Product | null;
+}
+export async function createProduct(sb: SB, p: Omit<Product, "id" | "createdAt">): Promise<Product> {
+  const { data, error } = await sb.from("products").insert({ ...p, id: randomId("prd") }).select("*").single();
+  return must(data as Product, error);
+}
+export async function updateProduct(sb: SB, id: string, patch: Partial<Product>): Promise<void> {
+  const { error } = await sb.from("products").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+export async function deleteProduct(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("products").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function listProductBatches(sb: SB, techId: string): Promise<ProductBatch[]> {
+  const { data, error } = await sb
+    .from("product_batches")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as ProductBatch[], error) ?? [];
+}
+export async function listActiveBatchesForProduct(sb: SB, productId: string): Promise<ProductBatch[]> {
+  const { data, error } = await sb
+    .from("product_batches")
+    .select("*")
+    .eq("productId", productId)
+    .is("retiredAtIso", null)
+    .order("createdAt", { ascending: false });
+  return must(data as ProductBatch[], error) ?? [];
+}
+export async function getProductBatch(sb: SB, id: string): Promise<ProductBatch | null> {
+  const { data, error } = await sb.from("product_batches").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as ProductBatch | null;
+}
+export async function createProductBatch(sb: SB, b: Omit<ProductBatch, "id" | "createdAt">): Promise<ProductBatch> {
+  const { data, error } = await sb.from("product_batches").insert({ ...b, id: randomId("bat") }).select("*").single();
+  return must(data as ProductBatch, error);
+}
+export async function updateProductBatch(sb: SB, id: string, patch: Partial<ProductBatch>): Promise<void> {
+  const { error } = await sb.from("product_batches").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function createProductUsage(sb: SB, u: Omit<ProductUsage, "id" | "createdAt">): Promise<ProductUsage> {
+  const { data, error } = await sb.from("product_usages").insert({ ...u, id: randomId("usg") }).select("*").single();
+  return must(data as ProductUsage, error);
+}
+export async function productUsagesForClient(sb: SB, techId: string, clientId: string): Promise<ProductUsage[]> {
+  const { data, error } = await sb
+    .from("product_usages")
+    .select("*")
+    .eq("techId", techId)
+    .eq("clientId", clientId)
+    .order("usedAtIso", { ascending: false });
+  return must(data as ProductUsage[], error) ?? [];
+}
+export async function productUsagesForBatch(sb: SB, batchId: string): Promise<ProductUsage[]> {
+  const { data, error } = await sb
+    .from("product_usages")
+    .select("*")
+    .eq("batchId", batchId)
+    .order("usedAtIso", { ascending: false });
+  return must(data as ProductUsage[], error) ?? [];
+}
+
+export async function listClientReactions(sb: SB, techId: string, clientId?: string): Promise<ClientReaction[]> {
+  let q = sb.from("client_reactions").select("*").eq("techId", techId);
+  if (clientId) q = q.eq("clientId", clientId);
+  const { data, error } = await q.order("onsetIso", { ascending: false });
+  return must(data as ClientReaction[], error) ?? [];
+}
+export async function reactionsForBatch(sb: SB, batchId: string): Promise<ClientReaction[]> {
+  const { data, error } = await sb
+    .from("client_reactions")
+    .select("*")
+    .eq("batchId", batchId)
+    .order("onsetIso", { ascending: false });
+  return must(data as ClientReaction[], error) ?? [];
+}
+export async function createClientReaction(sb: SB, r: Omit<ClientReaction, "id" | "createdAt">): Promise<ClientReaction> {
+  const { data, error } = await sb.from("client_reactions").insert({ ...r, id: randomId("rxn") }).select("*").single();
+  return must(data as ClientReaction, error);
+}
+export async function deleteClientReaction(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("client_reactions").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

@@ -289,6 +289,8 @@ export interface ProductChangeEvent {
   techId: string;
   note: string;
   scopeSummary: string;
+  /** Batch opened when this product change was logged (Feature 4). */
+  newBatchId: string | null;
   createdAt: string;
 }
 
@@ -305,6 +307,59 @@ export interface ProductChangeRetest {
   resolvedAtIso: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ProductType = "adhesive" | "tint" | "lift" | "other";
+export type ReactionSeverity = "mild" | "moderate" | "severe";
+
+export interface Product {
+  id: string;
+  techId: string;
+  categoryId: string;
+  name: string;
+  brand: string;
+  productType: ProductType;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface ProductBatch {
+  id: string;
+  techId: string;
+  productId: string;
+  lotNumber: string;
+  openedAtIso: string | null;
+  expiresAtIso: string | null;
+  changeEventId: string | null;
+  notes: string;
+  retiredAtIso: string | null;
+  createdAt: string;
+}
+
+export interface ProductUsage {
+  id: string;
+  techId: string;
+  batchId: string;
+  clientId: string;
+  patchTestId: string | null;
+  bookingId: string | null;
+  usedAtIso: string;
+  createdAt: string;
+}
+
+export interface ClientReaction {
+  id: string;
+  techId: string;
+  clientId: string;
+  categoryId: string;
+  severity: ReactionSeverity;
+  symptoms: string;
+  onsetIso: string;
+  batchId: string | null;
+  patchTestId: string | null;
+  bookingId: string | null;
+  notes: string;
+  createdAt: string;
 }
 
 export type QuestionType = "text" | "longtext" | "yesno";

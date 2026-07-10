@@ -8,6 +8,9 @@ import {
   getClient,
   listCategories,
   listClientPhotos,
+  listClientReactions,
+  listProductBatches,
+  listProducts,
   listServices,
   patchTestsForClient,
 } from "@/lib/db/queries";
@@ -22,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { ClientMessageLink } from "@/components/messages/client-message-link";
+import { ClientReactionsCard } from "@/components/dashboard/client-reactions-card";
 import {
   updateClientAction,
   addPatchTestAction,
@@ -40,19 +44,37 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const client = await getClient(sb, id);
   if (!client || client.techId !== tech.id) notFound();
 
-  const [history, tests, categories, services, photos, responses] = await Promise.all([
+  const [history, tests, categories, services, photos, responses, reactions, products, batches] =
+    await Promise.all([
     bookingsForClient(sb, tech.id, client.id),
     patchTestsForClient(sb, tech.id, client.id),
     listCategories(sb, tech.id),
     listServices(sb, tech.id),
     listClientPhotos(sb, client.id),
     formResponsesForClient(sb, client.id),
+    listClientReactions(sb, tech.id, client.id),
+    listProducts(sb, tech.id),
+    listProductBatches(sb, tech.id),
   ]);
   const latestResponse = responses[0];
   const signed = await signedPhotoUrls(photos.map((p) => p.path));
   const photoItems = photos.map((p) => ({ p, url: signed.get(p.path) ?? null }));
   const serviceById = new Map(services.map((s) => [s.id, s.name]));
   const catById = new Map(categories.map((c) => [c.id, c.name]));
+  const productById = new Map(products.map((p) => [p.id, p]));
+  const activeBatches = batches.filter((b) => !b.retiredAtIso);
+  const batchOptions = activeBatches
+    .map((batch) => {
+      const product = productById.get(batch.productId);
+      if (!product) return null;
+      const lot = batch.lotNumber ? ` · Lot ${batch.lotNumber}` : "";
+      return {
+        batch,
+        product,
+        label: `${product.name}${product.brand ? ` (${product.brand})` : ""}${lot}`,
+      };
+    })
+    .filter((o): o is NonNullable<typeof o> => o != null);
   const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
@@ -160,12 +182,30 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                     <option value="fail">Fail</option>
                   </Select>
                 </div>
+                {batchOptions.length > 0 && (
+                  <div className="sm:col-span-2">
+                    <Label>Product batch used (optional)</Label>
+                    <Select name="batchId" defaultValue="">
+                      <option value="">Not logged</option>
+                      {batchOptions.map((o) => (
+                        <option key={o.batch.id} value={o.batch.id}>{o.label}</option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
                 <div className="sm:col-span-2"><Button type="submit" variant="secondary" size="sm"><Plus className="h-4 w-4" /> Record patch test</Button></div>
               </form>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <ClientReactionsCard
+        clientId={client.id}
+        categories={categories}
+        reactions={reactions}
+        batchOptions={batchOptions}
+      />
 
       {latestResponse && latestResponse.answers.length > 0 && (
         <Card>
