@@ -246,6 +246,20 @@ export default function SettingsPage() {
                 </span>
               </span>
             </label>
+            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                name="infillNudgesEnabled"
+                defaultChecked={tech.infillNudgesEnabled !== false}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              />
+              <span>
+                <span className="font-medium">Infill deadline reminders</span>
+                <span className="mt-0.5 block text-xs text-ink-faint">
+                  After a full set, email clients 3 days before their infill window closes so they book a top-up instead of needing another full set.
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
 

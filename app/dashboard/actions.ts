@@ -154,6 +154,7 @@ export async function updateSettingsAction(formData: FormData) {
     loyaltyDiscountPct: clampInt(get("loyaltyDiscountPct"), 0, 50, tech.loyaltyDiscountPct),
     noShowFeePct: clampInt(get("noShowFeePct"), 0, 100, tech.noShowFeePct),
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
+    infillNudgesEnabled: formData.get("infillNudgesEnabled") === "on",
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),
@@ -701,6 +702,12 @@ export async function setBookingStatusAction(formData: FormData) {
       }
     } catch {
       // Check-in scheduling is best-effort.
+    }
+    try {
+      const { maybeScheduleInfillNudgeForBooking } = await import("@/lib/infill-nudge");
+      await maybeScheduleInfillNudgeForBooking(sb, tech, booking!);
+    } catch {
+      // Infill nudge scheduling is best-effort.
     }
     try {
       const { sendAftercareEmail } = await import("@/lib/notify");

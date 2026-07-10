@@ -77,6 +77,8 @@ export interface Tech {
   googleConnectedAt: string | null;
   // Automated "time to rebook" emails to lapsed clients.
   rebookNudgesEnabled: boolean;
+  // Remind clients to book an infill before their window closes.
+  infillNudgesEnabled: boolean;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.
@@ -313,6 +315,7 @@ export type ProductType = "adhesive" | "tint" | "lift" | "other";
 export type ReactionSeverity = "mild" | "moderate" | "severe";
 export type ReactionCheckinStatus = "scheduled" | "sent" | "responded" | "skipped";
 export type ReactionCheckinResponse = "fine" | "reaction";
+export type InfillDeadlineNudgeStatus = "scheduled" | "sent" | "skipped";
 
 export interface Product {
   id: string;
@@ -378,6 +381,19 @@ export interface ReactionCheckin {
   response: ReactionCheckinResponse | null;
   symptoms: string;
   reactionId: string | null;
+  createdAt: string;
+}
+
+export interface InfillDeadlineNudge {
+  id: string;
+  techId: string;
+  clientId: string;
+  baseBookingId: string;
+  infillServiceId: string;
+  deadlineIso: string;
+  sendAtIso: string;
+  sentAtIso: string | null;
+  status: InfillDeadlineNudgeStatus;
   createdAt: string;
 }
 

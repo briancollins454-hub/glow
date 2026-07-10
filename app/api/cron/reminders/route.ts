@@ -29,5 +29,12 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("[cron] rebook nudges failed:", (err as Error).message);
   }
-  return NextResponse.json({ ok: true, ...result, onboarding, rebookNudges, at: new Date().toISOString() });
+  let infillNudges = { sent: 0, skipped: 0 };
+  try {
+    const { processInfillDeadlineNudges } = await import("@/lib/infill-nudge");
+    infillNudges = await processInfillDeadlineNudges(sb);
+  } catch (err) {
+    console.error("[cron] infill deadline nudges failed:", (err as Error).message);
+  }
+  return NextResponse.json({ ok: true, ...result, onboarding, rebookNudges, infillNudges, at: new Date().toISOString() });
 }

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
 import { renderReminderText, labelForKind } from "@/lib/notify";
 import { runRemindersAction } from "../actions";
-import type { Booking, Client, ReactionCheckin, Reminder, Service, Tech } from "@/lib/db/types";
+import type { Booking, Client, InfillDeadlineNudge, ReactionCheckin, Reminder, Service, Tech } from "@/lib/db/types";
 
 type RemindersData = {
   reminders: Reminder[];
@@ -17,6 +17,7 @@ type RemindersData = {
   bookings: Booking[];
   clients: Client[];
   checkins: ReactionCheckin[];
+  infillNudges: InfillDeadlineNudge[];
   tech: Tech;
 };
 
@@ -28,7 +29,7 @@ export default function RemindersPage() {
   );
 }
 
-function RemindersView({ reminders, services, bookings, clients, checkins, tech }: RemindersData) {
+function RemindersView({ reminders, services, bookings, clients, checkins, infillNudges, tech }: RemindersData) {
   const searchParams = useSearchParams();
   const ran = searchParams.get("ran");
 
@@ -61,6 +62,8 @@ function RemindersView({ reminders, services, bookings, clients, checkins, tech 
   const sent = reminders.filter((r) => r.status === "sent").reverse();
   const checkinsScheduled = checkins.filter((c) => c.status === "scheduled");
   const checkinsSent = checkins.filter((c) => c.status === "sent" || c.status === "responded");
+  const infillScheduled = infillNudges.filter((n) => n.status === "scheduled");
+  const infillDone = infillNudges.filter((n) => n.status === "sent" || n.status === "skipped");
 
   const rowEl = (r: Reminder, done?: boolean) => (
     <div key={r.id} className="rounded-xl border border-edge bg-cream px-4 py-3">
@@ -81,7 +84,7 @@ function RemindersView({ reminders, services, bookings, clients, checkins, tech 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold">Reminders</h1>
-          <p className="text-sm text-ink-soft">Confirmations, 24h nudges, balance requests and 48-hour reaction check-ins. Sent automatically every 15 minutes.</p>
+          <p className="text-sm text-ink-soft">Confirmations, infill deadlines, reaction check-ins and more. Sent automatically every 15 minutes.</p>
         </div>
         <form action={runRemindersAction}><Button type="submit" variant="secondary"><Play className="h-4 w-4" /> Run due now</Button></form>
       </div>
@@ -119,6 +122,41 @@ function RemindersView({ reminders, services, bookings, clients, checkins, tech 
                 </Badge>
               </div>
               {c.symptoms && <p className="mt-1 text-xs text-ink-faint">{c.symptoms}</p>}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-purple-400" /> Infill deadlines ({infillScheduled.length} scheduled)</CardTitle>
+          <CardDescription>Sent 3 days before a client&apos;s infill window closes, after a full set is completed.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {infillScheduled.length === 0 && infillDone.length === 0 && (
+            <p className="py-3 text-center text-sm text-ink-faint">No infill deadline nudges yet.</p>
+          )}
+          {infillScheduled.map((n) => (
+            <div key={n.id} className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">{clientById[n.clientId]?.name ?? "Client"}</span>
+                <Badge tone="purple">Infill deadline</Badge>
+                <span className="text-xs text-ink-faint">Sends {fmtDateTime(n.sendAtIso)} · closes {fmtDateTime(n.deadlineIso)}</span>
+              </div>
+              <p className="mt-1 text-xs text-ink-faint">
+                {serviceById[n.infillServiceId]?.name ?? "Infill"} · after full set on{" "}
+                {bookingById[n.baseBookingId] ? fmtDateTime(bookingById[n.baseBookingId]!.startIso) : "—"}
+              </p>
+            </div>
+          ))}
+          {infillDone.slice(0, 15).map((n) => (
+            <div key={n.id} className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">{clientById[n.clientId]?.name ?? "Client"}</span>
+                <Badge tone={n.status === "sent" ? "green" : "neutral"}>
+                  {n.status === "sent" ? "Sent" : "Skipped"}
+                </Badge>
+              </div>
             </div>
           ))}
         </CardContent>

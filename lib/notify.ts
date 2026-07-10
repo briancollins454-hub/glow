@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
-import { fmtDateTime, gbp } from "@/lib/format";
+import { fmtDate, fmtDateTime, gbp } from "@/lib/format";
+import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsConfigured } from "@/lib/sms";
@@ -586,5 +587,49 @@ export async function notifyTechOfReactionReport(
     html,
     text: `${client.name} reported a reaction via the 48-hour check-in: "${truncate(symptoms)}"\n\nView: ${url}`,
     idempotencyKey: `reaction-checkin-report/${checkin.id}`,
+  });
+}
+
+/** Remind a client their infill window is closing soon. */
+export async function notifyClientOfInfillDeadline(
+  tech: Tech,
+  client: Client,
+  infillService: Service,
+  deadlineIso: string,
+): Promise<boolean> {
+  if (!client.email?.trim()) return false;
+
+  const biz = tech.businessName || "your beauty studio";
+  const brand = tech.brandColor || "#db2777";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const deadline = fmtDate(deadlineIso);
+  const url = `${APP_URL}/${tech.handle}?service=${infillService.id}`;
+  const unsubUrl = `${APP_URL}/unsubscribe/${client.messageToken}`;
+  const gapDays = infillService.infillMaxGapDays || 21;
+  const daysSince = Math.max(gapDays - INFILL_NUDGE_LEAD_DAYS, 0);
+
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: "Your infill window is closing soon",
+    bodyHtml:
+      `Hi ${name},<br/><br/>` +
+      `It's been about ${daysSince} days since your last appointment at ${biz}. ` +
+      `You can still book a <strong>${infillService.name}</strong> until <strong>${deadline}</strong> ` +
+      `before a full set is recommended.<br/><br/>` +
+      `Grab a slot while infill pricing still applies.` +
+      `<br/><br/><span style="font-size:12px;color:#8a7f91">Don't want these reminders? <a href="${unsubUrl}" style="color:#8a7f91">Unsubscribe here</a>. Appointment confirmations are unaffected.</span>`,
+    buttonLabel: `Book ${infillService.name}`,
+    buttonUrl: url,
+  });
+
+  return sendEmail({
+    to: client.email.trim(),
+    subject: `${biz}: book your infill before ${deadline}`,
+    html,
+    text:
+      `Hi ${name}, your infill window at ${biz} closes on ${deadline}. ` +
+      `Book ${infillService.name}: ${url}\n\nUnsubscribe: ${unsubUrl}`,
+    idempotencyKey: `infill-deadline/${client.id}/${deadlineIso.slice(0, 10)}`,
   });
 }
