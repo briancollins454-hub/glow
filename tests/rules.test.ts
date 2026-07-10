@@ -224,6 +224,17 @@ describe("depositForRisk", () => {
   it("can require full prepay for higher-risk clients", () => {
     expect(depositForRisk(service, tech, "high", 5000)).toBe(5000);
   });
+
+  it("supports fixed £ amounts for risk tiers", () => {
+    const fixedTech = makeTech({
+      depositTierMediumType: "fixed",
+      depositTierMediumValue: 2000,
+      depositTierHighType: "fixed",
+      depositTierHighValue: 4000,
+    });
+    expect(depositForRisk(service, fixedTech, "medium", 5000)).toBe(2000);
+    expect(depositForRisk(service, fixedTech, "high", 5000)).toBe(4000);
+  });
 });
 
 describe("needsManualApproval", () => {

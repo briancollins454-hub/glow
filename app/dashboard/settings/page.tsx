@@ -14,6 +14,8 @@ import {
 } from "../actions";
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
+import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
+import { gbp } from "@/lib/format";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -54,6 +56,31 @@ export default function SettingsPage() {
   const coverSaved = searchParams.get("cover");
   const profileSaved = searchParams.get("profile");
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
+  const defaultDeposit = depositFieldDisplay(
+    tech.defaultDepositType,
+    tech.defaultDepositValue ?? tech.defaultDepositPct,
+    tech.defaultDepositPct,
+  );
+  const noShowFee = depositFieldDisplay(
+    tech.noShowFeeType,
+    tech.noShowFeeValue ?? tech.noShowFeePct,
+    tech.noShowFeePct,
+  );
+  const mediumTier = depositFieldDisplay(
+    tech.depositTierMediumType,
+    tech.depositTierMediumValue ?? tech.depositTierMediumPct ?? 50,
+    tech.depositTierMediumPct ?? 50,
+  );
+  const highTier = depositFieldDisplay(
+    tech.depositTierHighType,
+    tech.depositTierHighValue ?? tech.depositTierHighPct ?? 100,
+    tech.depositTierHighPct ?? 100,
+  );
+  const loyaltyDiscount = depositFieldDisplay(
+    tech.loyaltyDiscountType,
+    tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct,
+    tech.loyaltyDiscountPct,
+  );
 
   return (
     <div className="space-y-6">
@@ -166,11 +193,32 @@ export default function SettingsPage() {
             <CardTitle>Deposit &amp; no-show protection</CardTitle>
             <CardDescription>Deposits and a clear cancellation window protect your time.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div><Label htmlFor="defaultDepositPct">Deposit you usually take (%)</Label><Input id="defaultDepositPct" name="defaultDepositPct" type="number" min={0} max={100} defaultValue={tech.defaultDepositPct} /></div>
-            <div><Label htmlFor="cancellationWindowHours">Notice needed to cancel (hours)</Label><Input id="cancellationWindowHours" name="cancellationWindowHours" type="number" min={0} max={336} defaultValue={tech.cancellationWindowHours} /></div>
-            <div><Label htmlFor="noShowFeePct">No-show charge (% of price)</Label><Input id="noShowFeePct" name="noShowFeePct" type="number" min={0} max={100} defaultValue={tech.noShowFeePct} /></div>
-            <div className="space-y-3 sm:col-span-3">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <DepositFields
+              label="Deposit you usually take"
+              nameType="defaultDepositType"
+              nameValue="defaultDepositValue"
+              defaultType={defaultDeposit.type}
+              defaultValue={defaultDeposit.display}
+              allowNone
+              fixedHint="Used as the default when you add a new service. Exact pounds, e.g. 15.00 = £15."
+              percentHint="Used as the default when you add a new service. e.g. 30 = 30% of the price."
+            />
+            <div>
+              <Label htmlFor="cancellationWindowHours">Notice needed to cancel (hours)</Label>
+              <Input id="cancellationWindowHours" name="cancellationWindowHours" type="number" min={0} max={336} defaultValue={tech.cancellationWindowHours} />
+            </div>
+            <DepositFields
+              label="No-show charge"
+              nameType="noShowFeeType"
+              nameValue="noShowFeeValue"
+              defaultType={noShowFee.type === "none" ? "percent" : noShowFee.type}
+              defaultValue={noShowFee.display}
+              allowNone={false}
+              fixedHint="Fixed amount you treat as the no-show charge, e.g. 20.00 = £20."
+              percentHint="Share of the service price charged for a no-show, e.g. 100 = full price."
+            />
+            <div className="space-y-3 sm:col-span-2">
               <p className="text-sm font-medium">Booking approval</p>
               <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
                 <input
@@ -218,11 +266,33 @@ export default function SettingsPage() {
                 </span>
               </label>
             </div>
-            <div><Label htmlFor="autoApproveMinVisits">Visits to count as trusted</Label><Input id="autoApproveMinVisits" name="autoApproveMinVisits" type="number" min={1} max={20} defaultValue={tech.autoApproveMinVisits ?? 2} /></div>
-            <div><Label htmlFor="depositTierMediumPct">Standard-risk deposit (% of price)</Label><Input id="depositTierMediumPct" name="depositTierMediumPct" type="number" min={0} max={100} defaultValue={tech.depositTierMediumPct ?? 50} /></div>
-            <div><Label htmlFor="depositTierHighPct">Higher-risk deposit (% of price)</Label><Input id="depositTierHighPct" name="depositTierHighPct" type="number" min={0} max={100} defaultValue={tech.depositTierHighPct ?? 100} /></div>
-            <p className="text-xs text-ink-faint sm:col-span-3">
-              Trusted clients pay your normal service deposit. Standard-risk clients (new or one visit) pay at least the higher of your usual deposit or the standard-risk %. Higher-risk clients (warning on file or 2+ no-shows) pay the higher-risk %. Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit.
+            <div>
+              <Label htmlFor="autoApproveMinVisits">Visits to count as trusted</Label>
+              <Input id="autoApproveMinVisits" name="autoApproveMinVisits" type="number" min={1} max={20} defaultValue={tech.autoApproveMinVisits ?? 2} />
+            </div>
+            <div className="hidden sm:block" />
+            <DepositFields
+              label="Standard-risk deposit"
+              nameType="depositTierMediumType"
+              nameValue="depositTierMediumValue"
+              defaultType={mediumTier.type === "none" ? "percent" : mediumTier.type}
+              defaultValue={mediumTier.display}
+              allowNone={false}
+              fixedHint="Minimum deposit for new or one-visit clients, e.g. 25.00 = £25."
+              percentHint="Minimum deposit for new or one-visit clients as % of price, e.g. 50."
+            />
+            <DepositFields
+              label="Higher-risk deposit"
+              nameType="depositTierHighType"
+              nameValue="depositTierHighValue"
+              defaultType={highTier.type === "none" ? "percent" : highTier.type}
+              defaultValue={highTier.display}
+              allowNone={false}
+              fixedHint="Minimum deposit for flagged clients or repeat no-shows, e.g. 50.00 = £50."
+              percentHint="Minimum deposit for flagged clients or repeat no-shows as % of price, e.g. 100."
+            />
+            <p className="text-xs text-ink-faint sm:col-span-2">
+              Trusted clients pay your normal service deposit (set per service — £ or %). Standard-risk and higher-risk clients pay at least the amounts above. Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit.
             </p>
           </CardContent>
         </Card>
@@ -240,13 +310,23 @@ export default function SettingsPage() {
               <Label htmlFor="loyaltyVisitThreshold">After how many visits?</Label>
               <Input id="loyaltyVisitThreshold" name="loyaltyVisitThreshold" type="number" min={0} max={100} defaultValue={tech.loyaltyVisitThreshold} />
             </div>
-            <div>
-              <Label htmlFor="loyaltyDiscountPct">Discount (%)</Label>
-              <Input id="loyaltyDiscountPct" name="loyaltyDiscountPct" type="number" min={0} max={50} defaultValue={tech.loyaltyDiscountPct} />
-            </div>
-            {tech.loyaltyVisitThreshold > 0 && tech.loyaltyDiscountPct > 0 && (
+            <DepositFields
+              label="Loyalty discount"
+              nameType="loyaltyDiscountType"
+              nameValue="loyaltyDiscountValue"
+              defaultType={loyaltyDiscount.type === "none" ? "percent" : loyaltyDiscount.type}
+              defaultValue={loyaltyDiscount.display}
+              allowNone={false}
+              fixedHint="Fixed discount off every booking once they qualify, e.g. 5.00 = £5 off."
+              percentHint="Percent off every booking once they qualify, e.g. 10 = 10% off."
+            />
+            {tech.loyaltyVisitThreshold > 0 && (tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct) > 0 && (
               <p className="text-xs text-ink-faint sm:col-span-2">
-                Currently: clients with {tech.loyaltyVisitThreshold}+ completed visits get {tech.loyaltyDiscountPct}% off automatically.
+                Currently: clients with {tech.loyaltyVisitThreshold}+ completed visits get{" "}
+                {(tech.loyaltyDiscountType ?? "percent") === "fixed"
+                  ? `${gbp(tech.loyaltyDiscountValue ?? 0)} off`
+                  : `${tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct}% off`}{" "}
+                automatically.
               </p>
             )}
             <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">

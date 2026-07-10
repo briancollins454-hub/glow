@@ -43,9 +43,16 @@ export interface Tech {
   location: string;
   // Default deposit applied to new services
   defaultDepositPct: number;
+  /** percent | fixed | none — how defaultDepositValue is interpreted. */
+  defaultDepositType: DepositType;
+  /** percent: 0-100. fixed: pennies. none: ignored. Falls back to defaultDepositPct. */
+  defaultDepositValue: number;
   // No-show / cancellation protection policy
   cancellationWindowHours: number;
   noShowFeePct: number;
+  noShowFeeType: "percent" | "fixed";
+  /** percent: 0-100. fixed: pennies. Falls back to noShowFeePct. */
+  noShowFeeValue: number;
   // Platform subscription (Stripe Billing)
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
@@ -62,9 +69,12 @@ export interface Tech {
   resetTokenExpiresAt: string | null;
   // Handle of the tech whose referral link brought this signup (if any)
   referredBy: string | null;
-  // Loyalty reward: after N completed visits, clients get X% off (0 = off)
+  // Loyalty reward: after N completed visits, clients get X% or £ off (0 = off)
   loyaltyVisitThreshold: number;
   loyaltyDiscountPct: number;
+  loyaltyDiscountType: "percent" | "fixed";
+  /** percent: 0-100. fixed: pennies. Falls back to loyaltyDiscountPct. */
+  loyaltyDiscountValue: number;
   // Private token for read-only calendar feed subscriptions.
   calendarToken: string | null;
   // Account closure / deletion request tracking.
@@ -85,9 +95,14 @@ export interface Tech {
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.
   approvalMode: ApprovalMode;
-  // Deposit as % of total price for medium / high-risk clients (capped at 100).
+  // Deposit for medium / high-risk clients (percent of price or fixed £).
   depositTierMediumPct: number;
   depositTierHighPct: number;
+  depositTierMediumType: "percent" | "fixed";
+  depositTierHighType: "percent" | "fixed";
+  /** percent: 0-100. fixed: pennies. Falls back to depositTier*Pct. */
+  depositTierMediumValue: number;
+  depositTierHighValue: number;
   // Completed visits needed before a client counts as trusted (rules mode).
   autoApproveMinVisits: number;
   // Offer captured at signup ("tester" = invited £1 first month; "" = standard).

@@ -104,6 +104,8 @@ type ManagedTechField =
   | "referredBy"
   | "loyaltyVisitThreshold"
   | "loyaltyDiscountPct"
+  | "loyaltyDiscountType"
+  | "loyaltyDiscountValue"
   | "calendarToken"
   | "closureRequestedAt"
   | "closureReason"
@@ -118,6 +120,14 @@ type ManagedTechField =
   | "approvalMode"
   | "depositTierMediumPct"
   | "depositTierHighPct"
+  | "depositTierMediumType"
+  | "depositTierHighType"
+  | "depositTierMediumValue"
+  | "depositTierHighValue"
+  | "defaultDepositType"
+  | "defaultDepositValue"
+  | "noShowFeeType"
+  | "noShowFeeValue"
   | "autoApproveMinVisits"
   | "signupOffer";
 
