@@ -128,9 +128,39 @@ export async function createTech(sb: SB, tech: NewTech): Promise<Tech> {
   const { data, error } = await sb.from("techs").insert({ ...tech }).select("*").single();
   return must(data as Tech, error);
 }
+const SCHEMA_COLUMN_RE = /Could not find the '([^']+)' column/;
+
+/** Drop one field when Supabase reports a column missing from schema cache (migration lag). */
+export function patchWithoutMissingColumn(
+  patch: Record<string, unknown>,
+  column: string,
+): Record<string, unknown> | null {
+  if (!(column in patch)) return null;
+  const { [column]: _removed, ...rest } = patch;
+  return rest;
+}
+
 export async function updateTech(sb: SB, id: string, patch: Partial<Tech>): Promise<void> {
-  const { error } = await sb.from("techs").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  let current: Record<string, unknown> = { ...patch };
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    if (Object.keys(current).length === 0) return;
+
+    const { error } = await sb.from("techs").update(current).eq("id", id);
+    if (!error) return;
+
+    const missing = error.message.match(SCHEMA_COLUMN_RE);
+    if (missing) {
+      const next = patchWithoutMissingColumn(current, missing[1]);
+      if (!next) throw new Error(error.message);
+      current = next;
+      continue;
+    }
+
+    throw new Error(error.message);
+  }
+
+  throw new Error("updateTech: too many schema retries");
 }
 
 // ---------------- Categories ----------------
