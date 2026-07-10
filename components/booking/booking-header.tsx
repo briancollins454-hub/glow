@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Calendar, ChevronDown } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { initials, shade } from "@/lib/booking/brand";
 import { categorySectionId, serviceSectionId } from "@/lib/booking/service-groups";
@@ -21,10 +21,68 @@ const NAV = [
 ] as const;
 
 function scrollToId(id: string) {
+  window.dispatchEvent(new CustomEvent("booking-navigate", { detail: { id } }));
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function ServicesDropdown({ groups }: { groups: ServiceNavGroup[] }) {
+function ServicesList({
+  groups,
+  onNavigate,
+  className,
+}: {
+  groups: ServiceNavGroup[];
+  onNavigate: (id: string) => void;
+  className?: string;
+}) {
+  const multiCategory = groups.length > 1;
+
+  return (
+    <div className={className}>
+      {groups.map((group) => (
+        <div key={group.id} className="py-1">
+          {multiCategory && (
+            <button
+              type="button"
+              onClick={() => onNavigate(categorySectionId(group.id))}
+              className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-ink transition hover:bg-white/[0.06]"
+            >
+              {group.title}
+              <span className="ml-auto text-xs font-normal text-ink-faint">{group.services.length}</span>
+            </button>
+          )}
+          <ul className={multiCategory ? "ml-2 border-l border-edge pl-2" : ""}>
+            {group.services.map((service) => (
+              <li key={service.id}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(serviceSectionId(service.id))}
+                  className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+                >
+                  {service.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onNavigate("services")}
+        className="mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-ink-faint transition hover:bg-white/[0.06] hover:text-ink-soft"
+      >
+        View all treatments
+      </button>
+    </div>
+  );
+}
+
+function ServicesDropdown({
+  groups,
+  onNavigate,
+}: {
+  groups: ServiceNavGroup[];
+  onNavigate?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -46,10 +104,9 @@ function ServicesDropdown({ groups }: { groups: ServiceNavGroup[] }) {
 
   const go = (id: string) => {
     setOpen(false);
+    onNavigate?.();
     scrollToId(id);
   };
-
-  const multiCategory = groups.length > 1;
 
   return (
     <div ref={rootRef} className="relative">
@@ -69,49 +126,86 @@ function ServicesDropdown({ groups }: { groups: ServiceNavGroup[] }) {
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-edge bg-surface shadow-card">
-          <div className="max-h-[min(70vh,420px)] overflow-y-auto py-2">
-            {groups.map((group) => (
-              <div key={group.id} className="px-2 py-1">
-                {multiCategory && (
-                  <button
-                    type="button"
-                    onClick={() => go(categorySectionId(group.id))}
-                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold text-ink transition hover:bg-white/[0.06]"
-                  >
-                    {group.title}
-                    <span className="ml-auto text-xs font-normal text-ink-faint">
-                      {group.services.length}
-                    </span>
-                  </button>
-                )}
-                <ul className={multiCategory ? "ml-1 border-l border-edge pl-2" : ""}>
-                  {group.services.map((service) => (
-                    <li key={service.id}>
-                      <button
-                        type="button"
-                        onClick={() => go(serviceSectionId(service.id))}
-                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
-                      >
-                        {service.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-edge p-2">
-            <button
-              type="button"
-              onClick={() => go("services")}
-              className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-ink-faint transition hover:bg-white/[0.06] hover:text-ink-soft"
-            >
-              View all treatments
-            </button>
+          <div className="max-h-[min(70vh,420px)] overflow-y-auto py-2 px-1">
+            <ServicesList groups={groups} onNavigate={go} />
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function MobileNav({
+  brand,
+  hasServices,
+  serviceGroups,
+  onClose,
+}: {
+  brand: string;
+  hasServices: boolean;
+  serviceGroups: ServiceNavGroup[];
+  onClose: () => void;
+}) {
+  const [servicesOpen, setServicesOpen] = useState(false);
+
+  const go = (id: string) => {
+    onClose();
+    scrollToId(id);
+  };
+
+  return (
+    <nav className="flex flex-col gap-1 border-t border-edge bg-cream/98 px-4 py-4 backdrop-blur-md">
+      {hasServices && serviceGroups.length > 0 && (
+        <div className="rounded-xl border border-edge bg-surface/60">
+          <button
+            type="button"
+            aria-expanded={servicesOpen}
+            onClick={() => setServicesOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-ink"
+          >
+            Services
+            <ChevronDown className={cn("h-4 w-4 text-ink-faint transition-transform", servicesOpen && "rotate-180")} />
+          </button>
+          {servicesOpen && (
+            <div className="max-h-[40vh] overflow-y-auto border-t border-edge px-2 pb-2">
+              <ServicesList groups={serviceGroups} onNavigate={go} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {hasServices && serviceGroups.length === 0 && (
+        <button
+          type="button"
+          onClick={() => go("services")}
+          className="rounded-xl px-4 py-3 text-left text-sm font-medium text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+        >
+          Services
+        </button>
+      )}
+
+      {NAV.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => go(item.id)}
+          className="rounded-xl px-4 py-3 text-left text-sm font-medium text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+        >
+          {item.label}
+        </button>
+      ))}
+
+      {hasServices && (
+        <button
+          type="button"
+          onClick={() => go("services")}
+          className="mt-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+          style={{ backgroundColor: brand }}
+        >
+          Book now
+        </button>
+      )}
+    </nav>
   );
 }
 
@@ -129,6 +223,7 @@ export function BookingHeader({
   serviceGroups?: ServiceNavGroup[];
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -137,13 +232,20 @@ export function BookingHeader({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   const scrollTo = (id: string) => scrollToId(id);
 
   return (
     <header
       className={cn(
         "sticky top-0 z-50 border-b transition duration-300",
-        scrolled
+        scrolled || menuOpen
           ? "border-edge bg-cream/95 shadow-sm backdrop-blur-md"
           : "border-transparent bg-transparent",
       )}
@@ -201,17 +303,25 @@ export function BookingHeader({
           )}
         </nav>
 
-        {hasServices && (
-          <button
-            type="button"
-            onClick={() => scrollTo("services")}
-            className="rounded-xl px-3 py-2 text-sm font-semibold text-white md:hidden"
-            style={{ backgroundColor: brand }}
-          >
-            <Calendar className="h-4 w-4" />
-          </button>
-        )}
+        <button
+          type="button"
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          onClick={() => setMenuOpen((v) => !v)}
+          className="grid h-10 w-10 place-items-center rounded-xl border border-edge bg-surface/80 text-ink md:hidden"
+        >
+          {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
+
+      {menuOpen && (
+        <MobileNav
+          brand={brand}
+          hasServices={hasServices}
+          serviceGroups={serviceGroups}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
     </header>
   );
 }

@@ -1,7 +1,16 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Service, ServiceCategory } from "@/lib/db/types";
-import { groupServicesForMenu, categorySectionId, serviceSectionId } from "@/lib/booking/service-groups";
+import {
+  categorySectionId,
+  defaultOpenCategoryId,
+  groupServicesForMenu,
+  serviceSectionId,
+} from "@/lib/booking/service-groups";
+import { CategorySection } from "@/components/booking/category-section";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { withAlpha } from "@/lib/booking/brand";
@@ -22,12 +31,17 @@ function ServiceCard({
   return (
     <article
       id={serviceSectionId(service.id)}
-      className="group scroll-mt-28 flex h-full flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition hover:border-white/15 hover:shadow-glow"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition hover:border-white/15 hover:shadow-glow"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-cream">
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={photoUrl} alt={service.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" loading="lazy" />
+          <img
+            src={photoUrl}
+            alt={service.name}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+            loading="lazy"
+          />
         ) : (
           <div
             className="h-full w-full"
@@ -40,8 +54,10 @@ function ServiceCard({
 
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-display text-lg font-semibold leading-snug text-ink">{service.name}</h3>
-          <p className="shrink-0 font-display text-lg font-semibold text-ink">{gbp(service.pricePennies)}</p>
+          <h4 className="font-display text-lg font-semibold leading-snug text-ink">{service.name}</h4>
+          <p className="shrink-0 font-display text-lg font-semibold text-ink">
+            {gbp(service.pricePennies)}
+          </p>
         </div>
 
         {service.description && (
@@ -98,6 +114,25 @@ export function ServiceGrid({
   photoUrls: Map<string, string>;
 }) {
   const groups = groupServicesForMenu(categories, services);
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(() =>
+    defaultOpenCategoryId(groups),
+  );
+
+  useEffect(() => {
+    const prefix = "services-cat-";
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      if (id?.startsWith(prefix)) {
+        setOpenCategoryId(id.slice(prefix.length));
+      }
+    };
+    window.addEventListener("booking-navigate", handler);
+    return () => window.removeEventListener("booking-navigate", handler);
+  }, []);
+
+  const toggleCategory = (id: string) => {
+    setOpenCategoryId((current) => (current === id ? null : id));
+  };
 
   if (services.length === 0) {
     return (
@@ -108,32 +143,38 @@ export function ServiceGrid({
   }
 
   return (
-    <section id="services" className="scroll-mt-24 space-y-10 animate-fade-in">
+    <section id="services" className="scroll-mt-24 space-y-6 animate-fade-in">
       <div className="text-center sm:text-left">
         <h2 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
           Treatments
         </h2>
-        <p className="mt-2 text-base text-ink-soft">Choose a service and pick a time that suits you.</p>
+        <p className="mt-2 text-base text-ink-soft">Choose a category, then pick a service and time.</p>
       </div>
 
-      {groups.map((group) => (
-        <div key={group.id} id={categorySectionId(group.id)} className="scroll-mt-28 space-y-5">
-          {groups.length > 1 && (
-            <h3 className="font-display text-xl font-semibold text-ink">{group.title}</h3>
-          )}
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {group.services.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                handle={handle}
-                brand={brand}
-                photoUrl={photoUrls.get(service.id)}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="space-y-3">
+        {groups.map((group) => (
+          <CategorySection
+            key={group.id}
+            id={categorySectionId(group.id)}
+            title={group.title}
+            count={group.services.length}
+            open={openCategoryId === group.id}
+            onToggle={() => toggleCategory(group.id)}
+          >
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {group.services.map((service) => (
+                <ServiceCard
+                  key={service.id}
+                  service={service}
+                  handle={handle}
+                  brand={brand}
+                  photoUrl={photoUrls.get(service.id)}
+                />
+              ))}
+            </div>
+          </CategorySection>
+        ))}
+      </div>
     </section>
   );
 }
