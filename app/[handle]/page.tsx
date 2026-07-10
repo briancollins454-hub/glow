@@ -259,11 +259,9 @@ export default async function PublicBookingPage({
           photoUrls={photoUrls}
         />
 
-        {portfolio.length > 0 && <PortfolioGallery items={portfolio} />}
+        <PortfolioGallery items={portfolio} />
 
-        {reviews.length > 0 && (
-          <ReviewsSection reviews={reviews} ratingAvg={ratingAvg} ratingCount={ratingCount} />
-        )}
+        <ReviewsSection reviews={reviews} ratingAvg={ratingAvg} ratingCount={ratingCount} />
 
         {openingHours.length > 0 && <OpeningHours hours={openingHours} />}
 
