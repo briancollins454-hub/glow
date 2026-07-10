@@ -76,6 +76,8 @@ export function makePatchTest(overrides: Partial<PatchTest> = {}): PatchTest {
     result: "pass",
     bookingId: null,
     notes: "",
+    invalidatedAtIso: null,
+    invalidationEventId: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

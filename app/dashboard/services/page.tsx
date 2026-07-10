@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles, CheckCircle2 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { ServiceSortableList } from "@/components/dashboard/service-sortable-list";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Input, Label } from "@/components/ui/input";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
+import { ProductChangePanel } from "@/components/dashboard/product-change-panel";
+import { RetestQueue } from "@/components/dashboard/retest-queue";
 import {
   addCategoryAction,
   deleteCategoryAction,
@@ -21,13 +23,16 @@ import {
   addAddonAction,
   deleteAddonAction,
 } from "../actions";
-import type { ServiceAddon, ServiceCategory, Service } from "@/lib/db/types";
+import type { Booking, Client, ProductChangeRetest, ServiceAddon, ServiceCategory, Service } from "@/lib/db/types";
 
 type ServicesData = {
   categories: ServiceCategory[];
   services: Service[];
   addons: ServiceAddon[];
   photoByService: Record<string, string>;
+  retests: ProductChangeRetest[];
+  clients: Client[];
+  bookings: Booking[];
 };
 
 export default function ServicesPage() {
@@ -38,9 +43,21 @@ export default function ServicesPage() {
   );
 }
 
-function ServicesView({ categories, services, addons, photoByService }: ServicesData) {
+function ServicesView({
+  categories,
+  services,
+  addons,
+  photoByService,
+  retests,
+  clients,
+  bookings,
+}: ServicesData) {
   const searchParams = useSearchParams();
   const open = searchParams.get("open") ?? undefined;
+  const retestDone = searchParams.get("retest");
+  const retestErr = searchParams.get("retesterr");
+  const affected = searchParams.get("affected");
+  const notified = searchParams.get("notified");
   const catById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
   return (
@@ -49,6 +66,25 @@ function ServicesView({ categories, services, addons, photoByService }: Services
         <h1 className="font-display text-2xl font-semibold">Services</h1>
         <p className="text-sm text-ink-soft">Set prices, deposits, patch-test rules and infill windows.</p>
       </div>
+
+      {retestDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Product change recorded. {affected ?? "0"} client{(affected === "1" ? "" : "s")} affected,{" "}
+            {notified ?? "0"} notified by email or SMS.
+          </span>
+        </div>
+      )}
+      {retestErr && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{retestErr}</div>
+      )}
+
+      {categories.length > 0 && (
+        <ProductChangePanel categories={categories} services={services} />
+      )}
+
+      <RetestQueue retests={retests} clients={clients} categories={categories} bookings={bookings} />
 
       <details className="card" open={categories.length === 0}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">

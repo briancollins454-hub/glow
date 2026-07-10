@@ -563,11 +563,30 @@ export async function toggleBlacklistAction(formData: FormData) {
 }
 
 // ---------------- Patch tests ----------------
+export async function productChangeAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { executeProductChange } = await import("@/lib/product-change");
+  const categoryIds = formData.getAll("categoryId").map(String).filter(Boolean);
+  const serviceIds = formData.getAll("serviceId").map(String).filter(Boolean);
+  const note = String(formData.get("note") ?? "").trim();
+  try {
+    const result = await executeProductChange(sb, tech, { categoryIds, serviceIds, note });
+    revalidatePath("/dashboard/services");
+    revalidatePath("/dashboard/reminders");
+    redirect(
+      `/dashboard/services?retest=1&affected=${result.affectedClients}&notified=${result.clientsNotified}&invalidated=${result.invalidatedCount}`,
+    );
+  } catch (err) {
+    redirect(`/dashboard/services?retesterr=${encodeURIComponent((err as Error).message)}`);
+  }
+}
+
 export async function addPatchTestAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const clientId = String(formData.get("clientId") ?? "");
   const categoryId = String(formData.get("categoryId") ?? "");
   const performedDate = String(formData.get("performedAt") ?? "");
+  const result = String(formData.get("result") ?? "pass") as "pending" | "pass" | "fail";
   const category = categoryId ? await getCategory(sb, categoryId) : null;
   if (clientId && category && performedDate) {
     const performed = fromZonedTime(`${performedDate}T12:00:00`, TZ);
@@ -578,12 +597,21 @@ export async function addPatchTestAction(formData: FormData) {
       categoryId,
       performedAtIso: performed.toISOString(),
       expiresAtIso: expires.toISOString(),
-      result: String(formData.get("result") ?? "pass") as "pending" | "pass" | "fail",
+      result,
       bookingId: null,
       notes: String(formData.get("notes") ?? "").trim(),
+      invalidatedAtIso: null,
+      invalidationEventId: null,
     });
+    const { resolveRetestsAfterPatchPass, markRetestsTestBooked } = await import("@/lib/product-change");
+    if (result === "pass") {
+      await resolveRetestsAfterPatchPass(sb, tech.id, clientId, categoryId);
+    } else if (result === "pending") {
+      await markRetestsTestBooked(sb, tech.id, clientId, categoryId);
+    }
   }
   revalidatePath(`/dashboard/clients/${clientId}`);
+  revalidatePath("/dashboard/services");
   redirect(`/dashboard/clients/${clientId}`);
 }
 

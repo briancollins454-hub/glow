@@ -10,11 +10,13 @@ import {
   getClientsByIds,
   getReportSummary,
   listAddons,
+  listBookings,
   listBookingsInWindow,
   listCategories,
   listClients,
   listInsightBookings,
   listMessagesForTech,
+  listProductChangeRetests,
   listQuestions,
   listRecentPayments,
   listReminders,
@@ -134,10 +136,13 @@ export async function loadDashboardPageData(
       return { bookings, services, clients, waitlist, now };
     }
     case "services": {
-      const [categories, services, addons] = await Promise.all([
+      const [categories, services, addons, retests, clients, bookings] = await Promise.all([
         listCategories(sb, tech.id),
         listServices(sb, tech.id),
         listAddons(sb, tech.id),
+        listProductChangeRetests(sb, tech.id),
+        listClients(sb, tech.id),
+        listBookings(sb, tech.id),
       ]);
       const signed = await signedPhotoUrls(
         services.filter((s) => s.photoPath).map((s) => s.photoPath!),
@@ -149,7 +154,7 @@ export async function loadDashboardPageData(
           if (url) photoByService[s.id] = url;
         }
       }
-      return { categories, services, addons, photoByService };
+      return { categories, services, addons, photoByService, retests, clients, bookings };
     }
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([
@@ -174,9 +179,18 @@ export async function loadDashboardPageData(
         listReminders(sb, tech.id),
         listServices(sb, tech.id),
       ]);
-      const bookingIds = [...new Set(reminders.map((r) => r.bookingId))];
+      const bookingIds = [
+        ...new Set(
+          reminders.map((r) => r.bookingId).filter((id): id is string => id != null),
+        ),
+      ];
       const bookings = await getBookingsByIds(sb, bookingIds);
-      const clientIds = [...new Set(bookings.map((b) => b.clientId))];
+      const clientIds = [
+        ...new Set([
+          ...bookings.map((b) => b.clientId),
+          ...reminders.map((r) => r.clientId).filter((id): id is string => id != null),
+        ]),
+      ];
       const clients = await getClientsByIds(sb, clientIds);
       return { reminders, services, bookings, clients, tech };
     }
