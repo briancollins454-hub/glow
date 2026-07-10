@@ -12,9 +12,22 @@ export function ServiceForm({
   categories: ServiceCategory[];
 }) {
   const s = service;
+  const saveButton = (
+    <SubmitButton size={s ? "md" : "lg"} pendingLabel={s ? "Saving your changes…" : "Adding your service…"}>
+      {s ? "Save changes" : "Add service"}
+    </SubmitButton>
+  );
+
   return (
     <form action={saveServiceAction} className="grid gap-4 sm:grid-cols-2">
       {s && <input type="hidden" name="id" value={s.id} />}
+
+      {s && (
+        <div className="flex items-center justify-between gap-3 sm:col-span-2">
+          <p className="text-sm text-ink-soft">Edit this service, then save.</p>
+          {saveButton}
+        </div>
+      )}
 
       <div className="sm:col-span-2">
         <Label htmlFor={`name_${s?.id ?? "new"}`}>Service name</Label>
@@ -129,14 +142,12 @@ export function ServiceForm({
         </p>
       </div>
 
-      <div className="flex items-center justify-between sm:col-span-2">
+      <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-3 border-t border-edge bg-cream/95 px-4 py-3 backdrop-blur-sm sm:col-span-2 sm:-mx-0 sm:rounded-xl sm:border sm:px-4">
         <label className="flex items-center gap-2.5 text-sm">
           <input type="checkbox" name="active" defaultChecked={s ? s.active : true} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
           Active (visible on booking page)
         </label>
-        <SubmitButton size={s ? "md" : "lg"} pendingLabel={s ? "Saving your changes…" : "Adding your service…"}>
-          {s ? "Save changes" : "Add service"}
-        </SubmitButton>
+        {saveButton}
       </div>
     </form>
   );

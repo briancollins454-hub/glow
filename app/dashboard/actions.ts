@@ -466,7 +466,7 @@ export async function saveServiceAction(formData: FormData) {
 
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
-  redirect(existing ? `/dashboard/services?open=${id}` : "/dashboard/services");
+  redirect(existing ? `/dashboard/services?saved=1&open=${id}` : "/dashboard/services?saved=1");
 }
 
 /** Move a service up/down in the list (dashboard + public booking page order). */
@@ -1025,7 +1025,7 @@ export async function setServicePhotoAction(formData: FormData) {
     await updateService(sb, serviceId, { photoPath: path });
   }
   revalidatePath("/dashboard/services");
-  redirect(`/dashboard/services?open=${serviceId}`);
+  redirect(`/dashboard/services?saved=1&open=${serviceId}`);
 }
 
 export async function removeServicePhotoAction(formData: FormData) {
@@ -1037,7 +1037,7 @@ export async function removeServicePhotoAction(formData: FormData) {
     await updateService(sb, serviceId, { photoPath: null });
   }
   revalidatePath("/dashboard/services");
-  redirect(`/dashboard/services?open=${serviceId}`);
+  redirect(`/dashboard/services?saved=1&open=${serviceId}`);
 }
 
 export async function addAddonAction(formData: FormData) {
@@ -1062,7 +1062,7 @@ export async function addAddonAction(formData: FormData) {
   }
   revalidatePath("/dashboard/services");
   // Land back with this service's panel open so adding several extras flows.
-  redirect(`/dashboard/services?open=${serviceId}`);
+  redirect(`/dashboard/services?saved=1&open=${serviceId}`);
 }
 
 export async function deleteAddonAction(formData: FormData) {
@@ -1072,7 +1072,7 @@ export async function deleteAddonAction(formData: FormData) {
   const { deleteAddon } = await import("@/lib/db/queries");
   await deleteAddon(sb, id);
   revalidatePath("/dashboard/services");
-  redirect(serviceId ? `/dashboard/services?open=${serviceId}` : "/dashboard/services");
+  redirect(serviceId ? `/dashboard/services?saved=1&open=${serviceId}` : "/dashboard/services?saved=1");
 }
 
 /** Hard delete a client and everything attached (bookings, photos, messages). */

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles, CheckCircle2 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { ServiceSortableList } from "@/components/dashboard/service-sortable-list";
@@ -12,6 +13,8 @@ import { Input, Label } from "@/components/ui/input";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
+import { ServiceListItem } from "@/components/dashboard/service-list-item";
+import { ServicesPageEffects } from "@/components/dashboard/services-page-effects";
 import { ProductChangePanel } from "@/components/dashboard/product-change-panel";
 import { PriceRisePanel } from "@/components/dashboard/price-rise-panel";
 import { ProductsBatchesPanel } from "@/components/dashboard/products-batches-panel";
@@ -63,6 +66,16 @@ function ServicesView({
 }: ServicesData) {
   const searchParams = useSearchParams();
   const open = searchParams.get("open") ?? undefined;
+  const [openServiceId, setOpenServiceId] = useState<string | null>(open ?? null);
+  const collapseTools = services.length >= 3;
+
+  useEffect(() => {
+    if (open) setOpenServiceId(open);
+  }, [open]);
+
+  const toggleService = (id: string) => {
+    setOpenServiceId((current) => (current === id ? null : id));
+  };
   const priceRiseDone = searchParams.get("pricerise");
   const retestDone = searchParams.get("retest");
   const retestErr = searchParams.get("retesterr");
@@ -110,21 +123,57 @@ function ServicesView({
         </div>
       )}
 
-      {services.some((s) => s.active) && <PriceRisePanel services={services} tech={tech} />}
+      <ServicesPageEffects />
 
-      {categories.length > 0 && (
-        <ProductChangePanel categories={categories} services={services} products={products} />
+      {services.some((s) => s.active) && (
+        <details className="card" open={!collapseTools}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">Price rise assistant</span>
+            <span className="text-xs text-ink-faint">Tap to {collapseTools ? "open" : "collapse"}</span>
+          </summary>
+          <div className="border-t border-edge p-5">
+            <PriceRisePanel services={services} tech={tech} />
+          </div>
+        </details>
       )}
 
       {categories.length > 0 && (
-        <ProductsBatchesPanel
-          categories={categories}
-          products={products}
-          batchSummaries={batchSummary}
-        />
+        <details className="card" open={!collapseTools}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">Product change &amp; re-tests</span>
+            <span className="text-xs text-ink-faint">Tap to open</span>
+          </summary>
+          <div className="border-t border-edge p-5">
+            <ProductChangePanel categories={categories} services={services} products={products} />
+          </div>
+        </details>
       )}
 
-      <RetestQueue retests={retests} clients={clients} categories={categories} bookings={bookings} />
+      {categories.length > 0 && (
+        <details className="card" open={!collapseTools}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">Products &amp; batches</span>
+            <span className="text-xs text-ink-faint">Tap to open</span>
+          </summary>
+          <div className="border-t border-edge p-5">
+            <ProductsBatchesPanel
+              categories={categories}
+              products={products}
+              batchSummaries={batchSummary}
+            />
+          </div>
+        </details>
+      )}
+
+      <details className="card" open={!collapseTools && retests.length > 0}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+          <span className="font-medium">Re-test queue ({retests.length})</span>
+          <span className="text-xs text-ink-faint">Tap to open</span>
+        </summary>
+        <div className="border-t border-edge p-5">
+          <RetestQueue retests={retests} clients={clients} categories={categories} bookings={bookings} />
+        </div>
+      </details>
 
       <details className="card" open={categories.length === 0}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
@@ -197,28 +246,41 @@ function ServicesView({
       <Card>
         <CardHeader>
           <CardTitle>Your services ({services.length})</CardTitle>
-          <CardDescription>Tap a service to edit it. Drag the handle to change the order on your booking page.</CardDescription>
+          <CardDescription>Tap a service name to open it — only one open at a time. Drag the handle to reorder.</CardDescription>
         </CardHeader>
         <CardContent>
           <ServiceSortableList
             services={services}
             renderService={(s) => (
-              <details open={open === s.id} className="group rounded-xl border border-edge bg-cream">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{s.name}</span>
-                    {!s.active && <Badge tone="neutral">Hidden</Badge>}
-                    {s.isInfill && <Badge tone="purple"><RefreshCw className="h-3 w-3" /> Infill ≤{s.infillMaxGapDays}d</Badge>}
-                    {s.requiresPatchTest && <Badge tone="amber"><ShieldCheck className="h-3 w-3" /> Patch test</Badge>}
-                  </div>
-                  <p className="mt-0.5 text-xs text-ink-faint">
-                    {catById[s.categoryId]} · {minutesToLabel(s.durationMin)} · {gbp(s.pricePennies)} · {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
-                  </p>
-                </div>
-                <span className="text-xs font-medium text-brand-400 group-open:hidden">Edit</span>
-              </summary>
-              <div className="border-t border-edge p-4">
+              <ServiceListItem
+                serviceId={s.id}
+                isOpen={openServiceId === s.id}
+                onToggle={() => toggleService(s.id)}
+                summary={
+                  <>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{s.name}</span>
+                        {!s.active && <Badge tone="neutral">Hidden</Badge>}
+                        {s.isInfill && (
+                          <Badge tone="purple">
+                            <RefreshCw className="h-3 w-3" /> Infill ≤{s.infillMaxGapDays}d
+                          </Badge>
+                        )}
+                        {s.requiresPatchTest && (
+                          <Badge tone="amber">
+                            <ShieldCheck className="h-3 w-3" /> Patch test
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-ink-faint">
+                        {catById[s.categoryId]} · {minutesToLabel(s.durationMin)} · {gbp(s.pricePennies)} ·{" "}
+                        {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
+                      </p>
+                    </div>
+                  </>
+                }
+              >
                 <ServiceForm service={s} categories={categories} />
 
                 <div className="mt-4 border-t border-edge pt-4">
@@ -275,8 +337,7 @@ function ServicesView({
                     Also removes any imported appointments linked to this service.
                   </p>
                 </form>
-              </div>
-              </details>
+              </ServiceListItem>
             )}
           />
         </CardContent>
