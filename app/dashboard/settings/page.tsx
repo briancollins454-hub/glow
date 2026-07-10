@@ -43,6 +43,9 @@ export default function SettingsPage() {
   const calendar = searchParams.get("calendar");
   const closure = searchParams.get("closure");
   const google = searchParams.get("google");
+  const photoerr = searchParams.get("photoerr");
+  const coverSaved = searchParams.get("cover");
+  const profileSaved = searchParams.get("profile");
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
   const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
 
@@ -54,6 +57,9 @@ export default function SettingsPage() {
       </div>
 
       {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {coverSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Banner image uploaded.</div>}
+      {profileSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Profile photo uploaded.</div>}
+      {photoerr && <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">Photo upload failed. Use a JPG, PNG or WebP image and try again.</div>}
       {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
       {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
       {google && <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm ${google === "connected" ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}><CalendarDays className="h-4 w-4" /> {GOOGLE_MSG[google] ?? GOOGLE_MSG.failed}</div>}
@@ -123,9 +129,18 @@ export default function SettingsPage() {
             </div>
             <div><Label htmlFor="instagram">Instagram handle</Label><Input id="instagram" name="instagram" defaultValue={tech.instagram} placeholder="bellarosebeauty" /></div>
             <div><Label htmlFor="tiktok">TikTok handle</Label><Input id="tiktok" name="tiktok" defaultValue={tech.tiktok} placeholder="bellarosebeauty" /></div>
-            <div className="sm:col-span-2">
-              <PageBrandingUploads tech={tech} />
-            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Page photos</CardTitle>
+            <CardDescription>
+              Banner and profile picture on your public booking page. Each photo uploads straight away when you tap Upload photo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PageBrandingUploads tech={tech} />
           </CardContent>
         </Card>
 
