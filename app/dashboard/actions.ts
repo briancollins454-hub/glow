@@ -1556,6 +1556,27 @@ export async function deleteReactionAction(formData: FormData) {
   redirect(`/dashboard/clients/${clientId}`);
 }
 
+// ---------------- Running late cascade ----------------
+export async function runningLateCascadeAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { executeRunningLateCascade } = await import("@/lib/running-late");
+  const minutesLate = clampInt(String(formData.get("minutesLate") ?? "15"), 1, 240, 15);
+  const note = String(formData.get("note") ?? "").trim();
+  const returnTo = String(formData.get("returnTo") ?? "/dashboard/bookings").trim();
+  const safeReturn = returnTo.startsWith("/dashboard") ? returnTo : "/dashboard/bookings";
+
+  try {
+    const result = await executeRunningLateCascade(sb, tech, { minutesLate, note });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/bookings");
+    redirect(
+      `${safeReturn}?late=1&notified=${result.clientsNotified}&targeted=${result.bookingsTargeted}&minutes=${minutesLate}`,
+    );
+  } catch (err) {
+    redirect(`${safeReturn}?lateerr=${encodeURIComponent((err as Error).message)}`);
+  }
+}
+
 // ---------------- Reminders ----------------
 export async function runRemindersAction() {
   const { sb } = await ctx();

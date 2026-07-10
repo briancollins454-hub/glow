@@ -37,6 +37,8 @@ import { signedPhotoUrls } from "@/lib/storage";
 import { isAdminTech } from "@/lib/admin";
 import { getPlatformTraffic } from "@/lib/traffic-stats";
 import { buildBusinessInsights } from "@/lib/insights";
+import { filterLateCascadeBookings } from "@/lib/running-late";
+import { dateStrInTz } from "@/lib/rules";
 import { fmtDate } from "@/lib/format";
 import type { Tech } from "@/lib/db/types";
 import { supabaseService, serviceConfigured } from "@/lib/supabase/service";
@@ -74,9 +76,10 @@ export async function loadDashboardPageData(
       const monthStart = new Date();
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
+      const todayKey = dateStrInTz(now);
       const todayStr = fmtDate(nowIso);
-      const dayStart = `${todayStr}T00:00:00.000Z`;
-      const dayEnd = `${todayStr}T23:59:59.999Z`;
+      const dayStart = `${todayKey}T00:00:00.000Z`;
+      const dayEnd = `${todayKey}T23:59:59.999Z`;
       const insightFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const insightTo = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
       const [
@@ -91,6 +94,7 @@ export async function loadDashboardPageData(
         insightBookings,
         recentPayments,
         clients,
+        todayBookings,
       ] = await Promise.all([
         listUpcomingBookings(sb, tech.id, nowIso, 20),
         listServices(sb, tech.id),
@@ -103,7 +107,13 @@ export async function loadDashboardPageData(
         listInsightBookings(sb, tech.id, insightFrom, insightTo),
         listRecentPayments(sb, tech.id, insightFrom),
         listClients(sb, tech.id),
+        listBookingsInWindow(sb, tech.id, dayStart, dayEnd),
       ]);
+      const lateCascadeCount = filterLateCascadeBookings(
+        todayBookings,
+        todayKey,
+        now.getTime(),
+      ).length;
       const clientById = Object.fromEntries(clients.map((c) => [c.id, c]));
       const serviceById = Object.fromEntries(services.map((s) => [s.id, s]));
       const insights = buildBusinessInsights({
@@ -125,6 +135,7 @@ export async function loadDashboardPageData(
         insights,
         clientById,
         serviceById,
+        lateCascadeCount,
       };
     }
     case "bookings": {

@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, BellRing, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Plus, BellRing, Trash2, CheckCircle2 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -8,9 +9,11 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
-import { riskTierLabel, riskTierTone } from "@/lib/rules";
+import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
+import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
+import { filterLateCascadeBookings } from "@/lib/running-late";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
 import type { Booking, Client, Service, WaitlistEntry } from "@/lib/db/types";
 
@@ -31,13 +34,20 @@ export default function BookingsPage() {
 }
 
 function BookingsView({ bookings, services, clients, waitlist, now }: BookingsData) {
+  const searchParams = useSearchParams();
+  const lateDone = searchParams.get("late");
+  const lateErr = searchParams.get("lateerr");
+  const notified = searchParams.get("notified");
+  const minutes = searchParams.get("minutes");
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
 
   const todayStr = fmtDate(new Date().toISOString());
+  const todayKey = dateStrInTz(new Date());
   const notCancelled = bookings.filter((b) => b.status !== "cancelled");
   const today = notCancelled.filter((b) => fmtDate(b.startIso) === todayStr);
+  const lateTargets = filterLateCascadeBookings(today, todayKey, now);
   const upcoming = notCancelled.filter(
     (b) => new Date(b.startIso).getTime() >= now && fmtDate(b.startIso) !== todayStr,
   );
@@ -81,6 +91,22 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
         <h1 className="font-display text-2xl font-semibold">Calendar</h1>
         <p className="text-sm text-ink-soft">All your appointments in one place.</p>
       </div>
+
+      {lateDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Notified {notified ?? "0"} client{(notified === "1" ? "" : "s")} (~{minutes ?? "?"} min late).
+          </span>
+        </div>
+      )}
+      {lateErr && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{lateErr}</div>
+      )}
+
+      {lateTargets.length > 0 && (
+        <RunningLatePanel targetCount={lateTargets.length} />
+      )}
 
       <details className="card">
         <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">

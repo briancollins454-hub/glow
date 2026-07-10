@@ -19,6 +19,8 @@ import type {
   ProductUsage,
   ClientReaction,
   InfillDeadlineNudge,
+  LateCascadeEvent,
+  LateCascadeNotification,
   ReactionCheckin,
   Reminder,
   Review,
@@ -927,6 +929,38 @@ export async function updateInfillDeadlineNudge(
 ): Promise<void> {
   const { error } = await sb.from("infill_deadline_nudges").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+// ---------------- Running late cascade ----------------
+export async function listLateCascadeEvents(sb: SB, techId: string): Promise<LateCascadeEvent[]> {
+  const { data, error } = await sb
+    .from("late_cascade_events")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as LateCascadeEvent[], error) ?? [];
+}
+export async function createLateCascadeEvent(
+  sb: SB,
+  e: Omit<LateCascadeEvent, "id" | "createdAt">,
+): Promise<LateCascadeEvent> {
+  const { data, error } = await sb
+    .from("late_cascade_events")
+    .insert({ ...e, id: randomId("lce") })
+    .select("*")
+    .single();
+  return must(data as LateCascadeEvent, error);
+}
+export async function createLateCascadeNotification(
+  sb: SB,
+  n: Omit<LateCascadeNotification, "id" | "createdAt">,
+): Promise<LateCascadeNotification> {
+  const { data, error } = await sb
+    .from("late_cascade_notifications")
+    .insert({ ...n, id: randomId("lcn") })
+    .select("*")
+    .single();
+  return must(data as LateCascadeNotification, error);
 }
 
 // ---------------- Reminders ----------------

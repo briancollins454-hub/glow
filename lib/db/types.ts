@@ -397,6 +397,26 @@ export interface InfillDeadlineNudge {
   createdAt: string;
 }
 
+export interface LateCascadeEvent {
+  id: string;
+  techId: string;
+  minutesLate: number;
+  note: string;
+  targetDate: string;
+  bookingsNotified: number;
+  createdAt: string;
+}
+
+export interface LateCascadeNotification {
+  id: string;
+  eventId: string;
+  techId: string;
+  bookingId: string;
+  clientId: string;
+  channel: ReminderChannel;
+  createdAt: string;
+}
+
 export type QuestionType = "text" | "longtext" | "yesno";
 
 export interface ConsultationQuestion {

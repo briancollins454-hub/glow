@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   PoundSterling,
@@ -9,8 +10,10 @@ import {
   ArrowRight,
   Lightbulb,
   TrendingUp,
+  CheckCircle2,
 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
+import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime, fmtRelativeDays } from "@/lib/format";
@@ -35,6 +38,7 @@ type HomeData = {
   insights: BusinessInsight[];
   clientById: Record<string, Client>;
   serviceById: Record<string, Service>;
+  lateCascadeCount: number;
 };
 
 export default function DashboardOverview() {
@@ -58,7 +62,12 @@ function HomeView({
   insights,
   clientById,
   serviceById,
+  lateCascadeCount,
 }: HomeData) {
+  const searchParams = useSearchParams();
+  const lateDone = searchParams.get("late");
+  const notified = searchParams.get("notified");
+  const minutes = searchParams.get("minutes");
   const live = isLive(tech);
   const isTester = tech.signupOffer === "tester";
   const setupSteps: SetupStep[] = [
@@ -130,6 +139,19 @@ function HomeView({
         <StatCard icon={PoundSterling} label="Income this month" value={gbp(monthIncome)} hint="deposits + balances" tone="green" href="/dashboard/reports" />
         <StatCard icon={TrendingUp} label="Outstanding" value={gbp(outstanding)} hint="balances due" tone="amber" href="/dashboard/bookings" />
       </div>
+
+      {lateDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Notified {notified ?? "0"} client{(notified === "1" ? "" : "s")} you&apos;re ~{minutes ?? "?"} min late.
+          </span>
+        </div>
+      )}
+
+      {lateCascadeCount > 0 && (
+        <RunningLatePanel targetCount={lateCascadeCount} compact returnTo="/dashboard" />
+      )}
 
       {insights.length > 0 && (
         <Card>

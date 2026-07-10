@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
-import { fmtDate, fmtDateTime, gbp } from "@/lib/format";
+import { fmtDate, fmtDateTime, fmtTime, gbp } from "@/lib/format";
 import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
@@ -632,4 +632,62 @@ export async function notifyClientOfInfillDeadline(
       `Book ${infillService.name}: ${url}\n\nUnsubscribe: ${unsubUrl}`,
     idempotencyKey: `infill-deadline/${client.id}/${deadlineIso.slice(0, 10)}`,
   });
+}
+
+/** Tell a client their appointment will start later than planned. */
+export async function notifyClientRunningLate(opts: {
+  tech: Tech;
+  client: Client;
+  booking: Booking;
+  service: Service | null;
+  minutesLate: number;
+  note?: string;
+  eventId: string;
+}): Promise<{ email: boolean; sms: boolean }> {
+  const { tech, client, booking, service, minutesLate, note, eventId } = opts;
+  const biz = tech.businessName || "your beauty studio";
+  const brand = tech.brandColor || "#db2777";
+  const name = client.name?.split(" ")[0] ?? "there";
+  const when = fmtDateTime(booking.startIso);
+  const svc = service?.name ?? "your appointment";
+  const lateNote = note ? `<br/><br/><em>${truncate(note)}</em>` : "";
+  const lateNoteText = note ? `\n\n${note}` : "";
+
+  const bodyHtml =
+    `Hi ${name},<br/><br/>` +
+    `${biz} is running about <strong>${minutesLate} minutes late</strong> today. ` +
+    `Your <strong>${svc}</strong> at <strong>${when}</strong> may start a little later than planned. ` +
+    `Sorry for the inconvenience - we're on our way.${lateNote}`;
+
+  const text =
+    `Hi ${name}, ${biz} is running about ${minutesLate} minutes late. ` +
+    `Your ${svc} at ${when} may start later than planned.${lateNoteText}`;
+
+  let email = false;
+  let sms = false;
+
+  if (client.email?.trim()) {
+    const html = brandedEmail({
+      brand,
+      businessName: biz,
+      heading: "Running a little late",
+      bodyHtml,
+    });
+    email = await sendEmail({
+      to: client.email.trim(),
+      subject: `${biz}: running ~${minutesLate} min late for your appointment`,
+      html,
+      text,
+      idempotencyKey: `late-cascade/${eventId}/${booking.id}/email`,
+    });
+  }
+
+  if (smsConfigured() && client.phone) {
+    sms = await sendSms(
+      client.phone,
+      `${biz}: running ~${minutesLate} min late today. Your ${svc} at ${fmtTime(booking.startIso)} may start later. Sorry!${lateNoteText}`,
+    );
+  }
+
+  return { email, sms };
 }
