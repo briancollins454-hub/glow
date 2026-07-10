@@ -1633,6 +1633,53 @@ export async function applyPriceRiseAction(formData: FormData) {
   redirect(`/dashboard/services?pricerise=1&count=${applied.length}`);
 }
 
+// ---------------- DM quote links ----------------
+export async function createDmQuoteAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const serviceId = String(formData.get("serviceId") ?? "");
+  const clientId = String(formData.get("clientId") ?? "").trim() || null;
+  const clientName = String(formData.get("clientName") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  const returnTo = String(formData.get("returnTo") ?? "/dashboard/messages").trim();
+  const safeReturn = returnTo.startsWith("/dashboard") ? returnTo : "/dashboard/messages";
+  const addonIds = new Set(formData.getAll("addonId").map(String));
+
+  const service = await getService(sb, serviceId);
+  if (!service || service.techId !== tech.id) redirect(safeReturn);
+
+  const { addonsForService } = await import("@/lib/db/queries");
+  const { bookingAmounts } = await import("@/lib/rules");
+  const { createDmQuoteLink } = await import("@/lib/db/queries");
+
+  const available = await addonsForService(sb, serviceId, { activeOnly: true });
+  const addons = available
+    .filter((a) => addonIds.has(a.id))
+    .map((a) => ({ name: a.name, pricePennies: a.pricePennies }));
+  const { price, deposit } = bookingAmounts(service, tech, "medium", addons);
+
+  const quote = await createDmQuoteLink(sb, {
+    techId: tech.id,
+    clientId,
+    serviceId: service.id,
+    token: randomToken(),
+    clientName,
+    addons,
+    note,
+    pricePennies: price,
+    depositPennies: deposit,
+    viewedAtIso: null,
+  });
+
+  await audit(sb, tech.id, "dm_quote_created", "dm_quote_link", quote.id, {
+    serviceId: service.id,
+    clientId,
+    pricePennies: price,
+  });
+
+  revalidatePath("/dashboard/messages");
+  redirect(`${safeReturn}?qt=${quote.token}`);
+}
+
 // ---------------- Reminders ----------------
 export async function runRemindersAction() {
   const { sb } = await ctx();

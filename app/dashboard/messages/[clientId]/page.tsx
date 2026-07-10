@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, User } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { getClient, markThreadRead, threadMessages } from "@/lib/db/queries";
+import { getClient, listAddons, listServices, markThreadRead, threadMessages } from "@/lib/db/queries";
 import { isLive } from "@/lib/subscriptions";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Trash2 } from "lucide-react";
 import { LazyMessageThread } from "@/components/messages/lazy-message-thread";
 import { ClientMessageLink } from "@/components/messages/client-message-link";
+import { DmQuotePanel } from "@/components/dashboard/dm-quote-panel";
 import { sendMessageAction, deleteConversationAction } from "../actions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
@@ -36,7 +37,11 @@ export default async function DashboardThreadPage({
   }
 
   await markThreadRead(sb, clientId, "client");
-  const messages = await threadMessages(sb, clientId);
+  const [messages, services, addons] = await Promise.all([
+    threadMessages(sb, clientId),
+    listServices(sb, tech.id, { activeOnly: true }),
+    listAddons(sb, tech.id, { activeOnly: true }),
+  ]);
   const send = sendMessageAction.bind(null, clientId);
   const messageUrl = `${APP_URL}/m/${client.messageToken}`;
   const hasEmail = !!client.email?.trim();
@@ -66,6 +71,14 @@ export default async function DashboardThreadPage({
       </div>
 
       {!hasEmail && <ClientMessageLink url={messageUrl} />}
+
+      <DmQuotePanel
+        services={services}
+        addons={addons}
+        clientId={client.id}
+        clientName={client.name}
+        returnTo={`/dashboard/messages/${client.id}`}
+      />
 
       <div className="card flex min-h-0 flex-1 flex-col p-4">
         <LazyMessageThread

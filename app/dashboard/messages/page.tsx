@@ -6,11 +6,12 @@ import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page"
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Client, Message } from "@/lib/db/types";
+import { DmQuotePanel } from "@/components/dashboard/dm-quote-panel";
+import type { Client, Message, Service, ServiceAddon, Tech } from "@/lib/db/types";
 
 type MessagesData =
   | { live: false }
-  | { live: true; clients: Client[]; messages: Message[] };
+  | { live: true; clients: Client[]; messages: Message[]; services: Service[]; addons: ServiceAddon[]; tech: Tech };
 
 export default function MessagesPage() {
   return (
@@ -33,7 +34,7 @@ function MessagesView(data: MessagesData) {
     );
   }
 
-  const { clients, messages } = data;
+  const { clients, messages, services, addons } = data;
   const clientById = Object.fromEntries(clients.map((cl) => [cl.id, cl]));
   const latest = new Map<string, Message>();
   const unread = new Map<string, number>();
@@ -52,6 +53,8 @@ function MessagesView(data: MessagesData) {
         <h1 className="font-display text-2xl font-semibold">Messages</h1>
         <p className="text-sm text-ink-soft">Chat with clients in one place - they reply from a private link, no app needed.</p>
       </div>
+
+      <DmQuotePanel services={services} addons={addons} />
 
       <Card>
         <CardHeader>

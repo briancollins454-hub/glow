@@ -233,11 +233,13 @@ export async function loadDashboardPageData(
     }
     case "messages": {
       if (!isLive(tech)) return { live: false };
-      const [clients, messages] = await Promise.all([
+      const [clients, messages, services, addons] = await Promise.all([
         listClients(sb, tech.id),
         listMessagesForTech(sb, tech.id),
+        listServices(sb, tech.id, { activeOnly: true }),
+        listAddons(sb, tech.id, { activeOnly: true }),
       ]);
-      return { clients, messages, live: true };
+      return { clients, messages, services, addons, tech, live: true };
     }
     case "billing": {
       let referredCount = 0;

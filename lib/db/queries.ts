@@ -22,6 +22,7 @@ import type {
   LateCascadeEvent,
   LateCascadeNotification,
   PreCareConfirmation,
+  DmQuoteLink,
   ReactionCheckin,
   Reminder,
   Review,
@@ -1014,6 +1015,58 @@ export async function updatePreCareConfirmation(
   patch: Partial<PreCareConfirmation>,
 ): Promise<void> {
   const { error } = await sb.from("pre_care_confirmations").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- DM quote links ----------------
+function mapDmQuote(row: DmQuoteLink): DmQuoteLink {
+  return {
+    ...row,
+    addons: Array.isArray(row.addons) ? row.addons : [],
+  };
+}
+
+export async function listDmQuoteLinks(sb: SB, techId: string): Promise<DmQuoteLink[]> {
+  const { data, error } = await sb
+    .from("dm_quote_links")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return (must(data as DmQuoteLink[], error) ?? []).map(mapDmQuote);
+}
+
+export async function getDmQuoteLink(sb: SB, id: string): Promise<DmQuoteLink | null> {
+  const { data, error } = await sb.from("dm_quote_links").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapDmQuote(data as DmQuoteLink) : null;
+}
+
+export async function getDmQuoteLinkByToken(sb: SB, token: string): Promise<DmQuoteLink | null> {
+  const { data, error } = await sb.rpc("dm_quote_by_token", { lookup_token: token });
+  if (error) throw new Error(error.message);
+  const rows = data as DmQuoteLink[] | null;
+  const row = rows?.[0];
+  return row ? mapDmQuote(row) : null;
+}
+
+export async function createDmQuoteLink(
+  sb: SB,
+  q: Omit<DmQuoteLink, "id" | "createdAt">,
+): Promise<DmQuoteLink> {
+  const { data, error } = await sb
+    .from("dm_quote_links")
+    .insert({ ...q, id: randomId("dql") })
+    .select("*")
+    .single();
+  return mapDmQuote(must(data as DmQuoteLink, error));
+}
+
+export async function updateDmQuoteLink(
+  sb: SB,
+  id: string,
+  patch: Partial<DmQuoteLink>,
+): Promise<void> {
+  const { error } = await sb.from("dm_quote_links").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 }
 

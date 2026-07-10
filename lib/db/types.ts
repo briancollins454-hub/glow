@@ -210,6 +210,21 @@ export interface Message {
   createdAt: string;
 }
 
+export interface DmQuoteLink {
+  id: string;
+  techId: string;
+  clientId: string | null;
+  serviceId: string;
+  token: string;
+  clientName: string;
+  addons: BookingAddon[];
+  note: string;
+  pricePennies: number;
+  depositPennies: number;
+  viewedAtIso: string | null;
+  createdAt: string;
+}
+
 export interface Booking {
   id: string;
   techId: string;
