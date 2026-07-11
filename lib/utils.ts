@@ -13,17 +13,3 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 }
-
-export function randomId(prefix = ""): string {
-  const s = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-  return prefix ? `${prefix}_${s}` : s;
-}
-
-export function randomToken(): string {
-  // URL-safe token for "pay remaining balance" links
-  return (
-    Math.random().toString(36).slice(2) +
-    Math.random().toString(36).slice(2) +
-    Date.now().toString(36)
-  );
-}

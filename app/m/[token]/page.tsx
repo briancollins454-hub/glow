@@ -3,6 +3,7 @@ import { CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getClientByMessageToken, getTechById, threadMessages } from "@/lib/db/queries";
 import { isLive } from "@/lib/subscriptions";
+import { rateLimit } from "@/lib/rate-limit";
 import { MessageThread } from "@/components/messages/message-thread";
 import { sendClientMessageAction } from "./actions";
 
@@ -14,6 +15,13 @@ export default async function ClientThreadPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  if (!(await rateLimit("token-lookup", { limit: 30, windowMs: 60_000 })).ok) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
+        Too many attempts, try again shortly.
+      </div>
+    );
+  }
   const sb = supabaseService();
   const client = await getClientByMessageToken(sb, token);
   if (!client) notFound();

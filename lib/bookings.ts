@@ -7,7 +7,7 @@ import {
 } from "@/lib/db/queries";
 import { depositFor, bookingAmounts } from "@/lib/rules";
 import { sendReminder } from "@/lib/notify";
-import { randomToken } from "@/lib/utils";
+import { randomToken } from "@/lib/ids";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, RiskTier, Service, Tech } from "@/lib/db/types";
 import { isPaymentsReady } from "@/lib/subscriptions";

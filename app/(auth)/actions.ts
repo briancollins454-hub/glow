@@ -9,12 +9,13 @@ import {
   getTechByHandle,
   replaceWorkingHours,
 } from "@/lib/db/queries";
-import { slugify, randomId, randomToken } from "@/lib/utils";
+import { slugify } from "@/lib/utils";
+import { randomId, randomToken } from "@/lib/ids";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function loginAction(formData: FormData) {
   // Brute-force protection: same "invalid" response so attackers learn nothing.
-  if (!(await rateLimit("login", { limit: 10, windowMinutes: 5 }))) {
+  if (!(await rateLimit("login", { limit: 10, windowMinutes: 5 })).ok) {
     redirect("/login?error=invalid");
   }
   const email = String(formData.get("email") ?? "").trim();
@@ -28,7 +29,7 @@ export async function loginAction(formData: FormData) {
 }
 
 export async function signupAction(formData: FormData) {
-  if (!(await rateLimit("signup", { limit: 5, windowMinutes: 15 }))) {
+  if (!(await rateLimit("signup", { limit: 5, windowMinutes: 15 })).ok) {
     redirect("/signup?error=missing");
   }
   const name = String(formData.get("name") ?? "").trim();
@@ -144,7 +145,7 @@ export async function logoutAction() {
 }
 
 export async function forgotPasswordAction(formData: FormData) {
-  if (!(await rateLimit("forgot-password", { limit: 5, windowMinutes: 15 }))) {
+  if (!(await rateLimit("forgot-password", { limit: 5, windowMinutes: 15 })).ok) {
     redirect("/forgot?sent=1");
   }
   const email = String(formData.get("email") ?? "").trim();

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
-import { renderReminderText, labelForKind } from "@/lib/notify";
+import { renderReminderText, labelForKind } from "@/lib/reminder-copy";
 import { runRemindersAction } from "../actions";
 import type { Booking, Client, InfillDeadlineNudge, PreCareConfirmation, ReactionCheckin, Reminder, Service, Tech } from "@/lib/db/types";
 

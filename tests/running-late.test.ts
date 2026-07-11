@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterLateCascadeBookings } from "@/lib/running-late";
+import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { makeBooking } from "./fixtures";
 
 describe("filterLateCascadeBookings", () => {

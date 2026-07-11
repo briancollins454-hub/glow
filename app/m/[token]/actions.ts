@@ -13,8 +13,8 @@ type SendResult = { ok: boolean; message?: Message; error?: string };
 export async function sendClientMessageAction(token: string, body: string): Promise<SendResult> {
   const text = body.trim();
   if (!text) return { ok: false, error: "Message is empty" };
-  if (!(await rateLimit("client-message", { limit: 20, windowMinutes: 10 }))) {
-    return { ok: false, error: "Too many messages - give it a few minutes." };
+  if (!(await rateLimit("client-message", { limit: 10, windowMs: 60_000 })).ok) {
+    return { ok: false, error: "Too many attempts, try again shortly." };
   }
   const sb = supabaseService();
   const client = await getClientByMessageToken(sb, token);

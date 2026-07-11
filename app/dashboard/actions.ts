@@ -7,7 +7,8 @@ import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
 import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
-import { slugify, randomId, randomToken } from "@/lib/utils";
+import { slugify } from "@/lib/utils";
+import { randomId, randomToken } from "@/lib/ids";
 import {
   createAccountClosureRequest,
   createAuditEvent,
@@ -323,7 +324,7 @@ export async function requestAccountClosureAction(formData: FormData) {
 export async function submitFeedbackAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const { rateLimit } = await import("@/lib/rate-limit");
-  if (!(await rateLimit("feedback", { limit: 5, windowMinutes: 60 }))) {
+  if (!(await rateLimit("feedback", { limit: 5, windowMinutes: 60 })).ok) {
     redirect("/dashboard/feedback?sent=1");
   }
 
@@ -1395,7 +1396,7 @@ export async function importBookingsAction(formData: FormData) {
   const existingBookings = await listBookings(sb, tech.id);
   const { createBooking: createBookingRow } = await import("@/lib/db/queries");
   const { rescheduleReminders } = await import("@/lib/bookings");
-  const { randomToken: newToken } = await import("@/lib/utils");
+  const { randomToken: newToken } = await import("@/lib/ids");
 
   // UK exports commonly use dd/mm/yyyy or Fresha "04 Jul 2026, 3:00pm".
   // Times are naive local (Europe/London), not server UTC.

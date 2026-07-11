@@ -31,6 +31,7 @@ const ERR: Record<string, string> = {
   patch: "This service needs a valid patch test on file. Please get in touch to arrange one first.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
   form: "Please complete the required questions and agree to the booking policy.",
+  rate: "Too many attempts, try again shortly.",
 };
 
 export function BookingStepInteractive({

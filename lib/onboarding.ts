@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, brandedEmail } from "@/lib/email";
-import { randomId } from "@/lib/utils";
+import { randomId } from "@/lib/ids";
 import type { Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

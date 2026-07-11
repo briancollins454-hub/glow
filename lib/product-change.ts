@@ -14,7 +14,7 @@ import {
   updateProductChangeRetest,
 } from "@/lib/db/queries";
 import { notifyClientOfPatchTestRetest } from "@/lib/notify";
-import { randomId } from "@/lib/utils";
+import { randomId } from "@/lib/ids";
 import type {
   Booking,
   PatchRetestStatus,

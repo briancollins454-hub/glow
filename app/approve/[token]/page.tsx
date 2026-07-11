@@ -5,6 +5,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import { bookingsForClient, getBookingByApprovalToken, getBooking, getClient, getService, getTechById } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
 import { riskTierLabel, riskTierTone } from "@/lib/rules";
+import { rateLimit } from "@/lib/rate-limit";
 import { approveBookingFromEmailAction, declineBookingFromEmailAction } from "./actions";
 import { ApproveDoneRedirect } from "@/components/booking/approve-done-redirect";
 import { ClientRiskSummary } from "@/components/dashboard/client-risk-summary";
@@ -17,10 +18,17 @@ export default async function ApproveBookingPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ done?: string; bid?: string }>;
+  searchParams: Promise<{ done?: string; bid?: string; err?: string }>;
 }) {
   const { token } = await params;
-  const { done, bid } = await searchParams;
+  const { done, bid, err } = await searchParams;
+  if (!(await rateLimit("token-lookup", { limit: 30, windowMs: 60_000 })).ok || err === "rate") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
+        Too many attempts, try again shortly.
+      </div>
+    );
+  }
   const sb = supabaseService();
 
   let booking = await getBookingByApprovalToken(sb, token);

@@ -3,6 +3,7 @@ import { CalendarHeart, CheckCircle2, Star } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getReviewByBookingId, getService, getTechById } from "@/lib/db/queries";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { rateLimit } from "@/lib/rate-limit";
 import { submitReviewAction } from "./actions";
 
 export const metadata = { title: "Leave a review", robots: { index: false, follow: false } };
@@ -16,6 +17,13 @@ export default async function ReviewPage({
 }) {
   const { token } = await params;
   const sp = await searchParams;
+  if (!(await rateLimit("token-lookup", { limit: 30, windowMs: 60_000 })).ok || sp.err === "rate") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
+        Too many attempts, try again shortly.
+      </div>
+    );
+  }
   const sb = supabaseService();
   const booking = await getBookingByToken(sb, token);
   if (!booking) notFound();

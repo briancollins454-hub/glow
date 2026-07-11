@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { headers } from "next/headers";
 import { formatInTimeZone } from "date-fns-tz";
 import { callerIp } from "@/lib/rate-limit";
-import { randomId } from "@/lib/utils";
+import { randomId } from "@/lib/ids";
 import { supabaseService } from "@/lib/supabase/service";
 
 const TZ = "Europe/London";

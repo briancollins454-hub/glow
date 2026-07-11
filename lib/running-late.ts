@@ -8,12 +8,13 @@ import {
 } from "@/lib/db/queries";
 import { notifyClientRunningLate } from "@/lib/notify";
 import { fmtTime } from "@/lib/format";
-import { dateStrInTz } from "@/lib/rules";
+import {
+  filterLateCascadeBookings,
+  todayDateStr,
+} from "@/lib/running-late-filter";
 import type { Booking, Tech } from "@/lib/db/types";
 
-const ACTIVE_STATUSES: Booking["status"][] = ["pending_approval", "pending", "confirmed"];
-/** Include appointments that started up to this long ago (client still waiting). */
-const GRACE_MS = 30 * 60 * 1000;
+export { filterLateCascadeBookings, todayDateStr } from "@/lib/running-late-filter";
 
 export type LateCascadeInput = {
   minutesLate: number;
@@ -29,29 +30,6 @@ export type LateCascadeResult = {
   emails: number;
   sms: number;
 };
-
-/** Bookings on a given day that should receive a running-late notice. */
-export function filterLateCascadeBookings(
-  bookings: Booking[],
-  targetDate: string,
-  nowMs = Date.now(),
-): Booking[] {
-  return bookings
-    .filter((b) => {
-      if (!ACTIVE_STATUSES.includes(b.status)) return false;
-      if (dateStrInTz(new Date(b.startIso)) !== targetDate) return false;
-      const endMs = new Date(b.endIso || b.startIso).getTime();
-      if (endMs <= nowMs) return false;
-      const startMs = new Date(b.startIso).getTime();
-      if (startMs < nowMs - GRACE_MS) return false;
-      return true;
-    })
-    .sort((a, b) => new Date(a.startIso).getTime() - new Date(b.startIso).getTime());
-}
-
-export function todayDateStr(now = new Date()): string {
-  return dateStrInTz(now);
-}
 
 /** Notify all remaining clients on the target day that the tech is running late. */
 export async function executeRunningLateCascade(
