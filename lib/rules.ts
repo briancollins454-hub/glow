@@ -228,9 +228,13 @@ export function availableDays(
   nowMs = Date.now(),
 ): { dateStr: string; slots: string[] }[] {
   const days: { dateStr: string; slots: string[] }[] = [];
+  let prevDateStr: string | null = null;
   for (let i = 0; i < 60 && days.length < count; i++) {
     const d = new Date(nowMs + i * 24 * 60 * 60 * 1000);
     const dateStr = dateStrInTz(d);
+    // Across UK autumn DST fallback a 24h step can land on the same civil date twice.
+    if (dateStr === prevDateStr) continue;
+    prevDateStr = dateStr;
     const slots = daySlots(service, dateStr, ctx, nowMs);
     if (slots.length) days.push({ dateStr, slots });
   }

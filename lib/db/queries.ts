@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomId } from "@/lib/ids";
+import { throwDbError } from "@/lib/db/errors";
 import type {
   AccountClosureRequest,
   AuditEvent,
@@ -684,7 +685,8 @@ export async function createBooking(
     .insert({ ...b, approvalToken: b.approvalToken ?? null, id: randomId("bk") })
     .select("*")
     .single();
-  return must(data as Booking, error);
+  if (error) throwDbError(error);
+  return data as Booking;
 }
 export async function updateBooking(sb: SB, id: string, patch: Partial<Booking>): Promise<void> {
   const { error } = await sb.from("bookings").update(patch).eq("id", id);
@@ -720,7 +722,8 @@ export async function paymentsForBooking(sb: SB, bookingId: string): Promise<Pay
 }
 export async function createPayment(sb: SB, p: Omit<Payment, "id" | "createdAt">): Promise<Payment> {
   const { data, error } = await sb.from("payments").insert({ ...p, id: randomId("pay") }).select("*").single();
-  return must(data as Payment, error);
+  if (error) throwDbError(error);
+  return data as Payment;
 }
 
 // ---------------- Patch tests ----------------

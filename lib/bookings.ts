@@ -343,15 +343,21 @@ export async function applyDepositPaid(
   paymentIntentId: string,
 ): Promise<void> {
   if (booking.depositStatus === "paid") return;
-  await createPayment(sb, {
-    techId: booking.techId,
-    bookingId: booking.id,
-    kind: "deposit",
-    amountPennies: booking.depositPennies,
-    status: "succeeded",
-    provider: "stripe",
-    providerRef: paymentIntentId,
-  });
+  try {
+    await createPayment(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      kind: "deposit",
+      amountPennies: booking.depositPennies,
+      status: "succeeded",
+      provider: "stripe",
+      providerRef: paymentIntentId,
+    });
+  } catch (e) {
+    const { isUniqueViolation } = await import("@/lib/db/errors");
+    if (!isUniqueViolation(e)) throw e;
+    // Duplicate Stripe payment row — treat as already processed.
+  }
   await updateBooking(sb, booking.id, { status: "confirmed", depositStatus: "paid" });
   const confirmed = { ...booking, status: "confirmed" as const, depositStatus: "paid" as const };
   await scheduleReminders(sb, confirmed);
@@ -370,15 +376,21 @@ export async function applyBalancePaid(
   paymentIntentId: string,
 ): Promise<void> {
   if (booking.balanceStatus === "paid") return;
-  await createPayment(sb, {
-    techId: booking.techId,
-    bookingId: booking.id,
-    kind: "balance",
-    amountPennies: booking.balancePennies,
-    status: "succeeded",
-    provider: "stripe",
-    providerRef: paymentIntentId,
-  });
+  try {
+    await createPayment(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      kind: "balance",
+      amountPennies: booking.balancePennies,
+      status: "succeeded",
+      provider: "stripe",
+      providerRef: paymentIntentId,
+    });
+  } catch (e) {
+    const { isUniqueViolation } = await import("@/lib/db/errors");
+    if (!isUniqueViolation(e)) throw e;
+    // Duplicate Stripe payment row — treat as already processed.
+  }
   await updateBooking(sb, booking.id, { balanceStatus: "paid" });
 }
 

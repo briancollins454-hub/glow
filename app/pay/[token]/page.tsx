@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CreditCard, CheckCircle2, CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechById } from "@/lib/db/queries";
-import { confirmCheckoutPaid } from "@/lib/payments";
+import { confirmCheckoutPaid, checkoutMatchesBalance } from "@/lib/payments";
 import { applyBalancePaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
 import { rateLimit } from "@/lib/rate-limit";
@@ -34,9 +34,9 @@ export default async function PayPage({
 
   // Verify balance payment on return from Stripe (with retry).
   if (sp.session_id && tech && booking.balanceStatus !== "paid") {
-    const { paid, paymentIntentId } = await confirmCheckoutPaid(tech, sp.session_id);
-    if (paid) {
-      await applyBalancePaid(sb, booking, paymentIntentId);
+    const result = await confirmCheckoutPaid(tech, sp.session_id);
+    if (checkoutMatchesBalance(result, booking)) {
+      await applyBalancePaid(sb, booking, result.paymentIntentId);
       booking = (await getBookingByToken(sb, token)) ?? booking;
     }
   }
