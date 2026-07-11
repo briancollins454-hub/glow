@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { supabaseService } from "@/lib/supabase/service";
 import {
   createAuditEvent,
+  createPayment,
   getBookingByToken,
   getService,
   getTechByHandle,
@@ -64,6 +65,15 @@ export async function cancelClientBookingAction(formData: FormData) {
       if (p.kind !== "deposit" && p.kind !== "balance") continue;
       try {
         await refundOnConnect(tech, p.providerRef);
+        await createPayment(sb, {
+          techId: tech.id,
+          bookingId: booking.id,
+          kind: "refund",
+          amountPennies: p.amountPennies,
+          status: "succeeded",
+          provider: "stripe",
+          providerRef: p.providerRef,
+        });
         if (p.kind === "deposit") patch.depositStatus = "refunded";
         if (p.kind === "balance") patch.balanceStatus = "refunded";
       } catch {

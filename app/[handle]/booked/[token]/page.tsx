@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarPlus, CheckCircle2, CalendarHeart, CreditCard, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle } from "@/lib/db/queries";
-import { confirmCheckoutPaid, createDepositCheckout } from "@/lib/payments";
+import { confirmCheckoutPaid, checkoutMatchesDeposit } from "@/lib/payments";
 import { applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
 import { cancelClientBookingAction, payDepositAction } from "./actions";
@@ -30,9 +30,9 @@ export default async function BookedPage({
   let booking = initialBooking;
   // Verify the deposit payment when returning from Stripe Checkout (with retry).
   if (session_id && booking.depositStatus !== "paid") {
-    const { paid, paymentIntentId } = await confirmCheckoutPaid(tech, session_id);
-    if (paid) {
-      await applyDepositPaid(sb, booking, paymentIntentId);
+    const result = await confirmCheckoutPaid(tech, session_id);
+    if (checkoutMatchesDeposit(result, booking)) {
+      await applyDepositPaid(sb, booking, result.paymentIntentId);
       booking = (await getBookingByToken(sb, token)) ?? booking;
     }
   }

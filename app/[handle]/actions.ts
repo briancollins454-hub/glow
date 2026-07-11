@@ -18,6 +18,7 @@ import {
   createFormResponse,
   addonsForService,
 } from "@/lib/db/queries";
+import { isUniqueViolation } from "@/lib/db/errors";
 import type { BookingAddon, FormAnswer } from "@/lib/db/types";
 import {
   bookingAmounts,
@@ -201,15 +202,22 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   });
   if (missingRequiredAnswer) redirect(`${base}&err=form`);
 
-  const patchBooking = await createPairedPatchTestBooking({
-    sb,
-    tech,
-    client,
-    treatmentService: service,
-    patchTestService,
-    category,
-    patchSlotIso,
-  });
+  const patchBooking = await (async () => {
+    try {
+      return await createPairedPatchTestBooking({
+        sb,
+        tech,
+        client,
+        treatmentService: service,
+        patchTestService,
+        category,
+        patchSlotIso,
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
+      throw e;
+    }
+  })();
 
   const saveAnswers = async (bookingId: string) => {
     if (answers.length) {
@@ -222,17 +230,23 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const autoApproved = !manualApproval && tech.approvalMode === "rules";
 
   if (manualApproval) {
-    const pending = await createPendingApprovalBooking({
-      sb,
-      tech,
-      service,
-      client,
-      startIso: treatmentSlotIso,
-      addons,
-      discountPennies,
-      riskTier,
-      pairedBookingId: patchBooking.id,
-    });
+    let pending;
+    try {
+      pending = await createPendingApprovalBooking({
+        sb,
+        tech,
+        service,
+        client,
+        startIso: treatmentSlotIso,
+        addons,
+        discountPennies,
+        riskTier,
+        pairedBookingId: patchBooking.id,
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
+      throw e;
+    }
     await linkPairedBookings(sb, patchBooking.id, pending.id);
     await saveAnswers(pending.id);
     const { notifyTechOfBookingRequest } = await import("@/lib/notify");
@@ -243,7 +257,33 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const deposit = bookingAmounts(service, tech, riskTier, addons, discountPennies).deposit;
 
   if (deposit > 0 && isPaymentsReady(tech)) {
-    const pending = await createPendingOnlineBooking({
+    let pending;
+    try {
+      pending = await createPendingOnlineBooking({
+        sb,
+        tech,
+        service,
+        client,
+        startIso: treatmentSlotIso,
+        addons,
+        discountPennies,
+        riskTier,
+        autoApproved,
+        pairedBookingId: patchBooking.id,
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
+      throw e;
+    }
+    await linkPairedBookings(sb, patchBooking.id, pending.id);
+    await saveAnswers(pending.id);
+    const url = await createDepositCheckout(tech, service, pending, APP_URL);
+    redirect(url);
+  }
+
+  let treatmentBooking;
+  try {
+    treatmentBooking = await createConfirmedBooking({
       sb,
       tech,
       service,
@@ -255,24 +295,10 @@ export async function createPairedPublicBookingAction(formData: FormData) {
       autoApproved,
       pairedBookingId: patchBooking.id,
     });
-    await linkPairedBookings(sb, patchBooking.id, pending.id);
-    await saveAnswers(pending.id);
-    const url = await createDepositCheckout(tech, service, pending, APP_URL);
-    redirect(url);
+  } catch (e) {
+    if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
+    throw e;
   }
-
-  const treatmentBooking = await createConfirmedBooking({
-    sb,
-    tech,
-    service,
-    client,
-    startIso: treatmentSlotIso,
-    addons,
-    discountPennies,
-    riskTier,
-    autoApproved,
-    pairedBookingId: patchBooking.id,
-  });
   await linkPairedBookings(sb, patchBooking.id, treatmentBooking.id);
   await saveAnswers(treatmentBooking.id);
   redirect(`/${tech.handle}/booked/${treatmentBooking.balanceToken}`);
@@ -396,16 +422,22 @@ export async function createPublicBookingAction(formData: FormData) {
   const autoApproved = !manualApproval && tech!.approvalMode === "rules";
 
   if (manualApproval) {
-    const pending = await createPendingApprovalBooking({
-      sb,
-      tech: tech!,
-      service: service!,
-      client,
-      startIso: slotIso,
-      addons,
-      discountPennies,
-      riskTier,
-    });
+    let pending;
+    try {
+      pending = await createPendingApprovalBooking({
+        sb,
+        tech: tech!,
+        service: service!,
+        client,
+        startIso: slotIso,
+        addons,
+        discountPennies,
+        riskTier,
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
+      throw e;
+    }
     await saveAnswers(pending.id);
     const { notifyTechOfBookingRequest } = await import("@/lib/notify");
     await notifyTechOfBookingRequest(sb, pending, { completedVisits });
@@ -418,7 +450,31 @@ export async function createPublicBookingAction(formData: FormData) {
   // Stripe Checkout on the tech's connected account. Otherwise confirm now
   // (deposit settled in person).
   if (deposit > 0 && isPaymentsReady(tech!)) {
-    const pending = await createPendingOnlineBooking({
+    let pending;
+    try {
+      pending = await createPendingOnlineBooking({
+        sb,
+        tech: tech!,
+        service: service!,
+        client,
+        startIso: slotIso,
+        addons,
+        discountPennies,
+        riskTier,
+        autoApproved,
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
+      throw e;
+    }
+    await saveAnswers(pending.id);
+    const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
+    redirect(url);
+  }
+
+  let booking;
+  try {
+    booking = await createConfirmedBooking({
       sb,
       tech: tech!,
       service: service!,
@@ -429,22 +485,10 @@ export async function createPublicBookingAction(formData: FormData) {
       riskTier,
       autoApproved,
     });
-    await saveAnswers(pending.id);
-    const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
-    redirect(url);
+  } catch (e) {
+    if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
+    throw e;
   }
-
-  const booking = await createConfirmedBooking({
-    sb,
-    tech: tech!,
-    service: service!,
-    client,
-    startIso: slotIso,
-    addons,
-    discountPennies,
-    riskTier,
-    autoApproved,
-  });
   await saveAnswers(booking.id);
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);
 }

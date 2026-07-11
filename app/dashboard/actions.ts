@@ -29,6 +29,7 @@ import {
   listBookings,
   listCategories,
   listServices,
+  createPayment,
   paymentsForBooking,
   replaceWorkingHours,
   updateBooking,
@@ -36,6 +37,7 @@ import {
   updateService,
   updateTech,
 } from "@/lib/db/queries";
+import { isUniqueViolation } from "@/lib/db/errors";
 import {
   createClientPhoto,
   createQuestion,
@@ -836,23 +838,43 @@ export async function setBookingStatusAction(formData: FormData) {
     if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
   }
   if (status === "cancelled") {
-    const hoursOut = (new Date(booking!.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursOut < tech.cancellationWindowHours) {
-      // Inside the window: deposit is forfeited (kept by the tech).
-      if (booking!.depositStatus === "paid") patch.depositStatus = "forfeited";
-    } else if (tech.stripeConnectAccountId) {
-      // Outside the window: refund everything the client paid (deposit + balance).
+    const cancelReason = String(formData.get("cancelReason") ?? "client_late_cancel");
+    const refundSucceededPayments = async () => {
+      if (!tech.stripeConnectAccountId) return;
       const payments = await paymentsForBooking(sb, booking!.id);
       for (const p of payments) {
         if (p.status !== "succeeded" || !p.providerRef) continue;
         if (p.kind !== "deposit" && p.kind !== "balance") continue;
         try {
           await refundOnConnect(tech, p.providerRef);
+          await createPayment(sb, {
+            techId: tech.id,
+            bookingId: booking!.id,
+            kind: "refund",
+            amountPennies: p.amountPennies,
+            status: "succeeded",
+            provider: "stripe",
+            providerRef: p.providerRef,
+          });
           if (p.kind === "deposit") patch.depositStatus = "refunded";
           if (p.kind === "balance") patch.balanceStatus = "refunded";
         } catch {
           /* leave as paid; tech can refund manually from Stripe */
         }
+      }
+    };
+
+    if (cancelReason === "tech_cancelled") {
+      // Tech initiated: always refund the client; never forfeit the deposit.
+      await refundSucceededPayments();
+    } else {
+      const hoursOut = (new Date(booking!.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursOut < tech.cancellationWindowHours) {
+        // Inside the window: deposit is forfeited (kept by the tech).
+        if (booking!.depositStatus === "paid") patch.depositStatus = "forfeited";
+      } else {
+        // Outside the window: refund everything the client paid (deposit + balance).
+        await refundSucceededPayments();
       }
     }
   }
@@ -960,18 +982,27 @@ export async function addManualBookingAction(formData: FormData) {
   const completedVisits = existing.filter((b) => b.status === "completed").length;
   const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies, client.isVip);
 
-  const booking = await createConfirmedBooking({
-    sb,
-    tech,
-    service: service!,
-    client,
-    startIso,
-    notes: String(formData.get("notes") ?? "").trim(),
-    paymentTaken,
-    paymentMethod,
-    depositOverridePennies,
-    discountPennies,
-  });
+  let booking;
+  try {
+    booking = await createConfirmedBooking({
+      sb,
+      tech,
+      service: service!,
+      client,
+      startIso,
+      notes: String(formData.get("notes") ?? "").trim(),
+      paymentTaken,
+      paymentMethod,
+      depositOverridePennies,
+      discountPennies,
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      revalidatePath("/dashboard/bookings");
+      redirect("/dashboard/bookings?error=slot");
+    }
+    throw e;
+  }
   await audit(sb, tech.id, "manual_booking_created", "booking", booking.id, {
     clientId: client.id,
     serviceId: service!.id,

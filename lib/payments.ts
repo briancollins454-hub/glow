@@ -83,15 +83,24 @@ export async function retrieveCheckout(
   }
 }
 
+export type CheckoutConfirmResult = {
+  paid: boolean;
+  paymentIntentId: string;
+  bookingId: string;
+  kind: string;
+  amountTotal: number | null;
+};
+
 /**
  * Verify a Checkout was paid, retrying briefly to absorb the moment between the
- * client redirect and Stripe finalizing the session. Returns the payment intent.
+ * client redirect and Stripe finalizing the session. Returns payment intent plus
+ * session metadata so callers can confirm the session belongs to this booking.
  */
 export async function confirmCheckoutPaid(
   tech: Tech,
   sessionId: string,
   attempts = 5,
-): Promise<{ paid: boolean; paymentIntentId: string }> {
+): Promise<CheckoutConfirmResult> {
   for (let i = 0; i < attempts; i++) {
     const session = await retrieveCheckout(tech, sessionId);
     if (session?.payment_status === "paid") {
@@ -99,11 +108,43 @@ export async function confirmCheckoutPaid(
         typeof session.payment_intent === "string"
           ? session.payment_intent
           : session.payment_intent?.id ?? "";
-      return { paid: true, paymentIntentId: pi };
+      return {
+        paid: true,
+        paymentIntentId: pi,
+        bookingId: session.metadata?.bookingId ?? "",
+        kind: session.metadata?.kind ?? "",
+        amountTotal: session.amount_total ?? null,
+      };
     }
     if (i < attempts - 1) await new Promise((r) => setTimeout(r, 800));
   }
-  return { paid: false, paymentIntentId: "" };
+  return { paid: false, paymentIntentId: "", bookingId: "", kind: "", amountTotal: null };
+}
+
+/** True when a paid Checkout session matches this booking's deposit. */
+export function checkoutMatchesDeposit(
+  result: CheckoutConfirmResult,
+  booking: Pick<Booking, "id" | "depositPennies">,
+): boolean {
+  return (
+    result.paid &&
+    result.bookingId === booking.id &&
+    result.kind === "deposit" &&
+    result.amountTotal === booking.depositPennies
+  );
+}
+
+/** True when a paid Checkout session matches this booking's balance. */
+export function checkoutMatchesBalance(
+  result: CheckoutConfirmResult,
+  booking: Pick<Booking, "id" | "balancePennies">,
+): boolean {
+  return (
+    result.paid &&
+    result.bookingId === booking.id &&
+    result.kind === "balance" &&
+    result.amountTotal === booking.balancePennies
+  );
 }
 
 /** Refund a payment on the connected account (e.g. genuine cancellation). */

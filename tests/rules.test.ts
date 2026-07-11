@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  availableDays,
   bookingAmounts,
   canOfferPairedPatchTest,
   checkInfill,
@@ -259,5 +260,30 @@ describe("bookingAmounts", () => {
     const { price, deposit } = bookingAmounts(service, tech, "medium", [], 0);
     expect(price).toBe(6000);
     expect(deposit).toBe(3000);
+  });
+});
+
+describe("availableDays DST", () => {
+  it("does not repeat civil dates across the October UK DST fallback", () => {
+    // UK clocks fell back on 2025-10-26. Fixed now just before that boundary.
+    const nowMs = Date.parse("2025-10-24T12:00:00.000Z");
+    const workingHours = [0, 1, 2, 3, 4, 5, 6].map((weekday) =>
+      makeWorkingHour({
+        id: `wh_${weekday}`,
+        weekday,
+        startMinutes: 9 * 60,
+        endMinutes: 17 * 60,
+        enabled: true,
+      }),
+    );
+    const days = availableDays(
+      makeService({ durationMin: 60 }),
+      { workingHours, timeOff: [], bookings: [] },
+      10,
+      nowMs,
+    );
+    const dateStrs = days.map((d) => d.dateStr);
+    expect(new Set(dateStrs).size).toBe(dateStrs.length);
+    expect(dateStrs).toContain("2025-10-26");
   });
 });

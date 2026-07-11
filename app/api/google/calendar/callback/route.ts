@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { createAuditEvent, getTechById, updateTech } from "@/lib/db/queries";
 import {
@@ -8,6 +9,7 @@ import {
   googleRedirectUri,
   syncUpcomingBookingsToGoogle,
 } from "@/lib/google-calendar";
+import { GOOGLE_OAUTH_COOKIE } from "../connect/route";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -21,7 +23,29 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   if (error) redirect("/dashboard/settings?google=denied");
-  if (!code || state !== c.tech.id) redirect("/dashboard/settings?google=failed");
+
+  const jar = await cookies();
+  const raw = jar.get(GOOGLE_OAUTH_COOKIE)?.value;
+  jar.delete(GOOGLE_OAUTH_COOKIE);
+
+  let cookieState = "";
+  let cookieTechId = "";
+  try {
+    const parsed = JSON.parse(raw ?? "") as { state?: string; techId?: string };
+    cookieState = parsed.state ?? "";
+    cookieTechId = parsed.techId ?? "";
+  } catch {
+    // Invalid cookie payload — fail closed below.
+  }
+
+  if (
+    !code ||
+    !state ||
+    state !== cookieState ||
+    cookieTechId !== c.tech.id
+  ) {
+    redirect("/dashboard/settings?google=failed");
+  }
 
   try {
     const tokens = await exchangeGoogleCode({ code, redirectUri: googleRedirectUri(APP_URL) });
