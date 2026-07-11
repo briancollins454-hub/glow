@@ -3,9 +3,9 @@ import { cookies } from "next/headers";
 import { getDashboardContext } from "@/lib/auth/session";
 import { googleAuthUrl, googleCalendarConfigured, googleRedirectUri } from "@/lib/google-calendar";
 import { randomToken } from "@/lib/ids";
+import { GOOGLE_OAUTH_COOKIE } from "@/lib/google-oauth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-export const GOOGLE_OAUTH_COOKIE = "glow_google_oauth";
 
 export async function GET() {
   const c = await getDashboardContext();
