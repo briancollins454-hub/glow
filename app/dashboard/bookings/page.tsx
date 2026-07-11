@@ -11,6 +11,7 @@ import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
+import { BookingsMonthCalendar } from "@/components/dashboard/bookings-month-calendar";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
@@ -161,6 +162,12 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
           </form>
         </div>
       </details>
+
+      <BookingsMonthCalendar
+        bookings={bookings}
+        clientById={clientById}
+        serviceById={serviceById}
+      />
 
       <Card className="ring-1 ring-brand-500/30">
         <CardHeader>
