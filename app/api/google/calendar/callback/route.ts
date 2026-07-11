@@ -9,7 +9,7 @@ import {
   googleRedirectUri,
   syncUpcomingBookingsToGoogle,
 } from "@/lib/google-calendar";
-import { GOOGLE_OAUTH_COOKIE } from "../connect/route";
+import { GOOGLE_OAUTH_COOKIE } from "@/lib/google-oauth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
