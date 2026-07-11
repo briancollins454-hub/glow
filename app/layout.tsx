@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Glow",
   },
   description:
-    "UK booking system for self-employed lash, nail and brow techs. Patch test gating, infill rules, deposits via Stripe to your bank, 0% commission. £19/mo flat.",
+    "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
   keywords: [
     "booking system lash tech UK",
     "nail tech booking UK",
@@ -31,19 +31,23 @@ export const metadata: Metadata = {
     "no commission booking",
     "lash tech insurance patch test",
   ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
+    locale: "en_GB",
     siteName: "Glow",
     title: "Booking system for lash, nail and brow techs UK | Glow",
     description:
-      "Patch test gating, infill rules, deposits straight to your bank. Built for UK beauty techs. 0% commission, £19/mo flat.",
+      "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
     url: APP_URL,
   },
   twitter: {
     card: "summary_large_image",
     title: "Booking system for lash, nail and brow techs UK | Glow",
     description:
-      "Patch test gating, infill rules, deposits straight to your bank. Built for UK beauty techs. 0% commission, £19/mo flat.",
+      "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
   },
   robots: { index: true, follow: true },
   // iPhone "Add to Home Screen": full-screen app experience with dark status bar.
