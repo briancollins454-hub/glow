@@ -20,21 +20,28 @@ import { trackPageView } from "@/lib/page-views";
 
 export const revalidate = 3600;
 
-const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
+const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
+
+const META_DESCRIPTION =
+  "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.";
 
 export const metadata: Metadata = {
   title: "Booking system for lash, nail and brow techs UK",
-  description:
-    "Glow is the UK booking system for self-employed lash, nail and brow techs. Patch test gating, infill rules, deposits via Stripe to your bank, 0% commission. £19/mo flat.",
+  description: META_DESCRIPTION,
+  alternates: { canonical: "/" },
   openGraph: {
+    type: "website",
+    locale: "en_GB",
+    siteName: "Glow",
+    url: APP_URL,
     title: "Booking system for lash, nail and brow techs UK | Glow",
-    description:
-      "Patch test gating, infill rules, deposits straight to your bank. Built for UK beauty techs. 0% commission, £19/mo flat.",
+    description: META_DESCRIPTION,
   },
   twitter: {
+    card: "summary_large_image",
     title: "Booking system for lash, nail and brow techs UK | Glow",
-    description:
-      "Patch test gating, infill rules, deposits straight to your bank. Built for UK beauty techs. 0% commission, £19/mo flat.",
+    description: META_DESCRIPTION,
   },
 };
 
@@ -69,11 +76,45 @@ const FAQ = [
   },
 ];
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "Glow",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: APP_URL,
+      description: META_DESCRIPTION,
+      offers: {
+        "@type": "Offer",
+        price: "19.00",
+        priceCurrency: "GBP",
+      },
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQ.map((item) => ({
+        "@type": "Question",
+        name: item.q,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.a,
+        },
+      })),
+    },
+  ],
+};
+
 export default function LandingPage() {
   trackPageView({ path: "/" });
 
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <header className="container-page flex items-center justify-between py-5 sm:py-6">
         <Link href="/" className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-glow">
@@ -474,6 +515,9 @@ export default function LandingPage() {
           </Link>
           <Link href="/signup" className="hover:text-ink">
             Sign up
+          </Link>
+          <Link href="/login" className="hover:text-ink">
+            Log in
           </Link>
           <Link href="/terms" className="hover:text-ink">
             Terms

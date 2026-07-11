@@ -5,12 +5,13 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 const LIVE = ["trialing", "active", "comped"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date();
   const entries: MetadataRoute.Sitemap = [
-    { url: APP_URL, changeFrequency: "weekly", priority: 1 },
-    { url: `${APP_URL}/signup`, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${APP_URL}/login`, changeFrequency: "monthly", priority: 0.3 },
-    { url: `${APP_URL}/terms`, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${APP_URL}/privacy`, changeFrequency: "yearly", priority: 0.2 },
+    { url: APP_URL, lastModified: now, changeFrequency: "weekly", priority: 1 },
+    { url: `${APP_URL}/signup`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${APP_URL}/login`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
+    { url: `${APP_URL}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${APP_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
   ];
 
   if (serviceConfigured()) {
@@ -22,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       for (const t of data ?? []) {
         entries.push({
           url: `${APP_URL}/${t.handle}`,
+          lastModified: now,
           changeFrequency: "daily",
           priority: 0.9,
         });
