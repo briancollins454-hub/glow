@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarDays, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
-import type { Tech } from "@/lib/db/types";
+import type { DashboardTech } from "@/lib/db/types";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { disconnectGoogleCalendarAction } from "@/app/dashboard/actions";
 import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
@@ -69,8 +69,8 @@ function syncMessage(result: SyncResult): { tone: "ok" | "warn" | "error"; text:
   };
 }
 
-export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
-  const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
+export function GoogleCalendarPanel({ tech }: { tech: DashboardTech }) {
+  const googleConnected = !!tech.googleConnectedAt && !!tech.googleCalendarId;
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
 

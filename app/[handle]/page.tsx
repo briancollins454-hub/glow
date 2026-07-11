@@ -20,6 +20,7 @@ import { availableDays, canOfferPairedPatchTest, findPatchTestService } from "@/
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
+import { toPublicTech } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
 import { PairedBookingStepInteractive } from "@/components/booking/paired-booking-step-interactive";
 import { BookingHeader, BookingFlowHeader } from "@/components/booking/booking-header";
@@ -218,7 +219,7 @@ export default async function PublicBookingPage({
         <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
           {usePairedFlow && patchTestService ? (
             <PairedBookingStepInteractive
-              tech={tech}
+              tech={toPublicTech(tech)}
               treatmentService={selected}
               patchTestService={patchTestService}
               brand={brand}
@@ -235,7 +236,7 @@ export default async function PublicBookingPage({
             />
           ) : (
             <BookingStepInteractive
-              tech={tech}
+              tech={toPublicTech(tech)}
               service={selected}
               brand={brand}
               days={days}

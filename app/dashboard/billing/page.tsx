@@ -11,7 +11,7 @@ import { Input, Label } from "@/components/ui/input";
 import { isLive, planLabel } from "@/lib/subscriptions";
 import { stripeConfigured } from "@/lib/stripe";
 import { startCheckoutAction, manageBillingAction } from "./actions";
-import type { Tech } from "@/lib/db/types";
+import type { DashboardTech } from "@/lib/db/types";
 
 const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
 
@@ -30,7 +30,7 @@ export default function BillingPage() {
   );
 }
 
-function BillingView({ tech, referredCount }: { tech: Tech; referredCount: number }) {
+function BillingView({ tech, referredCount }: { tech: DashboardTech; referredCount: number }) {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
   const live = isLive(tech);

@@ -31,16 +31,9 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-  if (!user && path.startsWith("/dashboard")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  // Touch the session so cookies refresh. Dashboard auth is enforced in
+  // app/dashboard/layout.tsx via useDashboardAuth (matcher excludes /dashboard).
+  await supabase.auth.getUser();
 
   return response;
 }

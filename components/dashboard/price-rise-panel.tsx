@@ -22,7 +22,7 @@ export function PriceRisePanel({
   tech,
 }: {
   services: Service[];
-  tech: Tech;
+  tech: Pick<Tech, "businessName" | "name" | "handle">;
 }) {
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const [mode, setMode] = useState<PriceRiseMode>("percent");
