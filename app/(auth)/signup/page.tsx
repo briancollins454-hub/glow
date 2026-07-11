@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { CalendarHeart, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,13 @@ const errors: Record<string, string> = {
   email: "An account with that email already exists.",
   missing: "Please fill in your business name, email and password.",
 };
+
+/** When the private tester cookie is set, keep the £1 offer out of search results. */
+export async function generateMetadata(): Promise<Metadata> {
+  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
+  if (!isTester) return {};
+  return { robots: { index: false, follow: false } };
+}
 
 export default async function SignupPage({
   searchParams,
