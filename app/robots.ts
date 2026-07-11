@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Private, tokenised or auth-only surfaces stay out of search results.
-      disallow: ["/dashboard", "/m/", "/pay/", "/api/", "/*/booked/"],
+      disallow: ["/dashboard", "/m/", "/pay/", "/api/", "/*/booked/", "/tester"],
     },
     sitemap: `${APP_URL}/sitemap.xml`,
   };
