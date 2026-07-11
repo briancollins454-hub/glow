@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/queries";
 import { notifyClientOfPreCare } from "@/lib/notify";
 import type { Booking, PreCareConfirmation, Service, Tech } from "@/lib/db/types";
-import { randomToken } from "@/lib/utils";
+import { randomToken } from "@/lib/ids";
 
 const HOUR = 60 * 60 * 1000;
 /** How long before the appointment to send pre-care instructions. */

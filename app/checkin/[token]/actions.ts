@@ -3,11 +3,16 @@
 import { redirect } from "next/navigation";
 import { supabaseService } from "@/lib/supabase/service";
 import { submitReactionCheckinResponse } from "@/lib/reaction-checkin";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function submitCheckinAction(formData: FormData) {
   const token = String(formData.get("token") ?? "");
   const response = String(formData.get("response") ?? "") as "fine" | "reaction";
   const symptoms = String(formData.get("symptoms") ?? "").trim();
+
+  if (!(await rateLimit("token-lookup", { limit: 30, windowMs: 60_000 })).ok) {
+    redirect(`/checkin/${token}?err=rate`);
+  }
 
   if (!token || (response !== "fine" && response !== "reaction")) {
     redirect(`/checkin/${token}?err=invalid`);

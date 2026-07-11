@@ -6,6 +6,7 @@ import { getDmQuoteLinkByToken, getService, getTechById, updateDmQuoteLink } fro
 import { bookUrl, parseQuoteAddons } from "@/lib/dm-quote";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { isLive } from "@/lib/subscriptions";
+import { rateLimit } from "@/lib/rate-limit";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
@@ -17,6 +18,13 @@ export default async function QuotePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  if (!(await rateLimit("token-lookup", { limit: 30, windowMs: 60_000 })).ok) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
+        Too many attempts, try again shortly.
+      </div>
+    );
+  }
   const sb = supabaseService();
   const quote = await getDmQuoteLinkByToken(sb, token);
   if (!quote) notFound();

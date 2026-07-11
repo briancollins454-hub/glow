@@ -45,8 +45,8 @@ import {
 export async function joinWaitlistAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
   const serviceId = String(formData.get("serviceId") ?? "");
-  if (!(await rateLimit("join-waitlist", { limit: 5, windowMinutes: 10 }))) {
-    redirect(`/${handle}?service=${serviceId}&wl=1`);
+  if (!(await rateLimit("join-waitlist", { limit: 5, windowMs: 60_000 })).ok) {
+    redirect(`/${handle}?service=${serviceId}&err=rate`);
   }
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
@@ -123,8 +123,8 @@ export async function createPairedPublicBookingAction(formData: FormData) {
 
   const base = `/${handle}?service=${serviceId}&pair=1&patchSlot=${encodeURIComponent(patchSlotIso)}&slot=${encodeURIComponent(treatmentSlotIso)}`;
 
-  if (!(await rateLimit("public-booking", { limit: 10, windowMinutes: 10 }))) {
-    redirect(`${base}&err=slot`);
+  if (!(await rateLimit("public-booking", { limit: 5, windowMs: 60_000 })).ok) {
+    redirect(`${base}&err=rate`);
   }
 
   const sb = supabaseService();
@@ -288,8 +288,8 @@ export async function createPublicBookingAction(formData: FormData) {
   const policyAccepted = formData.get("policyAccepted") === "on";
 
   // Generous for real clients, hostile to scripts hammering the booking form.
-  if (!(await rateLimit("public-booking", { limit: 10, windowMinutes: 10 }))) {
-    redirect(`/${handle}?service=${serviceId}&err=slot`);
+  if (!(await rateLimit("public-booking", { limit: 5, windowMs: 60_000 })).ok) {
+    redirect(`/${handle}?service=${serviceId}&err=rate`);
   }
 
   const sb = supabaseService();

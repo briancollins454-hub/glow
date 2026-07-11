@@ -20,7 +20,7 @@ vi.mock("@/lib/product-batches", () => ({
   recordClientReaction: vi.fn(),
 }));
 
-vi.mock("@/lib/utils", () => ({
+vi.mock("@/lib/ids", () => ({
   randomToken: () => "tok_test",
 }));
 

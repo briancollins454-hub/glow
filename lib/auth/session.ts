@@ -20,11 +20,10 @@ export const getDashboardContext = cache(async (): Promise<
   { sb: SupabaseClient; tech: Tech } | null
 > => {
   const sb = await createSupabaseServerClient();
-  // getSession reads the JWT from cookies — no network round-trip to Supabase.
+  // getUser revalidates the JWT with Supabase Auth (do not trust cookie-only getSession).
   const {
-    data: { session },
-  } = await sb.auth.getSession();
-  const user = session?.user;
+    data: { user },
+  } = await sb.auth.getUser();
   if (!user) return null;
   const tech = await cachedTechForAuthUser(user.id);
   if (!tech) return null;

@@ -5,8 +5,8 @@ import { supabaseService } from "@/lib/supabase/service";
 
 /** Poll for new messages on a client thread (backup when realtime broadcast misses). */
 export async function GET(req: Request) {
-  const allowed = await rateLimit("message-sync", { limit: 60, windowMinutes: 10 });
-  if (!allowed) return NextResponse.json({ error: "rate limited" }, { status: 429 });
+  const { ok } = await rateLimit("message-sync", { limit: 30, windowMs: 60_000 });
+  if (!ok) return NextResponse.json({ error: "too many attempts, try again shortly" }, { status: 429 });
 
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token")?.trim();

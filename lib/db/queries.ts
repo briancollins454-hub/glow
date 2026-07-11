@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { randomId } from "@/lib/utils";
+import { randomId } from "@/lib/ids";
 import type {
   AccountClosureRequest,
   AuditEvent,

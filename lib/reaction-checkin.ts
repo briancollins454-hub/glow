@@ -7,7 +7,7 @@ import {
 } from "@/lib/db/queries";
 import { notifyClientOfReactionCheckin, notifyTechOfReactionReport } from "@/lib/notify";
 import { recordClientReaction } from "@/lib/product-batches";
-import { randomToken } from "@/lib/utils";
+import { randomToken } from "@/lib/ids";
 import type { ReactionCheckin } from "@/lib/db/types";
 
 const HOUR = 60 * 60 * 1000;

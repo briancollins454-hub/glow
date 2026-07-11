@@ -7,11 +7,12 @@ import { processDueOnboardingEmails } from "@/lib/onboarding";
 // can process reminders across all techs.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json({ error: "cron not configured" }, { status: 500 });
+  }
+  const auth = request.headers.get("authorization");
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const sb = supabaseService();

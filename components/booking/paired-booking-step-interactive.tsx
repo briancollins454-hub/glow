@@ -34,6 +34,7 @@ const ERR: Record<string, string> = {
   blocked: "We can't complete this booking online. Please contact the studio directly.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
   form: "Please complete the required questions and agree to the booking policy.",
+  rate: "Too many attempts, try again shortly.",
 };
 
 export function PairedBookingStepInteractive({

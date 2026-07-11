@@ -6,6 +6,7 @@ import { getBookingByToken, getService, getTechById } from "@/lib/db/queries";
 import { confirmCheckoutPaid } from "@/lib/payments";
 import { applyBalancePaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
+import { rateLimit } from "@/lib/rate-limit";
 import { payBalanceAction } from "../actions";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -19,6 +20,13 @@ export default async function PayPage({
 }) {
   const { token } = await params;
   const sp = await searchParams;
+  if (!(await rateLimit("token-lookup", { limit: 30, windowMs: 60_000 })).ok) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
+        Too many attempts, try again shortly.
+      </div>
+    );
+  }
   const sb = supabaseService();
   let booking = await getBookingByToken(sb, token);
   if (!booking) notFound();
@@ -36,6 +44,14 @@ export default async function PayPage({
   const service = await getService(sb, booking.serviceId);
   const brand = tech?.brandColor || "#db2777";
   const settled = booking.balanceStatus === "paid" || booking.balancePennies === 0;
+
+  if (sp.err === "rate") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
+        Too many attempts, try again shortly.
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">

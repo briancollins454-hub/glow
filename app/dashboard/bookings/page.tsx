@@ -13,7 +13,7 @@ import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
-import { filterLateCascadeBookings } from "@/lib/running-late";
+import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
 import type { Booking, Client, Service, WaitlistEntry } from "@/lib/db/types";
 
