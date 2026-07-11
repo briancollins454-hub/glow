@@ -8,13 +8,13 @@ import {
   listServices,
   listTimeOff,
   listWorkingHours,
-  getTechByHandle,
   getCategory,
   addonsForService,
   listApprovedReviews,
   listClientPhotosForTech,
   getClientNameMap,
 } from "@/lib/db/queries";
+import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
 import { signedPhotoUrls } from "@/lib/storage";
 import { availableDays, canOfferPairedPatchTest, findPatchTestService } from "@/lib/rules";
 import { isLive } from "@/lib/subscriptions";
@@ -45,8 +45,8 @@ export async function generateMetadata({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
-  const tech = await getTechByHandle(supabaseService(), handle);
-  if (!tech) return {};
+  const tech = await loadPublicTechByHandle(handle);
+  if (!tech) return { robots: { index: false, follow: false } };
   const title = `${tech.businessName} - book online`;
   const description =
     tech.tagline?.trim() ||
@@ -85,7 +85,9 @@ export default async function PublicBookingPage({
   const { handle } = await params;
   const sp = await searchParams;
   const sb = supabaseService();
-  const tech = await getTechByHandle(sb, handle);
+  // Existence is validated in layout (outside loading.tsx) so missing
+  // handles return a real HTTP 404 instead of a streamed soft-404.
+  const tech = await loadPublicTechByHandle(handle);
   if (!tech) notFound();
 
   trackPageView({ techId: tech.id, path: `/${handle}` });
