@@ -38,11 +38,13 @@ export function BookingActions({ id, status }: { id: string; status: BookingStat
   const options = transitions[status];
   const canCancel = status === "pending" || status === "confirmed";
   return (
-    <details className="relative">
+    // Elevate the open menu above sibling booking rows so items stay clickable
+    // (absolute menus otherwise sit under the next card for hit-testing).
+    <details className="relative [&[open]]:z-50">
       <summary className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]">
         <MoreHorizontal className="h-4 w-4" />
       </summary>
-      <div className="absolute right-0 z-10 mt-1 w-64 overflow-hidden rounded-xl border border-edge bg-surface-raised py-1 shadow-soft">
+      <div className="absolute right-0 z-50 mt-1 w-64 overflow-hidden rounded-xl border border-edge bg-surface-raised py-1 shadow-card ring-1 ring-black/40">
         <Link
           href={`/dashboard/bookings/${id}`}
           className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink hover:bg-white/[0.06]"
