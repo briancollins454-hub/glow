@@ -12,6 +12,15 @@ function shouldBustDashboardCache(): boolean {
   return new URLSearchParams(window.location.search).get("saved") === "1";
 }
 
+function stripSavedQueryParam() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("saved")) return;
+  url.searchParams.delete("saved");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, "", next);
+}
+
 function readInitialCache<T>(key: string): T | null {
   if (shouldBustDashboardCache()) return null;
   return readDashboardCache<T>(key);
@@ -35,7 +44,8 @@ export function useDashboardQuery<T>(key: string) {
   useEffect(() => {
     let cancelled = false;
     const bustCache = shouldBustDashboardCache();
-    if (bustCache) clearDashboardCache(key);
+    // Clear the whole dashboard store so home counts / related pages stay in sync.
+    if (bustCache) clearDashboardCache();
 
     const cached = bustCache ? null : readDashboardCache<T>(key);
     if (cached) {
@@ -52,7 +62,10 @@ export function useDashboardQuery<T>(key: string) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          if (bustCache) stripSavedQueryParam();
+        }
       });
     return () => {
       cancelled = true;
