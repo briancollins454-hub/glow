@@ -124,7 +124,6 @@ export function scoreClientRisk(
     !!client?.isVip ||
     ctx.completedVisits >= Math.max(1, tech.autoApproveMinVisits ?? 2);
   if (trusted) return "low";
-  if (ctx.completedVisits === 0) return "medium";
   return "medium";
 }
 

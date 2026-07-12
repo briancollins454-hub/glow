@@ -422,6 +422,20 @@ export async function rescheduleReminders(sb: SupabaseClient, booking: Booking):
       sentAtIso: null,
     });
   }
+  const remind2h = startMs - 2 * HOUR;
+  if (remind2h > Date.now()) {
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      clientId: null,
+      channel: "email",
+      kind: "reminder_2h",
+      sendAtIso: new Date(remind2h).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
+  }
   if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
     const balanceAt = startMs - 48 * HOUR;
     await createReminder(sb, {
@@ -469,6 +483,21 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
       channel: "email",
       kind: "reminder_24h",
       sendAtIso: new Date(remind24).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
+  }
+
+  const remind2h = startMs - 2 * HOUR;
+  if (remind2h > Date.now()) {
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      clientId: null,
+      channel: "email",
+      kind: "reminder_2h",
+      sendAtIso: new Date(remind2h).toISOString(),
       status: "scheduled",
       preview: "",
       sentAtIso: null,

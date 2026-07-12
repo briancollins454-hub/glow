@@ -11,7 +11,7 @@ import {
   Clock,
   Calendar,
 } from "lucide-react";
-import type { ConsultationQuestion, Service, ServiceAddon, Tech } from "@/lib/db/types";
+import type { ConsultationQuestion, PublicTech, Service, ServiceAddon } from "@/lib/db/types";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
@@ -53,7 +53,7 @@ export function PairedBookingStepInteractive({
   initialTreatmentSlot,
   photoUrl,
 }: {
-  tech: Tech;
+  tech: PublicTech;
   treatmentService: Service;
   patchTestService: Service;
   brand: string;

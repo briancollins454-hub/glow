@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Tech } from "@/lib/db/types";
+import type { DashboardTech } from "@/lib/db/types";
 
-type MeResponse = { tech: Tech; admin: boolean };
+type MeResponse = { tech: DashboardTech; admin: boolean };
 
 let cachedMe: MeResponse | null = null;
 let inflightMe: Promise<MeResponse | null> | null = null;
@@ -32,7 +32,7 @@ async function loadMe(): Promise<MeResponse | null> {
 export function useDashboardAuth() {
   const router = useRouter();
   const [state, setState] = useState<{
-    tech: Tech | null;
+    tech: DashboardTech | null;
     admin: boolean;
     loading: boolean;
   }>(() =>

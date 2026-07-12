@@ -110,6 +110,57 @@ export interface Tech {
   createdAt: string;
 }
 
+/** Fields safe to send to anonymous visitors on the public booking page. */
+export type PublicTech = Pick<
+  Tech,
+  | "id"
+  | "handle"
+  | "businessName"
+  | "brandColor"
+  | "cancellationWindowHours"
+  | "depositTierMediumPct"
+  | "depositTierHighPct"
+  | "depositTierMediumType"
+  | "depositTierHighType"
+  | "depositTierMediumValue"
+  | "depositTierHighValue"
+>;
+
+export function toPublicTech(tech: Tech): PublicTech {
+  return {
+    id: tech.id,
+    handle: tech.handle,
+    businessName: tech.businessName,
+    brandColor: tech.brandColor,
+    cancellationWindowHours: tech.cancellationWindowHours,
+    depositTierMediumPct: tech.depositTierMediumPct,
+    depositTierHighPct: tech.depositTierHighPct,
+    depositTierMediumType: tech.depositTierMediumType,
+    depositTierHighType: tech.depositTierHighType,
+    depositTierMediumValue: tech.depositTierMediumValue,
+    depositTierHighValue: tech.depositTierHighValue,
+  };
+}
+
+/**
+ * Tech row for dashboard client JS. Drops live secrets that settings/billing
+ * never need in the browser (Google refresh token, password-reset hash).
+ */
+export type DashboardTech = Omit<
+  Tech,
+  "googleRefreshToken" | "resetTokenHash" | "resetTokenExpiresAt"
+>;
+
+export function toDashboardTech(tech: Tech): DashboardTech {
+  const {
+    googleRefreshToken: _googleRefreshToken,
+    resetTokenHash: _resetTokenHash,
+    resetTokenExpiresAt: _resetTokenExpiresAt,
+    ...safe
+  } = tech;
+  return safe;
+}
+
 export type SubscriptionStatus =
   | "none"
   | "trialing"

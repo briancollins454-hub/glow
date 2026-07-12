@@ -12,11 +12,11 @@ import {
   uploadBrandProfileAction,
 } from "@/app/dashboard/actions";
 import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
-import type { Tech } from "@/lib/db/types";
+import type { DashboardTech } from "@/lib/db/types";
 
 type BrandUrls = { cover: string | null; profile: string | null };
 
-export function PageBrandingUploads({ tech }: { tech: Tech }) {
+export function PageBrandingUploads({ tech }: { tech: DashboardTech }) {
   const searchParams = useSearchParams();
   const [urls, setUrls] = useState<BrandUrls>({ cover: null, profile: null });
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CalendarHeart, ExternalLink, LifeBuoy, Lightbulb, LogOut } from "lucide-react";
-import type { Tech } from "@/lib/db/types";
+import type { DashboardTech } from "@/lib/db/types";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { InstallPrompt } from "@/components/dashboard/install-prompt";
@@ -15,7 +15,7 @@ export function DashboardShell({
   admin,
   children,
 }: {
-  tech: Tech;
+  tech: DashboardTech;
   admin: boolean;
   children: React.ReactNode;
 }) {
