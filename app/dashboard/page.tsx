@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
+import { SettleUpPanel } from "@/components/dashboard/settle-up-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { gbp, fmtDate, fmtTime, fmtRelativeDays } from "@/lib/format";
+import { gbp, fmtTime, fmtRelativeDays } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
@@ -39,6 +40,7 @@ type HomeData = {
   clientById: Record<string, Client>;
   serviceById: Record<string, Service>;
   lateCascadeCount: number;
+  settleUp: Booking[];
 };
 
 export default function DashboardOverview() {
@@ -63,6 +65,7 @@ function HomeView({
   clientById,
   serviceById,
   lateCascadeCount,
+  settleUp,
 }: HomeData) {
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
@@ -152,6 +155,12 @@ function HomeView({
       {lateCascadeCount > 0 && (
         <RunningLatePanel targetCount={lateCascadeCount} compact returnTo="/dashboard" />
       )}
+
+      <SettleUpPanel
+        bookings={settleUp}
+        clientById={clientById}
+        serviceById={serviceById}
+      />
 
       {insights.length > 0 && (
         <Card>

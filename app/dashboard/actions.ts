@@ -118,6 +118,14 @@ function clampInt(v: string, min: number, max: number, fallback: number): number
   return Math.min(max, Math.max(min, n));
 }
 
+function safeDashboardReturn(
+  formData: FormData,
+  fallback = "/dashboard/bookings",
+): string {
+  const returnTo = String(formData.get("returnTo") ?? fallback).trim();
+  return returnTo.startsWith("/dashboard") ? returnTo : fallback;
+}
+
 function hhmmToMin(s: string): number {
   const [h, m] = s.split(":").map((x) => parseInt(x, 10));
   return (h || 0) * 60 + (m || 0);
@@ -775,8 +783,9 @@ export async function setBookingStatusAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as BookingStatus;
+  const returnTo = safeDashboardReturn(formData);
   const booking = await getBooking(sb, id);
-  if (!booking) redirect("/dashboard/bookings?saved=1");
+  if (!booking) redirect(`${returnTo}?saved=1`);
 
   const patch: Partial<typeof booking> = { status };
   const becomingCompleted = status === "completed" && booking.status !== "completed";
@@ -839,6 +848,7 @@ export async function setBookingStatusAction(formData: FormData) {
     depositStatus: patch.depositStatus,
     balanceStatus: patch.balanceStatus,
   });
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/clients/${booking.clientId}`);
 
@@ -909,7 +919,7 @@ export async function setBookingStatusAction(formData: FormData) {
   });
 
   // ?saved=1 busts the client dashboard cache so the new status is visible.
-  redirect("/dashboard/bookings?saved=1");
+  redirect(`${returnTo}?saved=1`);
 }
 
 export async function approveBookingRequestDashboardAction(formData: FormData) {
@@ -1083,30 +1093,31 @@ export async function recordManualPaymentAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const what = String(formData.get("what") ?? ""); // deposit | balance | full
   const method = String(formData.get("method") ?? "cash");
+  const returnTo = safeDashboardReturn(formData, `/dashboard/bookings/${id}`);
   const booking = await getBooking(sb, id);
-  if (!booking || booking.techId !== tech.id) redirect("/dashboard/bookings");
+  if (!booking || booking.techId !== tech.id) redirect(`${returnTo}?saved=1`);
 
   const { createPayment } = await import("@/lib/db/queries");
   const patch: Record<string, unknown> = {};
 
-  if ((what === "deposit" || what === "full") && booking!.depositStatus !== "paid" && booking!.depositPennies > 0) {
+  if ((what === "deposit" || what === "full") && booking.depositStatus !== "paid" && booking.depositPennies > 0) {
     await createPayment(sb, {
       techId: tech.id,
       bookingId: id,
       kind: "deposit",
-      amountPennies: booking!.depositPennies,
+      amountPennies: booking.depositPennies,
       status: "succeeded",
       provider: method,
       providerRef: "",
     });
     patch.depositStatus = "paid";
   }
-  if ((what === "balance" || what === "full") && booking!.balanceStatus !== "paid" && booking!.balancePennies > 0) {
+  if ((what === "balance" || what === "full") && booking.balanceStatus !== "paid" && booking.balancePennies > 0) {
     await createPayment(sb, {
       techId: tech.id,
       bookingId: id,
       kind: "balance",
-      amountPennies: booking!.balancePennies,
+      amountPennies: booking.balancePennies,
       status: "succeeded",
       provider: method,
       providerRef: "",
@@ -1118,8 +1129,127 @@ export async function recordManualPaymentAction(formData: FormData) {
     await updateBooking(sb, id, patch);
     await audit(sb, tech.id, "manual_payment_recorded", "booking", id, { what, method, patch });
   }
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
-  redirect(`/dashboard/bookings/${id}?saved=1`);
+  redirect(`${returnTo}?saved=1`);
+}
+
+/**
+ * One-tap wrap-up for past appointments: record unpaid cash/offline payment
+ * and mark the booking completed, then return to the dashboard.
+ */
+export async function settlePastBookingAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const method = String(formData.get("method") ?? "cash");
+  const returnTo = safeDashboardReturn(formData, "/dashboard");
+  const booking = await getBooking(sb, id);
+  if (!booking || booking.techId !== tech.id) redirect(`${returnTo}?saved=1`);
+
+  const depositDue =
+    booking.depositPennies > 0 &&
+    booking.depositStatus !== "paid" &&
+    booking.depositStatus !== "forfeited" &&
+    booking.depositStatus !== "refunded";
+  const balanceDue =
+    booking.balancePennies > 0 &&
+    booking.balanceStatus !== "paid" &&
+    booking.balanceStatus !== "refunded";
+
+  const patch: Record<string, unknown> = {};
+  if (depositDue) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: id,
+      kind: "deposit",
+      amountPennies: booking.depositPennies,
+      status: "succeeded",
+      provider: method,
+      providerRef: "",
+    });
+    patch.depositStatus = "paid";
+  }
+  if (balanceDue) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: id,
+      kind: "balance",
+      amountPennies: booking.balancePennies,
+      status: "succeeded",
+      provider: method,
+      providerRef: "",
+    });
+    patch.balanceStatus = "paid";
+  }
+
+  const becomingCompleted =
+    booking.status !== "completed" &&
+    booking.status !== "cancelled" &&
+    booking.status !== "no_show";
+  if (becomingCompleted) patch.status = "completed";
+
+  if (Object.keys(patch).length) {
+    await updateBooking(sb, id, patch);
+    if (depositDue || balanceDue) {
+      await audit(sb, tech.id, "manual_payment_recorded", "booking", id, {
+        what: "full",
+        method,
+        via: "settle_past",
+        patch,
+      });
+    }
+    if (becomingCompleted) {
+      await audit(sb, tech.id, "booking_status_changed", "booking", id, {
+        from: booking.status,
+        to: "completed",
+        via: "settle_past",
+      });
+    }
+  }
+
+  const updated = { ...booking, ...patch };
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/clients/${booking.clientId}`);
+
+  if (becomingCompleted) {
+    after(async () => {
+      await Promise.allSettled([
+        syncBookingToGoogle(sb, tech, updated).catch(() => {}),
+        (async () => {
+          const service = await getService(sb, booking.serviceId);
+          if (service?.requiresPatchTest && !service.isPatchTestService) {
+            const { scheduleReactionCheckin } = await import("@/lib/reaction-checkin");
+            await scheduleReactionCheckin(sb, {
+              techId: tech.id,
+              clientId: booking.clientId,
+              categoryId: service.categoryId,
+              anchorIso: booking.endIso || booking.startIso,
+              bookingId: booking.id,
+            });
+          }
+        })().catch(() => {}),
+        (async () => {
+          const { maybeScheduleInfillNudgeForBooking } = await import("@/lib/infill-nudge");
+          await maybeScheduleInfillNudgeForBooking(sb, tech, updated as typeof booking);
+        })().catch(() => {}),
+        (async () => {
+          const { sendAftercareEmail } = await import("@/lib/notify");
+          await sendAftercareEmail(sb, updated as typeof booking);
+        })().catch(() => {}),
+        (async () => {
+          const { getReviewByBookingId } = await import("@/lib/db/queries");
+          const existing = await getReviewByBookingId(sb, booking.id);
+          if (!existing) {
+            const { sendReviewRequestEmail } = await import("@/lib/notify");
+            await sendReviewRequestEmail(sb, updated as typeof booking);
+          }
+        })().catch(() => {}),
+      ]);
+    });
+  }
+
+  redirect(`${returnTo}?saved=1`);
 }
 
 /** Hard delete a mistake booking: no strike, no history, reminders removed. */

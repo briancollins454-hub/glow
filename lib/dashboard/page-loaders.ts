@@ -28,6 +28,7 @@ import {
   listServices,
   listTimeOff,
   listUpcomingBookings,
+  listPastBookingsNeedingWrapUp,
   listWaitlist,
   listWorkingHours,
   sumMonthIncome,
@@ -96,6 +97,7 @@ export async function loadDashboardPageData(
         recentPayments,
         clients,
         todayBookings,
+        settleUp,
       ] = await Promise.all([
         listUpcomingBookings(sb, tech.id, nowIso, 20),
         listServices(sb, tech.id),
@@ -109,6 +111,7 @@ export async function loadDashboardPageData(
         listRecentPayments(sb, tech.id, insightFrom),
         listClients(sb, tech.id),
         listBookingsInWindow(sb, tech.id, dayStart, dayEnd),
+        listPastBookingsNeedingWrapUp(sb, tech.id, nowIso, 25),
       ]);
       const lateCascadeCount = filterLateCascadeBookings(
         todayBookings,
@@ -137,6 +140,7 @@ export async function loadDashboardPageData(
         clientById,
         serviceById,
         lateCascadeCount,
+        settleUp,
       };
     }
     case "bookings": {
