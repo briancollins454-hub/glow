@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import type { ApprovalMode } from "@/lib/db/types";
 import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
@@ -775,73 +776,22 @@ export async function setBookingStatusAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as BookingStatus;
   const booking = await getBooking(sb, id);
-  if (!booking) redirect("/dashboard/bookings");
+  if (!booking) redirect("/dashboard/bookings?saved=1");
 
   const patch: Partial<typeof booking> = { status };
-
-  if (status === "completed" && booking!.status !== "completed") {
-    const batchId = String(formData.get("batchId") ?? "").trim();
-    if (batchId) {
-      try {
-        const { logProductUsage } = await import("@/lib/product-batches");
-        await logProductUsage(sb, tech.id, {
-          batchId,
-          clientId: booking!.clientId,
-          bookingId: booking!.id,
-        });
-      } catch {
-        // Batch logging is best-effort; completing the booking always succeeds.
-      }
-    }
-    try {
-      const service = await getService(sb, booking!.serviceId);
-      if (service?.requiresPatchTest && !service.isPatchTestService) {
-        const { scheduleReactionCheckin } = await import("@/lib/reaction-checkin");
-        await scheduleReactionCheckin(sb, {
-          techId: tech.id,
-          clientId: booking!.clientId,
-          categoryId: service.categoryId,
-          anchorIso: booking!.endIso || booking!.startIso,
-          bookingId: booking!.id,
-        });
-      }
-    } catch {
-      // Check-in scheduling is best-effort.
-    }
-    try {
-      const { maybeScheduleInfillNudgeForBooking } = await import("@/lib/infill-nudge");
-      await maybeScheduleInfillNudgeForBooking(sb, tech, booking!);
-    } catch {
-      // Infill nudge scheduling is best-effort.
-    }
-    try {
-      const { sendAftercareEmail } = await import("@/lib/notify");
-      await sendAftercareEmail(sb, booking!);
-    } catch {
-      // Aftercare email is best-effort; completing the booking always succeeds.
-    }
-    try {
-      const { getReviewByBookingId } = await import("@/lib/db/queries");
-      const existing = await getReviewByBookingId(sb, booking!.id);
-      if (!existing) {
-        const { sendReviewRequestEmail } = await import("@/lib/notify");
-        await sendReviewRequestEmail(sb, booking!);
-      }
-    } catch {
-      // Review request is best-effort.
-    }
-  }
+  const becomingCompleted = status === "completed" && booking.status !== "completed";
+  const batchId = becomingCompleted ? String(formData.get("batchId") ?? "").trim() : "";
 
   if (status === "no_show") {
-    patch.depositStatus = booking!.depositStatus === "paid" ? "forfeited" : booking!.depositStatus;
-    const client = await getClient(sb, booking!.clientId);
+    patch.depositStatus = booking.depositStatus === "paid" ? "forfeited" : booking.depositStatus;
+    const client = await getClient(sb, booking.clientId);
     if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
   }
   if (status === "cancelled") {
     const cancelReason = String(formData.get("cancelReason") ?? "client_late_cancel");
     const refundSucceededPayments = async () => {
       if (!tech.stripeConnectAccountId) return;
-      const payments = await paymentsForBooking(sb, booking!.id);
+      const payments = await paymentsForBooking(sb, booking.id);
       for (const p of payments) {
         if (p.status !== "succeeded" || !p.providerRef) continue;
         if (p.kind !== "deposit" && p.kind !== "balance") continue;
@@ -849,7 +799,7 @@ export async function setBookingStatusAction(formData: FormData) {
           await refundOnConnect(tech, p.providerRef);
           await createPayment(sb, {
             techId: tech.id,
-            bookingId: booking!.id,
+            bookingId: booking.id,
             kind: "refund",
             amountPennies: p.amountPennies,
             status: "succeeded",
@@ -868,10 +818,10 @@ export async function setBookingStatusAction(formData: FormData) {
       // Tech initiated: always refund the client; never forfeit the deposit.
       await refundSucceededPayments();
     } else {
-      const hoursOut = (new Date(booking!.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
+      const hoursOut = (new Date(booking.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
       if (hoursOut < tech.cancellationWindowHours) {
         // Inside the window: deposit is forfeited (kept by the tech).
-        if (booking!.depositStatus === "paid") patch.depositStatus = "forfeited";
+        if (booking.depositStatus === "paid") patch.depositStatus = "forfeited";
       } else {
         // Outside the window: refund everything the client paid (deposit + balance).
         await refundSucceededPayments();
@@ -879,35 +829,87 @@ export async function setBookingStatusAction(formData: FormData) {
     }
   }
 
+  // Persist status first so the UI can reflect it quickly; side effects run after.
   await updateBooking(sb, id, patch);
-  try {
-    await syncBookingToGoogle(sb, tech, { ...booking!, ...patch });
-  } catch {
-    // Google Calendar sync is best-effort.
-  }
-  if (status === "cancelled") {
-    try {
-      const { skipPreCareForBooking } = await import("@/lib/pre-care");
-      await skipPreCareForBooking(sb, booking!.id);
-    } catch {
-      // Migration may be pending.
-    }
-    try {
-      const { notifyWaitlistForCancelledBooking } = await import("@/lib/waitlist");
-      await notifyWaitlistForCancelledBooking(sb, { ...booking!, ...patch });
-    } catch {
-      // Waitlist notifications are best-effort.
-    }
-  }
+  const updated = { ...booking, ...patch };
+
   await audit(sb, tech.id, "booking_status_changed", "booking", id, {
-    from: booking!.status,
+    from: booking.status,
     to: status,
     depositStatus: patch.depositStatus,
     balanceStatus: patch.balanceStatus,
   });
   revalidatePath("/dashboard/bookings");
-  revalidatePath(`/dashboard/clients/${booking!.clientId}`);
-  redirect("/dashboard/bookings");
+  revalidatePath(`/dashboard/clients/${booking.clientId}`);
+
+  // Emails / calendar / nudges continue after the redirect so the menu feels snappy.
+  after(async () => {
+    const sideEffects: Promise<unknown>[] = [
+      syncBookingToGoogle(sb, tech, updated).catch(() => {}),
+    ];
+
+    if (becomingCompleted) {
+      sideEffects.push(
+        (async () => {
+          if (batchId) {
+            const { logProductUsage } = await import("@/lib/product-batches");
+            await logProductUsage(sb, tech.id, {
+              batchId,
+              clientId: booking.clientId,
+              bookingId: booking.id,
+            });
+          }
+        })().catch(() => {}),
+        (async () => {
+          const service = await getService(sb, booking.serviceId);
+          if (service?.requiresPatchTest && !service.isPatchTestService) {
+            const { scheduleReactionCheckin } = await import("@/lib/reaction-checkin");
+            await scheduleReactionCheckin(sb, {
+              techId: tech.id,
+              clientId: booking.clientId,
+              categoryId: service.categoryId,
+              anchorIso: booking.endIso || booking.startIso,
+              bookingId: booking.id,
+            });
+          }
+        })().catch(() => {}),
+        (async () => {
+          const { maybeScheduleInfillNudgeForBooking } = await import("@/lib/infill-nudge");
+          await maybeScheduleInfillNudgeForBooking(sb, tech, updated);
+        })().catch(() => {}),
+        (async () => {
+          const { sendAftercareEmail } = await import("@/lib/notify");
+          await sendAftercareEmail(sb, updated);
+        })().catch(() => {}),
+        (async () => {
+          const { getReviewByBookingId } = await import("@/lib/db/queries");
+          const existing = await getReviewByBookingId(sb, booking.id);
+          if (!existing) {
+            const { sendReviewRequestEmail } = await import("@/lib/notify");
+            await sendReviewRequestEmail(sb, updated);
+          }
+        })().catch(() => {}),
+      );
+    }
+
+    if (status === "cancelled") {
+      sideEffects.push(
+        (async () => {
+          const { skipPreCareForBooking } = await import("@/lib/pre-care");
+          await skipPreCareForBooking(sb, booking.id);
+        })().catch(() => {}),
+        (async () => {
+          const { notifyWaitlistForCancelledBooking } = await import("@/lib/waitlist");
+          await notifyWaitlistForCancelledBooking(sb, updated);
+        })().catch(() => {}),
+      );
+    }
+
+    await Promise.allSettled(sideEffects);
+  });
+
+  // ?saved=1 busts the client dashboard cache so the new status is visible.
+  redirect("/dashboard/bookings?saved=1");
 }
 
 export async function approveBookingRequestDashboardAction(formData: FormData) {
@@ -1011,7 +1013,7 @@ export async function addManualBookingAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard/bookings");
-  redirect("/dashboard/bookings");
+  redirect("/dashboard/bookings?saved=1");
 }
 
 /** Move a booking to a new date/time (and optionally another service). */
@@ -1140,7 +1142,7 @@ export async function deleteBookingAction(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/bookings");
-  redirect("/dashboard/bookings");
+  redirect("/dashboard/bookings?saved=1");
 }
 
 // ---------------- Service photos & add-ons ----------------
