@@ -61,10 +61,19 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
     .reverse();
 
   const row = (b: Booking, muted?: boolean) => (
-    <div key={b.id} className={`flex items-center justify-between gap-2 rounded-xl border border-edge px-4 py-3 ${muted ? "bg-white/[0.03] opacity-70" : "bg-cream"}`}>
-      <div className="min-w-0 flex-1">
+    // Do not put opacity on this row — it makes the actions menu translucent
+    // and creates a stacking context that lets sibling cards steal clicks.
+    <div
+      key={b.id}
+      className={`flex items-center justify-between gap-2 rounded-xl border border-edge px-4 py-3 ${
+        muted ? "border-edge/60 bg-white/[0.02]" : "bg-cream"
+      }`}
+    >
+      <div className={`min-w-0 flex-1 ${muted ? "text-ink-soft" : ""}`}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="truncate font-medium">{clientById[b.clientId] ?? "Client"}</p>
+          <p className={`truncate font-medium ${muted ? "text-ink-soft" : ""}`}>
+            {clientById[b.clientId] ?? "Client"}
+          </p>
           {statusBadge(b.status)}
           {b.riskTier && b.status === "pending_approval" && (
             <Badge tone={riskTierTone(b.riskTier)}>{riskTierLabel(b.riskTier)}</Badge>
@@ -75,12 +84,14 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
           {serviceById[b.serviceId] ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}
         </p>
         <p className="mt-0.5 text-xs text-ink-faint">
-          <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
+          <span className={`font-medium ${muted ? "text-ink-soft" : "text-ink"}`}>
+            {gbp(b.pricePennies)}
+          </span>
           {" · "}
           {b.balanceStatus === "paid" ? "paid in full" : `${gbp(b.balancePennies)} due`}
         </p>
       </div>
-      <div className="shrink-0">
+      <div className="relative shrink-0">
         <BookingActions id={b.id} status={b.status} />
       </div>
     </div>
