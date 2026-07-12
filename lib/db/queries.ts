@@ -416,6 +416,45 @@ export async function listUpcomingBookings(
   return must(data as Booking[], error) ?? [];
 }
 
+/**
+ * Past appointments that still need wrap-up: not completed/cancelled/no-show,
+ * or completed but with deposit/balance still unpaid.
+ */
+export async function listPastBookingsNeedingWrapUp(
+  sb: SB,
+  techId: string,
+  beforeIso: string,
+  limit = 25,
+): Promise<Booking[]> {
+  const windowStart = new Date(
+    new Date(beforeIso).getTime() - 90 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("techId", techId)
+    .gte("startIso", windowStart)
+    .lt("startIso", beforeIso)
+    .in("status", ["pending_approval", "pending", "confirmed", "completed"])
+    .order("startIso", { ascending: false })
+    .limit(80);
+  const rows = must(data as Booking[], error) ?? [];
+  const needsWrapUp = rows.filter((b) => {
+    if (b.status !== "completed") return true;
+    const depositDue =
+      b.depositPennies > 0 &&
+      b.depositStatus !== "paid" &&
+      b.depositStatus !== "forfeited" &&
+      b.depositStatus !== "refunded";
+    const balanceDue =
+      b.balancePennies > 0 &&
+      b.balanceStatus !== "paid" &&
+      b.balanceStatus !== "refunded";
+    return depositDue || balanceDue;
+  });
+  return needsWrapUp.slice(0, limit);
+}
+
 export async function getBookingsByIds(sb: SB, ids: string[]): Promise<Booking[]> {
   if (ids.length === 0) return [];
   const { data, error } = await sb.from("bookings").select("*").in("id", ids);
