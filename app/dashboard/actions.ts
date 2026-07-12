@@ -402,6 +402,111 @@ export async function deleteReviewAction(formData: FormData) {
   redirect("/dashboard/reviews");
 }
 
+// ---------------- Imported testimonials ----------------
+export async function createTestimonialAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const {
+    countTestimonials,
+    createTestimonial,
+  } = await import("@/lib/db/queries");
+  const {
+    TESTIMONIAL_CAP,
+    defaultTestimonialShowUntil,
+    parseTestimonialRating,
+  } = await import("@/lib/testimonials");
+
+  const used = await countTestimonials(sb, tech.id);
+  if (used >= TESTIMONIAL_CAP) {
+    redirect(`/dashboard/reviews?terr=${encodeURIComponent(`You already have ${TESTIMONIAL_CAP} imported testimonials. Delete one to add another.`)}`);
+  }
+
+  const authorLabel = String(formData.get("authorLabel") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const sourceLabel = String(formData.get("sourceLabel") ?? "").trim() || "previous platform";
+  const rating = parseTestimonialRating(String(formData.get("rating") ?? ""));
+  const keepIndefinitely = String(formData.get("keepIndefinitely") ?? "") === "1";
+  const showUntilRaw = String(formData.get("showUntil") ?? "").trim();
+
+  if (!authorLabel || !body) {
+    redirect(`/dashboard/reviews?terr=${encodeURIComponent("Author and testimonial text are required.")}`);
+  }
+
+  let showUntil: string | null = defaultTestimonialShowUntil();
+  if (keepIndefinitely) showUntil = null;
+  else if (showUntilRaw) {
+    const d = new Date(showUntilRaw);
+    if (!Number.isNaN(d.getTime())) showUntil = d.toISOString();
+  }
+
+  const row = await createTestimonial(sb, {
+    techId: tech.id,
+    authorLabel,
+    rating,
+    body,
+    sourceLabel,
+    showUntil,
+  });
+  await audit(sb, tech.id, "testimonial_created", "testimonial", row.id, {
+    sourceLabel,
+  });
+  revalidatePath("/dashboard/reviews");
+  revalidatePath(`/${tech.handle}`);
+  redirect("/dashboard/reviews?saved=1");
+}
+
+export async function updateTestimonialAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { getTestimonial, updateTestimonial } = await import("@/lib/db/queries");
+  const { parseTestimonialRating } = await import("@/lib/testimonials");
+
+  const id = String(formData.get("id") ?? "");
+  const existing = await getTestimonial(sb, id);
+  if (!existing || existing.techId !== tech.id) redirect("/dashboard/reviews");
+
+  const authorLabel = String(formData.get("authorLabel") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const sourceLabel = String(formData.get("sourceLabel") ?? "").trim() || "previous platform";
+  const rating = parseTestimonialRating(String(formData.get("rating") ?? ""));
+  const keepIndefinitely = String(formData.get("keepIndefinitely") ?? "") === "1";
+  const showUntilRaw = String(formData.get("showUntil") ?? "").trim();
+
+  if (!authorLabel || !body) {
+    redirect(`/dashboard/reviews?terr=${encodeURIComponent("Author and testimonial text are required.")}`);
+  }
+
+  let showUntil: string | null = existing.showUntil;
+  if (keepIndefinitely) showUntil = null;
+  else if (showUntilRaw) {
+    const d = new Date(showUntilRaw);
+    if (!Number.isNaN(d.getTime())) showUntil = d.toISOString();
+  }
+
+  await updateTestimonial(sb, id, {
+    authorLabel,
+    body,
+    sourceLabel,
+    rating,
+    showUntil,
+  });
+  await audit(sb, tech.id, "testimonial_updated", "testimonial", id);
+  revalidatePath("/dashboard/reviews");
+  revalidatePath(`/${tech.handle}`);
+  redirect("/dashboard/reviews?saved=1");
+}
+
+export async function deleteTestimonialAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const { getTestimonial, deleteTestimonial } = await import("@/lib/db/queries");
+  const existing = await getTestimonial(sb, id);
+  if (!existing || existing.techId !== tech.id) redirect("/dashboard/reviews");
+  await deleteTestimonial(sb, id);
+  await audit(sb, tech.id, "testimonial_deleted", "testimonial", id);
+  revalidatePath("/dashboard/reviews");
+  revalidatePath(`/${tech.handle}`);
+  redirect("/dashboard/reviews?saved=1");
+}
+
 export async function disconnectGoogleCalendarAction() {
   const { sb, tech } = await ctx();
   await updateTech(sb, tech.id, {
@@ -1642,6 +1747,94 @@ export async function importBookingsAction(formData: FormData) {
     redirect(`/dashboard/import?import=none&what=appointments&n=0&s=${skipped}`);
   }
   redirect(`/dashboard/import?import=done&what=appointments&n=${imported}&s=${skipped}`);
+}
+
+export async function importTestimonialsAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const file = formData.get("csv") as File | null;
+  if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
+
+  const { parseCsv, col, IMPORT_TESTIMONIAL_COLS, testimonialColumnsOk } = await import("@/lib/csv");
+  const {
+    countTestimonials,
+    createTestimonial,
+  } = await import("@/lib/db/queries");
+  const {
+    TESTIMONIAL_CAP,
+    defaultTestimonialShowUntil,
+    parseTestimonialRating,
+  } = await import("@/lib/testimonials");
+
+  const { headers, rows } = parseCsv(await file.text());
+  if (rows.length === 0) redirect("/dashboard/import?import=empty");
+  if (!testimonialColumnsOk(headers)) redirect("/dashboard/import?import=badformat");
+
+  const iAuthor = col(headers, ...IMPORT_TESTIMONIAL_COLS.author);
+  const iBody = col(headers, ...IMPORT_TESTIMONIAL_COLS.body);
+  const iRating = col(headers, ...IMPORT_TESTIMONIAL_COLS.rating);
+
+  const sourcePick = String(formData.get("sourceLabel") ?? "").trim();
+  const sourceLabel =
+    sourcePick === "Fresha" ||
+    sourcePick === "Booksy" ||
+    sourcePick === "Timely" ||
+    sourcePick === "Square" ||
+    sourcePick === "Other"
+      ? sourcePick === "Other"
+        ? "previous platform"
+        : sourcePick
+      : "previous platform";
+
+  const used = await countTestimonials(sb, tech.id);
+  const remaining = Math.max(0, TESTIMONIAL_CAP - used);
+  if (remaining === 0) {
+    redirect(
+      `/dashboard/import?import=done&what=testimonials&n=0&s=${rows.length}&cap=1`,
+    );
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  let capped = 0;
+  const showUntil = defaultTestimonialShowUntil();
+
+  for (const cols of rows) {
+    if (imported >= remaining) {
+      capped++;
+      continue;
+    }
+    const authorLabel = (cols[iAuthor] ?? "").trim();
+    const body = (cols[iBody] ?? "").trim();
+    if (!authorLabel || !body) {
+      skipped++;
+      continue;
+    }
+    const rating =
+      iRating !== -1 ? parseTestimonialRating(cols[iRating] ?? "") : null;
+    await createTestimonial(sb, {
+      techId: tech.id,
+      authorLabel,
+      rating,
+      body,
+      sourceLabel,
+      showUntil,
+    });
+    imported++;
+  }
+
+  await audit(sb, tech.id, "testimonials_imported", "import", "testimonials", {
+    imported,
+    skipped,
+    capped,
+    rows: rows.length,
+    sourceLabel,
+  });
+  revalidatePath("/dashboard/reviews");
+  revalidatePath(`/${tech.handle}`);
+  const s = skipped + capped;
+  redirect(
+    `/dashboard/import?import=done&what=testimonials&n=${imported}&s=${s}${capped > 0 ? `&cap=${capped}` : ""}`,
+  );
 }
 
 // ---------------- Client photos ----------------

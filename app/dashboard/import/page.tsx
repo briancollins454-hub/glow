@@ -1,12 +1,19 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput } from "lucide-react";
+import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput, MessageSquareQuote } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { Select, Label } from "@/components/ui/input";
 import { ImportPreview } from "@/components/dashboard/import-preview";
-import { importClientsAction, importServicesAction, importBookingsAction } from "../actions";
+import {
+  importClientsAction,
+  importServicesAction,
+  importBookingsAction,
+  importTestimonialsAction,
+} from "../actions";
+import { TESTIMONIAL_CAP } from "@/lib/testimonials";
 
 const fileInputClass =
   "text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300";
@@ -33,7 +40,7 @@ function ImportView() {
           <FolderInput className="h-6 w-6 text-brand-400" /> Move to Glow
         </h1>
         <p className="text-sm text-ink-soft">
-          Coming from Square, Booksy, Timely or Fresha? Bring everything across in three steps.
+          Coming from Square, Booksy, Timely or Fresha? Bring everything across in a few steps.
           Each step takes a CSV export from your old app.
         </p>
       </div>
@@ -41,7 +48,10 @@ function ImportView() {
       {importStatus === "done" && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           <CheckCircle2 className="h-4 w-4" /> Imported {n} {what}
-          {Number(s) > 0 && ` (${s} skipped: duplicates, unknown services, or missing details)`}.
+          {Number(s) > 0 && ` (${s} skipped: duplicates, unknown services, missing details, or the ${TESTIMONIAL_CAP} testimonial cap)`}.
+          {searchParams.get("cap") && what === "testimonials"
+            ? ` ${searchParams.get("cap")} extras were skipped because of the ${TESTIMONIAL_CAP} cap.`
+            : ""}
         </div>
       )}
       {importStatus === "badformat" && (
@@ -114,6 +124,46 @@ function ImportView() {
             <SubmitButton variant="secondary" pendingLabel="Importing…">Import appointments</SubmitButton>
           </form>
           <ImportPreview inputId="appointmentsCsv" kind="appointments" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquareQuote className="h-4 w-4 text-brand-400" /> Step 4 · Imported testimonials (optional)
+          </CardTitle>
+          <CardDescription>
+            Bring across a small set of reviews from your old platform (max {TESTIMONIAL_CAP}).
+            Needs columns like &quot;Author&quot; / &quot;Name&quot; and &quot;Review&quot; / &quot;Comment&quot;. Rating and date
+            columns are optional (date is only for your preview). These show separately on your
+            booking page as &ldquo;From before Glow&rdquo; and never affect your Glow star rating.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={importTestimonialsAction} className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label htmlFor="testimonialSource">Source</Label>
+              <Select id="testimonialSource" name="sourceLabel" defaultValue="Fresha">
+                <option value="Fresha">Fresha</option>
+                <option value="Booksy">Booksy</option>
+                <option value="Timely">Timely</option>
+                <option value="Square">Square</option>
+                <option value="Other">Other</option>
+              </Select>
+            </div>
+            <input
+              id="testimonialsCsv"
+              type="file"
+              name="csv"
+              accept=".csv,text/csv"
+              required
+              className={fileInputClass}
+            />
+            <SubmitButton variant="secondary" pendingLabel="Importing…">
+              Import testimonials
+            </SubmitButton>
+          </form>
+          <ImportPreview inputId="testimonialsCsv" kind="testimonials" />
         </CardContent>
       </Card>
 

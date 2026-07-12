@@ -12,6 +12,7 @@ import {
   addonsForService,
   listApprovedReviews,
   listClientPhotosForTech,
+  listPublishedTestimonials,
   getClientNameMap,
 } from "@/lib/db/queries";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
@@ -19,7 +20,7 @@ import { signedPhotoUrls } from "@/lib/storage";
 import { availableDays, canOfferPairedPatchTest, findPatchTestService } from "@/lib/rules";
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
-import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
+import type { ConsultationQuestion, Review, ServiceAddon, Testimonial } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
 import { PairedBookingStepInteractive } from "@/components/booking/paired-booking-step-interactive";
 import { BookingHeader, BookingFlowHeader } from "@/components/booking/booking-header";
@@ -28,6 +29,7 @@ import { BookingAbout } from "@/components/booking/booking-about";
 import { ServiceGrid } from "@/components/booking/service-grid";
 import { PortfolioGallery } from "@/components/booking/portfolio-gallery";
 import { ReviewsSection } from "@/components/booking/reviews-section";
+import { TestimonialsSection } from "@/components/booking/testimonials-section";
 import { OpeningHours } from "@/components/booking/opening-hours";
 import { TrustStrip } from "@/components/booking/trust-strip";
 import { BookingFooterCta } from "@/components/booking/booking-footer-cta";
@@ -139,6 +141,7 @@ export default async function PublicBookingPage({
   let ratingAvg = 0;
   let ratingCount = 0;
   let portfolio: { id: string; url: string; kind: string }[] = [];
+  let publishedTestimonials: Testimonial[] = [];
   let selectedPhotoUrl: string | undefined;
   let coverUrl: string | undefined;
   let profileUrl: string | undefined;
@@ -146,11 +149,13 @@ export default async function PublicBookingPage({
   const brandPaths = [tech.coverPhotoPath, tech.profilePhotoPath].filter(Boolean) as string[];
 
   if (!selected) {
-    const [hours, approvedReviews, allPhotos] = await Promise.all([
+    const [hours, approvedReviews, allPhotos, testimonials] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listApprovedReviews(sb, tech.id).catch(() => []),
       listClientPhotosForTech(sb, tech.id).catch(() => []),
+      listPublishedTestimonials(sb, tech.id).catch(() => []),
     ]);
+    publishedTestimonials = testimonials;
 
     const consented = allPhotos.filter((p) => p.consent && p.kind !== "other").slice(0, 12);
     const photoPaths = [
@@ -324,6 +329,8 @@ export default async function PublicBookingPage({
         <PortfolioGallery items={portfolio} />
 
         <ReviewsSection reviews={reviews} ratingAvg={ratingAvg} ratingCount={ratingCount} />
+
+        <TestimonialsSection testimonials={publishedTestimonials} />
 
         {openingHours.length > 0 && <OpeningHours hours={openingHours} />}
 
