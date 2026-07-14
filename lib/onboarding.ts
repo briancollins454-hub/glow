@@ -1,20 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, brandedEmail } from "@/lib/email";
-import { adminEmails } from "@/lib/admin";
 import { randomId } from "@/lib/ids";
 import type { Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const BRAND = "#db2777";
 
+// Where new-signup alerts are sent. Overridable via env, defaults to the
+// Glow support inbox.
+const SIGNUP_ALERT_EMAIL = process.env.SIGNUP_ALERT_EMAIL ?? "support@glow-uk.com";
+
 /**
- * Alert the platform owner(s) that a new tech has signed up. Best-effort: sent
- * to every address in ADMIN_EMAILS so Brian (and any future owners) get a
- * heads-up the moment an account is created, before they've paid.
+ * Alert the Glow team that a new tech has signed up. Best-effort: sent to the
+ * signup-alert inbox the moment an account is created, before they've paid.
  */
 export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
-  const recipients = adminEmails();
-  if (recipients.length === 0) return;
+  if (!SIGNUP_ALERT_EMAIL) return;
 
   const dash = (p: string) => `${APP_URL}${p}`;
   const pageUrl = `${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}`;
@@ -41,7 +42,7 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
   });
 
   await sendEmail({
-    to: recipients,
+    to: SIGNUP_ALERT_EMAIL,
     subject: `New Glow signup: ${tech.businessName || tech.email}`,
     html,
     text:

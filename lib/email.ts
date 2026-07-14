@@ -16,15 +16,14 @@ function getResend(): Resend {
 }
 
 export async function sendEmail(params: {
-  to: string | string[];
+  to: string;
   subject: string;
   html: string;
   text: string;
   idempotencyKey?: string;
   replyTo?: string;
 }): Promise<boolean> {
-  const hasRecipient = Array.isArray(params.to) ? params.to.length > 0 : !!params.to;
-  if (!emailConfigured() || !hasRecipient) return false;
+  if (!emailConfigured() || !params.to) return false;
   try {
     // The Resend SDK returns { data, error } (it does not throw on API errors).
     const { error } = await getResend().emails.send(
