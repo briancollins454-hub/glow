@@ -13,7 +13,7 @@ import {
 import { CategorySection } from "@/components/booking/category-section";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
-import { withAlpha } from "@/lib/booking/brand";
+import { onBrand, withAlpha } from "@/lib/booking/brand";
 
 function ServiceCard({
   service,
@@ -90,8 +90,8 @@ function ServiceCard({
 
         <Link
           href={`/${handle}?service=${service.id}`}
-          className="mt-5 block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition hover:brightness-110"
-          style={{ backgroundColor: brand }}
+          className="mt-5 block w-full rounded-xl py-3 text-center text-sm font-semibold transition hover:brightness-110"
+          style={{ backgroundColor: brand, color: onBrand(brand) }}
         >
           Book this service
         </Link>

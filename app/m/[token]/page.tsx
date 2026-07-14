@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { heroBrand } from "@/lib/booking/brand";
 import { CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getClientByMessageToken, getTechById, threadMessages } from "@/lib/db/queries";
@@ -27,7 +28,7 @@ export default async function ClientThreadPage({
   if (!client) notFound();
   const tech = await getTechById(sb, client.techId);
   const messages = await threadMessages(sb, client.id);
-  const brand = tech?.brandColor || "#db2777";
+  const brand = heroBrand(tech?.brandColor || "#db2777");
   const send = sendClientMessageAction.bind(null, token);
   const live = !!tech && isLive(tech);
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { CalendarPlus, CheckCircle2, CalendarHeart, CreditCard, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
@@ -38,7 +39,7 @@ export default async function BookedPage({
   }
 
   const service = await getService(sb, booking.serviceId);
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
   const needsDeposit =
     booking.status === "pending" && booking.depositPennies > 0 && booking.depositStatus !== "paid";
   const awaitingStripeReturn = needsDeposit && !!session_id;

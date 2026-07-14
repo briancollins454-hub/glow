@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { heroBrand } from "@/lib/booking/brand";
 import Link from "next/link";
 import { CalendarHeart, Clock, Sparkles } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
@@ -39,7 +40,7 @@ export default async function QuotePage({
     await updateDmQuoteLink(sb, quote.id, { viewedAtIso: new Date().toISOString() });
   }
 
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
   const addons = parseQuoteAddons(quote.addons);
   const book = bookUrl(tech.handle, service.id, quote.token, APP_URL);
   const greeting = quote.clientName?.trim()

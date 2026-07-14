@@ -1,7 +1,7 @@
 "use client";
 
 import { RemoteImage } from "@/components/ui/remote-image";
-import { shade, withAlpha } from "@/lib/booking/brand";
+import { heroBrand, onBrand, shade, withAlpha } from "@/lib/booking/brand";
 
 export function BookingBanner({
   businessName,
@@ -17,7 +17,9 @@ export function BookingBanner({
   hasServices: boolean;
 }) {
   const headline = tagline?.trim() || businessName;
-  const darker = shade(brand, -32);
+  // Gradients sit under fixed white text, so light brands are darkened first.
+  const heroBase = heroBrand(brand);
+  const darker = shade(heroBase, -32);
 
   const scrollToServices = () => {
     document.getElementById("services")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -40,14 +42,14 @@ export function BookingBanner({
           <div
             className="h-full w-full"
             style={{
-              background: `linear-gradient(145deg, ${brand} 0%, ${darker} 50%, #0b0910 100%)`,
+              background: `linear-gradient(145deg, ${heroBase} 0%, ${darker} 50%, #0b0910 100%)`,
             }}
           />
         )}
         <div
           className="pointer-events-none absolute inset-0 opacity-50"
           style={{
-            background: `linear-gradient(135deg, ${withAlpha(brand, 0.35)} 0%, transparent 50%)`,
+            background: `linear-gradient(135deg, ${withAlpha(heroBase, 0.35)} 0%, transparent 50%)`,
           }}
         />
       </div>
@@ -66,8 +68,8 @@ export function BookingBanner({
           <button
             type="button"
             onClick={scrollToServices}
-            className="mt-8 rounded-xl px-8 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-110"
-            style={{ backgroundColor: brand }}
+            className="mt-8 rounded-xl px-8 py-3.5 text-sm font-semibold shadow-lg transition hover:brightness-110"
+            style={{ backgroundColor: brand, color: onBrand(brand) }}
           >
             Book appointment
           </button>

@@ -20,6 +20,7 @@ import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { createPublicBookingAction, joinWaitlistAction } from "@/app/[handle]/actions";
+import { onBrand } from "@/lib/booking/brand";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -208,7 +209,7 @@ export function BookingStepInteractive({
             </div>
             <SubmitButton
               className="w-full bg-none py-3 font-semibold shadow-none"
-              style={{ backgroundColor: brand }}
+              style={{ backgroundColor: brand, color: onBrand(brand) }}
               pendingLabel="Adding you…"
             >
               Join the cancellation list
@@ -302,7 +303,7 @@ export function BookingStepInteractive({
             </label>
             <SubmitButton
               className="w-full bg-none py-3.5 text-base font-semibold shadow-soft"
-              style={{ backgroundColor: brand }}
+              style={{ backgroundColor: brand, color: onBrand(brand) }}
               pendingLabel="Securing your slot…"
             >
               <Lock className="h-4 w-4" />
@@ -362,7 +363,7 @@ function StepDot({
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
         style={
           done || active
-            ? { backgroundColor: brand, color: "white" }
+            ? { backgroundColor: brand, color: onBrand(brand) }
             : { backgroundColor: "rgba(255,255,255,0.08)", color: "inherit" }
         }
       >

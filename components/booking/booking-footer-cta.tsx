@@ -1,5 +1,7 @@
 "use client";
 
+import { onBrand } from "@/lib/booking/brand";
+
 export function BookingFooterCta({
   brand,
   minPriceLabel,
@@ -26,8 +28,8 @@ export function BookingFooterCta({
       <button
         type="button"
         onClick={scrollToServices}
-        className="mt-6 rounded-xl px-8 py-3.5 text-sm font-semibold text-white transition hover:brightness-110"
-        style={{ backgroundColor: brand }}
+        className="mt-6 rounded-xl px-8 py-3.5 text-sm font-semibold transition hover:brightness-110"
+        style={{ backgroundColor: brand, color: onBrand(brand) }}
       >
         View treatments from {minPriceLabel}
       </button>

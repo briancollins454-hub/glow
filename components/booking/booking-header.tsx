@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { RemoteImage } from "@/components/ui/remote-image";
-import { initials, shade } from "@/lib/booking/brand";
+import { heroBrand, initials, onBrand, shade } from "@/lib/booking/brand";
 import { categorySectionId, serviceSectionId } from "@/lib/booking/service-groups";
 import { cn } from "@/lib/utils";
 
@@ -199,8 +199,8 @@ function MobileNav({
         <button
           type="button"
           onClick={() => go("services")}
-          className="mt-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
-          style={{ backgroundColor: brand }}
+          className="mt-2 rounded-xl px-4 py-3 text-sm font-semibold transition hover:brightness-110"
+          style={{ backgroundColor: brand, color: onBrand(brand) }}
         >
           Book now
         </button>
@@ -254,7 +254,7 @@ export function BookingHeader({
         <div className="flex min-w-0 items-center gap-3">
           <div
             className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl ring-2 ring-white/10"
-            style={{ background: `linear-gradient(135deg, ${brand}, ${shade(brand, -24)})` }}
+            style={{ background: `linear-gradient(135deg, ${heroBrand(brand)}, ${shade(heroBrand(brand), -24)})` }}
           >
             {profileUrl ? (
               <RemoteImage src={profileUrl} alt={businessName} fill fit="cover" />
@@ -295,8 +295,8 @@ export function BookingHeader({
             <button
               type="button"
               onClick={() => scrollTo("services")}
-              className="ml-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
-              style={{ backgroundColor: brand }}
+              className="ml-2 rounded-xl px-4 py-2 text-sm font-semibold transition hover:brightness-110"
+              style={{ backgroundColor: brand, color: onBrand(brand) }}
             >
               Book now
             </button>

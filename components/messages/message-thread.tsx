@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { Send } from "lucide-react";
+import { onBrand, withAlpha } from "@/lib/booking/brand";
 import type { Message, MessageSender } from "@/lib/db/types";
 import type { SendResult } from "@/app/dashboard/messages/actions";
 import { clearDashboardCache } from "@/lib/dashboard/client-cache";
@@ -143,12 +144,16 @@ export function MessageThread({
               <div
                 className={
                   "max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed " +
-                  (mine ? "text-white" : "bg-white/[0.07] text-ink")
+                  (mine ? "" : "bg-white/[0.07] text-ink")
                 }
-                style={mine ? { backgroundColor: brand } : undefined}
+                style={mine ? { backgroundColor: brand, color: onBrand(brand) } : undefined}
               >
                 <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <p suppressHydrationWarning className={"mt-1 text-[11px] " + (mine ? "text-white/70" : "text-ink-faint")}>
+                <p
+                  suppressHydrationWarning
+                  className={"mt-1 text-[11px] " + (mine ? "" : "text-ink-faint")}
+                  style={mine ? { color: withAlpha(onBrand(brand), 0.7) } : undefined}
+                >
                   {mounted
                     ? new Date(m.createdAt).toLocaleString(undefined, {
                         month: "short",
@@ -184,8 +189,8 @@ export function MessageThread({
         <button
           type="submit"
           disabled={sending || !body.trim()}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white disabled:opacity-50"
-          style={{ backgroundColor: brand }}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl disabled:opacity-50"
+          style={{ backgroundColor: brand, color: onBrand(brand) }}
           title="Send"
         >
           <Send className="h-[18px] w-[18px]" />

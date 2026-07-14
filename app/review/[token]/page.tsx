@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { heroBrand } from "@/lib/booking/brand";
 import { CalendarHeart, CheckCircle2, Star } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getReviewByBookingId, getService, getTechById } from "@/lib/db/queries";
@@ -34,7 +35,7 @@ export default async function ReviewPage({
   ]);
   if (!tech) notFound();
 
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
   const submitted = !!existing || sp.done === "1";
 
   return (

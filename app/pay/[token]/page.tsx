@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { CreditCard, CheckCircle2, CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
@@ -42,7 +43,7 @@ export default async function PayPage({
   }
 
   const service = await getService(sb, booking.serviceId);
-  const brand = tech?.brandColor || "#db2777";
+  const brand = heroBrand(tech?.brandColor || "#db2777");
   const settled = booking.balanceStatus === "paid" || booking.balancePennies === 0;
 
   if (sp.err === "rate") {
