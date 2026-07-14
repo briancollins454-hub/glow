@@ -254,7 +254,11 @@ export async function loadDashboardPageData(
           .eq("referredBy", tech.handle);
         referredCount = count ?? 0;
       }
-      return { referredCount };
+      // Stripe config must be checked HERE (server), not in the browser:
+      // STRIPE_SECRET_KEY is a server-only secret, so a client-side check is
+      // always false and would wrongly disable the subscribe buttons.
+      const { stripeConfigured } = await import("@/lib/stripe");
+      return { referredCount, stripeConfigured: stripeConfigured() };
     }
     case "import":
     case "feedback":

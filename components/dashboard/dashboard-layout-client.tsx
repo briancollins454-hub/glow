@@ -44,8 +44,11 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   if (!tech) return null;
 
   // Hard paywall: a tech that hasn't activated a plan can only reach billing
-  // and account settings. The owner is exempt so support access never breaks.
-  const mustPay = !admin && !isLive(tech);
+  // and account settings. Exempt: the owner (support access must never break),
+  // live accounts (active/trialing/comped), and invited testers (the private
+  // £1-link crowd helping test Glow).
+  const isTester = tech.signupOffer === "tester";
+  const mustPay = !admin && !isLive(tech) && !isTester;
   const onAllowedRoute = PAYWALL_ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname?.startsWith(`${prefix}/`),
   );

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import { isLive, planLabel } from "@/lib/subscriptions";
-import { stripeConfigured } from "@/lib/stripe";
 import { startCheckoutAction, manageBillingAction } from "./actions";
 import type { Tech } from "@/lib/db/types";
 
@@ -17,6 +16,7 @@ const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").repl
 
 type BillingData = {
   referredCount: number;
+  stripeConfigured?: boolean;
 };
 
 export default function BillingPage() {
@@ -25,17 +25,30 @@ export default function BillingPage() {
 
   return (
     <AsyncDashboardPage<BillingData> pageKey="billing">
-      {(data) => <BillingView tech={tech} referredCount={data.referredCount} />}
+      {(data) => (
+        <BillingView
+          tech={tech}
+          referredCount={data.referredCount}
+          configured={data.stripeConfigured ?? false}
+        />
+      )}
     </AsyncDashboardPage>
   );
 }
 
-function BillingView({ tech, referredCount }: { tech: Tech; referredCount: number }) {
+function BillingView({
+  tech,
+  referredCount,
+  configured,
+}: {
+  tech: Tech;
+  referredCount: number;
+  configured: boolean;
+}) {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
   const welcome = searchParams.get("welcome") === "1";
   const live = isLive(tech);
-  const configured = stripeConfigured();
   const isTester = tech.signupOffer === "tester";
 
   return (
