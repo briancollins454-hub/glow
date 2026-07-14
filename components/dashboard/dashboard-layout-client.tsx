@@ -1,10 +1,18 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { DashboardPaywall } from "@/components/dashboard/dashboard-paywall";
 import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
+import { isLive } from "@/lib/subscriptions";
 import { DASHBOARD_DATA_KEYS } from "@/lib/dashboard/page-loaders";
 import { prefetchDashboardData } from "@/lib/dashboard/client-cache";
 import { useEffect } from "react";
+
+// Routes a not-yet-paid tech can still reach: billing (to subscribe) and the
+// account settings page (so they can manage/close the account). Everything else
+// is gated behind an active plan.
+const PAYWALL_ALLOWED_PREFIXES = ["/dashboard/billing", "/dashboard/settings"];
 
 function DashboardAuthLoading() {
   return (
@@ -23,6 +31,7 @@ function DashboardAuthLoading() {
 
 export function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const { tech, admin, loading } = useDashboardAuth();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!tech) return;
@@ -34,5 +43,16 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   if (loading) return <DashboardAuthLoading />;
   if (!tech) return null;
 
-  return <DashboardShell tech={tech} admin={admin}>{children}</DashboardShell>;
+  // Hard paywall: a tech that hasn't activated a plan can only reach billing
+  // and account settings. The owner is exempt so support access never breaks.
+  const mustPay = !admin && !isLive(tech);
+  const onAllowedRoute = PAYWALL_ALLOWED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname?.startsWith(`${prefix}/`),
+  );
+
+  return (
+    <DashboardShell tech={tech} admin={admin}>
+      {mustPay && !onAllowedRoute ? <DashboardPaywall tech={tech} /> : children}
+    </DashboardShell>
+  );
 }

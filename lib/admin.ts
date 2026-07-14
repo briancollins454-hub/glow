@@ -10,3 +10,8 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "brian@thesupportsdesk.com")
 export function isAdminTech(tech: Pick<Tech, "email">): boolean {
   return ADMIN_EMAILS.includes(tech.email.trim().toLowerCase());
 }
+
+/** Owner/admin notification recipients (e.g. for new-signup alerts). */
+export function adminEmails(): string[] {
+  return [...ADMIN_EMAILS];
+}

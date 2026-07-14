@@ -33,6 +33,7 @@ export default function BillingPage() {
 function BillingView({ tech, referredCount }: { tech: Tech; referredCount: number }) {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
+  const welcome = searchParams.get("welcome") === "1";
   const live = isLive(tech);
   const configured = stripeConfigured();
   const isTester = tech.signupOffer === "tester";
@@ -44,6 +45,11 @@ function BillingView({ tech, referredCount }: { tech: Tech; referredCount: numbe
         <p className="text-sm text-ink-soft">Your Glow membership. 0% commission - you keep every penny your clients pay you.</p>
       </div>
 
+      {welcome && !live && (
+        <div className="flex items-center gap-2 rounded-xl bg-brand-500/10 px-4 py-3 text-sm text-brand-300">
+          <Sparkles className="h-4 w-4" /> Account created! Activate your plan below to unlock your tools and switch on bookings.
+        </div>
+      )}
       {status === "started" && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           <CheckCircle2 className="h-4 w-4" /> Card saved - your subscription is being activated. This can take a few seconds.
