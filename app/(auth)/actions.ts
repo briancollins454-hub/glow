@@ -123,19 +123,24 @@ export async function signupAction(formData: FormData) {
     });
   }
 
-  // Welcome email now + a setup nudge in 2 days (both best-effort).
+  // Welcome email now + a setup nudge in 2 days + an owner alert (all
+  // best-effort so email problems never block signup).
   try {
-    const { sendWelcomeEmail, scheduleOnboardingEmails } = await import("@/lib/onboarding");
+    const { sendWelcomeEmail, scheduleOnboardingEmails, notifyOwnerOfSignup } =
+      await import("@/lib/onboarding");
     await sendWelcomeEmail(tech);
     await scheduleOnboardingEmails(admin, techId);
+    await notifyOwnerOfSignup(tech);
   } catch {
     // Never block signup on email problems.
   }
 
-  // Sign them in (sets the session cookie).
+  // Sign them in (sets the session cookie), then send them straight to billing:
+  // a new account can't take bookings until it activates a plan (£9.50 first
+  // month), so we land them on checkout rather than a locked dashboard.
   const sb = await createSupabaseServerClient();
   await sb.auth.signInWithPassword({ email, password });
-  redirect("/dashboard");
+  redirect("/dashboard/billing?welcome=1");
 }
 
 export async function logoutAction() {

@@ -6,28 +6,81 @@ import type { Tech } from "@/lib/db/types";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const BRAND = "#db2777";
 
+// Where new-signup alerts are sent. Overridable via env, defaults to the
+// Glow support inbox.
+const SIGNUP_ALERT_EMAIL = process.env.SIGNUP_ALERT_EMAIL ?? "support@glow-uk.com";
+
+/**
+ * Alert the Glow team that a new tech has signed up. Best-effort: sent to the
+ * signup-alert inbox the moment an account is created, before they've paid.
+ */
+export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
+  if (!SIGNUP_ALERT_EMAIL) return;
+
+  const dash = (p: string) => `${APP_URL}${p}`;
+  const pageUrl = `${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}`;
+  const referredLine = tech.referredBy
+    ? `Referred by: <strong>${tech.referredBy}</strong><br/>`
+    : "";
+  const offerLine = tech.signupOffer === "tester" ? "Tester (£1 first month)" : "Standard (£9.50 first month)";
+
+  const html = brandedEmail({
+    brand: BRAND,
+    businessName: "Glow",
+    heading: "New signup",
+    bodyHtml:
+      `A new tech just created an account.<br/><br/>` +
+      `Business: <strong>${tech.businessName || "(not set)"}</strong><br/>` +
+      `Name: ${tech.name || "(not set)"}<br/>` +
+      `Email: ${tech.email}<br/>` +
+      `Booking link: ${pageUrl}<br/>` +
+      `Offer: ${offerLine}<br/>` +
+      referredLine +
+      `<br/>They have <strong>not paid yet</strong> - they need to activate a plan before they can take bookings.`,
+    buttonLabel: "Open the owner dashboard",
+    buttonUrl: dash("/dashboard/admin"),
+  });
+
+  await sendEmail({
+    to: SIGNUP_ALERT_EMAIL,
+    subject: `New Glow signup: ${tech.businessName || tech.email}`,
+    html,
+    text:
+      `New Glow signup.\n\n` +
+      `Business: ${tech.businessName || "(not set)"}\n` +
+      `Name: ${tech.name || "(not set)"}\n` +
+      `Email: ${tech.email}\n` +
+      `Booking link: ${pageUrl}\n` +
+      `Offer: ${offerLine}\n` +
+      `${tech.referredBy ? `Referred by: ${tech.referredBy}\n` : ""}` +
+      `\nThey have not paid yet. Owner dashboard: ${dash("/dashboard/admin")}`,
+    idempotencyKey: `owner-signup/${tech.id}`,
+  });
+}
+
 /** Immediate welcome email with the go-live checklist. */
 export async function sendWelcomeEmail(tech: Tech): Promise<void> {
   const url = (p: string) => `${APP_URL}${p}`;
+  const price = tech.signupOffer === "tester" ? "£1" : "£9.50";
   const html = brandedEmail({
     brand: BRAND,
     businessName: "Glow",
     heading: `Welcome, ${tech.businessName}!`,
     bodyHtml:
-      `Your booking page is ready at <strong>${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}</strong>.<br/><br/>` +
+      `Your booking page is reserved at <strong>${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}</strong>.<br/><br/>` +
       `Three steps to your first booking:<br/><br/>` +
-      `1. <a href="${url("/dashboard/services")}" style="color:${BRAND}">Add your services and prices</a><br/>` +
-      `2. <a href="${url("/dashboard/availability")}" style="color:${BRAND}">Set your working hours</a><br/>` +
-      `3. Put your link in your Instagram and TikTok bio<br/><br/>` +
-      `Want card deposits paid straight to your bank? <a href="${url("/dashboard/payments")}" style="color:${BRAND}">Connect payouts</a> whenever you're ready.`,
-    buttonLabel: "Open your dashboard",
-    buttonUrl: url("/dashboard"),
+      `1. <a href="${url("/dashboard/billing")}" style="color:${BRAND}">Activate your plan</a> (${price} for your first month, then £19/mo)<br/>` +
+      `2. <a href="${url("/dashboard/services")}" style="color:${BRAND}">Add your services and prices</a><br/>` +
+      `3. Set your hours and put your link in your Instagram and TikTok bio<br/><br/>` +
+      `Activating unlocks your services, availability, deposits and client messaging - and switches your booking page on so clients can book.`,
+    buttonLabel: `Activate for ${price}`,
+    buttonUrl: url("/dashboard/billing"),
   });
   await sendEmail({
     to: tech.email,
-    subject: "Welcome to Glow - your booking page is ready",
+    subject: "Welcome to Glow - activate your booking page",
     html,
-    text: `Welcome to Glow! Your booking page: ${APP_URL}/${tech.handle}. Next: add services, set your hours, share your link. Dashboard: ${APP_URL}/dashboard`,
+    text: `Welcome to Glow! Your booking page: ${APP_URL}/${tech.handle}. First, activate your plan (${price} first month, then £19/mo) to unlock your tools and switch on bookings: ${APP_URL}/dashboard/billing`,
     idempotencyKey: `welcome/${tech.id}`,
   });
 }
