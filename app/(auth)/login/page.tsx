@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { ClearSessionCache } from "@/components/auth/clear-session-cache";
 import { loginAction } from "../actions";
 
 export default async function LoginPage({
@@ -12,6 +13,7 @@ export default async function LoginPage({
   const { error, reset } = await searchParams;
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4">
+      <ClearSessionCache />
       <div className="w-full max-w-md animate-fade-in">
         <Link href="/" className="mb-6 flex items-center justify-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white">
