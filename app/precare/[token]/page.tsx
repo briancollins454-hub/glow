@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { heroBrand } from "@/lib/booking/brand";
 import { CalendarHeart, CheckCircle2, ClipboardList } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import {
@@ -36,7 +37,7 @@ export default async function PrecarePage({
   const instructions = service?.precareText?.trim();
   if (!instructions) notFound();
 
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
   const confirmed = row.status === "confirmed" || sp.done === "1";
   const inactive = row.status === "skipped";
 

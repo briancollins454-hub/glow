@@ -4,7 +4,7 @@ import type { Service } from "@/lib/db/types";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
-import { withAlpha } from "@/lib/booking/brand";
+import { onBrand, withAlpha } from "@/lib/booking/brand";
 
 export function ServiceCard({
   service,
@@ -76,8 +76,8 @@ export function ServiceCard({
         </div>
 
         <span
-          className="mt-4 block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition group-hover:brightness-110"
-          style={{ backgroundColor: brand }}
+          className="mt-4 block w-full rounded-xl py-3 text-center text-sm font-semibold transition group-hover:brightness-110"
+          style={{ backgroundColor: brand, color: onBrand(brand) }}
         >
           Book this service
         </span>

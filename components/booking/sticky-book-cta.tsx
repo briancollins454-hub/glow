@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Calendar } from "lucide-react";
+import { onBrand } from "@/lib/booking/brand";
 
 export function StickyBookCta({
   minPriceLabel,
@@ -41,8 +42,8 @@ export function StickyBookCta({
       <button
         type="button"
         onClick={scrollToServices}
-        className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white shadow-soft transition active:scale-[0.98]"
-        style={{ backgroundColor: brand }}
+        className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold shadow-soft transition active:scale-[0.98]"
+        style={{ backgroundColor: brand, color: onBrand(brand) }}
       >
         <Calendar className="h-4 w-4" />
         Book from {minPriceLabel}

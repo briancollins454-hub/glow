@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { fmtTime, TZ } from "@/lib/format";
+import { onBrand } from "@/lib/booking/brand";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -70,7 +71,7 @@ export function DateSlotPicker({
               className="flex min-w-[64px] flex-col items-center rounded-xl border px-3 py-2 text-center text-sm transition"
               style={
                 isActive
-                  ? { backgroundColor: brand, borderColor: brand, color: "white" }
+                  ? { backgroundColor: brand, borderColor: brand, color: onBrand(brand) }
                   : { borderColor: "rgba(255,255,255,0.14)" }
               }
             >
@@ -100,7 +101,7 @@ export function DateSlotPicker({
               className="rounded-xl border py-2.5 text-center text-sm font-medium transition"
               style={
                 isActive
-                  ? { backgroundColor: brand, borderColor: brand, color: "white" }
+                  ? { backgroundColor: brand, borderColor: brand, color: onBrand(brand) }
                   : { borderColor: "rgba(255,255,255,0.14)" }
               }
             >

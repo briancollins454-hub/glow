@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { Clock, CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
@@ -22,7 +23,7 @@ export default async function RequestedBookingPage({
   if (!tech || !booking || booking.techId !== tech.id) notFound();
 
   const service = await getService(sb, booking.serviceId);
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">

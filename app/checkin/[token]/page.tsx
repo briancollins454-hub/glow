@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { heroBrand } from "@/lib/booking/brand";
 import { CalendarHeart, CheckCircle2, HeartPulse } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getCategory, getReactionCheckinByToken, getTechById } from "@/lib/db/queries";
@@ -34,7 +35,7 @@ export default async function CheckinPage({
   ]);
   if (!tech) notFound();
 
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
   const responded = checkin.status === "responded" || sp.done === "1";
   const catName = category?.name?.toLowerCase() ?? "your treatment";
 

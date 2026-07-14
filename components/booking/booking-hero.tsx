@@ -1,6 +1,6 @@
 import { Instagram, MapPin, Star } from "lucide-react";
 import { HeroPhoto, AvatarPhoto } from "@/components/booking/service-photo";
-import { initials, shade, withAlpha } from "@/lib/booking/brand";
+import { heroBrand, initials, shade, withAlpha } from "@/lib/booking/brand";
 
 export function BookingHero({
   businessName,
@@ -23,7 +23,9 @@ export function BookingHero({
   ratingAvg: number;
   ratingCount: number;
 }) {
-  const darker = shade(brand, -32);
+  // Backgrounds sit under fixed white text, so light brands are darkened first.
+  const heroBase = heroBrand(brand);
+  const darker = shade(heroBase, -32);
   const glow = withAlpha(brand, 0.35);
 
   return (
@@ -50,7 +52,7 @@ export function BookingHero({
           <div
             className="h-full w-full"
             style={{
-              background: `linear-gradient(145deg, ${brand} 0%, ${darker} 55%, #0b0910 100%)`,
+              background: `linear-gradient(145deg, ${heroBase} 0%, ${darker} 55%, #0b0910 100%)`,
             }}
           />
         )}
@@ -76,7 +78,7 @@ export function BookingHero({
               ) : (
                 <div
                   className="flex h-full w-full items-center justify-center font-display text-2xl font-semibold text-white sm:text-3xl"
-                  style={{ background: `linear-gradient(135deg, ${brand}, ${darker})` }}
+                  style={{ background: `linear-gradient(135deg, ${heroBase}, ${darker})` }}
                 >
                   {initials(businessName)}
                 </div>

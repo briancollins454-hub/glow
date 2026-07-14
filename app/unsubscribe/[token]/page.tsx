@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { heroBrand } from "@/lib/booking/brand";
 import { BellOff, CalendarHeart, CheckCircle2 } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getClientByMessageToken, getTechById } from "@/lib/db/queries";
@@ -21,7 +22,7 @@ export default async function UnsubscribePage({
   if (!client) notFound();
   const tech = await getTechById(sb, client.techId);
   const biz = tech?.businessName ?? "this studio";
-  const brand = tech?.brandColor || "#db2777";
+  const brand = heroBrand(tech?.brandColor || "#db2777");
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">

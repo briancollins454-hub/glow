@@ -11,7 +11,7 @@ import {
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
-import { withAlpha } from "@/lib/booking/brand";
+import { onBrand, withAlpha } from "@/lib/booking/brand";
 import { cn } from "@/lib/utils";
 
 function ServiceAccordionItem({
@@ -121,8 +121,8 @@ function ServiceAccordionItem({
 
           <Link
             href={`/${handle}?service=${service.id}`}
-            className="mt-4 block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition hover:brightness-110"
-            style={{ backgroundColor: brand }}
+            className="mt-4 block w-full rounded-xl py-3 text-center text-sm font-semibold transition hover:brightness-110"
+            style={{ backgroundColor: brand, color: onBrand(brand) }}
           >
             Book this service
           </Link>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
@@ -47,7 +48,7 @@ export default async function ApproveBookingPage({
   const priorBookings = await bookingsForClient(sb, tech.id, client.id);
   const completedVisits = priorBookings.filter((b) => b.status === "completed").length;
 
-  const brand = tech.brandColor || "#db2777";
+  const brand = heroBrand(tech.brandColor || "#db2777");
   const resolved = done === "approved" || done === "declined" || booking.status !== "pending_approval";
 
   return (
