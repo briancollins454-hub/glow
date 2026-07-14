@@ -9,6 +9,8 @@ import { InstallPrompt } from "@/components/dashboard/install-prompt";
 import { PrefetchDashboardRoutes } from "@/components/dashboard/prefetch-dashboard-routes";
 import { useUnreadMessages } from "@/components/dashboard/unread-messages-badge";
 import { logoutAction } from "@/app/(auth)/actions";
+import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
+import { clearDashboardCache } from "@/lib/dashboard/client-cache";
 
 export function DashboardShell({
   tech,
@@ -60,7 +62,16 @@ export function DashboardShell({
               <span className="block font-medium leading-tight">{tech.businessName}</span>
               <span className="block text-xs text-ink-faint">{tech.email}</span>
             </span>
-            <form action={logoutAction}>
+            <form
+              action={logoutAction}
+              onSubmit={() => {
+                // Server-action redirects are soft navigations, so wipe the
+                // in-memory identity/data caches or the next login would
+                // briefly show this account.
+                invalidateDashboardAuth();
+                clearDashboardCache();
+              }}
+            >
               <button
                 type="submit"
                 className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-white/[0.06]"
