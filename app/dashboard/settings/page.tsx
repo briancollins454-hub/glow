@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, CheckCircle2, Copy, Download, KeyRound, ShieldAlert } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, CreditCard, Download, KeyRound, ShieldAlert } from "lucide-react";
 import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { PageBrandingUploads } from "@/components/dashboard/page-branding-upload
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
 import { gbp } from "@/lib/format";
+import { isLive, planLabel } from "@/lib/subscriptions";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -434,6 +435,30 @@ export default function SettingsPage() {
             <div><Label htmlFor="confirm">Confirm new password</Label><Input id="confirm" name="confirm" type="password" required minLength={8} /></div>
             <div className="sm:col-span-3"><Button type="submit" variant="secondary">Update password</Button></div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Your plan</CardTitle>
+          <CardDescription>
+            {tech.subscriptionStatus === "comped"
+              ? "This account has complimentary access - nothing to pay or cancel."
+              : isLive(tech)
+                ? `${planLabel(tech)}. Cancel anytime, update your card or view invoices from the billing page.`
+                : "No active plan. Subscribe from the billing page to switch on online bookings."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ButtonLink href="/dashboard/billing" variant="outline">
+            <CreditCard className="h-4 w-4" />
+            {isLive(tech) && tech.subscriptionStatus !== "comped"
+              ? "Manage or cancel my plan"
+              : "View plans"}
+          </ButtonLink>
+          <p className="mt-2 text-xs text-ink-faint">
+            Cancelling your plan stops future payments but keeps your account and data. To delete the account entirely, use &quot;Close account&quot; below.
+          </p>
         </CardContent>
       </Card>
 
