@@ -5,16 +5,18 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   IMPORT_APPOINTMENT_GROUPS,
   IMPORT_COLS,
+  IMPORT_TESTIMONIAL_COLS,
   appointmentColumnsOk,
   appointmentWhenRaw,
   col,
   missingAppointmentGroups,
   parseCsv,
+  testimonialColumnsOk,
 } from "@/lib/csv";
 
-type Kind = "services" | "clients" | "appointments";
+type Kind = "services" | "clients" | "appointments" | "testimonials";
 
-const REQUIRED: Record<Exclude<Kind, "appointments">, string[][]> = {
+const REQUIRED: Record<Exclude<Kind, "appointments" | "testimonials">, string[][]> = {
   services: [["name", "servicename", "service", "itemname", "treatmentname", "title", "item"]],
   clients: [["name", "fullname", "clientname", "customername", "firstname", "first"]],
 };
@@ -22,6 +24,7 @@ const REQUIRED: Record<Exclude<Kind, "appointments">, string[][]> = {
 function label(kind: Kind): string {
   if (kind === "services") return "services";
   if (kind === "clients") return "clients";
+  if (kind === "testimonials") return "testimonials";
   return "appointments";
 }
 
@@ -33,6 +36,9 @@ function describeMissing(kind: Kind, headers: string[]): string {
       (key) => IMPORT_APPOINTMENT_GROUPS.find((g) => g.key === key)?.label ?? key,
     );
     return `Missing: ${labels.join(", ")}. Fresha exports usually label these as Client, Service(s) and Scheduled date.`;
+  }
+  if (kind === "testimonials") {
+    return "Needs an author/name column and a review/body column.";
   }
   const missing = REQUIRED[kind].filter((group) => col(headers, ...group) === -1).length;
   return `${missing} required column group${missing === 1 ? "" : "s"} missing.`;
@@ -61,7 +67,9 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
         parsed.rows.length > 0 &&
         (kind === "appointments"
           ? appointmentColumnsOk(parsed.headers)
-          : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
+          : kind === "testimonials"
+            ? testimonialColumnsOk(parsed.headers)
+            : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
       const sample =
         kind === "appointments"
           ? (() => {
@@ -77,6 +85,18 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
               ].filter(Boolean);
               return parts.join(" · ");
             })()
+          : kind === "testimonials"
+            ? (() => {
+                const row = parsed.rows[0];
+                if (!row) return "";
+                const iAuthor = col(parsed.headers, ...IMPORT_TESTIMONIAL_COLS.author);
+                const iBody = col(parsed.headers, ...IMPORT_TESTIMONIAL_COLS.body);
+                const parts = [
+                  iAuthor !== -1 ? row[iAuthor] : "",
+                  iBody !== -1 ? row[iBody]?.slice(0, 60) : "",
+                ].filter(Boolean);
+                return parts.join(" · ");
+              })()
           : (parsed.rows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "");
       const detail = ok ? "" : describeMissing(kind, parsed.headers);
       setState({ rows: parsed.rows.length, ok, sample, detail });

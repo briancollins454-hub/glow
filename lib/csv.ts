@@ -149,6 +149,20 @@ export const IMPORT_SERVICE_COLS = {
   description: ["description", "details", "servicedescription"],
 } as const;
 
+export const IMPORT_TESTIMONIAL_COLS = {
+  author: ["author", "authorname", "name", "client", "clientname", "customer", "customername", "fullname"],
+  rating: ["rating", "stars", "score", "starrating"],
+  body: ["review", "body", "comment", "text", "testimonial", "feedback", "message", "content"],
+  date: ["date", "reviewdate", "created", "createdat", "submitted", "submittedat"],
+} as const;
+
+export function testimonialColumnsOk(headers: string[]): boolean {
+  return (
+    col(headers, ...IMPORT_TESTIMONIAL_COLS.author) !== -1 &&
+    col(headers, ...IMPORT_TESTIMONIAL_COLS.body) !== -1
+  );
+}
+
 /** Skip rows that are clearly misparsed CSV fragments (multiline description bugs, etc.). */
 export function isPlausibleServiceName(name: string): boolean {
   const n = name.trim();

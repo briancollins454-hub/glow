@@ -1,16 +1,19 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { Star, Trash2, Eye, EyeOff } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
+import { TestimonialsManager } from "@/components/dashboard/testimonials-manager";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
 import { deleteReviewAction, setReviewStatusAction } from "../actions";
-import type { Review } from "@/lib/db/types";
+import type { Review, Testimonial } from "@/lib/db/types";
 
 type ReviewsData = {
   reviews: Review[];
   clientById: Record<string, string>;
+  testimonials: Testimonial[];
 };
 
 export default function ReviewsPage() {
@@ -21,7 +24,9 @@ export default function ReviewsPage() {
   );
 }
 
-function ReviewsView({ reviews, clientById }: ReviewsData) {
+function ReviewsView({ reviews, clientById, testimonials }: ReviewsData) {
+  const searchParams = useSearchParams();
+  const terr = searchParams.get("terr");
   const approved = reviews.filter((r) => r.status === "approved");
   const avg = approved.length
     ? (approved.reduce((s, r) => s + r.rating, 0) / approved.length).toFixed(1)
@@ -35,6 +40,10 @@ function ReviewsView({ reviews, clientById }: ReviewsData) {
           Approve the ones you want on your booking page. Clients are asked automatically after each appointment.
         </p>
       </div>
+
+      {terr && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{terr}</div>
+      )}
 
       {avg && (
         <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
@@ -99,6 +108,8 @@ function ReviewsView({ reviews, clientById }: ReviewsData) {
           ))}
         </CardContent>
       </Card>
+
+      <TestimonialsManager testimonials={testimonials ?? []} />
     </div>
   );
 }

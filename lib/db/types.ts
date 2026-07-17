@@ -533,6 +533,18 @@ export interface Review {
   createdAt: string;
 }
 
+/** Unverified quote imported from a previous booking platform. Never affects Glow review averages. */
+export interface Testimonial {
+  id: string;
+  techId: string;
+  authorLabel: string;
+  rating: number | null;
+  body: string;
+  sourceLabel: string;
+  showUntil: string | null;
+  createdAt: string;
+}
+
 export interface AuditEvent {
   id: string;
   techId: string;

@@ -27,6 +27,7 @@ import type {
   ReactionCheckin,
   Reminder,
   Review,
+  Testimonial,
   Service,
   ServiceAddon,
   ServiceCategory,
@@ -1315,6 +1316,77 @@ export async function updateReview(sb: SB, id: string, patch: Partial<Review>): 
 }
 export async function deleteReview(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("reviews").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Testimonials (imported, unverified) ----------------
+export async function countTestimonials(sb: SB, techId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("testimonials")
+    .select("*", { count: "exact", head: true })
+    .eq("techId", techId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function listTestimonials(sb: SB, techId: string): Promise<Testimonial[]> {
+  const { data, error } = await sb
+    .from("testimonials")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  return must(data as Testimonial[], error) ?? [];
+}
+
+/** Public booking page: only currently visible testimonials. */
+export async function listPublishedTestimonials(
+  sb: SB,
+  techId: string,
+): Promise<Testimonial[]> {
+  const now = new Date();
+  const { data, error } = await sb
+    .from("testimonials")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: false });
+  const rows = must(data as Testimonial[], error) ?? [];
+  return rows.filter(
+    (t) => !t.showUntil || new Date(t.showUntil).getTime() > now.getTime(),
+  );
+}
+
+export async function getTestimonial(
+  sb: SB,
+  id: string,
+): Promise<Testimonial | null> {
+  const { data, error } = await sb.from("testimonials").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Testimonial | null;
+}
+
+export async function createTestimonial(
+  sb: SB,
+  t: Omit<Testimonial, "id" | "createdAt">,
+): Promise<Testimonial> {
+  const { data, error } = await sb
+    .from("testimonials")
+    .insert({ ...t, id: randomId("tmon") })
+    .select("*")
+    .single();
+  return must(data as Testimonial, error);
+}
+
+export async function updateTestimonial(
+  sb: SB,
+  id: string,
+  patch: Partial<Testimonial>,
+): Promise<void> {
+  const { error } = await sb.from("testimonials").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteTestimonial(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("testimonials").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

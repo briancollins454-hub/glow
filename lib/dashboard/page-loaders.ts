@@ -25,6 +25,7 @@ import {
   listReactionCheckins,
   listReminders,
   listReviewsForTech,
+  listTestimonials,
   listServices,
   listTimeOff,
   listUpcomingBookings,
@@ -226,11 +227,14 @@ export async function loadDashboardPageData(
       return { reminders, services, bookings, clients, checkins, infillNudges, preCare, tech };
     }
     case "reviews": {
-      const reviews = await listReviewsForTech(sb, tech.id);
+      const [reviews, testimonials] = await Promise.all([
+        listReviewsForTech(sb, tech.id),
+        listTestimonials(sb, tech.id).catch(() => []),
+      ]);
       const clientById = Object.fromEntries(
         (await getClientNameMap(sb, reviews.map((r) => r.clientId))).entries(),
       );
-      return { reviews, clientById };
+      return { reviews, clientById, testimonials };
     }
     case "reports": {
       return getReportSummary(sb, tech.id);
