@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, CheckCircle2, Copy, CreditCard, Download, KeyRound, ShieldAlert } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, CreditCard, Download, KeyRound, MessageSquare, ShieldAlert } from "lucide-react";
 import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -39,9 +39,10 @@ const GOOGLE_MSG: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const { tech } = useDashboardAuth();
+  const { tech, smsPlatformConfigured } = useDashboardAuth();
   const searchParams = useSearchParams();
   if (!tech) return null;
+  const smsOnForBusiness = tech.smsRemindersEnabled !== false;
 
   const saved = searchParams.get("saved");
   const pw = searchParams.get("pw");
@@ -372,6 +373,55 @@ export default function SettingsPage() {
                 </span>
               </span>
             </label>
+            <div className="rounded-xl border border-edge bg-cream px-4 py-3 sm:col-span-2">
+              <div className="flex items-start gap-2.5">
+                <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">SMS reminders</span>
+                    {smsPlatformConfigured ? (
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                          smsOnForBusiness
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : "bg-white/10 text-ink-faint"
+                        }`}
+                      >
+                        {smsOnForBusiness ? "On" : "Off for your business"}
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">
+                        Not available yet
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-ink-faint">
+                    {smsPlatformConfigured
+                      ? "Included with Glow — no Twilio setup needed. We text clients for 24-hour and 2-hour reminders and balance due when they leave a UK mobile. Booking confirmations stay email-only."
+                      : "SMS is not enabled on this Glow environment yet. Email reminders still send as usual."}
+                  </p>
+                  {smsPlatformConfigured && (
+                    <>
+                      <input type="hidden" name="smsRemindersField" value="1" />
+                      <label className="mt-3 flex items-start gap-2.5 text-sm">
+                        <input
+                          type="checkbox"
+                          name="smsRemindersEnabled"
+                          defaultChecked={smsOnForBusiness}
+                          className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                        />
+                        <span>
+                          <span className="font-medium">Send SMS to my clients</span>
+                          <span className="mt-0.5 block text-xs text-ink-faint">
+                            Turn off to use email only. Clients still need a mobile number on their booking for texts to send.
+                          </span>
+                        </span>
+                      </label>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

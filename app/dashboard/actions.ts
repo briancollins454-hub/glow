@@ -224,6 +224,10 @@ export async function updateSettingsAction(formData: FormData) {
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
     infillNudgesEnabled: formData.get("infillNudgesEnabled") === "on",
     preCareConfirmationsEnabled: formData.get("preCareConfirmationsEnabled") === "on",
+    // Only present when the Settings SMS control is shown (platform Twilio on).
+    ...(formData.get("smsRemindersField") === "1"
+      ? { smsRemindersEnabled: formData.get("smsRemindersEnabled") === "on" }
+      : {}),
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),

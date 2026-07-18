@@ -9,6 +9,7 @@ type MeResponse = {
   admin: boolean;
   role?: "owner" | "staff";
   staff?: StaffMember | null;
+  smsPlatformConfigured?: boolean;
 };
 
 let cachedMe: MeResponse | null = null;
@@ -41,6 +42,7 @@ export function useDashboardAuth() {
     admin: boolean;
     role: "owner" | "staff";
     staff: StaffMember | null;
+    smsPlatformConfigured: boolean;
     loading: boolean;
   }>(() =>
     cachedMe
@@ -49,9 +51,17 @@ export function useDashboardAuth() {
           admin: cachedMe.admin,
           role: cachedMe.role ?? "owner",
           staff: cachedMe.staff ?? null,
+          smsPlatformConfigured: cachedMe.smsPlatformConfigured ?? false,
           loading: false,
         }
-      : { tech: null, admin: false, role: "owner", staff: null, loading: true },
+      : {
+          tech: null,
+          admin: false,
+          role: "owner",
+          staff: null,
+          smsPlatformConfigured: false,
+          loading: true,
+        },
   );
 
   useEffect(() => {
@@ -67,6 +77,7 @@ export function useDashboardAuth() {
         admin: me.admin,
         role: me.role ?? "owner",
         staff: me.staff ?? null,
+        smsPlatformConfigured: me.smsPlatformConfigured ?? false,
         loading: false,
       });
     });

@@ -9,6 +9,11 @@ export function smsConfigured(): boolean {
   );
 }
 
+/** Whether this business wants client SMS (platform Twilio must also be configured). */
+export function techAllowsSms(tech: { smsRemindersEnabled?: boolean | null }): boolean {
+  return tech.smsRemindersEnabled !== false;
+}
+
 /**
  * Normalise UK numbers to E.164: "07700 900123" -> "+447700900123".
  * Returns "" when the number doesn't look sendable.
