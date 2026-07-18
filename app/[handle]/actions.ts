@@ -47,6 +47,9 @@ import {
   loyaltyDiscountFor,
 } from "@/lib/bookings";
 import { resolveBasketExtras } from "@/lib/booking/basket";
+import { ANY_STAFF, capableStaff } from "@/lib/booking/staff";
+import { listStaff, staffServiceMap } from "@/lib/db/queries";
+import type { Booking, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 /** Client asks to be told when a cancellation frees up a slot. */
 export async function joinWaitlistAction(formData: FormData) {
@@ -90,18 +93,92 @@ async function loadAvailability(sb: ReturnType<typeof supabaseService>, techId: 
   return { workingHours, timeOff, bookings };
 }
 
+/** Rows belonging to one staff member (legacy null rows count as the owner's). */
+function rowsForStaff<T extends { staffId?: string | null }>(rows: T[], staff: StaffMember): T[] {
+  return rows.filter(
+    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
+  );
+}
+
+/**
+ * Who takes this visit? Returns the chosen (or auto-assigned) staff member, or
+ * null for pre-migration accounts with no staff rows, or "invalid" when the
+ * requested person can't perform the visit.
+ */
+async function resolveBookingStaff(
+  sb: ReturnType<typeof supabaseService>,
+  techId: string,
+  serviceIds: string[],
+  requested: string,
+  slotIso: string,
+  totalDurationMin: number,
+  availability: { workingHours: WorkingHour[]; timeOff: TimeOff[]; bookings: Booking[] },
+): Promise<{ staff: StaffMember | null; legacy: boolean } | "invalid"> {
+  const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
+    () => [] as StaffMember[],
+  );
+  if (staffList.length === 0) return { staff: null, legacy: true };
+
+  const restrictions = await staffServiceMap(sb, staffList.map((s) => s.id)).catch(
+    () => ({}) as Record<string, string[]>,
+  );
+  const capable = capableStaff(staffList, restrictions, serviceIds);
+  if (capable.length === 0) return "invalid";
+
+  const dateStr = dateStrInTz(new Date(slotIso));
+  const freeFor = (staff: StaffMember) =>
+    daySlotsForDuration(totalDurationMin, dateStr, {
+      workingHours: rowsForStaff(availability.workingHours, staff),
+      timeOff: availability.timeOff,
+      bookings: rowsForStaff(availability.bookings, staff),
+    }).includes(slotIso);
+
+  if (requested && requested !== ANY_STAFF) {
+    const staff = capable.find((s) => s.id === requested);
+    if (!staff) return "invalid";
+    return freeFor(staff) ? { staff, legacy: false } : "invalid";
+  }
+
+  // "Any available": first capable person free at this exact time.
+  for (const staff of capable) {
+    if (freeFor(staff)) return { staff, legacy: false };
+  }
+  return "invalid";
+}
+
+/** Scope an availability context to one staff member when one is chosen. */
+async function scopeCtxToStaff(
+  sb: ReturnType<typeof supabaseService>,
+  techId: string,
+  ctx: { workingHours: WorkingHour[]; timeOff: TimeOff[]; bookings: Booking[] },
+  staffId: string | null | undefined,
+): Promise<{ workingHours: WorkingHour[]; timeOff: TimeOff[]; bookings: Booking[] }> {
+  if (!staffId) return ctx;
+  const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
+    () => [] as StaffMember[],
+  );
+  const staff = staffList.find((s) => s.id === staffId);
+  if (!staff) return ctx;
+  return {
+    workingHours: rowsForStaff(ctx.workingHours, staff),
+    timeOff: ctx.timeOff,
+    bookings: rowsForStaff(ctx.bookings, staff),
+  };
+}
+
 /** Treatment slots valid after a chosen patch-test time (client-side step 2). */
 export async function loadTreatmentSlotsAfterPatchAction(
   handle: string,
   treatmentServiceId: string,
   patchSlotIso: string,
+  staffId?: string | null,
 ): Promise<{ dateStr: string; slots: string[] }[]> {
   const sb = supabaseService();
   const tech = await getTechByHandle(sb, handle);
   const treatmentService = await getService(sb, treatmentServiceId);
   if (!tech || !treatmentService || !patchSlotIso) return [];
 
-  const [category, services, ctx] = await Promise.all([
+  const [category, services, fullCtx] = await Promise.all([
     getCategory(sb, treatmentService.categoryId),
     listServices(sb, tech.id),
     loadAvailability(sb, tech.id),
@@ -109,6 +186,7 @@ export async function loadTreatmentSlotsAfterPatchAction(
   const patchTestService = findPatchTestService(services, treatmentService.categoryId);
   if (!patchTestService) return [];
 
+  const ctx = await scopeCtxToStaff(sb, tech.id, fullCtx, staffId);
   return treatmentSlotsAfterPatchTest(
     treatmentService,
     patchTestService,
@@ -121,6 +199,7 @@ export async function loadTreatmentSlotsAfterPatchAction(
 export async function createPairedPublicBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
   const serviceId = String(formData.get("serviceId") ?? "");
+  const pairStaffId = String(formData.get("staffId") ?? "").trim() || null;
   const patchSlotIso = String(formData.get("patchSlot") ?? "");
   const treatmentSlotIso = String(formData.get("slot") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -143,13 +222,16 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   if (!isLive(tech)) redirect(`/${tech.handle}?service=${serviceId}&err=not_live`);
   if (!policyAccepted) redirect(`${base}&err=form`);
 
-  const [category, services, ctx] = await Promise.all([
+  const [category, services, fullCtx] = await Promise.all([
     getCategory(sb, service.categoryId),
     listServices(sb, tech.id),
     loadAvailability(sb, tech.id),
   ]);
   const patchTestService = findPatchTestService(services, service.categoryId);
   if (!patchTestService) redirect(`/${handle}?service=${serviceId}&err=patch`);
+
+  // Paired bookings stay with one person; scope the diary when one is set.
+  const ctx = await scopeCtxToStaff(sb, tech!.id, fullCtx, pairStaffId);
 
   const timing = validatePairedPatchTestTiming(
     patchTestService,
@@ -218,6 +300,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         patchTestService,
         category,
         patchSlotIso,
+        staffId: pairStaffId,
       });
     } catch (e) {
       if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -244,6 +327,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         service,
         client,
         startIso: treatmentSlotIso,
+        staffId: pairStaffId,
         addons,
         discountPennies,
         riskTier,
@@ -271,6 +355,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         service,
         client,
         startIso: treatmentSlotIso,
+        staffId: pairStaffId,
         addons,
         discountPennies,
         riskTier,
@@ -295,6 +380,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
       service,
       client,
       startIso: treatmentSlotIso,
+        staffId: pairStaffId,
       addons,
       discountPennies,
       riskTier,
@@ -314,6 +400,7 @@ export async function createPublicBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
   const serviceId = String(formData.get("serviceId") ?? "");
   const alsoParam = String(formData.get("also") ?? "");
+  const requestedStaff = String(formData.get("staff") ?? ANY_STAFF);
   const slotIso = String(formData.get("slot") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
@@ -366,14 +453,32 @@ export async function createPublicBookingAction(formData: FormData) {
   const basket = [service!, ...extras];
   const totalDuration = basketDurationMin(basket);
 
-  const dateStr = dateStrInTz(new Date(slotIso));
-  const stillFree = daySlotsForDuration(totalDuration, dateStr, {
-    workingHours,
-    timeOff,
-    bookings,
-  }).includes(slotIso);
-  if (!stillFree) {
+  // Resolve who takes the visit (salon mode) and re-check their diary is
+  // still free. Pre-migration accounts fall back to the whole-diary check.
+  const resolved = await resolveBookingStaff(
+    sb,
+    tech!.id,
+    basket.map((s) => s.id),
+    requestedStaff,
+    slotIso,
+    totalDuration,
+    { workingHours, timeOff, bookings },
+  );
+  if (resolved === "invalid") {
     redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
+  }
+  const bookingStaff = (resolved as { staff: StaffMember | null }).staff;
+
+  if (!bookingStaff) {
+    const dateStr = dateStrInTz(new Date(slotIso));
+    const stillFree = daySlotsForDuration(totalDuration, dateStr, {
+      workingHours,
+      timeOff,
+      bookings,
+    }).includes(slotIso);
+    if (!stillFree) {
+      redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
+    }
   }
 
   const categoryByServiceId: Record<string, string> = {};
@@ -473,6 +578,7 @@ export async function createPublicBookingAction(formData: FormData) {
           services: basket,
           client,
           startIso: slotIso,
+          staffId: bookingStaff?.id ?? null,
           status: "pending_approval",
           addons,
           discountPennies,
@@ -486,6 +592,7 @@ export async function createPublicBookingAction(formData: FormData) {
           service: service!,
           client,
           startIso: slotIso,
+          staffId: bookingStaff?.id ?? null,
           addons,
           discountPennies,
           riskTier,
@@ -518,6 +625,7 @@ export async function createPublicBookingAction(formData: FormData) {
           services: basket,
           client,
           startIso: slotIso,
+          staffId: bookingStaff?.id ?? null,
           status: "pending",
           addons,
           discountPennies,
@@ -532,6 +640,7 @@ export async function createPublicBookingAction(formData: FormData) {
           service: service!,
           client,
           startIso: slotIso,
+          staffId: bookingStaff?.id ?? null,
           addons,
           discountPennies,
           riskTier,
@@ -556,6 +665,7 @@ export async function createPublicBookingAction(formData: FormData) {
         services: basket,
         client,
         startIso: slotIso,
+          staffId: bookingStaff?.id ?? null,
         status: "confirmed",
         addons,
         discountPennies,
@@ -570,6 +680,7 @@ export async function createPublicBookingAction(formData: FormData) {
         service: service!,
         client,
         startIso: slotIso,
+          staffId: bookingStaff?.id ?? null,
         addons,
         discountPennies,
         riskTier,

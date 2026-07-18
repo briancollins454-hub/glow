@@ -10,6 +10,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 async function ctx() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
+  // Billing is the owner's business, never a staff login's.
+  if (c!.role !== "owner") redirect("/dashboard");
   return c;
 }
 

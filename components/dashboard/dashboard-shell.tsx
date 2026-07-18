@@ -15,10 +15,14 @@ import { clearDashboardCache } from "@/lib/dashboard/client-cache";
 export function DashboardShell({
   tech,
   admin,
+  role = "owner",
+  staffName,
   children,
 }: {
   tech: Tech;
   admin: boolean;
+  role?: "owner" | "staff";
+  staffName?: string | null;
   children: React.ReactNode;
 }) {
   const unread = useUnreadMessages();
@@ -60,7 +64,9 @@ export function DashboardShell({
             </Link>
             <span className="hidden text-right text-sm sm:block">
               <span className="block font-medium leading-tight">{tech.businessName}</span>
-              <span className="block text-xs text-ink-faint">{tech.email}</span>
+              <span className="block text-xs text-ink-faint">
+                {role === "staff" && staffName ? staffName : tech.email}
+              </span>
             </span>
             <form
               action={logoutAction}
@@ -87,7 +93,7 @@ export function DashboardShell({
       <div className="container-page grid gap-6 py-6 pb-28 lg:grid-cols-[220px_1fr] lg:pb-6">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
           <div className="card max-w-full lg:py-1">
-            <SidebarNav unread={unread} admin={admin} />
+            <SidebarNav unread={unread} admin={admin} role={role} />
           </div>
         </aside>
         <main className="min-w-0">{children}</main>

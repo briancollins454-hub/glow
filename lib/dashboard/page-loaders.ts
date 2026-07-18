@@ -46,7 +46,7 @@ import type { Tech } from "@/lib/db/types";
 import { supabaseService, serviceConfigured } from "@/lib/supabase/service";
 import { isLive } from "@/lib/subscriptions";
 
-type Ctx = { sb: SupabaseClient; tech: Tech };
+type Ctx = { sb: SupabaseClient; tech: Tech; role?: "owner" | "staff" };
 
 export const DASHBOARD_DATA_KEYS = [
   "home",
@@ -54,6 +54,7 @@ export const DASHBOARD_DATA_KEYS = [
   "services",
   "clients",
   "availability",
+  "team",
   "forms",
   "reminders",
   "reviews",
@@ -69,7 +70,7 @@ export type DashboardDataKey = (typeof DASHBOARD_DATA_KEYS)[number];
 
 export async function loadDashboardPageData(
   key: DashboardDataKey,
-  { sb, tech }: Ctx,
+  { sb, tech, role = "owner" }: Ctx,
 ): Promise<unknown> {
   switch (key) {
     case "home": {
@@ -147,13 +148,15 @@ export async function loadDashboardPageData(
       const now = Date.now();
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
-      const [bookings, services, clients, waitlist] = await Promise.all([
+      const { listStaff } = await import("@/lib/db/queries");
+      const [bookings, services, clients, waitlist, staff] = await Promise.all([
         listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
         listServices(sb, tech.id),
         listClients(sb, tech.id),
         listWaitlist(sb, tech.id).catch(() => []),
+        listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
       ]);
-      return { bookings, services, clients, waitlist, now };
+      return { bookings, services, clients, waitlist, staff, now };
     }
     case "services": {
       const [categories, services, addons, retests, clients, bookings, products, batchSummary] =
@@ -187,11 +190,41 @@ export async function loadDashboardPageData(
       return { clients, visitsByClient: Object.fromEntries(visitsEntries) };
     }
     case "availability": {
+      // The "Opening hours" page edits the OWNER's diary; team members' hours
+      // live on the Team page.
+      const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
+      const owner = await getOrCreateOwnerStaff(supabaseService(), tech).catch(() => null);
       const [hours, offs] = await Promise.all([
-        listWorkingHours(sb, tech.id),
+        listWorkingHours(sb, tech.id, owner?.id),
         listTimeOff(sb, tech.id),
       ]);
       return { hours, offs };
+    }
+    case "team": {
+      if (role !== "owner") return { forbidden: true };
+      try {
+        const svc = supabaseService();
+        const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
+        await getOrCreateOwnerStaff(svc, tech);
+        const { listStaff, staffServiceMap } = await import("@/lib/db/queries");
+        const [staff, services, allHours] = await Promise.all([
+          listStaff(svc, tech.id),
+          listServices(sb, tech.id, { activeOnly: true }),
+          listWorkingHours(sb, tech.id),
+        ]);
+        const restrictions = await staffServiceMap(svc, staff.map((s) => s.id));
+        const owner = staff.find((s) => s.role === "owner");
+        const hoursByStaff: Record<string, typeof allHours> = {};
+        for (const h of allHours) {
+          const sid = h.staffId ?? owner?.id;
+          if (!sid) continue;
+          (hoursByStaff[sid] ??= []).push(h);
+        }
+        return { staff, services, restrictions, hoursByStaff };
+      } catch {
+        // staff_members migration not applied yet on this environment.
+        return { unavailable: true };
+      }
     }
     case "forms": {
       const questions = await listQuestions(sb, tech.id);
@@ -264,7 +297,7 @@ export async function loadDashboardPageData(
     case "feedback":
       return {};
     case "admin": {
-      if (!isAdminTech(tech)) return { forbidden: true };
+      if (role !== "owner" || !isAdminTech(tech)) return { forbidden: true };
       const adminSb = supabaseService();
       const [{ data: techsData }, { data: closuresData }, traffic] = await Promise.all([
         adminSb.from("techs").select("*").order("createdAt", { ascending: false }),

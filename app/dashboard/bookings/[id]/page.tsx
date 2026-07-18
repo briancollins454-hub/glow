@@ -39,15 +39,19 @@ export default async function EditBookingPage({
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
-  const [client, service, services, products, batches, usages, preCare] = await Promise.all([
-    getClient(sb, booking.clientId),
-    getService(sb, booking.serviceId),
-    listServices(sb, tech.id, { activeOnly: true }),
-    listProducts(sb, tech.id),
-    listProductBatches(sb, tech.id),
-    productUsagesForClient(sb, tech.id, booking.clientId),
-    preCareForBooking(sb, booking.id).catch(() => null),
-  ]);
+  const [client, service, services, products, batches, usages, preCare, bookingStaff] =
+    await Promise.all([
+      getClient(sb, booking.clientId),
+      getService(sb, booking.serviceId),
+      listServices(sb, tech.id, { activeOnly: true }),
+      listProducts(sb, tech.id),
+      listProductBatches(sb, tech.id),
+      productUsagesForClient(sb, tech.id, booking.clientId),
+      preCareForBooking(sb, booking.id).catch(() => null),
+      booking.staffId
+        ? import("@/lib/db/queries").then((m) => m.getStaff(sb, booking.staffId!)).catch(() => null)
+        : Promise.resolve(null),
+    ]);
 
   const productById = new Map(products.map((p) => [p.id, p]));
   const activeBatches = batches.filter((b) => !b.retiredAtIso);
@@ -83,6 +87,11 @@ export default async function EditBookingPage({
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-2xl font-semibold">{client?.name ?? "Booking"}</h1>
         {statusBadge(booking.status)}
+        {bookingStaff && (
+          <span className="rounded-full border border-edge bg-cream px-3 py-1 text-xs font-medium text-ink-soft">
+            with {bookingStaff.name}
+          </span>
+        )}
       </div>
 
       {saved && (

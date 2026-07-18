@@ -16,13 +16,14 @@ import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
-import type { Booking, Client, Service, WaitlistEntry } from "@/lib/db/types";
+import type { Booking, Client, Service, StaffMember, WaitlistEntry } from "@/lib/db/types";
 
 type BookingsData = {
   bookings: Booking[];
   services: Service[];
   clients: Client[];
   waitlist: WaitlistEntry[];
+  staff?: StaffMember[];
   now: number;
 };
 
@@ -34,7 +35,7 @@ export default function BookingsPage() {
   );
 }
 
-function BookingsView({ bookings, services, clients, waitlist, now }: BookingsData) {
+function BookingsView({ bookings, services, clients, waitlist, staff = [], now }: BookingsData) {
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const lateErr = searchParams.get("lateerr");
@@ -43,6 +44,9 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
+
+  const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
+  const showStaff = staff.length > 1;
 
   const todayStr = fmtDate(new Date().toISOString());
   const todayKey = dateStrInTz(new Date());
@@ -82,6 +86,7 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">
           {serviceById[b.serviceId] ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}
+          {showStaff && b.staffId && staffById[b.staffId] ? ` · with ${staffById[b.staffId]}` : ""}
         </p>
         <p className="mt-0.5 text-xs text-ink-faint">
           <span className={`font-medium ${muted ? "text-ink-soft" : "text-ink"}`}>
@@ -140,6 +145,16 @@ function BookingsView({ bookings, services, clients, waitlist, now }: BookingsDa
                 {services.map((s) => <option key={s.id} value={s.id}>{s.name} · {gbp(s.pricePennies)}</option>)}
               </Select>
             </div>
+            {staff.length > 1 && (
+              <div>
+                <Label>With</Label>
+                <Select name="staffId" defaultValue={staff[0]?.id ?? ""}>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <div><Label>New client name</Label><Input name="clientName" placeholder="(if new)" /></div>
             <div><Label>Email</Label><Input name="clientEmail" type="email" placeholder="(optional)" /></div>
             <div><Label>Phone</Label><Input name="clientPhone" placeholder="(optional)" /></div>

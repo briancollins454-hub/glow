@@ -30,7 +30,7 @@ function DashboardAuthLoading() {
 }
 
 export function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
-  const { tech, admin, loading } = useDashboardAuth();
+  const { tech, admin, role, staff, loading } = useDashboardAuth();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   );
 
   return (
-    <DashboardShell tech={tech} admin={admin}>
+    <DashboardShell tech={tech} admin={admin} role={role} staffName={staff?.name}>
       {mustPay && !onAllowedRoute ? <DashboardPaywall tech={tech} /> : children}
     </DashboardShell>
   );

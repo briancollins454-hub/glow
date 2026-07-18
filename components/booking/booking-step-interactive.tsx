@@ -56,6 +56,8 @@ export function BookingStepInteractive({
   pairBookingUrl,
   basketExtras = [],
   addableServices = [],
+  staffOptions = [],
+  selectedStaff = "any",
 }: {
   tech: Tech;
   service: Service;
@@ -72,6 +74,8 @@ export function BookingStepInteractive({
   pairBookingUrl?: string;
   basketExtras?: Service[];
   addableServices?: Service[];
+  staffOptions?: { id: string; name: string }[];
+  selectedStaff?: string;
 }) {
   const basket = [service, ...basketExtras];
   const totalPrice = basket.reduce((s, x) => s + x.pricePennies, 0);
@@ -82,10 +86,14 @@ export function BookingStepInteractive({
   const alsoValue = basketParam(basketExtras);
   const [slot, setSlot] = useState(initialSlot ?? "");
   const step = !slot ? 1 : 2;
+  const hasStaffChoice = staffOptions.length > 1;
+  const chosenStaffName =
+    selectedStaff !== "any" ? staffOptions.find((s) => s.id === selectedStaff)?.name : undefined;
 
-  const basketUrl = (extras: Service[]) => {
+  const basketUrl = (extras: Service[], staff: string = selectedStaff) => {
     const also = basketParam(extras);
-    return `/${tech.handle}?service=${service.id}${also ? `&also=${also}` : ""}`;
+    const staffQs = staff && staff !== "any" ? `&staff=${staff}` : "";
+    return `/${tech.handle}?service=${service.id}${also ? `&also=${also}` : ""}${staffQs}`;
   };
 
   return (
@@ -245,6 +253,42 @@ export function BookingStepInteractive({
         </Notice>
       )}
 
+      {live && hasStaffChoice && (
+        <div className="rounded-2xl border border-edge bg-surface/80 p-5 sm:p-6">
+          <h3 className="font-display text-lg font-semibold text-ink">Who would you like?</h3>
+          <p className="mt-1 text-sm text-ink-soft">
+            Pick a person, or choose any available for the most times.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={basketUrl(basketExtras, "any")}
+              className="rounded-xl border px-4 py-2.5 text-sm font-medium transition"
+              style={
+                selectedStaff === "any"
+                  ? { backgroundColor: brand, borderColor: brand, color: onBrand(brand) }
+                  : { borderColor: "rgba(255,255,255,0.14)" }
+              }
+            >
+              Any available
+            </Link>
+            {staffOptions.map((s) => (
+              <Link
+                key={s.id}
+                href={basketUrl(basketExtras, s.id)}
+                className="rounded-xl border px-4 py-2.5 text-sm font-medium transition"
+                style={
+                  selectedStaff === s.id
+                    ? { backgroundColor: brand, borderColor: brand, color: onBrand(brand) }
+                    : { borderColor: "rgba(255,255,255,0.14)" }
+                }
+              >
+                {s.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {live &&
         (days.length === 0 ? (
           <div className="rounded-2xl border border-edge bg-surface/80 p-8 text-center text-sm text-ink-soft">
@@ -253,7 +297,10 @@ export function BookingStepInteractive({
         ) : (
           <div className="rounded-2xl border border-edge bg-surface/80 p-5 sm:p-6">
             <h3 className="font-display text-lg font-semibold text-ink">Choose your appointment</h3>
-            <p className="mt-1 text-sm text-ink-soft">Pick a date and time that works for you.</p>
+            <p className="mt-1 text-sm text-ink-soft">
+              Pick a date and time that works for you
+              {chosenStaffName ? ` with ${chosenStaffName}` : ""}.
+            </p>
             <DateSlotPicker
               days={days}
               initialDate={initialDate}
@@ -312,6 +359,12 @@ export function BookingStepInteractive({
             <strong className="text-ink">
               {formatInTimeZone(new Date(slot), TZ, "EEE d MMM 'at' HH:mm")}
             </strong>
+            {chosenStaffName && (
+              <>
+                {" "}
+                with <strong className="text-ink">{chosenStaffName}</strong>
+              </>
+            )}
             {hasBasket && (
               <> ({minutesToLabel(totalDuration)} in total, treatments back-to-back)</>
             )}
@@ -320,6 +373,7 @@ export function BookingStepInteractive({
             <input type="hidden" name="handle" value={tech.handle} />
             <input type="hidden" name="serviceId" value={service.id} />
             {alsoValue && <input type="hidden" name="also" value={alsoValue} />}
+            <input type="hidden" name="staff" value={selectedStaff} />
             <input type="hidden" name="slot" value={slot} />
             <div className="grid gap-3 sm:grid-cols-2">
               <input name="name" required placeholder="Full name *" className="input" />
