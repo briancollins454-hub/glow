@@ -80,6 +80,16 @@
   .input {
     @apply w-full rounded-xl border border-edge bg-white/[0.04] px-3.5 py-2.5 text-base text-ink outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30 placeholder:text-ink-faint sm:text-sm;
   }
+  /* Native <select> popups often ignore page theme; force dark menu colours
+     so options aren't light-on-white (unreadable). */
+  select.input {
+    color-scheme: dark;
+  }
+  select.input option,
+  select.input optgroup {
+    background-color: #141019;
+    color: #f2eef6;
+  }
   .label {
     @apply mb-1.5 block text-sm font-medium text-ink-soft;
   }
