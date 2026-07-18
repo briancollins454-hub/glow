@@ -91,6 +91,8 @@ export interface Tech {
   infillNudgesEnabled: boolean;
   // Email/SMS pre-care instructions and ask clients to confirm before appointments.
   preCareConfirmationsEnabled: boolean;
+  // Client SMS via Glow's Twilio (24h / 2h / balance, plus SMS fallbacks). Off = email only.
+  smsRemindersEnabled: boolean;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.

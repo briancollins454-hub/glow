@@ -4,7 +4,7 @@ import { fmtDate, fmtDateTime, fmtTime, gbp } from "@/lib/format";
 import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
-import { sendSms, smsConfigured } from "@/lib/sms";
+import { sendSms, smsConfigured, techAllowsSms } from "@/lib/sms";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 import { renderReminderText } from "@/lib/reminder-copy";
 
@@ -206,7 +206,7 @@ export async function notifyClientOfPatchTestRetest(opts: {
     });
   }
 
-  if (smsConfigured() && client.phone) {
+  if (smsConfigured() && techAllowsSms(tech) && client.phone) {
     const smsBody =
       `${biz}: we've changed products for ${categoryName}. ` +
       `${hasUpcoming ? "You have an appointment coming up. " : ""}` +
@@ -336,7 +336,7 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
   }
 
   let smsOk = false;
-  if (smsConfigured() && client?.phone && canSms) {
+  if (smsConfigured() && tech && techAllowsSms(tech) && client?.phone && canSms) {
     smsOk = await sendSms(client.phone, text);
   }
 
@@ -354,7 +354,8 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
   const { reportError } = await import("@/lib/monitor");
   const { emailConfigured } = await import("@/lib/email");
 
-  if (!emailTo && !(canSms && client?.phone)) {
+  const smsEligible = canSms && !!tech && techAllowsSms(tech) && !!client?.phone;
+  if (!emailTo && !smsEligible) {
     await markReminder(sb, reminder.id, {
       status: "skipped",
       preview: text || "No client contact details",
@@ -599,7 +600,7 @@ export async function notifyClientOfReactionCheckin(
     });
   }
 
-  if (!sent && smsConfigured() && client.phone) {
+  if (!sent && smsConfigured() && techAllowsSms(tech) && client.phone) {
     const smsBody =
       `Hi ${name}, ${biz} checking in 48h after your ${catName} appointment. ` +
       `Any redness or irritation? Reply here: ${url}`;
@@ -735,7 +736,7 @@ export async function notifyClientRunningLate(opts: {
     });
   }
 
-  if (smsConfigured() && client.phone) {
+  if (smsConfigured() && techAllowsSms(tech) && client.phone) {
     sms = await sendSms(
       client.phone,
       `${biz}: running ~${minutesLate} min late today. Your ${svc} at ${fmtTime(booking.startIso)} may start later. Sorry!${lateNoteText}`,
@@ -802,7 +803,7 @@ export async function notifyClientOfPreCare(
     });
   }
 
-  if (!sent && smsConfigured() && client.phone) {
+  if (!sent && smsConfigured() && techAllowsSms(tech) && client.phone) {
     const smsBody =
       `Hi ${name}, ${biz}: prep for your ${service.name} on ${fmtTime(booking.startIso)}. ` +
       `Please read and confirm: ${url}`;

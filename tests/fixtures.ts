@@ -195,6 +195,7 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     rebookNudgesEnabled: true,
     infillNudgesEnabled: true,
     preCareConfirmationsEnabled: true,
+    smsRemindersEnabled: true,
     requiresBookingApproval: false,
     approvalMode: "off",
     depositTierMediumPct: 50,

@@ -118,6 +118,7 @@ type ManagedTechField =
   | "rebookNudgesEnabled"
   | "infillNudgesEnabled"
   | "preCareConfirmationsEnabled"
+  | "smsRemindersEnabled"
   | "requiresBookingApproval"
   | "approvalMode"
   | "depositTierMediumPct"

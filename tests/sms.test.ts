@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalisePhone, smsConfigured } from "@/lib/sms";
+import { normalisePhone, smsConfigured, techAllowsSms } from "@/lib/sms";
 
 describe("normalisePhone", () => {
   it("converts UK 07 numbers to E.164", () => {
@@ -21,5 +21,16 @@ describe("normalisePhone", () => {
 describe("smsConfigured", () => {
   it("is false without Twilio env vars", () => {
     expect(smsConfigured()).toBe(false);
+  });
+});
+
+describe("techAllowsSms", () => {
+  it("defaults to on when unset", () => {
+    expect(techAllowsSms({})).toBe(true);
+    expect(techAllowsSms({ smsRemindersEnabled: null })).toBe(true);
+  });
+  it("respects an explicit off", () => {
+    expect(techAllowsSms({ smsRemindersEnabled: false })).toBe(false);
+    expect(techAllowsSms({ smsRemindersEnabled: true })).toBe(true);
   });
 });
