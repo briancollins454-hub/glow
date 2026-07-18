@@ -3,11 +3,12 @@ import {
   createBooking,
   createPayment,
   createReminder,
+  listBookingsByGroup,
   updateBooking,
 } from "@/lib/db/queries";
-import { depositFor, bookingAmounts } from "@/lib/rules";
+import { depositFor, bookingAmounts, basketAmounts, basketStartTimes } from "@/lib/rules";
 import { sendReminder } from "@/lib/notify";
-import { randomToken } from "@/lib/ids";
+import { randomId, randomToken } from "@/lib/ids";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, RiskTier, Service, Tech } from "@/lib/db/types";
 import { isPaymentsReady } from "@/lib/subscriptions";
@@ -300,12 +301,14 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
   const needsDeposit = booking.depositPennies > 0 && isPaymentsReady(tech);
   if (needsDeposit) {
     await updateBooking(sb, booking.id, { status: "pending", approvalToken: null });
+    await propagateGroupStatus(sb, booking, "pending");
     const updated = { ...booking, status: "pending" as const, approvalToken: null };
     await notifyClientBookingApproved(client, tech, service, updated);
     return updated;
   }
 
   await updateBooking(sb, booking.id, { status: "confirmed", approvalToken: null });
+  await propagateGroupStatus(sb, booking, "confirmed");
   const confirmed = { ...booking, status: "confirmed" as const, approvalToken: null };
   await scheduleReminders(sb, confirmed);
   try {
@@ -329,6 +332,7 @@ export async function declineBookingRequest(sb: SupabaseClient, booking: Booking
   ]);
 
   await updateBooking(sb, booking.id, { status: "cancelled", approvalToken: null });
+  await propagateGroupStatus(sb, booking, "cancelled");
   const cancelled = { ...booking, status: "cancelled" as const, approvalToken: null };
   if (tech && service && client) {
     await notifyClientBookingDeclined(client, tech, service, cancelled);
@@ -359,11 +363,18 @@ export async function applyDepositPaid(
     // Duplicate Stripe payment row — treat as already processed.
   }
   await updateBooking(sb, booking.id, { status: "confirmed", depositStatus: "paid" });
+  await propagateGroupStatus(sb, booking, "confirmed");
   const confirmed = { ...booking, status: "confirmed" as const, depositStatus: "paid" as const };
   await scheduleReminders(sb, confirmed);
   try {
     const { getTechById } = await import("@/lib/db/queries");
-    await syncBookingToGoogle(sb, await getTechById(sb, booking.techId), confirmed);
+    const tech = await getTechById(sb, booking.techId);
+    await syncBookingToGoogle(sb, tech, confirmed);
+    if (booking.groupId && tech) {
+      for (const b of await listBookingsByGroup(sb, booking.groupId)) {
+        if (b.id !== booking.id) await syncBookingToGoogle(sb, tech, { ...b, status: "confirmed" });
+      }
+    }
   } catch {
     // Calendar sync is best-effort.
   }
@@ -496,6 +507,124 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
     if (tech) await schedulePreCareConfirmation(sb, tech, booking);
   } catch {
     // Migration may be pending.
+  }
+}
+
+// ---------------- Basket (multiple treatments, one visit) ----------------
+
+/**
+ * Create back-to-back bookings for a basket of treatments. All money (price,
+ * deposit, balance) lives on the PRIMARY (first) booking so there is exactly
+ * one deposit checkout, one balance link and one payment ledger trail per
+ * visit; the other treatments are £0 line items with their own diary slots.
+ */
+export async function createBasketBookings({
+  sb,
+  tech,
+  services,
+  client,
+  startIso,
+  status,
+  addons = [],
+  discountPennies = 0,
+  riskTier = null,
+  autoApproved = false,
+}: {
+  sb: SupabaseClient;
+  tech: Tech;
+  services: Service[];
+  client: Client;
+  startIso: string;
+  status: "confirmed" | "pending" | "pending_approval";
+  addons?: BookingAddon[];
+  discountPennies?: number;
+  riskTier?: RiskTier | null;
+  autoApproved?: boolean;
+}): Promise<{ primary: Booking; all: Booking[] }> {
+  if (services.length < 2) throw new Error("Basket needs at least two treatments");
+
+  const groupId = randomId("grp");
+  const tier = riskTier ?? "medium";
+  const money = basketAmounts(services, tech, tier, addons, discountPennies);
+  const starts = basketStartTimes(services, startIso);
+  const created: Booking[] = [];
+
+  try {
+    for (let i = 0; i < services.length; i++) {
+      const service = services[i];
+      const start = new Date(starts[i]);
+      const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
+      const isPrimary = i === 0;
+      const booking = await createBooking(sb, {
+        techId: tech.id,
+        clientId: client.id,
+        serviceId: service.id,
+        startIso: start.toISOString(),
+        endIso: end.toISOString(),
+        status,
+        pricePennies: isPrimary ? money.price : 0,
+        depositPennies: isPrimary ? money.deposit : 0,
+        depositStatus: "none",
+        balancePennies: isPrimary ? money.balance : 0,
+        balanceStatus: isPrimary && money.balance > 0 ? "unpaid" : "paid",
+        balanceToken: randomToken(),
+        approvalToken: isPrimary && status === "pending_approval" ? randomToken() : null,
+        pairedBookingId: null,
+        groupId,
+        riskTier,
+        autoApproved,
+        isPatchTest: false,
+        notes: isPrimary
+          ? `Booked with ${services.length - 1} more treatment${services.length > 2 ? "s" : ""} in one visit`
+          : "Part of a multi-treatment visit (paid on the first booking)",
+        lashMap: "",
+        lashCurl: "",
+        lashLength: "",
+        addons: isPrimary ? addons : [],
+        discountPennies: isPrimary ? discountPennies : 0,
+      });
+      created.push(booking);
+    }
+  } catch (e) {
+    // A later slot in the chain was taken mid-flow: release what we created.
+    for (const b of created) {
+      try {
+        await updateBooking(sb, b.id, { status: "cancelled" });
+      } catch {
+        // Best-effort rollback.
+      }
+    }
+    throw e;
+  }
+
+  const primary = created[0];
+
+  if (status === "confirmed") {
+    await scheduleReminders(sb, primary);
+    for (const b of created) {
+      try {
+        await syncBookingToGoogle(sb, tech, b);
+      } catch {
+        // Calendar sync is best-effort.
+      }
+    }
+  }
+
+  return { primary, all: created };
+}
+
+/** Move every booking in a basket group to the given status (skips settled ones). */
+export async function propagateGroupStatus(
+  sb: SupabaseClient,
+  booking: Booking,
+  status: Booking["status"],
+): Promise<void> {
+  if (!booking.groupId) return;
+  const group = await listBookingsByGroup(sb, booking.groupId);
+  for (const b of group) {
+    if (b.id === booking.id) continue;
+    if (b.status === "completed" || b.status === "cancelled" || b.status === "no_show") continue;
+    await updateBooking(sb, b.id, { status });
   }
 }
 

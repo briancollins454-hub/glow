@@ -21,8 +21,12 @@ import {
 import { isUniqueViolation } from "@/lib/db/errors";
 import type { BookingAddon, FormAnswer } from "@/lib/db/types";
 import {
+  basketAmounts,
+  basketDurationMin,
+  basketStartTimes,
   bookingAmounts,
   daySlots,
+  daySlotsForDuration,
   dateStrInTz,
   evaluateEligibility,
   findPatchTestService,
@@ -34,6 +38,7 @@ import {
 import { rateLimit } from "@/lib/rate-limit";
 import { createWaitlistEntry } from "@/lib/db/queries";
 import {
+  createBasketBookings,
   createConfirmedBooking,
   createPairedPatchTestBooking,
   createPendingApprovalBooking,
@@ -41,6 +46,7 @@ import {
   linkPairedBookings,
   loyaltyDiscountFor,
 } from "@/lib/bookings";
+import { resolveBasketExtras } from "@/lib/booking/basket";
 
 /** Client asks to be told when a cancellation frees up a slot. */
 export async function joinWaitlistAction(formData: FormData) {
@@ -307,6 +313,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
 export async function createPublicBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
   const serviceId = String(formData.get("serviceId") ?? "");
+  const alsoParam = String(formData.get("also") ?? "");
   const slotIso = String(formData.get("slot") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
@@ -330,7 +337,8 @@ export async function createPublicBookingAction(formData: FormData) {
     redirect(`/${tech!.handle}?service=${serviceId}&err=not_live`);
   }
 
-  const base = `/${tech!.handle}?service=${serviceId}&slot=${encodeURIComponent(slotIso)}`;
+  const alsoQs = alsoParam ? `&also=${encodeURIComponent(alsoParam)}` : "";
+  const base = `/${tech!.handle}?service=${serviceId}${alsoQs}&slot=${encodeURIComponent(slotIso)}`;
   if (!policyAccepted) redirect(`${base}&err=form`);
 
   // Re-check the slot is still free.
@@ -344,18 +352,30 @@ export async function createPublicBookingAction(formData: FormData) {
       new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
     ),
   ]);
-  const dateStr = dateStrInTz(new Date(slotIso));
-  const stillFree = daySlots(service!, dateStr, { workingHours, timeOff, bookings }).includes(slotIso);
-  if (!stillFree) {
-    redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
-  }
 
-  // Evaluate patch-test / infill / blacklist rules against the client's history.
+  // Client history + full service list (needed for rules and the basket).
   const existing = await getClientByEmail(sb, tech!.id, email);
   const [category, services] = await Promise.all([
     getCategory(sb, service!.categoryId),
     listServices(sb, tech!.id),
   ]);
+
+  // Basket: extra treatments booked back-to-back in the same visit. The whole
+  // visit needs one continuous free window.
+  const extras = resolveBasketExtras(services, service!.id, alsoParam);
+  const basket = [service!, ...extras];
+  const totalDuration = basketDurationMin(basket);
+
+  const dateStr = dateStrInTz(new Date(slotIso));
+  const stillFree = daySlotsForDuration(totalDuration, dateStr, {
+    workingHours,
+    timeOff,
+    bookings,
+  }).includes(slotIso);
+  if (!stillFree) {
+    redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
+  }
+
   const categoryByServiceId: Record<string, string> = {};
   for (const s of services) categoryByServiceId[s.id] = s.categoryId;
 
@@ -366,22 +386,36 @@ export async function createPublicBookingAction(formData: FormData) {
       ])
     : [[], []];
 
-  const eligibility = evaluateEligibility(service!, existing, slotIso, {
-    category,
-    patchTests,
-    priorBookings,
-    categoryByServiceId,
-  });
-
-  if (eligibility.blacklisted) redirect(`${base}&err=blocked`);
-  if (!eligibility.patch.ok) {
-    const patchTestService = findPatchTestService(services, service!.categoryId);
-    if (patchTestService && service!.requiresPatchTest) {
-      redirect(`/${tech!.handle}?service=${serviceId}&pair=1`);
+  // Evaluate patch-test / infill / blacklist rules for EVERY treatment in the
+  // visit, each at its own start time.
+  const starts = basketStartTimes(basket, slotIso);
+  const categoriesById = new Map([[category?.id ?? "", category]]);
+  for (let i = 0; i < basket.length; i++) {
+    const svc = basket[i];
+    let svcCategory = categoriesById.get(svc.categoryId) ?? null;
+    if (!svcCategory && !categoriesById.has(svc.categoryId)) {
+      svcCategory = await getCategory(sb, svc.categoryId);
+      categoriesById.set(svc.categoryId, svcCategory);
     }
-    redirect(`${base}&err=patch`);
+    const eligibility = evaluateEligibility(svc, existing, starts[i], {
+      category: svcCategory,
+      patchTests,
+      priorBookings,
+      categoryByServiceId,
+    });
+
+    if (eligibility.blacklisted) redirect(`${base}&err=blocked`);
+    if (!eligibility.patch.ok) {
+      // Single-service bookings can switch to the paired patch-test flow;
+      // baskets can't, so the client books that treatment separately.
+      const patchTestService = findPatchTestService(services, svc.categoryId);
+      if (basket.length === 1 && patchTestService && svc.requiresPatchTest) {
+        redirect(`/${tech!.handle}?service=${serviceId}&pair=1`);
+      }
+      redirect(`${base}&err=${basket.length > 1 ? "basket_patch" : "patch"}`);
+    }
+    if (!eligibility.infill.ok) redirect(`${base}&err=infill`);
   }
-  if (!eligibility.infill.ok) redirect(`${base}&err=infill`);
 
   const client = await findOrCreateClient(sb, tech!.id, { name, email, phone });
 
@@ -393,7 +427,9 @@ export async function createPublicBookingAction(formData: FormData) {
 
   // Loyalty reward: VIPs and returning clients past the visit threshold.
   const completedVisits = priorBookings.filter((b) => b.status === "completed").length;
-  const gross = service!.pricePennies + addons.reduce((s, a) => s + a.pricePennies, 0);
+  const gross =
+    basket.reduce((s, svc) => s + svc.pricePennies, 0) +
+    addons.reduce((s, a) => s + a.pricePennies, 0);
   const discountPennies = loyaltyDiscountFor(tech!, completedVisits, gross, client.isVip);
 
   // Collect consultation answers (if the tech has questions).
@@ -420,22 +456,43 @@ export async function createPublicBookingAction(formData: FormData) {
   const riskTier = scoreClientRisk(client, { completedVisits }, tech!);
   const manualApproval = needsManualApproval(tech!, riskTier);
   const autoApproved = !manualApproval && tech!.approvalMode === "rules";
+  const isBasket = basket.length > 1;
+
+  // Stripe line-item label: name the whole visit, not just the first treatment.
+  const checkoutService = isBasket
+    ? { ...service!, name: `${service!.name} + ${extras.length} more treatment${extras.length > 1 ? "s" : ""}` }
+    : service!;
 
   if (manualApproval) {
     let pending;
     try {
-      pending = await createPendingApprovalBooking({
-        sb,
-        tech: tech!,
-        service: service!,
-        client,
-        startIso: slotIso,
-        addons,
-        discountPennies,
-        riskTier,
-      });
+      if (isBasket) {
+        const created = await createBasketBookings({
+          sb,
+          tech: tech!,
+          services: basket,
+          client,
+          startIso: slotIso,
+          status: "pending_approval",
+          addons,
+          discountPennies,
+          riskTier,
+        });
+        pending = created.primary;
+      } else {
+        pending = await createPendingApprovalBooking({
+          sb,
+          tech: tech!,
+          service: service!,
+          client,
+          startIso: slotIso,
+          addons,
+          discountPennies,
+          riskTier,
+        });
+      }
     } catch (e) {
-      if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
+      if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
       throw e;
     }
     await saveAnswers(pending.id);
@@ -444,7 +501,9 @@ export async function createPublicBookingAction(formData: FormData) {
     redirect(`/${tech!.handle}/requested/${pending.balanceToken}`);
   }
 
-  const deposit = bookingAmounts(service!, tech!, riskTier, addons, discountPennies).deposit;
+  const deposit = isBasket
+    ? basketAmounts(basket, tech!, riskTier, addons, discountPennies).deposit
+    : bookingAmounts(service!, tech!, riskTier, addons, discountPennies).deposit;
 
   // If a deposit applies and the tech can take card payments, send the client to
   // Stripe Checkout on the tech's connected account. Otherwise confirm now
@@ -452,7 +511,60 @@ export async function createPublicBookingAction(formData: FormData) {
   if (deposit > 0 && isPaymentsReady(tech!)) {
     let pending;
     try {
-      pending = await createPendingOnlineBooking({
+      if (isBasket) {
+        const created = await createBasketBookings({
+          sb,
+          tech: tech!,
+          services: basket,
+          client,
+          startIso: slotIso,
+          status: "pending",
+          addons,
+          discountPennies,
+          riskTier,
+          autoApproved,
+        });
+        pending = created.primary;
+      } else {
+        pending = await createPendingOnlineBooking({
+          sb,
+          tech: tech!,
+          service: service!,
+          client,
+          startIso: slotIso,
+          addons,
+          discountPennies,
+          riskTier,
+          autoApproved,
+        });
+      }
+    } catch (e) {
+      if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
+      throw e;
+    }
+    await saveAnswers(pending.id);
+    const url = await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
+    redirect(url);
+  }
+
+  let booking;
+  try {
+    if (isBasket) {
+      const created = await createBasketBookings({
+        sb,
+        tech: tech!,
+        services: basket,
+        client,
+        startIso: slotIso,
+        status: "confirmed",
+        addons,
+        discountPennies,
+        riskTier,
+        autoApproved,
+      });
+      booking = created.primary;
+    } else {
+      booking = await createConfirmedBooking({
         sb,
         tech: tech!,
         service: service!,
@@ -463,30 +575,9 @@ export async function createPublicBookingAction(formData: FormData) {
         riskTier,
         autoApproved,
       });
-    } catch (e) {
-      if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
-      throw e;
     }
-    await saveAnswers(pending.id);
-    const url = await createDepositCheckout(tech!, service!, pending, APP_URL);
-    redirect(url);
-  }
-
-  let booking;
-  try {
-    booking = await createConfirmedBooking({
-      sb,
-      tech: tech!,
-      service: service!,
-      client,
-      startIso: slotIso,
-      addons,
-      discountPennies,
-      riskTier,
-      autoApproved,
-    });
   } catch (e) {
-    if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}&err=slot`);
+    if (isUniqueViolation(e)) redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
     throw e;
   }
   await saveAnswers(booking.id);

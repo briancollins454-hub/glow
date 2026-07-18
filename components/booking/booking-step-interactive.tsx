@@ -8,9 +8,11 @@ import {
   Calendar,
   AlertTriangle,
   Lock,
+  Plus,
   ShieldCheck,
   RefreshCw,
   Clock,
+  X,
 } from "lucide-react";
 import type { ConsultationQuestion, Service, ServiceAddon, Tech } from "@/lib/db/types";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -21,6 +23,7 @@ import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { createPublicBookingAction, joinWaitlistAction } from "@/app/[handle]/actions";
 import { onBrand } from "@/lib/booking/brand";
+import { BASKET_MAX_EXTRAS, basketParam } from "@/lib/booking/basket";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -30,6 +33,8 @@ const ERR: Record<string, string> = {
   not_live: "This studio isn't accepting online bookings just yet. Please check back soon.",
   blocked: "We can't complete this booking online. Please contact the studio directly.",
   patch: "This service needs a valid patch test on file. Please get in touch to arrange one first.",
+  basket_patch:
+    "One of your chosen treatments needs a valid patch test on file, so it can't be booked in the same visit. Please remove it and book it separately.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
   form: "Please complete the required questions and agree to the booking policy.",
   rate: "Too many attempts, try again shortly.",
@@ -49,6 +54,8 @@ export function BookingStepInteractive({
   initialSlot,
   photoUrl,
   pairBookingUrl,
+  basketExtras = [],
+  addableServices = [],
 }: {
   tech: Tech;
   service: Service;
@@ -63,11 +70,23 @@ export function BookingStepInteractive({
   initialSlot?: string;
   photoUrl?: string;
   pairBookingUrl?: string;
+  basketExtras?: Service[];
+  addableServices?: Service[];
 }) {
-  const deposit = depositFor(service);
-  const balance = Math.max(0, service.pricePennies - deposit);
+  const basket = [service, ...basketExtras];
+  const totalPrice = basket.reduce((s, x) => s + x.pricePennies, 0);
+  const totalDuration = basket.reduce((s, x) => s + x.durationMin, 0);
+  const deposit = basket.reduce((s, x) => s + depositFor(x), 0);
+  const balance = Math.max(0, totalPrice - deposit);
+  const hasBasket = basketExtras.length > 0;
+  const alsoValue = basketParam(basketExtras);
   const [slot, setSlot] = useState(initialSlot ?? "");
   const step = !slot ? 1 : 2;
+
+  const basketUrl = (extras: Service[]) => {
+    const also = basketParam(extras);
+    return `/${tech.handle}?service=${service.id}${also ? `&also=${also}` : ""}`;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -104,6 +123,69 @@ export function BookingStepInteractive({
               </p>
             </div>
           </div>
+
+          {hasBasket && (
+            <div className="mt-4 space-y-2 rounded-xl border border-edge bg-cream/50 p-3 sm:p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-faint">
+                Also in this visit
+              </p>
+              {basketExtras.map((x) => (
+                <div key={x.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-2">
+                    <Link
+                      href={basketUrl(basketExtras.filter((e) => e.id !== x.id))}
+                      aria-label={`Remove ${x.name}`}
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-edge text-ink-faint transition hover:border-red-400/40 hover:text-red-300"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Link>
+                    {x.name}
+                    <span className="text-xs text-ink-faint">{minutesToLabel(x.durationMin)}</span>
+                  </span>
+                  <span className="font-medium">{gbp(x.pricePennies)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between border-t border-edge pt-2 text-sm font-semibold">
+                <span className="flex items-center gap-1.5">
+                  Visit total
+                  <span className="font-normal text-xs text-ink-faint">
+                    {minutesToLabel(totalDuration)}, back-to-back
+                  </span>
+                </span>
+                <span>{gbp(totalPrice)}</span>
+              </div>
+            </div>
+          )}
+
+          {addableServices.length > 0 && basketExtras.length < BASKET_MAX_EXTRAS && (
+            <details className="mt-4 rounded-xl border border-dashed border-edge">
+              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-ink-soft transition hover:text-ink [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" style={{ color: brand }} />
+                  Add another treatment to this visit
+                </span>
+              </summary>
+              <div className="space-y-1.5 border-t border-edge p-3">
+                {addableServices.map((x) => (
+                  <Link
+                    key={x.id}
+                    href={basketUrl([...basketExtras, x])}
+                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-white/[0.05]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Plus className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                      {x.name}
+                      <span className="text-xs text-ink-faint">{minutesToLabel(x.durationMin)}</span>
+                    </span>
+                    <span className="font-medium">{gbp(x.pricePennies)}</span>
+                  </Link>
+                ))}
+                <p className="px-3 pt-1 text-xs text-ink-faint">
+                  Treatments run back-to-back in one appointment, paid together with one deposit.
+                </p>
+              </div>
+            </details>
+          )}
 
           <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl border border-edge bg-cream/50 p-3 text-sm sm:gap-3 sm:p-4">
             <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} highlight={deposit > 0} brand={brand} />
@@ -222,14 +304,22 @@ export function BookingStepInteractive({
         <div className="rounded-2xl border border-edge bg-surface/80 p-5 sm:p-6">
           <h3 className="font-display text-lg font-semibold text-ink">Your details</h3>
           <p className="mt-1 text-sm text-ink-soft">
-            Booking <strong className="text-ink">{service.name}</strong> on{" "}
+            Booking{" "}
+            <strong className="text-ink">
+              {hasBasket ? basket.map((x) => x.name).join(" + ") : service.name}
+            </strong>{" "}
+            on{" "}
             <strong className="text-ink">
               {formatInTimeZone(new Date(slot), TZ, "EEE d MMM 'at' HH:mm")}
             </strong>
+            {hasBasket && (
+              <> ({minutesToLabel(totalDuration)} in total, treatments back-to-back)</>
+            )}
           </p>
           <form action={createPublicBookingAction} className="mt-5 space-y-4">
             <input type="hidden" name="handle" value={tech.handle} />
             <input type="hidden" name="serviceId" value={service.id} />
+            {alsoValue && <input type="hidden" name="also" value={alsoValue} />}
             <input type="hidden" name="slot" value={slot} />
             <div className="grid gap-3 sm:grid-cols-2">
               <input name="name" required placeholder="Full name *" className="input" />

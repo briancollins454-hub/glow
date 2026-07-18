@@ -18,6 +18,8 @@ interface Ctx {
   client: Client | null;
   service: Service | null;
   tech: Tech | null;
+  /** Override for basket visits, e.g. "Full set + Brow wax". */
+  serviceLabel?: string;
 }
 
 function subjectFor(kind: ReminderKind, biz: string): string {
@@ -41,7 +43,7 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
   const biz = tech?.businessName ?? "your beauty studio";
   const name = client?.name?.split(" ")[0] ?? "there";
   const when = fmtDateTime(booking.startIso);
-  const svc = service?.name ?? "your appointment";
+  const svc = ctx.serviceLabel ?? service?.name ?? "your appointment";
   const payUrl = `${APP_URL}/pay/${booking.balanceToken}`;
 
   let heading = "";
@@ -293,7 +295,25 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
     getService(sb, booking.serviceId),
     getTechById(sb, booking.techId),
   ]);
-  const ctx: Ctx = { reminder, booking, client, service, tech };
+
+  // Basket visits: name every treatment in the message.
+  let serviceLabel: string | undefined;
+  if (booking.groupId) {
+    try {
+      const { listBookingsByGroup } = await import("@/lib/db/queries");
+      const group = await listBookingsByGroup(sb, booking.groupId);
+      if (group.length > 1) {
+        const names = (
+          await Promise.all(group.map((b) => getService(sb, b.serviceId)))
+        ).map((s) => s?.name ?? "treatment");
+        serviceLabel = names.join(" + ");
+      }
+    } catch {
+      // Fall back to the primary service name.
+    }
+  }
+
+  const ctx: Ctx = { reminder, booking, client, service, tech, serviceLabel };
   const text = renderReminderText(ctx);
   const { subject, html } = renderReminderEmail(ctx);
 
@@ -360,6 +380,19 @@ export async function notifyTechOfBookingRequest(
   ]);
   if (!tech?.email || !client || !service || !booking.approvalToken) return;
 
+  // Basket visit: name every treatment requested, not just the first.
+  let serviceLabel = service.name;
+  if (booking.groupId) {
+    const { listBookingsByGroup } = await import("@/lib/db/queries");
+    const group = await listBookingsByGroup(sb, booking.groupId);
+    if (group.length > 1) {
+      const names = (
+        await Promise.all(group.map((b) => getService(sb, b.serviceId)))
+      ).map((s) => s?.name ?? "Treatment");
+      serviceLabel = names.join(" + ");
+    }
+  }
+
   const when = fmtDateTime(booking.startIso);
   const approveUrl = `${APP_URL}/approve/${booking.approvalToken}`;
   const brand = tech.brandColor || "#db2777";
@@ -379,7 +412,7 @@ export async function notifyTechOfBookingRequest(
     businessName: tech.businessName || "Glow",
     heading: "New booking request",
     bodyHtml:
-      `<strong>${client.name}</strong> requested <strong>${service.name}</strong> on <strong>${when}</strong>.` +
+      `<strong>${client.name}</strong> requested <strong>${serviceLabel}</strong> on <strong>${when}</strong>.` +
       `${riskLine}${signalLine}<br/><br/>Deposit if approved: <strong>${gbp(booking.depositPennies)}</strong> of ${gbp(booking.pricePennies)}.` +
       `<br/><br/>Approve to send them a deposit link (or confirm straight away if no deposit applies).`,
     buttonLabel: "Review & approve",
@@ -389,7 +422,7 @@ export async function notifyTechOfBookingRequest(
     to: tech.email,
     subject: `Booking request from ${client.name}`,
     html,
-    text: `${client.name} requested ${service.name} on ${when}. Deposit: ${gbp(booking.depositPennies)}. Approve: ${approveUrl}`,
+    text: `${client.name} requested ${serviceLabel} on ${when}. Deposit: ${gbp(booking.depositPennies)}. Approve: ${approveUrl}`,
     idempotencyKey: `booking-request/${booking.id}`,
   });
 }

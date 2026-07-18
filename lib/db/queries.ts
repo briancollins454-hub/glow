@@ -716,16 +716,31 @@ export async function bookingsForClient(sb: SB, techId: string, clientId: string
 }
 export async function createBooking(
   sb: SB,
-  b: Omit<Booking, "id" | "createdAt" | "googleEventId" | "approvalToken"> &
-    Partial<Pick<Booking, "googleEventId" | "approvalToken">>,
+  b: Omit<Booking, "id" | "createdAt" | "googleEventId" | "approvalToken" | "groupId"> &
+    Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId">>,
 ): Promise<Booking> {
-  const { data, error } = await sb
-    .from("bookings")
-    .insert({ ...b, approvalToken: b.approvalToken ?? null, id: randomId("bk") })
-    .select("*")
-    .single();
+  // groupId is only included when set so single bookings keep working while
+  // the 0028 migration is still pending on an environment.
+  const { groupId, ...rest } = b;
+  const row: Record<string, unknown> = {
+    ...rest,
+    approvalToken: b.approvalToken ?? null,
+    id: randomId("bk"),
+  };
+  if (groupId != null) row.groupId = groupId;
+  const { data, error } = await sb.from("bookings").insert(row).select("*").single();
   if (error) throwDbError(error);
   return data as Booking;
+}
+
+/** All bookings sharing a basket group id, earliest first. */
+export async function listBookingsByGroup(sb: SB, groupId: string): Promise<Booking[]> {
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("groupId", groupId)
+    .order("startIso");
+  return must(data as Booking[], error) ?? [];
 }
 export async function updateBooking(sb: SB, id: string, patch: Partial<Booking>): Promise<void> {
   const { error } = await sb.from("bookings").update(patch).eq("id", id);

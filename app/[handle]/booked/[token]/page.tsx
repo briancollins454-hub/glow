@@ -3,12 +3,18 @@ import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { CalendarPlus, CheckCircle2, CalendarHeart, CreditCard, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
-import { getBookingByToken, getService, getTechByHandle } from "@/lib/db/queries";
+import {
+  getBookingByToken,
+  getService,
+  getTechByHandle,
+  listBookingsByGroup,
+} from "@/lib/db/queries";
 import { confirmCheckoutPaid, checkoutMatchesDeposit } from "@/lib/payments";
 import { applyDepositPaid } from "@/lib/bookings";
-import { gbp, fmtDateTime } from "@/lib/format";
+import { gbp, fmtDateTime, fmtTime } from "@/lib/format";
 import { cancelClientBookingAction, payDepositAction } from "./actions";
 import { isPaymentsReady } from "@/lib/subscriptions";
+import type { Booking } from "@/lib/db/types";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -29,16 +35,35 @@ export default async function BookedPage({
   if (!tech || !initialBooking || initialBooking.techId !== tech.id) notFound();
 
   let booking = initialBooking;
+
+  // Basket visits: the token may belong to any treatment in the group, but all
+  // money lives on the primary (earliest) booking.
+  let group: Booking[] = [];
+  if (booking.groupId) {
+    group = await listBookingsByGroup(sb, booking.groupId);
+    booking = group[0] ?? booking;
+  }
+
   // Verify the deposit payment when returning from Stripe Checkout (with retry).
   if (session_id && booking.depositStatus !== "paid") {
     const result = await confirmCheckoutPaid(tech, session_id);
     if (checkoutMatchesDeposit(result, booking)) {
       await applyDepositPaid(sb, booking, result.paymentIntentId);
-      booking = (await getBookingByToken(sb, token)) ?? booking;
+      booking = (await getBookingByToken(sb, booking.balanceToken)) ?? booking;
+      if (booking.groupId) group = await listBookingsByGroup(sb, booking.groupId);
     }
   }
 
   const service = await getService(sb, booking.serviceId);
+  const groupServices =
+    group.length > 1
+      ? await Promise.all(
+          group.map(async (b) => ({
+            booking: b,
+            service: await getService(sb, b.serviceId),
+          })),
+        )
+      : [];
   const brand = heroBrand(tech.brandColor || "#db2777");
   const needsDeposit =
     booking.status === "pending" && booking.depositPennies > 0 && booking.depositStatus !== "paid";
@@ -79,7 +104,19 @@ export default async function BookedPage({
             )}
           </div>
           <div className="space-y-4 p-6">
-            <Row label="Service" value={service?.name ?? "Appointment"} />
+            {groupServices.length > 1 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-ink-faint">Your treatments</p>
+                {groupServices.map(({ booking: b, service: s }) => (
+                  <div key={b.id} className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{s?.name ?? "Treatment"}</span>
+                    <span className="text-ink-faint">{fmtTime(b.startIso)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Row label="Service" value={service?.name ?? "Appointment"} />
+            )}
             <Row label="When" value={fmtDateTime(booking.startIso)} />
             <Row label="With" value={tech.businessName} />
             <hr className="border-edge" />
