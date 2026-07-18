@@ -181,8 +181,9 @@ export function dateStrInTz(d: Date): string {
   }).format(d);
 }
 
-export function daySlots(
-  service: Service,
+/** Slots on one day for an appointment of the given total duration. */
+export function daySlotsForDuration(
+  durationMin: number,
   dateStr: string,
   ctx: AvailabilityCtx,
   nowMs = Date.now(),
@@ -208,11 +209,11 @@ export function daySlots(
   const lastStart =
     wh.lastStartMinutes != null
       ? wh.lastStartMinutes
-      : wh.endMinutes - service.durationMin;
+      : wh.endMinutes - durationMin;
   for (let m = wh.startMinutes; m <= lastStart; m += SLOT_STEP_MIN) {
     const start = localInstant(dateStr, m);
     const startMs = start.getTime();
-    const endMs = startMs + service.durationMin * 60 * 1000;
+    const endMs = startMs + durationMin * 60 * 1000;
     if (startMs <= nowMs) continue;
     if (offs.some((o) => overlaps(startMs, endMs, o.start, o.end))) continue;
     if (busy.some((b) => overlaps(startMs, endMs, b.start, b.end))) continue;
@@ -221,8 +222,18 @@ export function daySlots(
   return slots;
 }
 
-export function availableDays(
+export function daySlots(
   service: Service,
+  dateStr: string,
+  ctx: AvailabilityCtx,
+  nowMs = Date.now(),
+): string[] {
+  return daySlotsForDuration(service.durationMin, dateStr, ctx, nowMs);
+}
+
+/** Days with slots long enough for an appointment of the given total duration. */
+export function availableDaysForDuration(
+  durationMin: number,
   ctx: AvailabilityCtx,
   count = 14,
   nowMs = Date.now(),
@@ -235,10 +246,65 @@ export function availableDays(
     // Across UK autumn DST fallback a 24h step can land on the same civil date twice.
     if (dateStr === prevDateStr) continue;
     prevDateStr = dateStr;
-    const slots = daySlots(service, dateStr, ctx, nowMs);
+    const slots = daySlotsForDuration(durationMin, dateStr, ctx, nowMs);
     if (slots.length) days.push({ dateStr, slots });
   }
   return days;
+}
+
+export function availableDays(
+  service: Service,
+  ctx: AvailabilityCtx,
+  count = 14,
+  nowMs = Date.now(),
+): { dateStr: string; slots: string[] }[] {
+  return availableDaysForDuration(service.durationMin, ctx, count, nowMs);
+}
+
+// ---------------- Basket (multiple treatments, one visit) ----------------
+
+/** Total appointment length when treatments run back-to-back. */
+export function basketDurationMin(services: Service[]): number {
+  return services.reduce((sum, s) => sum + s.durationMin, 0);
+}
+
+/**
+ * Combined money for a basket. Each treatment keeps its own deposit rules;
+ * add-ons and any loyalty discount apply to the primary (first) service, same
+ * as a single booking.
+ */
+export function basketAmounts(
+  services: Service[],
+  tech: Parameters<typeof bookingAmounts>[1],
+  riskTier: RiskTier,
+  addons: BookingAddon[] = [],
+  discountPennies = 0,
+): { price: number; deposit: number; balance: number } {
+  let price = 0;
+  let deposit = 0;
+  services.forEach((service, i) => {
+    const a = bookingAmounts(
+      service,
+      tech,
+      riskTier,
+      i === 0 ? addons : [],
+      i === 0 ? discountPennies : 0,
+    );
+    price += a.price;
+    deposit += a.deposit;
+  });
+  return { price, deposit, balance: Math.max(0, price - deposit) };
+}
+
+/** Consecutive start times for basket treatments from the chosen slot. */
+export function basketStartTimes(services: Service[], slotIso: string): string[] {
+  const starts: string[] = [];
+  let cursor = new Date(slotIso).getTime();
+  for (const s of services) {
+    starts.push(new Date(cursor).toISOString());
+    cursor += s.durationMin * 60 * 1000;
+  }
+  return starts;
 }
 
 // ---------------- Rule results ----------------

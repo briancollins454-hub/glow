@@ -8,6 +8,7 @@ import {
   getBookingByToken,
   getService,
   getTechByHandle,
+  listBookingsByGroup,
   paymentsForBooking,
   skipScheduledReminders,
   updateBooking,
@@ -15,25 +16,41 @@ import {
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import { createDepositCheckout, refundOnConnect } from "@/lib/payments";
 import { isPaymentsReady } from "@/lib/subscriptions";
+import type { Booking } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+/** Basket groups keep all money on the primary (earliest) booking. */
+async function resolvePrimary(
+  sb: ReturnType<typeof supabaseService>,
+  booking: Booking,
+): Promise<{ primary: Booking; group: Booking[] }> {
+  if (!booking.groupId) return { primary: booking, group: [booking] };
+  const group = await listBookingsByGroup(sb, booking.groupId);
+  return { primary: group[0] ?? booking, group: group.length ? group : [booking] };
+}
 
 export async function payDepositAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
   const token = String(formData.get("token") ?? "");
   const sb = supabaseService();
-  const [tech, booking] = await Promise.all([
+  const [tech, tokenBooking] = await Promise.all([
     getTechByHandle(sb, handle),
     getBookingByToken(sb, token),
   ]);
-  if (!tech || !booking || booking.techId !== tech.id) redirect(`/${handle}`);
+  if (!tech || !tokenBooking || tokenBooking.techId !== tech.id) redirect(`/${handle}`);
+  const { primary: booking, group } = await resolvePrimary(sb, tokenBooking!);
   if (booking.status !== "pending" || booking.depositStatus === "paid" || booking.depositPennies <= 0) {
     redirect(`/${handle}/booked/${token}`);
   }
   if (!isPaymentsReady(tech)) redirect(`/${handle}/booked/${token}`);
   const service = await getService(sb, booking.serviceId);
   if (!service) redirect(`/${handle}/booked/${token}`);
-  const url = await createDepositCheckout(tech, service, booking, APP_URL);
+  const checkoutService =
+    group.length > 1
+      ? { ...service, name: `${service.name} + ${group.length - 1} more treatment${group.length > 2 ? "s" : ""}` }
+      : service;
+  const url = await createDepositCheckout(tech, checkoutService, booking, APP_URL);
   redirect(url);
 }
 
@@ -41,11 +58,14 @@ export async function cancelClientBookingAction(formData: FormData) {
   const handle = String(formData.get("handle") ?? "");
   const token = String(formData.get("token") ?? "");
   const sb = supabaseService();
-  const [tech, booking] = await Promise.all([
+  const [tech, tokenBooking] = await Promise.all([
     getTechByHandle(sb, handle),
     getBookingByToken(sb, token),
   ]);
-  if (!tech || !booking || booking.techId !== tech.id) redirect(`/${handle}`);
+  if (!tech || !tokenBooking || tokenBooking.techId !== tech.id) redirect(`/${handle}`);
+  // Basket visits cancel as one: money lives on the primary booking and the
+  // treatments are back-to-back, so partial self-service cancellation is out.
+  const { primary: booking, group } = await resolvePrimary(sb, tokenBooking!);
   if (
     booking.status === "cancelled" ||
     booking.status === "completed" ||
@@ -83,6 +103,18 @@ export async function cancelClientBookingAction(formData: FormData) {
   }
 
   await updateBooking(sb, booking.id, patch);
+  // Cancel the rest of the visit (secondary bookings hold no money).
+  for (const b of group) {
+    if (b.id === booking.id) continue;
+    if (b.status === "cancelled" || b.status === "completed" || b.status === "no_show") continue;
+    await updateBooking(sb, b.id, { status: "cancelled" });
+    await skipScheduledReminders(sb, b.id);
+    try {
+      await syncBookingToGoogle(sb, tech, { ...b, status: "cancelled" });
+    } catch {
+      // Google Calendar sync is best-effort.
+    }
+  }
   try {
     await syncBookingToGoogle(sb, tech, { ...booking, ...patch });
   } catch {

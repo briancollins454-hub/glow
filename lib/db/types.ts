@@ -258,6 +258,8 @@ export interface Booking {
   approvalToken: string | null;
   /** Linked booking when patch test + treatment are booked together. */
   pairedBookingId: string | null;
+  /** Shared id when several treatments are booked together as one visit (basket). */
+  groupId: string | null;
   /** Client risk at booking time (drives deposit tier). */
   riskTier: RiskTier | null;
   /** True when rules mode auto-approved without tech review. */

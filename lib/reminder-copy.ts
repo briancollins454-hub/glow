@@ -9,14 +9,16 @@ interface Ctx {
   client: Client | null;
   service: Service | null;
   tech: Tech | null;
+  /** Override for basket visits, e.g. "Full set + Brow wax". */
+  serviceLabel?: string;
 }
 
 /** Pure reminder preview text — safe for client components. */
-export function renderReminderText({ reminder, booking, client, service, tech }: Ctx): string {
+export function renderReminderText({ reminder, booking, client, service, tech, serviceLabel }: Ctx): string {
   const when = fmtDateTime(booking.startIso);
   const name = client?.name?.split(" ")[0] ?? "there";
   const biz = tech?.businessName ?? "your beauty studio";
-  const svc = service?.name ?? "your appointment";
+  const svc = serviceLabel ?? service?.name ?? "your appointment";
   const payUrl = `${APP_URL}/pay/${booking.balanceToken}`;
 
   switch (reminder.kind) {

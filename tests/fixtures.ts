@@ -102,6 +102,7 @@ export function makeBooking(overrides: Partial<Booking> = {}): Booking {
     balanceToken: "tok_bal",
     approvalToken: null,
     pairedBookingId: null,
+    groupId: null,
     riskTier: null,
     autoApproved: false,
     isPatchTest: false,

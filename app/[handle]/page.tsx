@@ -16,7 +16,14 @@ import {
 } from "@/lib/db/queries";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
 import { signedPhotoUrls } from "@/lib/storage";
-import { availableDays, canOfferPairedPatchTest, findPatchTestService } from "@/lib/rules";
+import {
+  availableDays,
+  availableDaysForDuration,
+  basketDurationMin,
+  canOfferPairedPatchTest,
+  findPatchTestService,
+} from "@/lib/rules";
+import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
@@ -80,7 +87,7 @@ export default async function PublicBookingPage({
   searchParams,
 }: {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ service?: string; date?: string; slot?: string; patchSlot?: string; pair?: string; err?: string; wl?: string; retest?: string }>;
+  searchParams: Promise<{ service?: string; also?: string; date?: string; slot?: string; patchSlot?: string; pair?: string; err?: string; wl?: string; retest?: string }>;
 }) {
   const { handle } = await params;
   const sp = await searchParams;
@@ -107,6 +114,12 @@ export default async function PublicBookingPage({
     (sp.pair === "1" || (!!sp.retest && sp.retest === selected.categoryId));
 
   const live = isLive(tech);
+  // Basket: extra treatments chained onto this booking (not in the paired flow).
+  const basketExtras =
+    selected && !usePairedFlow ? resolveBasketExtras(services, selected.id, sp.also) : [];
+  const addable =
+    selected && !usePairedFlow ? addableBasketServices(services, selected.id, basketExtras) : [];
+
   let days: DayOption[] = [];
   let patchTestDays: DayOption[] = [];
   let minLeadHours = 24;
@@ -128,6 +141,13 @@ export default async function PublicBookingPage({
     addons = adds;
     if (usePairedFlow && patchTestService) {
       patchTestDays = availableDays(patchTestService, ctx, 14);
+    } else if (basketExtras.length > 0) {
+      // The visit needs one continuous window covering every treatment.
+      days = availableDaysForDuration(
+        basketDurationMin([selected, ...basketExtras]),
+        ctx,
+        14,
+      );
     } else {
       days = availableDays(selected, ctx, 14);
     }
@@ -252,6 +272,8 @@ export default async function PublicBookingPage({
               pairBookingUrl={
                 patchTestService ? `/${tech.handle}?service=${selected.id}&pair=1` : undefined
               }
+              basketExtras={basketExtras}
+              addableServices={addable}
             />
           )}
         </main>

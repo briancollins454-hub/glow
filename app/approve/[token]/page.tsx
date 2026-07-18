@@ -3,7 +3,7 @@ import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
-import { bookingsForClient, getBookingByApprovalToken, getBooking, getClient, getService, getTechById } from "@/lib/db/queries";
+import { bookingsForClient, getBookingByApprovalToken, getBooking, getClient, getService, getTechById, listBookingsByGroup } from "@/lib/db/queries";
 import { fmtDateTime, gbp } from "@/lib/format";
 import { riskTierLabel, riskTierTone } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
@@ -45,6 +45,17 @@ export default async function ApproveBookingPage({
   ]);
   if (!tech || !service || !client) notFound();
 
+  // Basket visit: show every treatment the client asked for.
+  let visitServiceNames: string[] = [];
+  if (booking.groupId) {
+    const group = await listBookingsByGroup(sb, booking.groupId);
+    if (group.length > 1) {
+      visitServiceNames = (
+        await Promise.all(group.map((b) => getService(sb, b.serviceId)))
+      ).map((s) => s?.name ?? "Treatment");
+    }
+  }
+
   const priorBookings = await bookingsForClient(sb, tech.id, client.id);
   const completedVisits = priorBookings.filter((b) => b.status === "completed").length;
 
@@ -84,7 +95,10 @@ export default async function ApproveBookingPage({
               completedVisits={completedVisits}
               riskTier={booking.riskTier}
             />
-            <Row label="Service" value={service.name} />
+            <Row
+              label={visitServiceNames.length > 1 ? "Treatments" : "Service"}
+              value={visitServiceNames.length > 1 ? visitServiceNames.join(" + ") : service.name}
+            />
             <Row label="When" value={fmtDateTime(booking.startIso)} />
             <Row label="Total" value={gbp(booking.pricePennies)} />
             {booking.depositPennies > 0 && (

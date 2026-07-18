@@ -3,7 +3,7 @@ import { heroBrand } from "@/lib/booking/brand";
 import { notFound } from "next/navigation";
 import { Clock, CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
-import { getBookingByToken, getService, getTechByHandle } from "@/lib/db/queries";
+import { getBookingByToken, getService, getTechByHandle, listBookingsByGroup } from "@/lib/db/queries";
 import { fmtDateTime } from "@/lib/format";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -23,6 +23,16 @@ export default async function RequestedBookingPage({
   if (!tech || !booking || booking.techId !== tech.id) notFound();
 
   const service = await getService(sb, booking.serviceId);
+  let serviceLabel = service?.name ?? "Appointment";
+  if (booking.groupId) {
+    const group = await listBookingsByGroup(sb, booking.groupId);
+    if (group.length > 1) {
+      const names = (
+        await Promise.all(group.map((b) => getService(sb, b.serviceId)))
+      ).map((s) => s?.name ?? "Treatment");
+      serviceLabel = names.join(" + ");
+    }
+  }
   const brand = heroBrand(tech.brandColor || "#db2777");
 
   return (
@@ -38,7 +48,7 @@ export default async function RequestedBookingPage({
             </p>
           </div>
           <div className="space-y-4 p-6">
-            <Row label="Service" value={service?.name ?? "Appointment"} />
+            <Row label={serviceLabel.includes("+") ? "Treatments" : "Service"} value={serviceLabel} />
             <Row label="Requested time" value={fmtDateTime(booking.startIso)} />
             <p className="text-sm text-ink-soft">
               No payment has been taken yet. If you don&apos;t hear back, contact {tech.businessName} directly.
