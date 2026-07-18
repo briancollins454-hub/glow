@@ -10,7 +10,9 @@ export async function GET() {
   const signed = paths.length ? await signedPhotoUrls(paths) : new Map<string, string>();
   return NextResponse.json({
     tech: ctx.tech,
-    admin: isAdminTech(ctx.tech),
+    admin: ctx.role === "owner" && isAdminTech(ctx.tech),
+    role: ctx.role,
+    staff: ctx.staff,
     brandCoverUrl: ctx.tech.coverPhotoPath ? signed.get(ctx.tech.coverPhotoPath) ?? null : null,
     brandProfileUrl: ctx.tech.profilePhotoPath ? signed.get(ctx.tech.profilePhotoPath) ?? null : null,
   });

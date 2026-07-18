@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Tech } from "@/lib/db/types";
+import type { StaffMember, Tech } from "@/lib/db/types";
 
-type MeResponse = { tech: Tech; admin: boolean };
+type MeResponse = {
+  tech: Tech;
+  admin: boolean;
+  role?: "owner" | "staff";
+  staff?: StaffMember | null;
+};
 
 let cachedMe: MeResponse | null = null;
 let inflightMe: Promise<MeResponse | null> | null = null;
@@ -34,11 +39,19 @@ export function useDashboardAuth() {
   const [state, setState] = useState<{
     tech: Tech | null;
     admin: boolean;
+    role: "owner" | "staff";
+    staff: StaffMember | null;
     loading: boolean;
   }>(() =>
     cachedMe
-      ? { tech: cachedMe.tech, admin: cachedMe.admin, loading: false }
-      : { tech: null, admin: false, loading: true },
+      ? {
+          tech: cachedMe.tech,
+          admin: cachedMe.admin,
+          role: cachedMe.role ?? "owner",
+          staff: cachedMe.staff ?? null,
+          loading: false,
+        }
+      : { tech: null, admin: false, role: "owner", staff: null, loading: true },
   );
 
   useEffect(() => {
@@ -49,7 +62,13 @@ export function useDashboardAuth() {
         router.replace("/login");
         return;
       }
-      setState({ tech: me.tech, admin: me.admin, loading: false });
+      setState({
+        tech: me.tech,
+        admin: me.admin,
+        role: me.role ?? "owner",
+        staff: me.staff ?? null,
+        loading: false,
+      });
     });
     return () => {
       cancelled = true;

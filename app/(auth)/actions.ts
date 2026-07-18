@@ -98,18 +98,30 @@ export async function signupAction(formData: FormData) {
     signupOffer: isTester ? "tester" : "",
   });
 
+  // Owner staff member: every account has one person from day one (salon
+  // accounts add more from the Team page). Best-effort pre-migration.
+  let ownerStaffId: string | null = null;
+  try {
+    const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
+    ownerStaffId = (await getOrCreateOwnerStaff(admin, tech)).id;
+  } catch {
+    // staff_members table not deployed yet — hours stay unscoped.
+  }
+
   await replaceWorkingHours(
     admin,
     techId,
     [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
       id: randomId("wh"),
       techId,
+      staffId: ownerStaffId,
       weekday,
       startMinutes: 9 * 60,
       endMinutes: 17 * 60,
       lastStartMinutes: null,
       enabled: weekday >= 2 && weekday <= 6,
     })),
+    ownerStaffId ?? undefined,
   );
 
   // Starter categories so adding a first service is a single step.

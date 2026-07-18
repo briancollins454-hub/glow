@@ -286,10 +286,11 @@ export async function sendAftercareEmail(
 }
 
 /** Render + send a reminder email via Resend, then record it. */
-export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Promise<void> {
-  if (!reminder.bookingId) return;
+/** Returns true when email and/or SMS was delivered. */
+export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Promise<boolean> {
+  if (!reminder.bookingId) return false;
   const booking = await getBooking(sb, reminder.bookingId);
-  if (!booking) return;
+  if (!booking) return false;
   const [client, service, tech] = await Promise.all([
     getClient(sb, booking.clientId),
     getService(sb, booking.serviceId),
@@ -317,22 +318,76 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
   const text = renderReminderText(ctx);
   const { subject, html } = renderReminderEmail(ctx);
 
-  if (client?.email) {
-    await sendEmail({ to: client.email, subject, html, text, idempotencyKey: `reminder/${reminder.id}` });
-  }
-
   // SMS is where no-shows are actually prevented: clients read texts, not email.
   // Sent for the time-critical kinds when Twilio is configured.
   const SMS_KINDS: ReminderKind[] = ["reminder_24h", "reminder_2h", "balance_request"];
-  if (smsConfigured() && client?.phone && SMS_KINDS.includes(reminder.kind)) {
-    await sendSms(client.phone, text);
+  const canSms = SMS_KINDS.includes(reminder.kind);
+  const emailTo = client?.email?.trim() ?? "";
+
+  let emailOk = false;
+  if (emailTo) {
+    emailOk = await sendEmail({
+      to: emailTo,
+      subject,
+      html,
+      text,
+      idempotencyKey: `reminder/${reminder.id}`,
+    });
   }
 
-  await markReminder(sb, reminder.id, {
-    status: "sent",
-    sentAtIso: new Date().toISOString(),
-    preview: text,
-  });
+  let smsOk = false;
+  if (smsConfigured() && client?.phone && canSms) {
+    smsOk = await sendSms(client.phone, text);
+  }
+
+  if (emailOk || smsOk) {
+    await markReminder(sb, reminder.id, {
+      status: "sent",
+      sentAtIso: new Date().toISOString(),
+      preview: text,
+    });
+    return true;
+  }
+
+  // Nothing went out. Do not mark "sent" — that was hiding Resend failures and
+  // missing client emails (confirmations looked successful in the dashboard).
+  const { reportError } = await import("@/lib/monitor");
+  const { emailConfigured } = await import("@/lib/email");
+
+  if (!emailTo && !(canSms && client?.phone)) {
+    await markReminder(sb, reminder.id, {
+      status: "skipped",
+      preview: text || "No client contact details",
+    });
+    await reportError(new Error("Reminder skipped: no client email or phone"), {
+      reminderId: reminder.id,
+      kind: reminder.kind,
+      bookingId: booking.id,
+      techId: booking.techId,
+    });
+    return false;
+  }
+
+  // Leave status "scheduled" so the cron can retry; alert ops once per window.
+  await markReminder(sb, reminder.id, { preview: text });
+  await reportError(
+    new Error(
+      !emailConfigured()
+        ? "Reminder email not sent: RESEND_API_KEY missing"
+        : emailTo
+          ? "Reminder email send failed"
+          : "Reminder SMS send failed",
+    ),
+    {
+      reminderId: reminder.id,
+      kind: reminder.kind,
+      bookingId: booking.id,
+      techId: booking.techId,
+      hasEmail: !!emailTo,
+      emailConfigured: emailConfigured(),
+    },
+  );
+  return false;
 }
 
 /**

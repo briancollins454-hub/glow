@@ -24,6 +24,14 @@ import {
   findPatchTestService,
 } from "@/lib/rules";
 import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
+import {
+  ANY_STAFF,
+  capableStaff,
+  staffCanPerform,
+  unionDayOptions,
+} from "@/lib/booking/staff";
+import { listStaff, staffServiceMap } from "@/lib/db/queries";
+import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
 import { isLive } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
@@ -74,12 +82,23 @@ function buildOpeningHours(hours: Awaited<ReturnType<typeof listWorkingHours>>) 
     `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   return [1, 2, 3, 4, 5, 6, 0].map((weekday) => {
-    const row = hours.find((h) => h.weekday === weekday);
-    return {
-      label: dayNames[weekday],
-      value: row?.enabled ? `${hhmm(row.startMinutes)} - ${hhmm(row.endMinutes)}` : "Closed",
-    };
+    // Salon mode can have one row per staff member per weekday: the business
+    // is "open" from the earliest start to the latest finish of anyone working.
+    const rows = hours.filter((h) => h.weekday === weekday && h.enabled);
+    if (rows.length === 0) {
+      return { label: dayNames[weekday], value: "Closed" };
+    }
+    const start = Math.min(...rows.map((r) => r.startMinutes));
+    const end = Math.max(...rows.map((r) => r.endMinutes));
+    return { label: dayNames[weekday], value: `${hhmm(start)} - ${hhmm(end)}` };
   });
+}
+
+/** Rows belonging to one staff member (legacy null rows count as the owner's). */
+function forStaff<T extends { staffId?: string | null }>(rows: T[], staff: StaffMember): T[] {
+  return rows.filter(
+    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
+  );
 }
 
 export default async function PublicBookingPage({
@@ -87,7 +106,7 @@ export default async function PublicBookingPage({
   searchParams,
 }: {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ service?: string; also?: string; date?: string; slot?: string; patchSlot?: string; pair?: string; err?: string; wl?: string; retest?: string }>;
+  searchParams: Promise<{ service?: string; also?: string; staff?: string; date?: string; slot?: string; patchSlot?: string; pair?: string; err?: string; wl?: string; retest?: string }>;
 }) {
   const { handle } = await params;
   const sp = await searchParams;
@@ -125,31 +144,88 @@ export default async function PublicBookingPage({
   let minLeadHours = 24;
   let questions: ConsultationQuestion[] = [];
   let addons: ServiceAddon[] = [];
+  // Salon mode: who can take this visit, and who did the client pick?
+  let staffOptions: { id: string; name: string }[] = [];
+  let selectedStaff = ANY_STAFF;
+  let pairStaffId: string | null = null;
+  let addableForStaff = addable;
   if (selected && live) {
     const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    const [workingHours, timeOff, bookings, qs, adds, category] = await Promise.all([
+    const [workingHours, timeOff, bookings, qs, adds, category, staffList] = await Promise.all([
       listWorkingHours(sb, tech.id),
       listTimeOff(sb, tech.id),
       listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
       listQuestions(sb, tech.id, { activeOnly: true }),
       addonsForService(sb, selected.id, { activeOnly: true }),
       getCategory(sb, selected.categoryId),
+      listStaff(sb, tech.id, { activeOnly: true }).catch(() => [] as StaffMember[]),
     ]);
-    const ctx = { workingHours, timeOff, bookings };
     minLeadHours = category?.patchTestMinLeadHours ?? 24;
     questions = qs;
     addons = adds;
+
+    const restrictions = staffList.length
+      ? await staffServiceMap(sb, staffList.map((s) => s.id)).catch(
+          () => ({}) as Record<string, string[]>,
+        )
+      : ({} as Record<string, string[]>);
+
+    const basketServices = usePairedFlow ? [selected] : [selected, ...basketExtras];
+    const basketIds = usePairedFlow && patchTestService
+      ? [selected.id, patchTestService.id]
+      : basketServices.map((s) => s.id);
+    const capable = capableStaff(staffList, restrictions, basketIds);
+
+    // Availability context per person (legacy rows with no staffId belong to
+    // the owner). No staff rows at all = pre-migration account: whole diary.
+    const ctxFor = (staff: StaffMember) => ({
+      workingHours: forStaff(workingHours as WorkingHour[], staff),
+      timeOff,
+      bookings: forStaff(bookings as Booking[], staff),
+    });
+    const legacyCtx = { workingHours, timeOff, bookings };
+
+    if (capable.length > 1) {
+      staffOptions = capable.map((s) => ({ id: s.id, name: s.name }));
+      if (sp.staff && capable.some((s) => s.id === sp.staff)) selectedStaff = sp.staff;
+    }
+
     if (usePairedFlow && patchTestService) {
-      patchTestDays = availableDays(patchTestService, ctx, 14);
-    } else if (basketExtras.length > 0) {
-      // The visit needs one continuous window covering every treatment.
-      days = availableDaysForDuration(
-        basketDurationMin([selected, ...basketExtras]),
-        ctx,
+      // Paired bookings (patch test + treatment) stay with ONE person.
+      const pairStaff =
+        capable.find((s) => s.id === selectedStaff) ?? capable[0] ?? null;
+      pairStaffId = pairStaff?.id ?? null;
+      patchTestDays = availableDays(
+        patchTestService,
+        pairStaff ? ctxFor(pairStaff) : legacyCtx,
         14,
       );
     } else {
-      days = availableDays(selected, ctx, 14);
+      const duration = basketDurationMin(basketServices);
+      if (capable.length === 0) {
+        // Pre-migration or no active staff: book against the whole diary.
+        days = availableDaysForDuration(duration, legacyCtx, 14);
+      } else if (selectedStaff !== ANY_STAFF) {
+        const staff = capable.find((s) => s.id === selectedStaff)!;
+        days = availableDaysForDuration(duration, ctxFor(staff), 14);
+      } else {
+        // "Any available": union of everyone who can do the whole visit.
+        days = unionDayOptions(
+          capable.map((s) => availableDaysForDuration(duration, ctxFor(s), 60)),
+          14,
+        );
+      }
+
+      // Only offer basket additions someone can actually perform in this visit.
+      if (staffList.length > 0) {
+        addableForStaff = addable.filter((svc) => {
+          const ids = [...basketIds, svc.id];
+          if (selectedStaff !== ANY_STAFF) {
+            return staffCanPerform(restrictions, selectedStaff, ids);
+          }
+          return capableStaff(staffList, restrictions, ids).length > 0;
+        });
+      }
     }
   }
 
@@ -254,6 +330,7 @@ export default async function PublicBookingPage({
               initialPatchSlot={sp.patchSlot}
               initialTreatmentSlot={sp.slot}
               photoUrl={selectedPhotoUrl}
+              staffId={pairStaffId}
             />
           ) : (
             <BookingStepInteractive
@@ -273,7 +350,9 @@ export default async function PublicBookingPage({
                 patchTestService ? `/${tech.handle}?service=${selected.id}&pair=1` : undefined
               }
               basketExtras={basketExtras}
-              addableServices={addable}
+              addableServices={addableForStaff}
+              staffOptions={staffOptions}
+              selectedStaff={selectedStaff}
             />
           )}
         </main>

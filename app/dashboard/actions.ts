@@ -321,7 +321,10 @@ export async function ensureCalendarTokenAction() {
 }
 
 export async function requestAccountClosureAction(formData: FormData) {
-  const { sb, tech } = await ctx();
+  const c = await ctx();
+  // Only the owner can ask to close the whole account.
+  if (c.role !== "owner") redirect("/dashboard");
+  const { sb, tech } = c;
   const reason = String(formData.get("reason") ?? "").trim();
   const requestedAt = new Date().toISOString();
   await updateTech(sb, tech.id, { closureRequestedAt: requestedAt, closureReason: reason });
@@ -458,12 +461,17 @@ export async function syncBookingGoogleAction(formData: FormData) {
 // ---------------- Availability ----------------
 export async function saveAvailabilityAction(formData: FormData) {
   const { sb, tech } = await ctx();
+  // The "Opening hours" page edits the OWNER's diary; other staff members'
+  // hours are managed from the Team page.
+  const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
+  const owner = await getOrCreateOwnerStaff(supabaseService(), tech).catch(() => null);
   const rows: WorkingHour[] = [];
   for (let weekday = 0; weekday <= 6; weekday++) {
     const lastRaw = String(formData.get(`last_${weekday}`) ?? "").trim();
     rows.push({
       id: randomId("wh"),
       techId: tech.id,
+      staffId: owner?.id ?? null,
       weekday,
       startMinutes: hhmmToMin(String(formData.get(`start_${weekday}`) ?? "09:00")),
       endMinutes: hhmmToMin(String(formData.get(`end_${weekday}`) ?? "17:00")),
@@ -471,7 +479,7 @@ export async function saveAvailabilityAction(formData: FormData) {
       enabled: formData.get(`enabled_${weekday}`) === "on",
     });
   }
-  await replaceWorkingHours(sb, tech.id, rows);
+  await replaceWorkingHours(sb, tech.id, rows, owner?.id);
   revalidatePath("/dashboard/availability");
   redirect("/dashboard/availability?saved=1");
 }
@@ -994,6 +1002,17 @@ export async function addManualBookingAction(formData: FormData) {
   const completedVisits = existing.filter((b) => b.status === "completed").length;
   const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies, client.isVip);
 
+  // Salon mode: manual bookings can name a staff member; default is the owner.
+  let manualStaffId = String(formData.get("staffId") ?? "").trim() || null;
+  if (!manualStaffId) {
+    try {
+      const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
+      manualStaffId = (await getOrCreateOwnerStaff(supabaseService(), tech)).id;
+    } catch {
+      // Pre-migration environment: book without a staff link.
+    }
+  }
+
   let booking;
   try {
     booking = await createConfirmedBooking({
@@ -1002,6 +1021,7 @@ export async function addManualBookingAction(formData: FormData) {
       service: service!,
       client,
       startIso,
+      staffId: manualStaffId,
       notes: String(formData.get("notes") ?? "").trim(),
       paymentTaken,
       paymentMethod,

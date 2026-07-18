@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   CalendarDays,
   Users,
+  UsersRound,
   Scissors,
   Clock,
   BellRing,
@@ -27,24 +28,34 @@ const items = [
   { href: "/dashboard/bookings", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
   { href: "/dashboard/clients", label: "Clients", icon: Users },
-  { href: "/dashboard/services", label: "Services", icon: Scissors },
-  { href: "/dashboard/availability", label: "Opening hours", icon: Clock },
+  { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
+  { href: "/dashboard/availability", label: "Opening hours", icon: Clock, ownerOnly: true },
+  { href: "/dashboard/team", label: "Team", icon: UsersRound, ownerOnly: true },
   { href: "/dashboard/forms", label: "Forms", icon: ClipboardList },
   { href: "/dashboard/reminders", label: "Reminders", icon: BellRing },
   { href: "/dashboard/reviews", label: "Reviews", icon: Star },
-  { href: "/dashboard/reports", label: "Income", icon: BarChart3 },
-  { href: "/dashboard/payments", label: "Get paid", icon: Wallet },
-  { href: "/dashboard/billing", label: "My plan", icon: CreditCard },
-  { href: "/dashboard/import", label: "Move to Glow", icon: FolderInput },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/reports", label: "Income", icon: BarChart3, ownerOnly: true },
+  { href: "/dashboard/payments", label: "Get paid", icon: Wallet, ownerOnly: true },
+  { href: "/dashboard/billing", label: "My plan", icon: CreditCard, ownerOnly: true },
+  { href: "/dashboard/import", label: "Move to Glow", icon: FolderInput, ownerOnly: true },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
   { href: "/dashboard/help", label: "Help", icon: LifeBuoy },
 ];
 
-export function SidebarNav({ unread = 0, admin = false }: { unread?: number; admin?: boolean }) {
+export function SidebarNav({
+  unread = 0,
+  admin = false,
+  role = "owner",
+}: {
+  unread?: number;
+  admin?: boolean;
+  role?: "owner" | "staff";
+}) {
   const pathname = usePathname();
+  const visible = items.filter((item) => role === "owner" || !item.ownerOnly);
   const navItems = admin
-    ? [...items, { href: "/dashboard/admin", label: "Owner", icon: Crown, exact: false }]
-    : items;
+    ? [...visible, { href: "/dashboard/admin", label: "Owner", icon: Crown, exact: false }]
+    : visible;
   return (
     <nav className="flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
       {navItems.map((item) => {

@@ -30,6 +30,7 @@ import type {
   Service,
   ServiceAddon,
   ServiceCategory,
+  StaffMember,
   Tech,
   TimeOff,
   WaitlistEntry,
@@ -252,15 +253,35 @@ export async function deleteAddon(sb: SB, id: string): Promise<void> {
 }
 
 // ---------------- Working hours / time off ----------------
-export async function listWorkingHours(sb: SB, techId: string): Promise<WorkingHour[]> {
-  const { data, error } = await sb.from("working_hours").select("*").eq("techId", techId).order("weekday");
+export async function listWorkingHours(
+  sb: SB,
+  techId: string,
+  staffId?: string,
+): Promise<WorkingHour[]> {
+  let q = sb.from("working_hours").select("*").eq("techId", techId);
+  if (staffId) q = q.eq("staffId", staffId);
+  const { data, error } = await q.order("weekday");
   return must(data as WorkingHour[], error) ?? [];
 }
-export async function replaceWorkingHours(sb: SB, techId: string, rows: WorkingHour[]): Promise<void> {
-  const del = await sb.from("working_hours").delete().eq("techId", techId);
-  if (del.error) throw new Error(del.error.message);
+export async function replaceWorkingHours(
+  sb: SB,
+  techId: string,
+  rows: WorkingHour[],
+  staffId?: string,
+): Promise<void> {
+  // Scope the wipe to one staff member's rows when given, so editing one
+  // person's hours never deletes a colleague's.
+  let del = sb.from("working_hours").delete().eq("techId", techId);
+  if (staffId) del = del.eq("staffId", staffId);
+  const delRes = await del;
+  if (delRes.error) throw new Error(delRes.error.message);
   if (rows.length) {
-    const { error } = await sb.from("working_hours").insert(rows);
+    // Strip undefined/null staffId so pre-migration environments keep working.
+    const clean = rows.map((r) => {
+      const { staffId: sid, ...rest } = r;
+      return sid != null ? { ...rest, staffId: sid } : rest;
+    });
+    const { error } = await sb.from("working_hours").insert(clean);
     if (error) throw new Error(error.message);
   }
 }
@@ -370,15 +391,17 @@ export async function listBlockingBookingsInRange(
   techId: string,
   fromIso: string,
   toIso: string,
+  staffId?: string,
 ): Promise<Booking[]> {
-  const { data, error } = await sb
+  let q = sb
     .from("bookings")
     .select("*")
     .eq("techId", techId)
     .gte("startIso", fromIso)
     .lt("startIso", toIso)
-    .in("status", ["pending_approval", "pending", "confirmed", "completed"])
-    .order("startIso");
+    .in("status", ["pending_approval", "pending", "confirmed", "completed"]);
+  if (staffId) q = q.eq("staffId", staffId);
+  const { data, error } = await q.order("startIso");
   return must(data as Booking[], error) ?? [];
 }
 
@@ -716,21 +739,109 @@ export async function bookingsForClient(sb: SB, techId: string, clientId: string
 }
 export async function createBooking(
   sb: SB,
-  b: Omit<Booking, "id" | "createdAt" | "googleEventId" | "approvalToken" | "groupId"> &
-    Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId">>,
+  b: Omit<Booking, "id" | "createdAt" | "googleEventId" | "approvalToken" | "groupId" | "staffId"> &
+    Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId" | "staffId">>,
 ): Promise<Booking> {
-  // groupId is only included when set so single bookings keep working while
-  // the 0028 migration is still pending on an environment.
-  const { groupId, ...rest } = b;
+  // groupId/staffId are only included when set so bookings keep working while
+  // the 0028/0029 migrations are still pending on an environment.
+  const { groupId, staffId, ...rest } = b;
   const row: Record<string, unknown> = {
     ...rest,
     approvalToken: b.approvalToken ?? null,
     id: randomId("bk"),
   };
   if (groupId != null) row.groupId = groupId;
+  if (staffId != null) row.staffId = staffId;
   const { data, error } = await sb.from("bookings").insert(row).select("*").single();
   if (error) throwDbError(error);
   return data as Booking;
+}
+
+// ---------------- Staff (salon mode) ----------------
+
+export async function listStaff(
+  sb: SB,
+  techId: string,
+  opts: { activeOnly?: boolean } = {},
+): Promise<StaffMember[]> {
+  let q = sb.from("staff_members").select("*").eq("techId", techId);
+  if (opts.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q.order("sortOrder").order("createdAt");
+  return must(data as StaffMember[], error) ?? [];
+}
+
+export async function getStaff(sb: SB, id: string): Promise<StaffMember | null> {
+  const { data, error } = await sb.from("staff_members").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as StaffMember | null;
+}
+
+export async function getStaffByAuthUserId(sb: SB, authUserId: string): Promise<StaffMember | null> {
+  const { data, error } = await sb
+    .from("staff_members")
+    .select("*")
+    .eq("authUserId", authUserId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as StaffMember | null;
+}
+
+export async function createStaff(
+  sb: SB,
+  s: Omit<StaffMember, "id" | "createdAt"> & Partial<Pick<StaffMember, "id">>,
+): Promise<StaffMember> {
+  const { data, error } = await sb
+    .from("staff_members")
+    .insert({ ...s, id: s.id ?? randomId("stf") })
+    .select("*")
+    .single();
+  if (error) throwDbError(error);
+  return data as StaffMember;
+}
+
+export async function updateStaff(sb: SB, id: string, patch: Partial<StaffMember>): Promise<void> {
+  const { error } = await sb.from("staff_members").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Service ids a staff member is restricted to. Empty array = performs ALL
+ * services (the default; no rows stored).
+ */
+export async function staffServiceIds(sb: SB, staffId: string): Promise<string[]> {
+  const { data, error } = await sb.from("staff_services").select("serviceId").eq("staffId", staffId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => (r as { serviceId: string }).serviceId);
+}
+
+/** Restriction map for several staff at once: staffId -> serviceIds ([] = all). */
+export async function staffServiceMap(
+  sb: SB,
+  staffIds: string[],
+): Promise<Record<string, string[]>> {
+  const map: Record<string, string[]> = {};
+  for (const id of staffIds) map[id] = [];
+  if (!staffIds.length) return map;
+  const { data, error } = await sb
+    .from("staff_services")
+    .select("staffId, serviceId")
+    .in("staffId", staffIds);
+  if (error) throw new Error(error.message);
+  for (const row of (data ?? []) as { staffId: string; serviceId: string }[]) {
+    (map[row.staffId] ??= []).push(row.serviceId);
+  }
+  return map;
+}
+
+export async function setStaffServices(sb: SB, staffId: string, serviceIds: string[]): Promise<void> {
+  const del = await sb.from("staff_services").delete().eq("staffId", staffId);
+  if (del.error) throw new Error(del.error.message);
+  if (serviceIds.length) {
+    const { error } = await sb
+      .from("staff_services")
+      .insert(serviceIds.map((serviceId) => ({ staffId, serviceId })));
+    if (error) throw new Error(error.message);
+  }
 }
 
 /** All bookings sharing a basket group id, earliest first. */

@@ -53,6 +53,7 @@ export function PairedBookingStepInteractive({
   initialPatchSlot,
   initialTreatmentSlot,
   photoUrl,
+  staffId = null,
 }: {
   tech: Tech;
   treatmentService: Service;
@@ -68,6 +69,7 @@ export function PairedBookingStepInteractive({
   initialPatchSlot?: string;
   initialTreatmentSlot?: string;
   photoUrl?: string;
+  staffId?: string | null;
 }) {
   const deposit = depositFor(treatmentService);
   const balance = Math.max(0, treatmentService.pricePennies - deposit);
@@ -90,6 +92,7 @@ export function PairedBookingStepInteractive({
           tech.handle,
           treatmentService.id,
           patch,
+          staffId,
         );
         setTreatmentDays(days);
         const first = days[0]?.slots[0] ?? "";
@@ -99,7 +102,7 @@ export function PairedBookingStepInteractive({
         });
       });
     },
-    [tech.handle, treatmentService.id],
+    [tech.handle, treatmentService.id, staffId],
   );
 
   useEffect(() => {
@@ -246,6 +249,7 @@ export function PairedBookingStepInteractive({
           <form action={createPairedPublicBookingAction} className="mt-5 space-y-4">
             <input type="hidden" name="handle" value={tech.handle} />
             <input type="hidden" name="serviceId" value={treatmentService.id} />
+            {staffId && <input type="hidden" name="staffId" value={staffId} />}
             <input type="hidden" name="patchSlot" value={patchSlot} />
             <input type="hidden" name="slot" value={treatmentSlot} />
             <div className="grid gap-3 sm:grid-cols-2">

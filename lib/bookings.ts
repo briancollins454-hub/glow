@@ -21,6 +21,8 @@ interface BaseParams {
   service: Service;
   client: Client;
   startIso: string;
+  /** Staff member taking the appointment (salon mode). */
+  staffId?: string | null;
   isPatchTest?: boolean;
   notes?: string;
   /** Extras chosen at booking time; added to the price (deposit stays on the base service). */
@@ -93,6 +95,7 @@ export async function createConfirmedBooking({
   service,
   client,
   startIso,
+  staffId = null,
   isPatchTest = false,
   notes = "",
   paymentTaken = "none",
@@ -128,6 +131,7 @@ export async function createConfirmedBooking({
     techId: tech.id,
     clientId: client.id,
     serviceId: service.id,
+    staffId,
     startIso: start.toISOString(),
     endIso: end.toISOString(),
     status: "confirmed",
@@ -189,6 +193,7 @@ export async function createPendingOnlineBooking({
   service,
   client,
   startIso,
+  staffId = null,
   isPatchTest = false,
   notes = "",
   addons = [],
@@ -211,6 +216,7 @@ export async function createPendingOnlineBooking({
     techId: tech.id,
     clientId: client.id,
     serviceId: service.id,
+    staffId,
     startIso: start.toISOString(),
     endIso: end.toISOString(),
     status: "pending",
@@ -241,6 +247,7 @@ export async function createPendingApprovalBooking({
   service,
   client,
   startIso,
+  staffId = null,
   isPatchTest = false,
   notes = "",
   addons = [],
@@ -262,6 +269,7 @@ export async function createPendingApprovalBooking({
     techId: tech.id,
     clientId: client.id,
     serviceId: service.id,
+    staffId,
     startIso: start.toISOString(),
     endIso: end.toISOString(),
     status: "pending_approval",
@@ -525,6 +533,7 @@ export async function createBasketBookings({
   client,
   startIso,
   status,
+  staffId = null,
   addons = [],
   discountPennies = 0,
   riskTier = null,
@@ -536,6 +545,7 @@ export async function createBasketBookings({
   client: Client;
   startIso: string;
   status: "confirmed" | "pending" | "pending_approval";
+  staffId?: string | null;
   addons?: BookingAddon[];
   discountPennies?: number;
   riskTier?: RiskTier | null;
@@ -559,6 +569,7 @@ export async function createBasketBookings({
         techId: tech.id,
         clientId: client.id,
         serviceId: service.id,
+        staffId,
         startIso: start.toISOString(),
         endIso: end.toISOString(),
         status,
@@ -641,6 +652,7 @@ export async function createPairedPatchTestBooking({
   patchTestService,
   category,
   patchSlotIso,
+  staffId = null,
 }: {
   sb: SupabaseClient;
   tech: Tech;
@@ -649,6 +661,7 @@ export async function createPairedPatchTestBooking({
   patchTestService: Service;
   category: { patchTestValidityDays: number } | null;
   patchSlotIso: string;
+  staffId?: string | null;
 }): Promise<Booking> {
   const { createPatchTest } = await import("@/lib/db/queries");
   const { markRetestsTestBooked } = await import("@/lib/product-change");
@@ -659,6 +672,7 @@ export async function createPairedPatchTestBooking({
     service: patchTestService,
     client,
     startIso: patchSlotIso,
+    staffId,
     isPatchTest: true,
     notes: "Patch test booked online with treatment",
     addons: [],

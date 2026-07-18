@@ -118,6 +118,24 @@ export type SubscriptionStatus =
   | "canceled"
   | "comped";
 
+export type StaffRole = "owner" | "staff";
+
+/** A person who takes appointments at the business (salon mode). */
+export interface StaffMember {
+  id: string;
+  techId: string;
+  /** Supabase auth user for their own login (owner-created). */
+  authUserId: string | null;
+  name: string;
+  email: string;
+  role: StaffRole;
+  photoPath: string | null;
+  bio: string;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
 export interface ServiceCategory {
   id: string;
   techId: string;
@@ -176,6 +194,8 @@ export interface BookingAddon {
 export interface WorkingHour {
   id: string;
   techId: string;
+  /** Which staff member these hours belong to (null only pre-migration). */
+  staffId?: string | null;
   weekday: number; // 0 = Sunday ... 6 = Saturday
   startMinutes: number; // minutes from midnight (local)
   endMinutes: number;
@@ -260,6 +280,8 @@ export interface Booking {
   pairedBookingId: string | null;
   /** Shared id when several treatments are booked together as one visit (basket). */
   groupId: string | null;
+  /** Staff member taking this appointment (null only pre-migration). */
+  staffId?: string | null;
   /** Client risk at booking time (drives deposit tier). */
   riskTier: RiskTier | null;
   /** True when rules mode auto-approved without tech review. */

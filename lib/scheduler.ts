@@ -38,8 +38,9 @@ export async function processDueReminders(
       skipped++;
       continue;
     }
-    await sendReminder(sb, reminder);
-    sent++;
+    const delivered = await sendReminder(sb, reminder);
+    if (delivered) sent++;
+    else skipped++;
   }
 
   let checkinsSent = 0;
