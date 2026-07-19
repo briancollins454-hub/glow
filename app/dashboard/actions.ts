@@ -485,6 +485,14 @@ export async function saveAvailabilityAction(formData: FormData) {
   // hours are managed from the Team page.
   const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
   const owner = await getOrCreateOwnerStaff(supabaseService(), tech).catch(() => null);
+  const flexibleHoursEnabled = formData.get("flexibleHoursEnabled") === "on";
+  const flexLastRaw = String(formData.get("flexibleLast") ?? "").trim();
+  let flexibleStartMinutes = hhmmToMin(String(formData.get("flexibleStart") ?? "09:00"));
+  let flexibleEndMinutes = hhmmToMin(String(formData.get("flexibleEnd") ?? "20:00"));
+  if (!(flexibleEndMinutes > flexibleStartMinutes)) {
+    flexibleStartMinutes = 9 * 60;
+    flexibleEndMinutes = 20 * 60;
+  }
   const rows: WorkingHour[] = [];
   for (let weekday = 0; weekday <= 6; weekday++) {
     const lastRaw = String(formData.get(`last_${weekday}`) ?? "").trim();
@@ -499,8 +507,16 @@ export async function saveAvailabilityAction(formData: FormData) {
       enabled: formData.get(`enabled_${weekday}`) === "on",
     });
   }
+  await updateTech(sb, tech.id, {
+    flexibleHoursEnabled,
+    flexibleStartMinutes,
+    flexibleEndMinutes,
+    flexibleLastStartMinutes: flexLastRaw ? hhmmToMin(flexLastRaw) : null,
+  });
   await replaceWorkingHours(sb, tech.id, rows, owner?.id);
+  invalidateDashboardTech(tech.authUserId);
   revalidatePath("/dashboard/availability");
+  revalidatePath(`/${tech.handle}`);
   redirect("/dashboard/availability?saved=1");
 }
 

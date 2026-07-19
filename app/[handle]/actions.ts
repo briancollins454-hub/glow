@@ -27,6 +27,7 @@ import {
   bookingAmounts,
   daySlots,
   daySlotsForDuration,
+  withTechAvailability,
   dateStrInTz,
   evaluateEligibility,
   findPatchTestService,
@@ -34,6 +35,7 @@ import {
   scoreClientRisk,
   treatmentSlotsAfterPatchTest,
   validatePairedPatchTestTiming,
+  type AvailabilityCtx,
 } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
 import { createWaitlistEntry } from "@/lib/db/queries";
@@ -49,7 +51,7 @@ import {
 import { resolveBasketExtras } from "@/lib/booking/basket";
 import { ANY_STAFF, capableStaff } from "@/lib/booking/staff";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
-import type { Booking, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
+import type { StaffMember, Tech } from "@/lib/db/types";
 
 /** Client asks to be told when a cancellation frees up a slot. */
 export async function joinWaitlistAction(formData: FormData) {
@@ -83,14 +85,24 @@ import { isLive, isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-async function loadAvailability(sb: ReturnType<typeof supabaseService>, techId: string) {
+async function loadAvailability(
+  sb: ReturnType<typeof supabaseService>,
+  tech: Pick<
+    Tech,
+    | "id"
+    | "flexibleHoursEnabled"
+    | "flexibleStartMinutes"
+    | "flexibleEndMinutes"
+    | "flexibleLastStartMinutes"
+  >,
+): Promise<AvailabilityCtx> {
   const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
   const [workingHours, timeOff, bookings] = await Promise.all([
-    listWorkingHours(sb, techId),
-    listTimeOff(sb, techId),
-    listBlockingBookingsInRange(sb, techId, new Date().toISOString(), rangeEnd),
+    listWorkingHours(sb, tech.id),
+    listTimeOff(sb, tech.id),
+    listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
   ]);
-  return { workingHours, timeOff, bookings };
+  return withTechAvailability({ workingHours, timeOff, bookings }, tech);
 }
 
 /** Rows belonging to one staff member (legacy null rows count as the owner's). */
@@ -112,7 +124,7 @@ async function resolveBookingStaff(
   requested: string,
   slotIso: string,
   totalDurationMin: number,
-  availability: { workingHours: WorkingHour[]; timeOff: TimeOff[]; bookings: Booking[] },
+  availability: AvailabilityCtx,
 ): Promise<{ staff: StaffMember | null; legacy: boolean } | "invalid"> {
   const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
     () => [] as StaffMember[],
@@ -131,6 +143,7 @@ async function resolveBookingStaff(
       workingHours: rowsForStaff(availability.workingHours, staff),
       timeOff: availability.timeOff,
       bookings: rowsForStaff(availability.bookings, staff),
+      flexibleHours: availability.flexibleHours,
     }).includes(slotIso);
 
   if (requested && requested !== ANY_STAFF) {
@@ -150,9 +163,9 @@ async function resolveBookingStaff(
 async function scopeCtxToStaff(
   sb: ReturnType<typeof supabaseService>,
   techId: string,
-  ctx: { workingHours: WorkingHour[]; timeOff: TimeOff[]; bookings: Booking[] },
+  ctx: AvailabilityCtx,
   staffId: string | null | undefined,
-): Promise<{ workingHours: WorkingHour[]; timeOff: TimeOff[]; bookings: Booking[] }> {
+): Promise<AvailabilityCtx> {
   if (!staffId) return ctx;
   const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
     () => [] as StaffMember[],
@@ -163,6 +176,7 @@ async function scopeCtxToStaff(
     workingHours: rowsForStaff(ctx.workingHours, staff),
     timeOff: ctx.timeOff,
     bookings: rowsForStaff(ctx.bookings, staff),
+    flexibleHours: ctx.flexibleHours,
   };
 }
 
@@ -181,7 +195,7 @@ export async function loadTreatmentSlotsAfterPatchAction(
   const [category, services, fullCtx] = await Promise.all([
     getCategory(sb, treatmentService.categoryId),
     listServices(sb, tech.id),
-    loadAvailability(sb, tech.id),
+    loadAvailability(sb, tech),
   ]);
   const patchTestService = findPatchTestService(services, treatmentService.categoryId);
   if (!patchTestService) return [];
@@ -225,7 +239,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const [category, services, fullCtx] = await Promise.all([
     getCategory(sb, service.categoryId),
     listServices(sb, tech.id),
-    loadAvailability(sb, tech.id),
+    loadAvailability(sb, tech),
   ]);
   const patchTestService = findPatchTestService(services, service.categoryId);
   if (!patchTestService) redirect(`/${handle}?service=${serviceId}&err=patch`);
@@ -435,17 +449,8 @@ export async function createPublicBookingAction(formData: FormData) {
   const base = `/${tech!.handle}?service=${serviceId}${alsoQs}&slot=${encodeURIComponent(slotIso)}`;
   if (!policyAccepted) redirect(`${base}&err=form`);
 
-  // Re-check the slot is still free.
-  const [workingHours, timeOff, bookings] = await Promise.all([
-    listWorkingHours(sb, tech!.id),
-    listTimeOff(sb, tech!.id),
-    listBlockingBookingsInRange(
-      sb,
-      tech!.id,
-      new Date().toISOString(),
-      new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-    ),
-  ]);
+  // Re-check the slot is still free (respects flexible hours when enabled).
+  const availability = await loadAvailability(sb, tech!);
 
   // Client history + full service list (needed for rules and the basket).
   const existing = await getClientByEmail(sb, tech!.id, email);
@@ -469,7 +474,7 @@ export async function createPublicBookingAction(formData: FormData) {
     requestedStaff,
     slotIso,
     totalDuration,
-    { workingHours, timeOff, bookings },
+    availability,
   );
   if (resolved === "invalid") {
     redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
@@ -478,11 +483,11 @@ export async function createPublicBookingAction(formData: FormData) {
 
   if (!bookingStaff) {
     const dateStr = dateStrInTz(new Date(slotIso));
-    const stillFree = daySlotsForDuration(totalDuration, dateStr, {
-      workingHours,
-      timeOff,
-      bookings,
-    }).includes(slotIso);
+    const stillFree = daySlotsForDuration(
+      totalDuration,
+      dateStr,
+      availability,
+    ).includes(slotIso);
     if (!stillFree) {
       redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
     }

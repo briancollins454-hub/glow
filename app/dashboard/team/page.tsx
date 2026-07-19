@@ -45,6 +45,7 @@ type TeamData =
       services: Service[];
       restrictions: Record<string, string[]>;
       hoursByStaff: Record<string, WorkingHour[]>;
+      flexibleHoursEnabled?: boolean;
     };
 
 export default function TeamPage() {
@@ -74,11 +75,13 @@ function TeamView({
   services,
   restrictions,
   hoursByStaff,
+  flexibleHoursEnabled,
 }: {
   staff: StaffMember[];
   services: Service[];
   restrictions: Record<string, string[]>;
   hoursByStaff: Record<string, WorkingHour[]>;
+  flexibleHoursEnabled?: boolean;
 }) {
   const searchParams = useSearchParams();
   const saved = searchParams.get("saved");
@@ -104,6 +107,14 @@ function TeamView({
       {err && (
         <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
           {ERRORS[err] ?? "Something went wrong. Please try again."}
+        </div>
+      )}
+
+      {flexibleHoursEnabled && (
+        <div className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm text-ink-soft">
+          Flexible hours are on for this business (Opening hours → &quot;My days change each week&quot;).
+          Online booking uses that daily window for everyone; per-person weekly hours below are
+          saved for when you turn flexible mode off.
         </div>
       )}
 

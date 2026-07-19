@@ -9,9 +9,11 @@ import {
   depositFor,
   depositForRisk,
   evaluateEligibility,
+  flexibleHoursFromTech,
   needsManualApproval,
   scoreClientRisk,
   validatePairedPatchTestTiming,
+  withTechAvailability,
 } from "@/lib/rules";
 import { makeBooking, makeCategory, makeClient, makePatchTest, makeService, makeTech, makeWorkingHour } from "./fixtures";
 
@@ -181,6 +183,79 @@ describe("daySlots", () => {
     const wh = makeWorkingHour({ lastStartMinutes: 10 * 60 }); // last start 10:00 London
     const slots = daySlots(service, dateStr, { workingHours: [wh], timeOff: [], bookings: [] }, now);
     expect(slots[slots.length - 1]).toBe("2030-07-10T09:00:00.000Z");
+  });
+
+  it("offers slots every day when flexible hours are on, even if the weekday is closed", () => {
+    // 2030-07-07 is a Sunday (weekday 0); only Wednesday hours exist and are unused.
+    const sunday = "2030-07-07";
+    const slots = daySlots(
+      service,
+      sunday,
+      {
+        workingHours: [makeWorkingHour({ weekday: 3, enabled: false })],
+        timeOff: [],
+        bookings: [],
+        flexibleHours: { startMinutes: 10 * 60, endMinutes: 14 * 60, lastStartMinutes: null },
+      },
+      now,
+    );
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots[0]).toBe("2030-07-07T09:00:00.000Z"); // 10:00 BST
+  });
+
+  it("still respects time off under flexible hours", () => {
+    const slots = daySlots(
+      service,
+      dateStr,
+      {
+        workingHours: [],
+        timeOff: [
+          {
+            id: "off_1",
+            techId: "tech_1",
+            startIso: "2030-07-10T00:00:00.000Z",
+            endIso: "2030-07-11T00:00:00.000Z",
+            reason: "Holiday",
+          },
+        ],
+        bookings: [],
+        flexibleHours: { startMinutes: 9 * 60, endMinutes: 17 * 60, lastStartMinutes: null },
+      },
+      now,
+    );
+    expect(slots).toEqual([]);
+  });
+});
+
+describe("flexibleHoursFromTech", () => {
+  it("returns null when flexible mode is off", () => {
+    expect(flexibleHoursFromTech(makeTech({ flexibleHoursEnabled: false }))).toBeNull();
+    expect(flexibleHoursFromTech(makeTech({ flexibleHoursEnabled: null }))).toBeNull();
+  });
+
+  it("returns the daily window when flexible mode is on", () => {
+    expect(
+      flexibleHoursFromTech(
+        makeTech({
+          flexibleHoursEnabled: true,
+          flexibleStartMinutes: 8 * 60,
+          flexibleEndMinutes: 18 * 60,
+          flexibleLastStartMinutes: 16 * 60,
+        }),
+      ),
+    ).toEqual({
+      startMinutes: 8 * 60,
+      endMinutes: 18 * 60,
+      lastStartMinutes: 16 * 60,
+    });
+  });
+
+  it("attaches the window onto an availability ctx", () => {
+    const ctx = withTechAvailability(
+      { workingHours: [], timeOff: [], bookings: [] },
+      makeTech({ flexibleHoursEnabled: true, flexibleStartMinutes: 9 * 60, flexibleEndMinutes: 20 * 60 }),
+    );
+    expect(ctx.flexibleHours?.startMinutes).toBe(9 * 60);
   });
 });
 

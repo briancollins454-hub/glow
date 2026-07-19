@@ -198,7 +198,15 @@ export async function loadDashboardPageData(
         listWorkingHours(sb, tech.id, owner?.id),
         listTimeOff(sb, tech.id),
       ]);
-      return { hours, offs };
+      return {
+        hours,
+        offs,
+        flexibleHoursEnabled: tech.flexibleHoursEnabled === true,
+        flexibleStartMinutes: tech.flexibleStartMinutes ?? 9 * 60,
+        flexibleEndMinutes: tech.flexibleEndMinutes ?? 20 * 60,
+        flexibleLastStartMinutes: tech.flexibleLastStartMinutes ?? null,
+        approvalMode: tech.approvalMode ?? "off",
+      };
     }
     case "team": {
       if (role !== "owner") return { forbidden: true };
@@ -220,7 +228,13 @@ export async function loadDashboardPageData(
           if (!sid) continue;
           (hoursByStaff[sid] ??= []).push(h);
         }
-        return { staff, services, restrictions, hoursByStaff };
+        return {
+          staff,
+          services,
+          restrictions,
+          hoursByStaff,
+          flexibleHoursEnabled: tech.flexibleHoursEnabled === true,
+        };
       } catch {
         // staff_members migration not applied yet on this environment.
         return { unavailable: true };
