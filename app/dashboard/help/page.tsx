@@ -125,6 +125,7 @@ export default function HelpPage() {
 
         <Item title="I work with other people - can they have their own diary?">
           <P>Yes. Open <B>Team</B>, add each person, and choose which services they can do. Clients pick who they want (or &ldquo;any available&rdquo;) when they book. Each person keeps their own hours and diary.</P>
+          <P>If someone was added by an import and shows <B>No login</B>, open their card → <B>Add login</B>, set an email and password, then they can sign in.</P>
         </Item>
 
         <Item title="Our days change every week - how do we set a rota?">

@@ -175,6 +175,39 @@ export async function resetStaffPasswordAction(formData: FormData) {
   redirect(`${TEAM}?saved=1`);
 }
 
+/** Give a diary-only (imported) staff member a login email + password. */
+export async function setStaffLoginAction(formData: FormData) {
+  const { tech } = await ownerCtx();
+  const id = String(formData.get("id") ?? "");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email) redirect(`${TEAM}?err=missing`);
+  if (password.length < 8) redirect(`${TEAM}?err=password`);
+
+  const svc = supabaseService();
+  const staff = await getStaff(svc, id);
+  if (!staff || staff.techId !== tech.id) redirect(TEAM);
+  if (staff.authUserId) redirect(`${TEAM}?err=haslogin`);
+
+  const { data: created, error } = await svc.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (error || !created.user) redirect(`${TEAM}?err=email`);
+
+  try {
+    await updateStaff(svc, id, { email, authUserId: created.user.id });
+  } catch {
+    // Roll back the auth user if linking fails (e.g. email already on another staff row).
+    await svc.auth.admin.deleteUser(created.user.id).catch(() => undefined);
+    redirect(`${TEAM}?err=email`);
+  }
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
+}
+
 function rotaRowsFromForm(
   formData: FormData,
   techId: string,
