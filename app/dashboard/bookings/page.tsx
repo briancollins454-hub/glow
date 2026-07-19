@@ -172,6 +172,9 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
             <div><Label>New client name</Label><Input name="clientName" placeholder="(if new)" /></div>
             <div><Label>Email</Label><Input name="clientEmail" type="email" placeholder="(optional)" /></div>
             <div><Label>Phone</Label><Input name="clientPhone" placeholder="(optional)" /></div>
+            <p className="text-xs text-ink-faint sm:col-span-2">
+              Add an email or mobile if you want them to get confirmations and reminders — without one, those are skipped.
+            </p>
             <div className="sm:col-span-2">
               <Label>Date &amp; time</Label>
               <LazyDateTimePicker name="startsAt" />

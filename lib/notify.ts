@@ -360,12 +360,12 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
       status: "skipped",
       preview: text || "No client contact details",
     });
-    await reportError(new Error("Reminder skipped: no client email or phone"), {
-      reminderId: reminder.id,
-      kind: reminder.kind,
-      bookingId: booking.id,
-      techId: booking.techId,
-    });
+    // Expected whenever a walk-in is added without contact details — visible
+    // as "skipped" on the Reminders page, but not an ops-alertable error.
+    console.warn(
+      "[glow] reminder skipped: no client email or phone",
+      JSON.stringify({ reminderId: reminder.id, kind: reminder.kind, bookingId: booking.id }),
+    );
     return false;
   }
 
