@@ -82,6 +82,10 @@ export default function HelpPage() {
           <P>Approve or decline from <B>Calendar</B>. The client gets an email either way.</P>
         </Item>
 
+        <Item title="Can I stop clients booking a treatment on certain days?">
+          <P>Yes. Open <B>Services</B>, edit the treatment, and under <B>Available days</B> untick the days it shouldn&apos;t be bookable. Clients only see free slots on the days you leave ticked.</P>
+        </Item>
+
         <Item title="What are patch tests and why does Glow block some bookings?">
           <P>Some treatments (like lash lifts and tints) need a skin test first, for insurance and safety.</P>
           <Step n={1}>When you do a patch test, open the client in <B>Clients</B> and record it (takes 10 seconds).</Step>

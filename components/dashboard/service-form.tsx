@@ -5,6 +5,16 @@ import { ImageFileInput } from "@/components/ui/image-file-input";
 import { saveServiceAction } from "@/app/dashboard/actions";
 import type { Service, ServiceCategory } from "@/lib/db/types";
 
+const WEEKDAYS = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 0, label: "Sun" },
+] as const;
+
 export function ServiceForm({
   service,
   categories,
@@ -13,6 +23,9 @@ export function ServiceForm({
   categories: ServiceCategory[];
 }) {
   const s = service;
+  const restrictedDays = s?.availableWeekdays?.length
+    ? new Set(s.availableWeekdays)
+    : null;
   const saveButton = (
     <SubmitButton size={s ? "md" : "lg"} pendingLabel={s ? "Saving your changes…" : "Adding your service…"}>
       {s ? "Save changes" : "Add service"}
@@ -98,6 +111,31 @@ export function ServiceForm({
         <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
         This is an infill / top-up (returning clients only)
       </label>
+
+      <div className="sm:col-span-2 rounded-xl border border-edge bg-cream px-4 py-3">
+        <p className="text-sm font-medium text-ink">Available days</p>
+        <p className="mt-0.5 text-xs text-ink-faint">
+          Tick the days clients can book this treatment. Leave all ticked for every day you&apos;re
+          open.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {WEEKDAYS.map(({ value, label }) => (
+            <label
+              key={value}
+              className="flex items-center gap-2 rounded-lg border border-edge bg-surface/60 px-3 py-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                name="availableWeekday"
+                value={value}
+                defaultChecked={!restrictedDays || restrictedDays.has(value)}
+                className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
 
       <div>
         <Label>Infills allowed up to (days since their last visit)</Label>

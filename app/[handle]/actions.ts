@@ -32,6 +32,7 @@ import {
   dateStrInTz,
   evaluateEligibility,
   findPatchTestService,
+  intersectWeekdays,
   needsManualApproval,
   scoreClientRisk,
   treatmentSlotsAfterPatchTest,
@@ -133,6 +134,7 @@ async function resolveBookingStaff(
   slotIso: string,
   totalDurationMin: number,
   availability: AvailabilityCtx,
+  allowedWeekdays?: number[] | null,
 ): Promise<{ staff: StaffMember | null; legacy: boolean } | "invalid"> {
   const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
     () => [] as StaffMember[],
@@ -153,6 +155,7 @@ async function resolveBookingStaff(
       bookings: rowsForStaff(availability.bookings, staff),
       flexibleHours: availability.flexibleHours,
       rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
+      allowedWeekdays,
     }).includes(slotIso);
 
   if (requested && requested !== ANY_STAFF) {
@@ -474,6 +477,7 @@ export async function createPublicBookingAction(formData: FormData) {
   const extras = resolveBasketExtras(services, service!.id, alsoParam);
   const basket = [service!, ...extras];
   const totalDuration = basketDurationMin(basket);
+  const allowedWeekdays = intersectWeekdays(basket);
 
   // Resolve who takes the visit (salon mode) and re-check their diary is
   // still free. Pre-migration accounts fall back to the whole-diary check.
@@ -485,6 +489,7 @@ export async function createPublicBookingAction(formData: FormData) {
     slotIso,
     totalDuration,
     availability,
+    allowedWeekdays,
   );
   if (resolved === "invalid") {
     redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
@@ -493,11 +498,10 @@ export async function createPublicBookingAction(formData: FormData) {
 
   if (!bookingStaff) {
     const dateStr = dateStrInTz(new Date(slotIso));
-    const stillFree = daySlotsForDuration(
-      totalDuration,
-      dateStr,
-      availability,
-    ).includes(slotIso);
+    const stillFree = daySlotsForDuration(totalDuration, dateStr, {
+      ...availability,
+      allowedWeekdays,
+    }).includes(slotIso);
     if (!stillFree) {
       redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
     }

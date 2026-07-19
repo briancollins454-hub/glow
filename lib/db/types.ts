@@ -187,6 +187,12 @@ export interface Service {
   aftercareText: string;
   // Pre-care instructions sent before the appointment (client confirms via link)
   precareText: string;
+  /**
+   * Weekdays this service can be booked (0 = Sunday … 6 = Saturday).
+   * null / empty / missing = every day the salon is open.
+   * Optional until migration 0034 is applied.
+   */
+  availableWeekdays?: number[] | null;
   createdAt: string;
 }
 

@@ -180,6 +180,42 @@ export interface AvailabilityCtx {
    * (closed days = no enabled row) instead of flexible / recurring hours.
    */
   rotaHours?: RotaHour[];
+  /**
+   * When set and non-empty, only these weekdays (0 = Sunday … 6 = Saturday)
+   * may offer slots (per-service available days / basket intersection).
+   */
+  allowedWeekdays?: number[] | null;
+}
+
+/** null/empty weekday list means every day. */
+export function normalizeAvailableWeekdays(
+  days: number[] | null | undefined,
+): number[] | null {
+  if (!days?.length) return null;
+  const cleaned = [...new Set(days.filter((d) => d >= 0 && d <= 6))].sort(
+    (a, b) => a - b,
+  );
+  if (!cleaned.length || cleaned.length === 7) return null;
+  return cleaned;
+}
+
+/** Intersection of per-service weekday rules (unrestricted services are ignored). */
+export function intersectWeekdays(
+  services: Pick<Service, "availableWeekdays">[],
+): number[] | null {
+  let allowed: number[] | null = null;
+  for (const s of services) {
+    const days = normalizeAvailableWeekdays(s.availableWeekdays);
+    if (!days) continue;
+    if (allowed == null) {
+      allowed = days;
+      continue;
+    }
+    const set = new Set(days);
+    allowed = allowed.filter((d) => set.has(d));
+  }
+  if (!allowed) return null;
+  return allowed;
 }
 
 /** Resolve the open window for one calendar day (or null if closed). */
@@ -291,6 +327,9 @@ export function daySlotsForDuration(
   ctx: AvailabilityCtx,
   nowMs = Date.now(),
 ): string[] {
+  const allowed = ctx.allowedWeekdays;
+  if (allowed?.length && !allowed.includes(weekdayOf(dateStr))) return [];
+
   const wh = dayWindowForDate(dateStr, ctx);
   if (!wh) return [];
 
@@ -330,7 +369,12 @@ export function daySlots(
   ctx: AvailabilityCtx,
   nowMs = Date.now(),
 ): string[] {
-  return daySlotsForDuration(service.durationMin, dateStr, ctx, nowMs);
+  return daySlotsForDuration(
+    service.durationMin,
+    dateStr,
+    { ...ctx, allowedWeekdays: intersectWeekdays([service]) },
+    nowMs,
+  );
 }
 
 /** Days with slots long enough for an appointment of the given total duration. */
@@ -360,7 +404,12 @@ export function availableDays(
   count = 14,
   nowMs = Date.now(),
 ): { dateStr: string; slots: string[] }[] {
-  return availableDaysForDuration(service.durationMin, ctx, count, nowMs);
+  return availableDaysForDuration(
+    service.durationMin,
+    { ...ctx, allowedWeekdays: intersectWeekdays([service]) },
+    count,
+    nowMs,
+  );
 }
 
 // ---------------- Basket (multiple treatments, one visit) ----------------
