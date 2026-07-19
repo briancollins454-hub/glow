@@ -7,6 +7,7 @@ import {
   createCategory,
   createClient,
   createClientsBatch,
+  createBookingsBatch,
   createService,
   createStaff,
   listBookings,
@@ -16,7 +17,13 @@ import {
   listStaff,
   updateBooking,
 } from "@/lib/db/queries";
-import { isUniqueViolation } from "@/lib/db/errors";
+
+const ACTIVE_SLOT_STATUSES = new Set<BookingStatus>([
+  "pending_approval",
+  "pending",
+  "confirmed",
+  "completed",
+]);
 import { importResultUrl } from "@/lib/import/import-url";
 import {
   ACUITY_NO_CALENDAR,
@@ -480,11 +487,12 @@ export async function importBookingsForTech(
   for (const b of existingBookings) {
     const startMs = new Date(b.startIso).getTime();
     bookingSlotKeys.add(`${b.clientId}|${startMs}|${b.staffId ?? ""}`);
-    if (b.staffId) staffSlotKeys.add(`${b.staffId}|${startMs}`);
+    if (b.staffId && ACTIVE_SLOT_STATUSES.has(b.status)) {
+      staffSlotKeys.add(`${b.staffId}|${startMs}`);
+    }
     if (!b.staffId) orphanByClientSlot.set(`${b.clientId}|${startMs}`, b);
   }
 
-  const { createBooking: createBookingRow } = await import("@/lib/db/queries");
   const { randomToken: newToken } = await import("@/lib/ids");
   const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
 
@@ -532,7 +540,33 @@ export async function importBookingsForTech(
   let skipDuplicate = 0;
   let staffLinked = 0;
   const nowMs = Date.now();
-  const futureReminderBookings: Booking[] = [];
+
+  type PendingBooking = Parameters<typeof createBookingsBatch>[1][number];
+  const pendingBookings: PendingBooking[] = [];
+  const queuedExact = new Set<string>();
+  const queuedStaffSlot = new Set<string>();
+  const BATCH = 100;
+
+  const flushBookings = async () => {
+    if (pendingBookings.length === 0) return;
+    const chunk = pendingBookings.splice(0, pendingBookings.length);
+    const created = await createBookingsBatch(scope.sb, chunk);
+    imported += created.length;
+    skipped += chunk.length - created.length;
+    skipDuplicate += chunk.length - created.length;
+    for (const row of chunk) {
+      const startMs = new Date(row.startIso).getTime();
+      queuedExact.delete(`${row.clientId}|${startMs}|${row.staffId ?? ""}`);
+      if (row.staffId) queuedStaffSlot.delete(`${row.staffId}|${startMs}`);
+    }
+    for (const b of created) {
+      const startMs = new Date(b.startIso).getTime();
+      bookingSlotKeys.add(`${b.clientId}|${startMs}|${b.staffId ?? ""}`);
+      if (b.staffId && ACTIVE_SLOT_STATUSES.has(b.status)) {
+        staffSlotKeys.add(`${b.staffId}|${startMs}`);
+      }
+    }
+  };
 
   for (const cols of rows) {
     const clientName = appointmentClientName(cols, headers);
@@ -597,7 +631,7 @@ export async function importBookingsForTech(
     const startMs = when.getTime();
     const clientSlotKey = `${client.id}|${startMs}`;
     const exactKey = `${clientSlotKey}|${staffId}`;
-    if (bookingSlotKeys.has(exactKey)) {
+    if (bookingSlotKeys.has(exactKey) || queuedExact.has(exactKey)) {
       skipped++;
       skipDuplicate++;
       continue;
@@ -611,18 +645,14 @@ export async function importBookingsForTech(
         bookingSlotKeys.add(exactKey);
         bookingSlotKeys.delete(`${clientSlotKey}|`);
         orphanByClientSlot.delete(clientSlotKey);
-        staffSlotKeys.add(`${staffId}|${startMs}`);
+        if (ACTIVE_SLOT_STATUSES.has(orphan.status)) {
+          staffSlotKeys.add(`${staffId}|${startMs}`);
+        }
         staffLinked++;
       } catch {
         skipped++;
         skipDuplicate++;
       }
-      continue;
-    }
-    // Per-staff diary unique index — skip clashes instead of aborting the whole file.
-    if (staffSlotKeys.has(`${staffId}|${startMs}`)) {
-      skipped++;
-      skipDuplicate++;
       continue;
     }
 
@@ -639,59 +669,48 @@ export async function importBookingsForTech(
             ? "completed"
             : "confirmed";
 
-    try {
-      const booking = await createBookingRow(scope.sb, {
-        techId: scope.tech.id,
-        clientId: client.id,
-        serviceId: service.id,
-        staffId,
-        startIso: when.toISOString(),
-        endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
-        status,
-        pricePennies,
-        depositPennies: 0,
-        depositStatus: "none",
-        balancePennies: isPast ? 0 : pricePennies,
-        balanceStatus: isPast ? "paid" : "unpaid",
-        balanceToken: newToken(),
-        pairedBookingId: null,
-        riskTier: null,
-        autoApproved: false,
-        isPatchTest: false,
-        notes: "Imported",
-        lashMap: "",
-        lashCurl: "",
-        lashLength: "",
-        addons: [],
-        discountPennies: 0,
-      });
-      bookingSlotKeys.add(exactKey);
-      staffSlotKeys.add(`${staffId}|${startMs}`);
-      imported++;
-      // Reminders for future imports only — capped so a huge diary can't time out.
-      if (!isPast && status === "confirmed" && futureReminderBookings.length < 250) {
-        futureReminderBookings.push(booking);
-      }
-    } catch (e) {
-      if (isUniqueViolation(e)) {
-        skipped++;
-        skipDuplicate++;
-        continue;
-      }
-      throw e;
+    const staffSlotKey = `${staffId}|${startMs}`;
+    if (
+      ACTIVE_SLOT_STATUSES.has(status) &&
+      (staffSlotKeys.has(staffSlotKey) || queuedStaffSlot.has(staffSlotKey))
+    ) {
+      skipped++;
+      skipDuplicate++;
+      continue;
     }
+
+    pendingBookings.push({
+      techId: scope.tech.id,
+      clientId: client.id,
+      serviceId: service.id,
+      staffId,
+      startIso: when.toISOString(),
+      endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
+      status,
+      pricePennies,
+      depositPennies: 0,
+      depositStatus: "none",
+      balancePennies: isPast ? 0 : pricePennies,
+      balanceStatus: isPast ? "paid" : "unpaid",
+      balanceToken: newToken(),
+      pairedBookingId: null,
+      riskTier: null,
+      autoApproved: false,
+      isPatchTest: false,
+      notes: "Imported",
+      lashMap: "",
+      lashCurl: "",
+      lashLength: "",
+      addons: [],
+      discountPennies: 0,
+    });
+    queuedExact.add(exactKey);
+    if (ACTIVE_SLOT_STATUSES.has(status)) queuedStaffSlot.add(staffSlotKey);
+
+    if (pendingBookings.length >= BATCH) await flushBookings();
   }
 
-  if (futureReminderBookings.length > 0) {
-    const { rescheduleReminders } = await import("@/lib/bookings");
-    for (const booking of futureReminderBookings) {
-      try {
-        await rescheduleReminders(scope.sb, booking);
-      } catch {
-        // Reminder scheduling must not fail the import.
-      }
-    }
-  }
+  await flushBookings();
 
   await auditImport(scope, "appointments_imported", "appointments", {
     imported,

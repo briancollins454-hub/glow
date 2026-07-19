@@ -809,11 +809,13 @@ export async function bookingsForClient(sb: SB, techId: string, clientId: string
   const { data, error } = await sb.from("bookings").select("*").eq("techId", techId).eq("clientId", clientId).order("startIso");
   return must(data as Booking[], error) ?? [];
 }
-export async function createBooking(
-  sb: SB,
-  b: Omit<Booking, "id" | "createdAt" | "googleEventId" | "approvalToken" | "groupId" | "staffId"> &
-    Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId" | "staffId">>,
-): Promise<Booking> {
+type BookingInsert = Omit<
+  Booking,
+  "id" | "createdAt" | "googleEventId" | "approvalToken" | "groupId" | "staffId"
+> &
+  Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId" | "staffId">>;
+
+function prepareBookingRow(b: BookingInsert): Record<string, unknown> {
   // groupId/staffId are only included when set so bookings keep working while
   // the 0028/0029 migrations are still pending on an environment.
   const { groupId, staffId, ...rest } = b;
@@ -824,9 +826,33 @@ export async function createBooking(
   };
   if (groupId != null) row.groupId = groupId;
   if (staffId != null) row.staffId = staffId;
-  const { data, error } = await sb.from("bookings").insert(row).select("*").single();
+  return row;
+}
+
+export async function createBooking(sb: SB, b: BookingInsert): Promise<Booking> {
+  const { data, error } = await sb.from("bookings").insert(prepareBookingRow(b)).select("*").single();
   if (error) throwDbError(error);
   return data as Booking;
+}
+
+/** Bulk insert bookings for Move to Glow. Falls back per-row on unique slot conflicts. */
+export async function createBookingsBatch(sb: SB, rows: BookingInsert[]): Promise<Booking[]> {
+  if (rows.length === 0) return [];
+  const prepared = rows.map(prepareBookingRow);
+  const { data, error } = await sb.from("bookings").insert(prepared).select("*");
+  if (!error) return (data as Booking[]) ?? [];
+  if (!/duplicate key|unique constraint|23505/i.test(error.message)) throwDbError(error);
+
+  const created: Booking[] = [];
+  for (const row of rows) {
+    try {
+      created.push(await createBooking(sb, row));
+    } catch (e) {
+      if (/duplicate key|unique constraint|23505/i.test(e instanceof Error ? e.message : "")) continue;
+      throw e;
+    }
+  }
+  return created;
 }
 
 // ---------------- Staff (salon mode) ----------------
