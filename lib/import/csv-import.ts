@@ -277,19 +277,30 @@ export async function importServicesForTech(
   const existing = await listServices(scope.sb, scope.tech.id);
   const existingNames = new Set(existing.map((s) => s.name.toLowerCase()));
   const cats = await listCategories(scope.sb, scope.tech.id);
-  const catIdByName = new Map(cats.map((c) => [c.name.toLowerCase(), c.id]));
+  const { inferServiceCategory, categoryLookupKeys } = await import(
+    "@/lib/import/service-categories"
+  );
+  const catIdByName = new Map<string, string>();
+  for (const c of cats) {
+    for (const key of categoryLookupKeys(c.name)) {
+      catIdByName.set(key, c.id);
+    }
+  }
 
   const ensureCategory = async (rawName: string): Promise<string> => {
     const name = rawName.trim() || "Imported";
-    const key = name.toLowerCase();
-    if (catIdByName.has(key)) return catIdByName.get(key)!;
+    for (const key of categoryLookupKeys(name)) {
+      if (catIdByName.has(key)) return catIdByName.get(key)!;
+    }
     const created = await createCategory(scope.sb, {
       techId: scope.tech.id,
       name,
       patchTestValidityDays: 180,
       patchTestMinLeadHours: 24,
     });
-    catIdByName.set(key, created.id);
+    for (const key of categoryLookupKeys(created.name)) {
+      catIdByName.set(key, created.id);
+    }
     return created.id;
   };
 
@@ -310,7 +321,7 @@ export async function importServicesForTech(
         skipped++;
         continue;
       }
-      const categoryId = await ensureCategory("");
+      const categoryId = await ensureCategory(inferServiceCategory(name));
       await createService(scope.sb, {
         techId: tech.id,
         categoryId,
@@ -369,7 +380,8 @@ export async function importServicesForTech(
     }
     const pricePennies = iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : 0;
     const durationMin = safeMinutes(iDuration !== -1 ? toMinutes(cols[iDuration] ?? "") : 60);
-    const categoryId = await ensureCategory(iCategory !== -1 ? cols[iCategory] ?? "" : "");
+    const rawCategory = iCategory !== -1 ? (cols[iCategory] ?? "").trim() : "";
+    const categoryId = await ensureCategory(rawCategory || inferServiceCategory(name));
 
     await createService(scope.sb, {
       techId: tech.id,
