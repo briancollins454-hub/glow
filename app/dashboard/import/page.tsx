@@ -27,6 +27,8 @@ function ImportView() {
       what={searchParams.get("what")}
       n={searchParams.get("n")}
       s={searchParams.get("s")}
+      skipServices={searchParams.get("skipServices")}
+      skipDupes={searchParams.get("skipDupes")}
     />
   );
 }

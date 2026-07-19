@@ -69,6 +69,8 @@ export function MoveToGlowImport({
   what,
   n,
   s,
+  skipServices,
+  skipDupes,
 }: {
   actions: MoveToGlowImportActions;
   returnTo: string;
@@ -79,9 +81,13 @@ export function MoveToGlowImport({
   what: string | null;
   n: string | null;
   s: string | null;
+  skipServices?: string | null;
+  skipDupes?: string | null;
 }) {
   const router = useRouter();
   const hidden = Object.entries(hiddenFields ?? {});
+  const skipServicesN = Number(skipServices) || 0;
+  const skipDupesN = Number(skipDupes) || 0;
 
   const wrap = (action: (formData: FormData) => Promise<void>) => {
     return async (formData: FormData) => {
@@ -106,9 +112,31 @@ export function MoveToGlowImport({
       </div>
 
       {importStatus === "done" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          <CheckCircle2 className="h-4 w-4" /> Imported {n} {what}
-          {Number(s) > 0 && ` (${s} skipped: duplicates, unknown services, or missing details)`}.
+        <div className="rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <p className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" /> Imported {n} {what}
+            {Number(s) > 0 &&
+              ` (${s} skipped${
+                skipServicesN > 0 || skipDupesN > 0
+                  ? `: ${[
+                      skipServicesN > 0 ? `${skipServicesN} unknown service` : "",
+                      skipDupesN > 0 ? `${skipDupesN} duplicate` : "",
+                      Number(s) - skipServicesN - skipDupesN > 0
+                        ? `${Number(s) - skipServicesN - skipDupesN} other`
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}`
+                  : ": duplicates, unknown services, or missing details"
+              })`}
+            .
+          </p>
+          {skipServicesN > 0 && what === "appointments" && (
+            <p className="mt-1 text-xs opacity-90">
+              Most skips are unknown services — run Step 1 with this appointments file first (tick
+              every calendar), then import appointments again.
+            </p>
+          )}
         </div>
       )}
       {importStatus === "badformat" && (
@@ -119,9 +147,10 @@ export function MoveToGlowImport({
       )}
       {importStatus === "none" && (
         <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-          No appointments were imported ({s} rows skipped). This usually means the dates couldn&apos;t be read,
-          or the service names in the file don&apos;t exactly match the Glow services list. Try re-importing
-          after the latest update, or email the file to support@glow-uk.com.
+          No appointments were imported ({s} rows skipped
+          {skipServicesN > 0 ? `, including ${skipServicesN} with no matching Glow service` : ""}
+          ). Run Step 1 (services) with the Acuity appointments file first — tick every staff
+          calendar — then try appointments again. Or email the file to support@glow-uk.com.
         </div>
       )}
       {importStatus === "empty" && (
@@ -150,8 +179,8 @@ export function MoveToGlowImport({
             Deposits use the account default percentage; fine-tune each service afterwards.
             Coming from Acuity? It does not export services separately, so upload the
             appointments export here instead: each appointment Type becomes a service, with
-            Appointment Price when present. If the file has more than one Calendar, pick whose
-            appointments to use so you only create services for that diary. Check durations afterwards.
+            Appointment Price when present. If the file has more than one Calendar, tick every
+            staff member whose services you want on the price list. Check durations afterwards.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -221,7 +250,8 @@ export function MoveToGlowImport({
             &quot;Services&quot; from Fresha) and &quot;Date&quot; / &quot;Scheduled date&quot; (Fresha also puts the
             full time in &quot;Scheduled time&quot; or &quot;Start time&quot;). Past appointments load as history;
             future ones are confirmed with quiet reminders — no emails are sent to clients during import.
-            Rows with services we can&apos;t match are skipped and counted.
+            Rows with services we can&apos;t match are skipped and counted. Acuity Calendar names
+            are matched to Glow team members so each diary stays with the right person.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -272,8 +302,8 @@ export function MoveToGlowImport({
             All clients); appointments via Reports → Import/export → pick your date range, choose whether to
             include cancelled appointments, then Export Appointments. Acuity has no services export, so use
             the appointments file for Step 1 too. If the export has more than one Calendar (staff member),
-            you will be asked whose appointments to import. Start/End Time are read as long-form dates with
-            the Timezone column.
+            tick each person to import — Glow matches Calendar names to team members and puts appointments
+            on the right diary. Start/End Time are read as long-form dates with the Timezone column.
           </p>
         </CardContent>
       </Card>

@@ -6,12 +6,21 @@ import {
   createAuditEvent,
   createCategory,
   createService,
+  createStaff,
   findOrCreateClient,
   listBookings,
   listCategories,
   listServices,
+  listStaff,
+  updateBooking,
 } from "@/lib/db/queries";
 import { importResultUrl } from "@/lib/import/import-url";
+import {
+  ACUITY_NO_CALENDAR,
+  acuityRowCalendarName,
+  findStaffForCalendarName,
+  normalizeStaffMatchName,
+} from "@/lib/import/staff-map";
 
 export type CsvImportScope = {
   sb: SupabaseClient;
@@ -60,7 +69,10 @@ async function auditImport(
   }
 }
 
-function go(scope: CsvImportScope, params: Record<string, string | number>) {
+function go(
+  scope: CsvImportScope,
+  params: Record<string, string | number | undefined | null>,
+) {
   redirect(importResultUrl(scope.returnTo, params));
 }
 
@@ -387,9 +399,51 @@ export async function importBookingsForTech(
   const { createBooking: createBookingRow } = await import("@/lib/db/queries");
   const { rescheduleReminders } = await import("@/lib/bookings");
   const { randomToken: newToken } = await import("@/lib/ids");
+  const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
+
+  const iCalendar = col(headers, "calendar");
+  const ownerStaff = await getOrCreateOwnerStaff(scope.sb, scope.tech);
+  let staffList = await listStaff(scope.sb, scope.tech.id);
+  const staffIdByCalendar = new Map<string, string>();
+  staffIdByCalendar.set(ACUITY_NO_CALENDAR, ownerStaff.id);
+  staffIdByCalendar.set("", ownerStaff.id);
+
+  if (iCalendar !== -1) {
+    const calendarNames = new Set<string>();
+    for (const row of rows) calendarNames.add(acuityRowCalendarName(row, iCalendar));
+    let sortOrder = staffList.length;
+    for (const calName of calendarNames) {
+      if (!calName || calName === ACUITY_NO_CALENDAR) {
+        staffIdByCalendar.set(calName || ACUITY_NO_CALENDAR, ownerStaff.id);
+        continue;
+      }
+      let match = findStaffForCalendarName(calName, staffList);
+      if (!match) {
+        match = await createStaff(scope.sb, {
+          techId: scope.tech.id,
+          authUserId: null,
+          name: calName.trim(),
+          email: "",
+          role: "staff",
+          photoPath: null,
+          bio: "",
+          active: true,
+          sortOrder: sortOrder++,
+        });
+        staffList = [...staffList, match];
+      }
+      staffIdByCalendar.set(calName, match.id);
+      staffIdByCalendar.set(normalizeStaffMatchName(calName), match.id);
+    }
+  }
 
   let imported = 0;
   let skipped = 0;
+  let skipNoService = 0;
+  let skipBadDate = 0;
+  let skipNoClient = 0;
+  let skipDuplicate = 0;
+  let staffLinked = 0;
 
   for (const cols of rows) {
     const clientName = appointmentClientName(cols, headers);
@@ -400,8 +454,19 @@ export async function importBookingsForTech(
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) {
       skipped++;
+      if (!clientName) skipNoClient++;
+      else if (!service) skipNoService++;
+      else skipBadDate++;
       continue;
     }
+
+    const calName = iCalendar !== -1 ? acuityRowCalendarName(cols, iCalendar) : "";
+    const staffId =
+      iCalendar === -1
+        ? ownerStaff.id
+        : (staffIdByCalendar.get(calName) ??
+          staffIdByCalendar.get(normalizeStaffMatchName(calName)) ??
+          ownerStaff.id);
 
     const rowPrice =
       iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : safePennies(service.pricePennies);
@@ -434,12 +499,21 @@ export async function importBookingsForTech(
     });
 
     const startMs = when.getTime();
-    if (
-      existingBookings.some(
-        (b) => b.clientId === client.id && new Date(b.startIso).getTime() === startMs,
-      )
-    ) {
+    const sameSlot = existingBookings.filter(
+      (b) => b.clientId === client.id && new Date(b.startIso).getTime() === startMs,
+    );
+    const exact = sameSlot.find((b) => (b.staffId ?? null) === staffId);
+    if (exact) {
       skipped++;
+      skipDuplicate++;
+      continue;
+    }
+    const orphan = sameSlot.find((b) => !b.staffId);
+    if (orphan) {
+      // Earlier imports left staffId null — attach to the Acuity Calendar's staff.
+      await updateBooking(scope.sb, orphan.id, { staffId });
+      orphan.staffId = staffId;
+      staffLinked++;
       continue;
     }
 
@@ -460,6 +534,7 @@ export async function importBookingsForTech(
       techId: scope.tech.id,
       clientId: client.id,
       serviceId: service.id,
+      staffId,
       startIso: when.toISOString(),
       endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
       status,
@@ -490,6 +565,11 @@ export async function importBookingsForTech(
     skipped,
     rows: rows.length,
     excludedCalendars,
+    skipNoService,
+    skipBadDate,
+    skipNoClient,
+    skipDuplicate,
+    staffLinked,
   });
   if (scope.onSupportAudit) {
     await scope.onSupportAudit({
@@ -502,8 +582,23 @@ export async function importBookingsForTech(
     });
   }
   revalidatePath("/dashboard/bookings");
+  revalidatePath("/dashboard/team");
   if (imported === 0 && skipped > 0) {
-    go(scope, { import: "none", what: "appointments", n: 0, s: skipped });
+    go(scope, {
+      import: "none",
+      what: "appointments",
+      n: 0,
+      s: skipped,
+      skipServices: skipNoService || undefined,
+      skipDupes: skipDuplicate || undefined,
+    });
   }
-  go(scope, { import: "done", what: "appointments", n: imported, s: skipped });
+  go(scope, {
+    import: "done",
+    what: "appointments",
+    n: imported,
+    s: skipped,
+    skipServices: skipNoService || undefined,
+    skipDupes: skipDuplicate || undefined,
+  });
 }

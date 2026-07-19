@@ -136,7 +136,7 @@ function SupportImportView({ techs }: { techs: Tech[] }) {
       {selected ? (
         <MoveToGlowImport
           title="Step 2 · Import files"
-          subtitle={`Same Move to Glow flow, scoped to ${selected.businessName || selected.handle}. Use the Acuity calendar filter when the export has more than one staff diary.`}
+          subtitle={`Same Move to Glow flow, scoped to ${selected.businessName || selected.handle}. For Acuity multi-staff exports, tick every calendar — appointments land on the matching Glow team member.`}
           actions={{
             importClients: supportImportClientsAction,
             importServices: supportImportServicesAction,
@@ -148,6 +148,8 @@ function SupportImportView({ techs }: { techs: Tech[] }) {
           what={searchParams.get("what")}
           n={searchParams.get("n")}
           s={searchParams.get("s")}
+          skipServices={searchParams.get("skipServices")}
+          skipDupes={searchParams.get("skipDupes")}
         />
       ) : (
         <p className="text-sm text-ink-faint">Pick an account above to show the import steps.</p>
