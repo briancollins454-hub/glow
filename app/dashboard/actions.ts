@@ -1492,7 +1492,38 @@ export async function deletePatchTestAction(formData: FormData) {
 }
 
 // ---------------- Migration imports (clients, services, appointments) ----------------
+
+/** redirect() works by throwing; imports must rethrow it, not treat it as a failure. */
+function isNextRedirect(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "digest" in e &&
+    String((e as { digest?: unknown }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+/**
+ * Imports parse arbitrary files from other platforms, so anything unexpected
+ * lands on a friendly import-page banner (and alerts ops with the stack)
+ * instead of the generic crash screen.
+ */
+async function runImport(work: () => Promise<void>, where: string): Promise<void> {
+  try {
+    await work();
+  } catch (e) {
+    if (isNextRedirect(e)) throw e;
+    const { reportError } = await import("@/lib/monitor");
+    await reportError(e, { where });
+    redirect("/dashboard/import?import=failed");
+  }
+}
+
 export async function importClientsAction(formData: FormData) {
+  return runImport(() => importClientsInner(formData), "importClientsAction");
+}
+
+async function importClientsInner(formData: FormData) {
   const { sb, tech } = await ctx();
   const back = String(formData.get("back") ?? "/dashboard/import");
   const file = formData.get("csv") as File | null;
@@ -1539,6 +1570,10 @@ export async function importClientsAction(formData: FormData) {
 }
 
 export async function importServicesAction(formData: FormData) {
+  return runImport(() => importServicesInner(formData), "importServicesAction");
+}
+
+async function importServicesInner(formData: FormData) {
   const { sb, tech } = await ctx();
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
@@ -1659,6 +1694,10 @@ export async function importServicesAction(formData: FormData) {
 }
 
 export async function importBookingsAction(formData: FormData) {
+  return runImport(() => importBookingsInner(formData), "importBookingsAction");
+}
+
+async function importBookingsInner(formData: FormData) {
   const { sb, tech } = await ctx();
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
