@@ -2,16 +2,19 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  acuityCalendarCounts,
   acuityDerivedServices,
   acuityServiceNames,
   appointmentClientName,
   appointmentColumnsOk,
   appointmentServiceCol,
   appointmentWhenRaw,
+  filterAcuityRowsByCalendars,
   isAcuityAppointmentCsv,
   normalizeImportPhone,
   parseAppointmentWhen,
   parseCsv,
+  resolveAcuityImportRows,
 } from "@/lib/csv";
 
 const SAMPLE_PATH = resolve(__dirname, "fixtures/acuity-sample-anonymised.csv");
@@ -151,7 +154,7 @@ describe("Acuity long-form date parsing", () => {
 
   it("reads every Start Time in the anonymised sample fixture", () => {
     const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
-    expect(rows.length).toBe(300);
+    expect(rows.length).toBe(303);
     const iTz = headers.indexOf("timezone");
     let unreadable = 0;
     for (const row of rows) {
@@ -210,5 +213,74 @@ describe("real Acuity sample row mapping", () => {
     expect(row[headers.indexOf("appointmentprice")]).toBe("29.00");
     expect(row[headers.indexOf("calendar")]).toBe("Claire Adams");
     expect(row[headers.indexOf("datescheduled")]).toBe("2020-11-25");
+  });
+});
+
+describe("Acuity calendar filter", () => {
+  it("skips the filter when a file has only one calendar", () => {
+    const { headers, rows } = parseCsv(
+      [
+        '"Start Time","End Time","Timezone","First Name","Last Name","Phone","Email","Type","Calendar","Appointment Price","Date Scheduled"',
+        '"December 2, 2020 9:00 am","December 2, 2020 10:00 am","Europe/London","Jane","Smith","\'+447700900100","jane@example.com","Gel Nails","Solo Tech","25.00","2020-11-01"',
+        '"December 3, 2020 9:00 am","December 3, 2020 10:00 am","Europe/London","Amy","Jones","\'+447700900101","amy@example.com","Lash Lift","Solo Tech","40.00","2020-11-01"',
+      ].join("\n"),
+    );
+    const calendars = acuityCalendarCounts(headers, rows);
+    expect(calendars).toEqual([{ name: "Solo Tech", count: 2 }]);
+    const resolved = resolveAcuityImportRows(headers, rows, []);
+    expect(resolved.needsCalendarPick).toBe(false);
+    expect(resolved.rows).toHaveLength(2);
+    expect(resolved.excludedCount).toBe(0);
+  });
+
+  it("counts appointments per calendar on the multi-staff sample fixture", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const calendars = acuityCalendarCounts(headers, rows);
+    expect(calendars.map((c) => c.name).sort()).toEqual([
+      "Alex Reed",
+      "Claire Adams",
+      "Melissa Bingham",
+      "Tammy Bingham",
+    ]);
+    expect(calendars.find((c) => c.name === "Alex Reed")?.count).toBe(3);
+    expect(calendars.find((c) => c.name === "Claire Adams")?.count).toBe(125);
+    expect(calendars.find((c) => c.name === "Tammy Bingham")?.count).toBe(149);
+    expect(calendars.find((c) => c.name === "Melissa Bingham")?.count).toBe(26);
+    expect(calendars.reduce((sum, c) => sum + c.count, 0)).toBe(303);
+  });
+
+  it("requires a calendar pick for multi-calendar files when none are selected", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const resolved = resolveAcuityImportRows(headers, rows, []);
+    expect(resolved.needsCalendarPick).toBe(true);
+    expect(resolved.rows).toEqual([]);
+    expect(resolved.excludedCount).toBe(303);
+  });
+
+  it("excludes other calendars from preview/save rows when some are selected", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const filtered = filterAcuityRowsByCalendars(headers, rows, ["Alex Reed"]);
+    expect(filtered.rows).toHaveLength(3);
+    expect(filtered.excludedCount).toBe(300);
+    const iCal = headers.indexOf("calendar");
+    expect(filtered.rows.every((r) => r[iCal] === "Alex Reed")).toBe(true);
+
+    const claire = filterAcuityRowsByCalendars(headers, rows, ["Claire Adams", "Alex Reed"]);
+    expect(claire.rows).toHaveLength(128);
+    expect(claire.excludedCount).toBe(175);
+  });
+
+  it("derives services only from the selected calendars", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const alexRows = filterAcuityRowsByCalendars(headers, rows, ["Alex Reed"]).rows;
+    const derived = acuityDerivedServices(headers, alexRows);
+    const names = derived.map((s) => s.name).sort();
+    expect(names).toEqual(["Alex Signature Facial", "Gel Polish Manicure"]);
+    expect(derived.find((s) => s.name === "Alex Signature Facial")?.pricePennies).toBe(4500);
+
+    // A Type that only appears on other calendars must not be offered.
+    const allNames = acuityServiceNames(headers, rows);
+    expect(allNames).toContain("Acrylic Rebalance/Infills");
+    expect(names).not.toContain("Acrylic Rebalance/Infills");
   });
 });
