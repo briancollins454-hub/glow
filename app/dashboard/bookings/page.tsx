@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, BellRing, Trash2, CheckCircle2 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
@@ -12,6 +13,7 @@ import { statusBadge } from "@/components/dashboard/status";
 import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { BookingsMonthCalendar } from "@/components/dashboard/bookings-month-calendar";
+import { BookingsStaffDayView } from "@/components/dashboard/bookings-staff-day-view";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
@@ -49,6 +51,7 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
 
   const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
   const showStaff = staff.length > 1;
+  const [selectedDate, setSelectedDate] = useState(() => dateStrInTz(new Date()));
 
   const todayStr = fmtDate(new Date().toISOString());
   const todayKey = dateStrInTz(new Date());
@@ -108,7 +111,11 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">Calendar</h1>
-        <p className="text-sm text-ink-soft">All your appointments in one place.</p>
+        <p className="text-sm text-ink-soft">
+          {showStaff
+            ? "Month overview plus a team day view with a column for each person."
+            : "All your appointments in one place."}
+        </p>
       </div>
 
       {lateDone && (
@@ -210,18 +217,34 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
         bookings={bookings}
         clientById={clientById}
         serviceById={serviceById}
+        selected={selectedDate}
+        onSelectedChange={setSelectedDate}
+        hideDayList={showStaff}
       />
 
-      <Card className="ring-1 ring-brand-500/30">
-        <CardHeader>
-          <CardTitle>Today&apos;s plan ({today.length})</CardTitle>
-          <CardDescription>{todayStr}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {today.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">Nothing booked today.</p>}
-          {[...today].sort((a, b) => a.startIso.localeCompare(b.startIso)).map((b) => row(b))}
-        </CardContent>
-      </Card>
+      {showStaff ? (
+        <BookingsStaffDayView
+          dateStr={selectedDate}
+          onDateChange={setSelectedDate}
+          bookings={bookings}
+          staff={staff}
+          clientById={clientById}
+          serviceById={serviceById}
+        />
+      ) : (
+        <Card className="ring-1 ring-brand-500/30">
+          <CardHeader>
+            <CardTitle>Today&apos;s plan ({today.length})</CardTitle>
+            <CardDescription>{todayStr}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {today.length === 0 && (
+              <p className="py-4 text-center text-sm text-ink-faint">Nothing booked today.</p>
+            )}
+            {[...today].sort((a, b) => a.startIso.localeCompare(b.startIso)).map((b) => row(b))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
