@@ -131,7 +131,9 @@ function PhotoUpload({
       try {
         await uploadAction(fd);
       } catch {
-        setError("Upload failed. Please check your connection and try again.");
+        // Most common cause: the tab predates a deploy, so its server action
+        // reference is stale. A refresh gets the new page and fixes it.
+        setError("Upload failed. Refresh this page and try again — that usually fixes it.");
       }
     });
   }
