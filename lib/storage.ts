@@ -49,3 +49,19 @@ export async function signedPhotoUrls(
 export async function removePhoto(path: string): Promise<void> {
   await supabaseService().storage.from(BUCKET).remove([path]);
 }
+
+/** Signed upload URL for staging large CSV imports (bypasses the Server Action body limit). */
+export async function createCsvImportUploadUrl(
+  path: string,
+): Promise<{ signedUrl: string; path: string; token: string }> {
+  const { data, error } = await supabaseService().storage.from(BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw new Error(error?.message ?? "Could not create upload URL");
+  return { signedUrl: data.signedUrl, path: data.path, token: data.token };
+}
+
+/** Download a Storage object as UTF-8 text (CSV imports). */
+export async function downloadStorageText(path: string): Promise<string> {
+  const { data, error } = await supabaseService().storage.from(BUCKET).download(path);
+  if (error || !data) throw new Error(error?.message ?? "Could not download import file");
+  return data.text();
+}

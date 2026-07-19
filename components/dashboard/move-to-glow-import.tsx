@@ -1,9 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ImportPreview } from "@/components/dashboard/import-preview";
+import { prepareCsvImportUploadAction } from "@/app/dashboard/csv-import-actions";
+import { CSV_DIRECT_UPLOAD_MAX_BYTES } from "@/lib/import/csv-source";
+import { importResultUrl } from "@/lib/import/import-url";
 
 const fileInputClass =
   "text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300";
@@ -13,6 +17,47 @@ export type MoveToGlowImportActions = {
   importServices: (formData: FormData) => Promise<void>;
   importBookings: (formData: FormData) => Promise<void>;
 };
+
+function isNextRedirect(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "digest" in e &&
+    String((e as { digest?: unknown }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+/** Stage oversized CSVs in Storage so the Server Action body stays under Vercel's limit. */
+async function stageCsvIfNeeded(formData: FormData): Promise<FormData> {
+  const file = formData.get("csv");
+  if (!file || typeof file !== "object" || !("size" in file)) return formData;
+  const f = file as File;
+  if (f.size <= CSV_DIRECT_UPLOAD_MAX_BYTES) return formData;
+
+  const prepared = await prepareCsvImportUploadAction();
+  if (!prepared.ok) throw new Error(prepared.error || "Could not prepare upload");
+
+  const put = await fetch(prepared.signedUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "text/csv",
+      "x-upsert": "true",
+    },
+    body: f,
+  });
+  if (!put.ok) {
+    throw new Error(`Could not stage CSV (${put.status})`);
+  }
+
+  const next = new FormData();
+  for (const [key, value] of formData.entries()) {
+    if (key === "csv") continue;
+    next.append(key, value);
+  }
+  next.set("csvStoragePath", prepared.path);
+  next.set("csvFileName", f.name || "upload.csv");
+  return next;
+}
 
 export function MoveToGlowImport({
   actions,
@@ -35,7 +80,21 @@ export function MoveToGlowImport({
   n: string | null;
   s: string | null;
 }) {
+  const router = useRouter();
   const hidden = Object.entries(hiddenFields ?? {});
+
+  const wrap = (action: (formData: FormData) => Promise<void>) => {
+    return async (formData: FormData) => {
+      try {
+        const ready = await stageCsvIfNeeded(formData);
+        await action(ready);
+      } catch (e) {
+        if (isNextRedirect(e)) throw e;
+        console.error("[glow-import-client]", e);
+        router.push(importResultUrl(returnTo, { import: "failed" }));
+      }
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -96,7 +155,7 @@ export function MoveToGlowImport({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={actions.importServices} className="space-y-1">
+          <form action={wrap(actions.importServices)} className="space-y-1">
             {hidden.map(([name, value]) => (
               <input key={name} type="hidden" name={name} value={value} />
             ))}
@@ -129,7 +188,7 @@ export function MoveToGlowImport({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={actions.importClients} className="space-y-1">
+          <form action={wrap(actions.importClients)} className="space-y-1">
             {hidden.map(([name, value]) => (
               <input key={name} type="hidden" name={name} value={value} />
             ))}
@@ -166,7 +225,7 @@ export function MoveToGlowImport({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={actions.importBookings} className="space-y-1">
+          <form action={wrap(actions.importBookings)} className="space-y-1">
             {hidden.map(([name, value]) => (
               <input key={name} type="hidden" name={name} value={value} />
             ))}

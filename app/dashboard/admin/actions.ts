@@ -124,6 +124,7 @@ export async function supportImportClientsAction(formData: FormData) {
       sb: supabaseService(),
       tech: target,
       returnTo,
+      importActorTechId: admin.id,
       auditExtra: { via: "support_import", adminTechId: admin.id },
       onSupportAudit: supportAuditWriter(admin, target),
     });
@@ -136,6 +137,7 @@ export async function supportImportServicesAction(formData: FormData) {
       sb: supabaseService(),
       tech: target,
       returnTo,
+      importActorTechId: admin.id,
       auditExtra: { via: "support_import", adminTechId: admin.id },
       onSupportAudit: supportAuditWriter(admin, target),
     });
@@ -148,6 +150,7 @@ export async function supportImportBookingsAction(formData: FormData) {
       sb: supabaseService(),
       tech: target,
       returnTo,
+      importActorTechId: admin.id,
       auditExtra: { via: "support_import", adminTechId: admin.id },
       onSupportAudit: supportAuditWriter(admin, target),
     });

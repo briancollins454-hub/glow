@@ -69,6 +69,9 @@ const ACUITY_KNOWN_COLS = new Set<string>([
   "appointmentid",
 ]);
 
+/** Cap date scanning so huge Acuity exports don't freeze the tab during preview. */
+const BAD_DATE_SCAN_LIMIT = 2500;
+
 function label(kind: Kind): string {
   if (kind === "services") return "services";
   if (kind === "clients") return "clients";
@@ -102,6 +105,7 @@ type ParsedFile = {
 export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }) {
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([]);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   useEffect(() => {
     const input = document.getElementById(inputId) as HTMLInputElement | null;
@@ -112,17 +116,26 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
       if (!file) {
         setParsed(null);
         setSelectedCalendars([]);
+        setParseError(null);
         return;
       }
-      const csv = parseCsv(await file.text());
-      const acuity = isAcuityAppointmentCsv(csv.headers);
-      const calendars =
-        acuity && (kind === "appointments" || kind === "services")
-          ? acuityCalendarCounts(csv.headers, csv.rows)
-          : [];
-      setParsed({ headers: csv.headers, rows: csv.rows, acuity, calendars });
-      // Multi-staff Acuity: preselect nothing so we never silently merge diaries.
-      setSelectedCalendars([]);
+      try {
+        const csv = parseCsv(await file.text());
+        const acuity = isAcuityAppointmentCsv(csv.headers);
+        const calendars =
+          acuity && (kind === "appointments" || kind === "services")
+            ? acuityCalendarCounts(csv.headers, csv.rows)
+            : [];
+        setParsed({ headers: csv.headers, rows: csv.rows, acuity, calendars });
+        // Multi-staff Acuity: preselect nothing so we never silently merge diaries.
+        setSelectedCalendars([]);
+        setParseError(null);
+      } catch (e) {
+        console.error("[glow-import-preview]", e);
+        setParsed(null);
+        setSelectedCalendars([]);
+        setParseError("Could not read that file. Try exporting again as CSV, or email it to support@glow-uk.com.");
+      }
     };
 
     input.addEventListener("change", onChange);
@@ -137,104 +150,133 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
     return filterAcuityRowsByCalendars(parsed.headers, parsed.rows, selectedCalendars);
   }, [parsed, needsCalendarPick, selectedCalendars]);
 
-  if (!parsed) return null;
+  const preview = useMemo(() => {
+    if (!parsed) return null;
 
-  const waitingForCalendars = needsCalendarPick && selectedCalendars.length === 0;
-  const workingRows = filtered.rows;
-  const excludedCount = filtered.excludedCount;
-  const notes: string[] = [];
-  let rows = workingRows.length;
-  let ok =
-    parsed.rows.length > 0 &&
-    (kind === "appointments"
-      ? appointmentColumnsOk(parsed.headers)
-      : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
+    const waitingForCalendars = needsCalendarPick && selectedCalendars.length === 0;
+    const workingRows = filtered.rows;
+    const excludedCount = filtered.excludedCount;
+    const notes: string[] = [];
+    let rows = workingRows.length;
+    let ok =
+      parsed.rows.length > 0 &&
+      (kind === "appointments"
+        ? appointmentColumnsOk(parsed.headers)
+        : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
 
-  // Acuity has no services export: the services step accepts the Acuity
-  // appointments file and derives services from the Type column (filtered
-  // calendars only, when the tech has picked).
-  if (kind === "services" && !ok && parsed.acuity && parsed.rows.length > 0) {
-    ok = true;
-    if (waitingForCalendars) {
-      rows = 0;
-    } else {
-      const services = acuityDerivedServices(parsed.headers, workingRows);
-      rows = services.length;
-      if (services.length === 0) {
-        ok = false;
+    if (kind === "services" && !ok && parsed.acuity && parsed.rows.length > 0) {
+      ok = true;
+      if (waitingForCalendars) {
+        rows = 0;
       } else {
-        const fromCalendars = needsCalendarPick
-          ? ` from the selected calendar${selectedCalendars.length === 1 ? "" : "s"}`
-          : "";
-        notes.push(
-          `Acuity export detected: services are read from the appointments file because Acuity does not export services separately. ${services.length} service${services.length === 1 ? "" : "s"} will be created${fromCalendars}, with Appointment Price when present. Check durations afterwards.`,
-        );
+        const services = acuityDerivedServices(parsed.headers, workingRows);
+        rows = services.length;
+        if (services.length === 0) {
+          ok = false;
+        } else {
+          const fromCalendars = needsCalendarPick
+            ? ` from the selected calendar${selectedCalendars.length === 1 ? "" : "s"}`
+            : "";
+          notes.push(
+            `Acuity export detected: services are read from the appointments file because Acuity does not export services separately. ${services.length} service${services.length === 1 ? "" : "s"} will be created${fromCalendars}, with Appointment Price when present. Check durations afterwards.`,
+          );
+          if (excludedCount > 0) {
+            notes.push(
+              `${formatCount(excludedCount)} appointment${excludedCount === 1 ? "" : "s"} excluded, other calendars.`,
+            );
+          }
+        }
+      }
+    }
+
+    if (kind === "appointments" && ok && parsed.acuity) {
+      notes.push(
+        "Acuity export detected: Start/End Time are read as long-form dates (for example December 2, 2020 9:00 am) using the Timezone column. Date Scheduled is when the booking was made and is ignored.",
+      );
+
+      if (waitingForCalendars) {
+        rows = 0;
+      } else {
+        const iTimezone = col(parsed.headers, "timezone", "tz");
+        const scan = workingRows.slice(0, BAD_DATE_SCAN_LIMIT);
+        let bad = 0;
+        for (const row of scan) {
+          try {
+            const { dateRaw, timeRaw } = appointmentWhenRaw(row, parsed.headers);
+            const timeZone = iTimezone !== -1 ? (row[iTimezone] ?? "").trim() : "";
+            if (!parseAppointmentWhen(dateRaw, timeRaw, { timeZone })) bad++;
+          } catch {
+            bad++;
+          }
+        }
+        if (bad > 0) {
+          const sampled =
+            workingRows.length > BAD_DATE_SCAN_LIMIT
+              ? ` (checked first ${formatCount(BAD_DATE_SCAN_LIMIT)} rows)`
+              : "";
+          notes.push(
+            `${bad} row${bad === 1 ? "" : "s"} have dates we cannot read, so they will be skipped${sampled}.`,
+          );
+        }
         if (excludedCount > 0) {
           notes.push(
             `${formatCount(excludedCount)} appointment${excludedCount === 1 ? "" : "s"} excluded, other calendars.`,
           );
         }
       }
-    }
-  }
 
-  if (kind === "appointments" && ok && parsed.acuity) {
-    notes.push(
-      "Acuity export detected: Start/End Time are read as long-form dates (for example December 2, 2020 9:00 am) using the Timezone column. Date Scheduled is when the booking was made and is ignored.",
+      const extras = parsed.headers.filter((h) => h && !ACUITY_KNOWN_COLS.has(h)).length;
+      if (extras > 0) {
+        notes.push(
+          "Extra columns such as Certificate Code, Label, Scheduled By and Appointment ID are not imported.",
+        );
+      }
+    }
+
+    const sample =
+      kind === "appointments"
+        ? (() => {
+            const row = workingRows[0];
+            if (!row) return "";
+            const iClient = col(parsed.headers, ...IMPORT_COLS.appointmentClient);
+            const iFirst = col(parsed.headers, "firstname", "first");
+            const iService = appointmentServiceCol(parsed.headers);
+            const { dateRaw } = appointmentWhenRaw(row, parsed.headers);
+            const client =
+              iClient !== -1
+                ? row[iClient]
+                : iFirst !== -1
+                  ? [row[iFirst], row[col(parsed.headers, "lastname", "last", "surname")] ?? ""]
+                      .filter(Boolean)
+                      .join(" ")
+                  : "";
+            const parts = [client, iService !== -1 ? row[iService] : "", dateRaw].filter(Boolean);
+            return parts.join(" · ");
+          })()
+        : (workingRows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "");
+
+    return {
+      ok,
+      rows,
+      waitingForCalendars,
+      notes,
+      sample,
+      detail: ok ? "" : describeMissing(kind, parsed.headers),
+    };
+  }, [parsed, filtered, needsCalendarPick, selectedCalendars, kind]);
+
+  if (parseError) {
+    return (
+      <div className="mt-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <p className="flex items-center gap-2 font-medium">
+          <AlertTriangle className="h-4 w-4" />
+          {parseError}
+        </p>
+      </div>
     );
-
-    if (waitingForCalendars) {
-      rows = 0;
-    } else {
-      const iTimezone = col(parsed.headers, "timezone", "tz");
-      const bad = workingRows.filter((row) => {
-        const { dateRaw, timeRaw } = appointmentWhenRaw(row, parsed.headers);
-        const timeZone = iTimezone !== -1 ? (row[iTimezone] ?? "").trim() : "";
-        return !parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
-      }).length;
-      if (bad > 0) {
-        notes.push(
-          `${bad} row${bad === 1 ? "" : "s"} have dates we cannot read, so they will be skipped.`,
-        );
-      }
-      if (excludedCount > 0) {
-        notes.push(
-          `${formatCount(excludedCount)} appointment${excludedCount === 1 ? "" : "s"} excluded, other calendars.`,
-        );
-      }
-    }
-
-    const extras = parsed.headers.filter((h) => h && !ACUITY_KNOWN_COLS.has(h)).length;
-    if (extras > 0) {
-      notes.push(
-        "Extra columns such as Certificate Code, Label, Scheduled By and Appointment ID are not imported.",
-      );
-    }
   }
 
-  const sample =
-    kind === "appointments"
-      ? (() => {
-          const row = workingRows[0];
-          if (!row) return "";
-          const iClient = col(parsed.headers, ...IMPORT_COLS.appointmentClient);
-          const iFirst = col(parsed.headers, "firstname", "first");
-          const iService = appointmentServiceCol(parsed.headers);
-          const { dateRaw } = appointmentWhenRaw(row, parsed.headers);
-          const client =
-            iClient !== -1
-              ? row[iClient]
-              : iFirst !== -1
-                ? [row[iFirst], row[col(parsed.headers, "lastname", "last", "surname")] ?? ""]
-                    .filter(Boolean)
-                    .join(" ")
-                : "";
-          const parts = [client, iService !== -1 ? row[iService] : "", dateRaw].filter(Boolean);
-          return parts.join(" · ");
-        })()
-      : (workingRows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "");
-
-  const detail = ok ? "" : describeMissing(kind, parsed.headers);
+  if (!parsed || !preview) return null;
 
   const toggleCalendar = (name: string, checked: boolean) => {
     setSelectedCalendars((prev) => {
@@ -278,31 +320,31 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
 
       <div
         className={`rounded-xl px-4 py-3 text-sm ${
-          ok && !waitingForCalendars
+          preview.ok && !preview.waitingForCalendars
             ? "bg-emerald-500/10 text-emerald-300"
             : "bg-amber-500/10 text-amber-300"
         }`}
       >
         <p className="flex items-center gap-2 font-medium">
-          {ok && !waitingForCalendars ? (
+          {preview.ok && !preview.waitingForCalendars ? (
             <CheckCircle2 className="h-4 w-4" />
           ) : (
             <AlertTriangle className="h-4 w-4" />
           )}
-          {waitingForCalendars
+          {preview.waitingForCalendars
             ? "Pick at least one calendar above to preview the import."
-            : ok
-              ? `Looks ready: ${formatCount(rows)} ${label(kind)} found.`
-              : `Check this file: ${detail}`}
+            : preview.ok
+              ? `Looks ready: ${formatCount(preview.rows)} ${label(kind)} found.`
+              : `Check this file: ${preview.detail}`}
         </p>
-        {!waitingForCalendars &&
-          notes.map((note) => (
-            <p key={note} className="mt-1 text-xs opacity-80">
+        {!preview.waitingForCalendars &&
+          preview.notes.map((note, i) => (
+            <p key={i} className="mt-1 text-xs opacity-80">
               {note}
             </p>
           ))}
-        {!waitingForCalendars && sample && (
-          <p className="mt-1 text-xs opacity-80">First row: {sample}</p>
+        {!preview.waitingForCalendars && preview.sample && (
+          <p className="mt-1 text-xs opacity-80">First row: {preview.sample}</p>
         )}
       </div>
     </div>
