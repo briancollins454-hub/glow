@@ -1,22 +1,33 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  acuityDerivedServices,
   acuityServiceNames,
   appointmentClientName,
   appointmentColumnsOk,
   appointmentServiceCol,
   appointmentWhenRaw,
   isAcuityAppointmentCsv,
+  normalizeImportPhone,
   parseAppointmentWhen,
   parseCsv,
 } from "@/lib/csv";
 
+const SAMPLE_PATH = resolve(__dirname, "fixtures/acuity-sample-anonymised.csv");
+
 describe("isAcuityAppointmentCsv", () => {
-  it("recognises an Acuity appointments export (Type column, no Service column)", () => {
-    const { headers } = parseCsv(
-      "Start Time,End Time,First Name,Last Name,Phone,Email,Type,Calendar,Date\n",
-    );
+  it("recognises a real Acuity appointments export", () => {
+    const { headers } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
     expect(isAcuityAppointmentCsv(headers)).toBe(true);
     expect(appointmentColumnsOk(headers)).toBe(true);
+  });
+
+  it("recognises a minimal Type + Start Time header set", () => {
+    const { headers } = parseCsv(
+      "Start Time,End Time,First Name,Last Name,Phone,Email,Type,Calendar,Date Scheduled\n",
+    );
+    expect(isAcuityAppointmentCsv(headers)).toBe(true);
   });
 
   it("does not flag Fresha exports (they have a Services column)", () => {
@@ -34,7 +45,7 @@ describe("isAcuityAppointmentCsv", () => {
 
 describe("appointmentServiceCol", () => {
   it("uses Acuity's Type column when no standard service column exists", () => {
-    const { headers } = parseCsv("First Name,Last Name,Type,Date,Start Time\n");
+    const { headers } = parseCsv("First Name,Last Name,Type,Start Time\n");
     expect(headers[appointmentServiceCol(headers)]).toBe("type");
   });
 
@@ -47,96 +58,157 @@ describe("appointmentServiceCol", () => {
 describe("appointmentClientName", () => {
   it("reads a single Client Name column", () => {
     const { headers, rows } = parseCsv(
-      "Client Name,Type,Date\nJane Smith,Gel Nails,03/04/2026\n",
+      "Client Name,Type,Start Time\nJane Smith,Gel Nails,December 2, 2020 9:00 am\n",
     );
     expect(appointmentClientName(rows[0], headers)).toBe("Jane Smith");
   });
 
   it("combines split First Name / Last Name columns", () => {
     const { headers, rows } = parseCsv(
-      "First Name,Last Name,Type,Date\nJane,Smith,Gel Nails,03/04/2026\n",
+      "First Name,Last Name,Type,Start Time\nJane,Smith,Gel Nails,December 2, 2020 9:00 am\n",
     );
     expect(appointmentClientName(rows[0], headers)).toBe("Jane Smith");
   });
 
   it("copes with a missing last name", () => {
     const { headers, rows } = parseCsv(
-      "First Name,Last Name,Type,Date\nJane,,Gel Nails,03/04/2026\n",
+      "First Name,Last Name,Type,Start Time\nJane,,Gel Nails,December 2, 2020 9:00 am\n",
     );
     expect(appointmentClientName(rows[0], headers)).toBe("Jane");
   });
 });
 
-describe("Acuity month-first date parsing", () => {
-  it("parses 03/04/2026 as 4 March (month first), not 3 April", () => {
-    const d = parseAppointmentWhen("03/04/2026", "10:00", { monthFirst: true });
+describe("normalizeImportPhone", () => {
+  it("strips a leading apostrophe from Acuity/Excel phone numbers", () => {
+    expect(normalizeImportPhone("'+447762992312")).toBe("+447762992312");
+    expect(normalizeImportPhone("'07900 123456")).toBe("07900 123456");
+    expect(normalizeImportPhone("+447762992312")).toBe("+447762992312");
+    expect(normalizeImportPhone("")).toBe("");
+  });
+});
+
+describe("Acuity long-form date parsing", () => {
+  it("parses December 2, 2020 9:00 am in Europe/London", () => {
+    const d = parseAppointmentWhen("December 2, 2020 9:00 am", "", {
+      timeZone: "Europe/London",
+    });
     expect(d).not.toBeNull();
-    expect(d!.getFullYear()).toBe(2026);
-    expect(d!.getMonth()).toBe(2); // March
-    expect(d!.getDate()).toBe(4);
+    expect(d!.toISOString()).toBe("2020-12-02T09:00:00.000Z");
   });
 
-  it("still parses the same string day-first without the flag", () => {
+  it("parses afternoon times with am/pm", () => {
+    const d = parseAppointmentWhen("December 2, 2020 1:00 pm", "", {
+      timeZone: "Europe/London",
+    });
+    expect(d).not.toBeNull();
+    expect(d!.toISOString()).toBe("2020-12-02T13:00:00.000Z");
+  });
+
+  it("uses the Timezone column (BST in summer)", () => {
+    // 1 July 2026 is BST (UTC+1).
+    const d = parseAppointmentWhen("July 1, 2026 10:00 am", "", {
+      timeZone: "Europe/London",
+    });
+    expect(d).not.toBeNull();
+    expect(d!.toISOString()).toBe("2026-07-01T09:00:00.000Z");
+  });
+
+  it("falls back to Europe/London for an unknown timezone", () => {
+    const d = parseAppointmentWhen("December 2, 2020 9:00 am", "", {
+      timeZone: "Not/AZone",
+    });
+    expect(d).not.toBeNull();
+    expect(d!.toISOString()).toBe("2020-12-02T09:00:00.000Z");
+  });
+
+  it("prefers Start Time over Date Scheduled from a real Acuity row", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const { dateRaw, timeRaw } = appointmentWhenRaw(rows[0], headers);
+    expect(dateRaw).toBe("December 2, 2020 9:00 am");
+    expect(timeRaw).toBe("");
+    expect(dateRaw).not.toContain("2020-11-25");
+
+    const iTz = headers.indexOf("timezone");
+    const when = parseAppointmentWhen(dateRaw, timeRaw, {
+      timeZone: rows[0][iTz],
+    });
+    expect(when).not.toBeNull();
+    expect(when!.toISOString()).toBe("2020-12-02T09:00:00.000Z");
+  });
+
+  it("parses End Time for duration against the sample fixture", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const iStart = headers.indexOf("starttime");
+    const iEnd = headers.indexOf("endtime");
+    const iTz = headers.indexOf("timezone");
+    const start = parseAppointmentWhen(rows[0][iStart], "", { timeZone: rows[0][iTz] });
+    const end = parseAppointmentWhen(rows[0][iEnd], "", { timeZone: rows[0][iTz] });
+    expect(start).not.toBeNull();
+    expect(end).not.toBeNull();
+    // 9:00 am → 10:45 am = 105 minutes
+    expect(Math.round((end!.getTime() - start!.getTime()) / 60000)).toBe(105);
+  });
+
+  it("reads every Start Time in the anonymised sample fixture", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    expect(rows.length).toBe(300);
+    const iTz = headers.indexOf("timezone");
+    let unreadable = 0;
+    for (const row of rows) {
+      const { dateRaw, timeRaw } = appointmentWhenRaw(row, headers);
+      const when = parseAppointmentWhen(dateRaw, timeRaw, {
+        timeZone: row[iTz] ?? "Europe/London",
+      });
+      if (!when) unreadable++;
+    }
+    expect(unreadable).toBe(0);
+  });
+
+  it("still parses numeric slash dates day-first by default", () => {
     const d = parseAppointmentWhen("03/04/2026", "10:00");
     expect(d).not.toBeNull();
     expect(d!.getMonth()).toBe(3); // April
     expect(d!.getDate()).toBe(3);
   });
 
-  it("handles 12-hour times with AM/PM", () => {
-    const d = parseAppointmentWhen("07/19/2026 3:30 PM", "", { monthFirst: true });
-    expect(d).not.toBeNull();
-    expect(d!.getMonth()).toBe(6); // July
-    expect(d!.getDate()).toBe(19);
-    // 3:30pm UK summer time is 14:30 UTC.
-    expect(d!.getUTCHours()).toBe(14);
-    expect(d!.getUTCMinutes()).toBe(30);
-  });
-
-  it("handles 24-hour times", () => {
-    const d = parseAppointmentWhen("07/19/2026", "15:30", { monthFirst: true });
-    expect(d).not.toBeNull();
-    expect(d!.getUTCHours()).toBe(14);
-  });
-
-  it("rejects dates that fail MM/DD/YYYY parsing instead of guessing", () => {
-    // Day-first UK date: 25 cannot be a month, so the row must be skipped.
-    expect(parseAppointmentWhen("25/12/2026", "10:00", { monthFirst: true })).toBeNull();
-    expect(parseAppointmentWhen("13/45/2026", "", { monthFirst: true })).toBeNull();
-    expect(parseAppointmentWhen("not a date", "", { monthFirst: true })).toBeNull();
-  });
-
-  it("combines Acuity's separate Date and time-only Start Time columns", () => {
-    const { headers, rows } = parseCsv(
-      "First Name,Last Name,Type,Date,Start Time\nJane,Smith,Gel Nails,03/04/2026,3:00pm\n",
-    );
-    const { dateRaw, timeRaw } = appointmentWhenRaw(rows[0], headers);
-    expect(dateRaw).toBe("03/04/2026");
-    expect(timeRaw).toBe("3:00pm");
-    const d = parseAppointmentWhen(dateRaw, timeRaw, { monthFirst: true });
+  it("still supports monthFirst for numeric slash dates when asked", () => {
+    const d = parseAppointmentWhen("03/04/2026", "10:00", { monthFirst: true });
     expect(d).not.toBeNull();
     expect(d!.getMonth()).toBe(2); // March
     expect(d!.getDate()).toBe(4);
-    expect(d!.getUTCHours()).toBe(15); // 3pm GMT in March
   });
 });
 
-describe("acuityServiceNames", () => {
-  it("derives unique services from the Type column", () => {
-    const { headers, rows } = parseCsv(
-      [
-        "First Name,Last Name,Type,Date,Start Time",
-        "Jane,Smith,Gel Nails,03/04/2026,10:00am",
-        "Amy,Jones,gel nails,03/05/2026,11:00am",
-        "Bea,Khan,Lash Lift,03/06/2026,12:00pm",
-        "Cat,Lee,,03/07/2026,1:00pm",
-      ].join("\n"),
-    );
-    expect(acuityServiceNames(headers, rows)).toEqual(["Gel Nails", "Lash Lift"]);
+describe("acuityDerivedServices", () => {
+  it("derives unique services and prices from the Type / Appointment Price columns", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const derived = acuityDerivedServices(headers, rows);
+    expect(derived.length).toBeGreaterThan(20);
+    expect(acuityServiceNames(headers, rows)).toEqual(derived.map((s) => s.name));
+
+    const acrylic = derived.find((s) => s.name === "Acrylic Rebalance/Infills");
+    expect(acrylic?.pricePennies).toBe(2900);
+
+    const brow = derived.find((s) => s.name === "Brow Wax");
+    expect(brow?.pricePennies).toBe(750);
   });
 
   it("returns nothing when there is no Type column", () => {
     const { headers, rows } = parseCsv("Client,Services,Date\nJane,Gel Nails,03/04/2026\n");
-    expect(acuityServiceNames(headers, rows)).toEqual([]);
+    expect(acuityDerivedServices(headers, rows)).toEqual([]);
+  });
+});
+
+describe("real Acuity sample row mapping", () => {
+  it("maps First/Last, Phone, Email, Type and Appointment Price from the fixture", () => {
+    const { headers, rows } = parseCsv(readFileSync(SAMPLE_PATH, "utf8"));
+    const row = rows[0];
+    expect(appointmentClientName(row, headers)).toBe("Erin Moore");
+    expect(normalizeImportPhone(row[headers.indexOf("phone")])).toBe("+447762992312");
+    expect(row[headers.indexOf("email")]).toBe("erin.moore0@example.com");
+    expect(row[appointmentServiceCol(headers)]).toBe("Acrylic Rebalance/Infills");
+    expect(row[headers.indexOf("appointmentprice")]).toBe("29.00");
+    expect(row[headers.indexOf("calendar")]).toBe("Claire Adams");
+    expect(row[headers.indexOf("datescheduled")]).toBe("2020-11-25");
   });
 });

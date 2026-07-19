@@ -38,6 +38,8 @@ const ACUITY_KNOWN_COLS = new Set<string>([
   "calendar",
   "endtime",
   "end",
+  "timezone",
+  "tz",
   "firstname",
   "first",
   "lastname",
@@ -50,13 +52,18 @@ const ACUITY_KNOWN_COLS = new Set<string>([
   "cancelled",
   "paid",
   "amountpaid",
+  "amountpaidonline",
   "appointmentprice",
   "certificate",
+  "certificatecode",
   "notes",
   "label",
   "labels",
   "datescheduled",
+  "daterescheduled",
   "datecreated",
+  "scheduledby",
+  "appointmentid",
 ]);
 
 function label(kind: Kind): string {
@@ -122,21 +129,27 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
       }
 
       if (kind === "appointments" && ok && acuity) {
-        notes.push("Acuity export detected: dates will be read as US month-first (MM/DD/YYYY).");
+        notes.push(
+          "Acuity export detected: Start/End Time are read as long-form dates (for example December 2, 2020 9:00 am) using the Timezone column. Date Scheduled is when the booking was made and is ignored.",
+        );
 
+        const iTimezone = col(parsed.headers, "timezone", "tz");
         const bad = parsed.rows.filter((row) => {
           const { dateRaw, timeRaw } = appointmentWhenRaw(row, parsed.headers);
-          return !parseAppointmentWhen(dateRaw, timeRaw, { monthFirst: true });
+          const timeZone = iTimezone !== -1 ? (row[iTimezone] ?? "").trim() : "";
+          return !parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
         }).length;
         if (bad > 0) {
           notes.push(
-            `${bad} row${bad === 1 ? "" : "s"} have dates we cannot read as MM/DD/YYYY, so they will be skipped.`,
+            `${bad} row${bad === 1 ? "" : "s"} have dates we cannot read, so they will be skipped.`,
           );
         }
 
         const extras = parsed.headers.filter((h) => h && !ACUITY_KNOWN_COLS.has(h)).length;
         if (extras > 0) {
-          notes.push("Intake form answer columns are not imported.");
+          notes.push(
+            "Extra columns such as Calendar, Certificate Code, Label, Scheduled By and Appointment ID are not imported.",
+          );
         }
       }
 
@@ -146,12 +159,21 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
               const row = parsed.rows[0];
               if (!row) return "";
               const iClient = col(parsed.headers, ...IMPORT_COLS.appointmentClient);
+              const iFirst = col(parsed.headers, "firstname", "first");
               const iService = appointmentServiceCol(parsed.headers);
-              const iDate = col(parsed.headers, ...IMPORT_COLS.appointmentDate);
+              const { dateRaw } = appointmentWhenRaw(row, parsed.headers);
+              const client =
+                iClient !== -1
+                  ? row[iClient]
+                  : iFirst !== -1
+                    ? [row[iFirst], row[col(parsed.headers, "lastname", "last", "surname")] ?? ""]
+                        .filter(Boolean)
+                        .join(" ")
+                    : "";
               const parts = [
-                iClient !== -1 ? row[iClient] : "",
+                client,
                 iService !== -1 ? row[iService] : "",
-                iDate !== -1 ? row[iDate] : "",
+                dateRaw,
               ].filter(Boolean);
               return parts.join(" · ");
             })()

@@ -132,6 +132,7 @@ export const IMPORT_COLS = {
     "netsale",
     "grosssales",
     "grosssale",
+    "appointmentprice",
     "price",
     "amount",
     "retailprice",
@@ -173,7 +174,9 @@ export const IMPORT_APPOINTMENT_GROUPS: {
 
 /**
  * Acuity appointment exports: the service lives in a "Type" column (no
- * Service/Item column), and dates are US month-first (MM/DD/YYYY).
+ * Service/Item column). Start/End Time are long-form datetimes such as
+ * "December 2, 2020 9:00 am", with a separate Timezone column. "Date Scheduled"
+ * is when the booking was made (YYYY-MM-DD), not the appointment start.
  */
 export function isAcuityAppointmentCsv(headers: string[]): boolean {
   const hasType = col(headers, "type") !== -1;
@@ -206,22 +209,41 @@ export function appointmentClientName(cols: string[], headers: string[]): string
     .join(" ");
 }
 
+export type AcuityDerivedService = { name: string; pricePennies: number };
+
 /**
- * Unique service names from an Acuity appointments export (the "Type" column).
+ * Unique services from an Acuity appointments export (Type + Appointment Price).
  * Acuity has no separate services export, so the services step derives the
- * list from here; the tech fills in price and duration afterwards.
+ * list from here. Duration still needs filling in afterwards.
  */
-export function acuityServiceNames(headers: string[], rows: string[][]): string[] {
+export function acuityDerivedServices(
+  headers: string[],
+  rows: string[][],
+): AcuityDerivedService[] {
   const iType = col(headers, "type");
   if (iType === -1) return [];
-  const seen = new Map<string, string>();
+  const iPrice = col(headers, ...IMPORT_COLS.appointmentPrice);
+  const seen = new Map<string, AcuityDerivedService>();
   for (const cols of rows) {
     const raw = (cols[iType] ?? "").trim();
     if (!raw || !isPlausibleServiceName(raw)) continue;
     const key = normalizeImportName(raw);
-    if (!seen.has(key)) seen.set(key, raw);
+    if (seen.has(key)) continue;
+    const pricePennies =
+      iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : 0;
+    seen.set(key, { name: raw, pricePennies });
   }
   return [...seen.values()];
+}
+
+/** Unique Type names from an Acuity appointments export. */
+export function acuityServiceNames(headers: string[], rows: string[][]): string[] {
+  return acuityDerivedServices(headers, rows).map((s) => s.name);
+}
+
+/** Strip Excel/Acuity leading apostrophes from phone numbers ("'+447..."). */
+export function normalizeImportPhone(raw: string): string {
+  return raw.trim().replace(/^'+/, "").trim();
 }
 
 export function missingAppointmentGroups(headers: string[]): ImportAppointmentGroup[] {
@@ -255,10 +277,11 @@ export function appointmentWhenRaw(
   if (dateOnly && hasClockTime(dateOnly)) return { dateRaw: dateOnly, timeRaw: "" };
 
   // Fresha often puts a full timestamp in Scheduled time / Start time.
+  // Acuity Start Time is a full long-form datetime ("December 2, 2020 9:00 am")
+  // — prefer that over "Date Scheduled", which is only when the booking was made.
   if (scheduled && hasDatePart(scheduled)) return { dateRaw: scheduled, timeRaw: "" };
   if (start && hasDatePart(start) && hasClockTime(start)) return { dateRaw: start, timeRaw: "" };
   if (dateOnly && (scheduled || timeOnly)) return { dateRaw: dateOnly, timeRaw: scheduled || timeOnly };
-  // Acuity: separate Date column plus a time-only Start Time ("3:00pm").
   if (dateOnly && start && !hasDatePart(start)) return { dateRaw: dateOnly, timeRaw: start };
   if (dateOnly) return { dateRaw: dateOnly, timeRaw: "" };
   if (scheduled) return { dateRaw: scheduled, timeRaw: "" };
@@ -285,19 +308,61 @@ export function normalizeImportName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function resolveImportTimeZone(timeZone?: string): string {
+  const tz = (timeZone ?? "").trim();
+  if (!tz) return TZ;
+  try {
+    // Throws RangeError for unknown IANA zones.
+    new Intl.DateTimeFormat("en-GB", { timeZone: tz }).format(new Date());
+    return tz;
+  } catch {
+    return TZ;
+  }
+}
+
+function zonedLocalInstant(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone?: string,
+): Date | null {
+  const local = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  const d = fromZonedTime(local, resolveImportTimeZone(timeZone));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /**
- * Parse appointment date/time strings from Fresha and other UK exports.
- * Fresha uses "04 Jul 2026, 3:00pm" in Scheduled date — not handled by Date.parse.
- * Acuity exports are US month-first (MM/DD/YYYY): pass { monthFirst: true } —
- * never guess DD/MM for those files.
+ * Parse appointment date/time strings from Fresha, Acuity and other UK exports.
+ * Fresha uses "04 Jul 2026, 3:00pm". Acuity uses long-form
+ * "December 2, 2020 9:00 am" plus an optional IANA Timezone column.
+ * Pass { monthFirst: true } only for numeric slash dates that are US-ordered.
  */
 export function parseAppointmentWhen(
   dateRaw: string,
   timeRaw = "",
-  opts: { monthFirst?: boolean } = {},
+  opts: { monthFirst?: boolean; timeZone?: string } = {},
 ): Date | null {
   let s = `${dateRaw.trim()} ${timeRaw.trim()}`.trim();
   if (!s) return null;
+
+  // Acuity: "December 2, 2020 9:00 am" / "December 2, 2020 9:00am"
+  const acuityLong = s.match(
+    /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})\s+(\d{1,2}):(\d{2})\s*(am|pm)$/i,
+  );
+  if (acuityLong) {
+    const mon = MONTHS[acuityLong[1].toLowerCase().slice(0, 3)];
+    const day = parseInt(acuityLong[2], 10);
+    const year = parseInt(acuityLong[3], 10);
+    if (mon === undefined || day < 1 || day > 31) return null;
+    let hour = parseInt(acuityLong[4], 10);
+    const min = parseInt(acuityLong[5], 10);
+    const ap = acuityLong[6].toLowerCase();
+    if (ap === "pm" && hour < 12) hour += 12;
+    if (ap === "am" && hour === 12) hour = 0;
+    return zonedLocalInstant(year, mon + 1, day, hour, min, opts.timeZone);
+  }
 
   // Fresha: "04 Jul 2026, 3:00pm" / "23 Jun 2026, 9:51pm"
   const fresha = s.match(
@@ -313,9 +378,7 @@ export function parseAppointmentWhen(
     const ap = (fresha[6] ?? "").toLowerCase();
     if (ap === "pm" && hour < 12) hour += 12;
     if (ap === "am" && hour === 12) hour = 0;
-    const local = `${year}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-    const d = fromZonedTime(local, TZ);
-    return Number.isNaN(d.getTime()) ? null : d;
+    return zonedLocalInstant(year, mon + 1, day, hour, min, opts.timeZone);
   }
 
   // Appt slot fallback: "15:00:00-16:10:00" paired with a separate date field.
@@ -328,8 +391,8 @@ export function parseAppointmentWhen(
   }
 
   // Numeric slash dates: UK "04/07/2026 15:30" (day first) or, with
-  // monthFirst, Acuity's US "07/04/2026 3:30 PM". Out-of-range parts are
-  // rejected rather than rolled over into the wrong month.
+  // monthFirst, US "07/04/2026 3:30 PM". Out-of-range parts are rejected
+  // rather than rolled over into the wrong month.
   const numeric = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*,?\s*(.*)$/);
   if (numeric) {
     const first = parseInt(numeric[1], 10);
@@ -348,9 +411,7 @@ export function parseAppointmentWhen(
       if (ap === "pm" && hour < 12) hour += 12;
       if (ap === "am" && hour === 12) hour = 0;
     }
-    const local = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-    const d = fromZonedTime(local, TZ);
-    return Number.isNaN(d.getTime()) ? null : d;
+    return zonedLocalInstant(year, month, day, hour, minute, opts.timeZone);
   }
 
   if (/z$|[+-]\d{2}:?\d{2}$/i.test(s)) {
@@ -360,9 +421,14 @@ export function parseAppointmentWhen(
 
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ]?(\d{1,2})?:?(\d{2})?/);
   if (m) {
-    const local = `${m[1]}-${m[2]}-${m[3]}T${(m[4] ?? "9").padStart(2, "0")}:${m[5] ?? "00"}`;
-    const d = fromZonedTime(local, TZ);
-    return Number.isNaN(d.getTime()) ? null : d;
+    return zonedLocalInstant(
+      parseInt(m[1], 10),
+      parseInt(m[2], 10),
+      parseInt(m[3], 10),
+      parseInt(m[4] ?? "9", 10),
+      parseInt(m[5] ?? "0", 10),
+      opts.timeZone,
+    );
   }
 
   const d = new Date(s);

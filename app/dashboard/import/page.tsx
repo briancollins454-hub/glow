@@ -75,8 +75,8 @@ function ImportView() {
             &quot;Service name&quot;, &quot;Price&quot;, &quot;Duration&quot; (category and description picked up if present).
             Deposits use your default percentage; fine-tune each service afterwards.
             Coming from Acuity? It does not export services separately, so upload your
-            appointments export here instead: each appointment type becomes a service with a
-            default price and duration for you to fill in afterwards.
+            appointments export here instead: each appointment Type becomes a service, with
+            Appointment Price when present. Check durations afterwards.
           </CardDescription>
         </CardHeader>
         <CardContent>

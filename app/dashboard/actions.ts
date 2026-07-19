@@ -1545,7 +1545,7 @@ async function importClientsInner(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect(`${back}?import=empty`);
 
-  const { parseCsv, col } = await import("@/lib/csv");
+  const { parseCsv, col, normalizeImportPhone } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect(`${back}?import=empty`);
 
@@ -1569,7 +1569,7 @@ async function importClientsInner(formData: FormData) {
         : [cols[iFirst], iLast !== -1 ? cols[iLast] : ""].filter(Boolean).join(" ");
     if (!name) { skipped++; continue; }
     const email = iEmail !== -1 ? (cols[iEmail] ?? "") : "";
-    const phone = iPhone !== -1 ? (cols[iPhone] ?? "") : "";
+    const phone = iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "";
     const notes = iNotes !== -1 ? (cols[iNotes] ?? "") : "";
 
     if (email) {
@@ -1594,7 +1594,7 @@ async function importServicesInner(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName, isAcuityAppointmentCsv, acuityServiceNames } = await import("@/lib/csv");
+  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName, isAcuityAppointmentCsv, acuityDerivedServices } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
@@ -1628,12 +1628,12 @@ async function importServicesInner(formData: FormData) {
   let sortOrder = existing.length;
 
   // Acuity has no services export, so the services step accepts the Acuity
-  // appointments file instead: each unique appointment Type becomes a service
-  // with a default price and duration for the tech to fill in afterwards.
+  // appointments file instead: each unique appointment Type becomes a service.
+  // Appointment Price is used when present; duration still needs filling in.
   if (iName === -1 && isAcuityAppointmentCsv(headers)) {
-    const names = acuityServiceNames(headers, rows);
-    if (names.length === 0) redirect("/dashboard/import?import=badformat");
-    for (const name of names) {
+    const derived = acuityDerivedServices(headers, rows);
+    if (derived.length === 0) redirect("/dashboard/import?import=badformat");
+    for (const { name, pricePennies } of derived) {
       if (existingNames.has(name.toLowerCase())) { skipped++; continue; }
       const categoryId = await ensureCategory("");
       await createService(sb, {
@@ -1642,7 +1642,7 @@ async function importServicesInner(formData: FormData) {
         name,
         description: "",
         durationMin: 60,
-        pricePennies: 0,
+        pricePennies,
         depositType: tech.defaultDepositType ?? "percent",
         depositValue:
           tech.defaultDepositType === "fixed"
@@ -1718,19 +1718,21 @@ async function importBookingsInner(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, appointmentWhenRaw, appointmentClientName, appointmentServiceCol, isAcuityAppointmentCsv, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName, MAX_MINUTES } = await import("@/lib/csv");
+  const { parseCsv, col, appointmentWhenRaw, appointmentClientName, appointmentServiceCol, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName, normalizeImportPhone, MAX_MINUTES } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
   const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
   const iFirstName = col(headers, "firstname", "first");
   const iEmail = col(headers, ...IMPORT_COLS.appointmentEmail);
+  const iPhone = col(headers, "phone", "phonenumber", "mobile", "mobilenumber", "telephone");
   const iService = appointmentServiceCol(headers);
   const iStatus = col(headers, ...IMPORT_COLS.appointmentStatus);
   const iCancelled = col(headers, "canceled", "cancelled");
   const iPrice = col(headers, ...IMPORT_COLS.appointmentPrice);
   const iDuration = col(headers, ...IMPORT_COLS.appointmentDuration);
   const iEndTime = col(headers, "endtime", "end");
+  const iTimezone = col(headers, "timezone", "tz");
 
   if ((iClient === -1 && iFirstName === -1) || iService === -1) {
     redirect("/dashboard/import?import=badformat");
@@ -1740,10 +1742,6 @@ async function importBookingsInner(formData: FormData) {
     col(headers, ...IMPORT_COLS.appointmentTime) !== -1;
   if (!hasDate) redirect("/dashboard/import?import=badformat");
 
-  // Acuity exports use US month-first dates (MM/DD/YYYY); never guess DD/MM
-  // for those files. Everything else stays day-first as before.
-  const monthFirst = isAcuityAppointmentCsv(headers);
-
   const services = await listServices(sb, tech.id);
   const serviceByName = new Map(services.map((s) => [normalizeImportName(s.name), s]));
   const existingBookings = await listBookings(sb, tech.id);
@@ -1751,8 +1749,8 @@ async function importBookingsInner(formData: FormData) {
   const { rescheduleReminders } = await import("@/lib/bookings");
   const { randomToken: newToken } = await import("@/lib/ids");
 
-  // UK exports commonly use dd/mm/yyyy or Fresha "04 Jul 2026, 3:00pm".
-  // Times are naive local (Europe/London), not server UTC.
+  // Acuity: long-form Start/End Time + Timezone. Other UK exports: dd/mm/yyyy
+  // or Fresha "04 Jul 2026, 3:00pm". Times are naive local, not server UTC.
 
   let imported = 0;
   let skipped = 0;
@@ -1761,7 +1759,8 @@ async function importBookingsInner(formData: FormData) {
     const clientName = appointmentClientName(cols, headers);
     const serviceName = normalizeImportName(cols[iService] ?? "");
     const { dateRaw, timeRaw } = appointmentWhenRaw(cols, headers);
-    const when = parseAppointmentWhen(dateRaw, timeRaw, { monthFirst });
+    const timeZone = iTimezone !== -1 ? (cols[iTimezone] ?? "").trim() : "";
+    const when = parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) { skipped++; continue; }
 
@@ -1775,8 +1774,8 @@ async function importBookingsInner(formData: FormData) {
       const endRaw = (cols[iEndTime] ?? "").trim();
       if (endRaw) {
         const end =
-          parseAppointmentWhen(endRaw, "", { monthFirst }) ??
-          parseAppointmentWhen(dateRaw, endRaw, { monthFirst });
+          parseAppointmentWhen(endRaw, "", { timeZone }) ??
+          parseAppointmentWhen(dateRaw, endRaw, { timeZone });
         if (end) {
           const diff = Math.round((end.getTime() - when.getTime()) / 60000);
           if (diff > 0 && diff <= MAX_MINUTES) endDurationMin = diff;
@@ -1793,7 +1792,7 @@ async function importBookingsInner(formData: FormData) {
     const client = await findOrCreateClient(sb, tech.id, {
       name: clientName,
       email: iEmail !== -1 ? (cols[iEmail] ?? "").trim() : "",
-      phone: "",
+      phone: iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "",
     });
 
     // Skip exact duplicates (same client, same start).
