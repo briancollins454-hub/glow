@@ -102,8 +102,10 @@ describe("importClientsForTech scopes writes to the selected tech", () => {
     const createClient = vi.fn(async (_sb: unknown, row: { techId: string; name: string }) => ({
       ...row,
       id: "cli_1",
+      email: (row as { email?: string }).email ?? "",
+      phone: (row as { phone?: string }).phone ?? "",
     }));
-    const getClientByEmail = vi.fn(async () => null);
+    const listClients = vi.fn(async () => []);
     const createAuditEvent = vi.fn(async () => undefined);
     const redirect = vi.fn((url: string) => {
       const err = new Error("NEXT_REDIRECT");
@@ -116,7 +118,7 @@ describe("importClientsForTech scopes writes to the selected tech", () => {
       return {
         ...actual,
         createClient,
-        getClientByEmail,
+        listClients,
         createAuditEvent,
       };
     });

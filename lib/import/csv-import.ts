@@ -161,40 +161,78 @@ export async function importClientsForTech(
 
   if (iName === -1 && iFirst === -1) go(scope, { import: "badformat" });
 
-  const { createClient: createClientRow, getClientByEmail: findByEmail } = await import(
-    "@/lib/db/queries",
-  );
+  // Preload once — Acuity clients exports (or appointments files reused here) can
+  // be thousands of rows; a DB email lookup per row times out the serverless fn.
+  const existingClients = await listClients(scope.sb, scope.tech.id);
+  const indexes = buildClientIndexes(existingClients);
+  const seenEmails = new Set(indexes.byEmail.keys());
+  const seenPhones = new Set(indexes.byPhone.keys());
+  const seenNames = new Set(indexes.byName.keys());
+
   let imported = 0;
   let skipped = 0;
 
   for (const cols of rows) {
-    const name =
+    const name = (
       iName !== -1
         ? cols[iName]
-        : [cols[iFirst], iLast !== -1 ? cols[iLast] : ""].filter(Boolean).join(" ");
+        : [cols[iFirst], iLast !== -1 ? cols[iLast] : ""].filter(Boolean).join(" ")
+    ).trim();
     if (!name) {
       skipped++;
       continue;
     }
-    const email = iEmail !== -1 ? (cols[iEmail] ?? "") : "";
+    const email = (iEmail !== -1 ? (cols[iEmail] ?? "") : "").trim();
     const phone = iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "";
     const notes = iNotes !== -1 ? (cols[iNotes] ?? "") : "";
+    const emailKey = email.toLowerCase();
+    const phoneKey = phone.replace(/\D/g, "");
+    const nameKey = name.toLowerCase();
 
-    if (email) {
-      const existing = await findByEmail(scope.sb, scope.tech.id, email);
-      if (existing) {
+    // Dedupe against existing clients and earlier rows in this same file
+    // (appointments CSVs often repeat the same person many times).
+    if (emailKey && seenEmails.has(emailKey)) {
+      skipped++;
+      continue;
+    }
+    if (!emailKey && phoneKey.length >= 7 && seenPhones.has(phoneKey)) {
+      skipped++;
+      continue;
+    }
+    if (!emailKey && phoneKey.length < 7 && nameKey && seenNames.has(nameKey)) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      const created = await createClient(scope.sb, {
+        techId: scope.tech.id,
+        name,
+        email,
+        phone,
+        notes,
+      });
+      if (emailKey) {
+        seenEmails.add(emailKey);
+        indexes.byEmail.set(emailKey, created);
+      }
+      if (phoneKey.length >= 7) {
+        seenPhones.add(phoneKey);
+        indexes.byPhone.set(phoneKey, created);
+      }
+      if (nameKey) {
+        seenNames.add(nameKey);
+        indexes.byName.set(nameKey, created);
+      }
+      imported++;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
         skipped++;
+        if (emailKey) seenEmails.add(emailKey);
         continue;
       }
+      throw e;
     }
-    await createClientRow(scope.sb, {
-      techId: scope.tech.id,
-      name,
-      email,
-      phone,
-      notes,
-    });
-    imported++;
   }
 
   await auditImport(scope, "clients_imported", "clients", {
