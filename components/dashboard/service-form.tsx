@@ -1,6 +1,7 @@
 import { SubmitButton } from "@/components/ui/submit-button";
 import { DepositFields } from "@/components/dashboard/deposit-fields";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { ImageFileInput } from "@/components/ui/image-file-input";
 import { saveServiceAction } from "@/app/dashboard/actions";
 import type { Service, ServiceCategory } from "@/lib/db/types";
 
@@ -108,10 +109,9 @@ export function ServiceForm({
       {!s && (
         <div className="sm:col-span-2">
           <Label>Photo for your booking page (optional)</Label>
-          <input
-            type="file"
+          <ImageFileInput
             name="photo"
-            accept="image/*"
+            maxDimension={1600}
             className="input h-auto py-2 text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-300"
           />
           <p className="mt-1 text-xs text-ink-faint">Shows next to the service on your booking page. You can add or change it later too.</p>

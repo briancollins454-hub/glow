@@ -94,7 +94,13 @@ export default function SettingsPage() {
       {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
       {coverSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Banner image uploaded.</div>}
       {profileSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Profile photo uploaded.</div>}
-      {photoerr && <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">Photo upload failed. Use a JPG, PNG or WebP image and try again.</div>}
+      {photoerr && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {photoerr === "size"
+            ? "That photo is too large. Please choose an image under 8MB — most photos are resized automatically when you pick them."
+            : "Photo upload failed. Use a JPG, PNG or WebP image and try again."}
+        </div>
+      )}
       {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
       {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
       {google && (

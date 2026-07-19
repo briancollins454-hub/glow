@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/queries";
 import { signedPhotoUrls } from "@/lib/storage";
 import { RemoteImage } from "@/components/ui/remote-image";
+import { ImageFileInput } from "@/components/ui/image-file-input";
 import { isLive } from "@/lib/subscriptions";
 import { uploadPhotoAction, deletePhotoAction } from "../../actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,11 +37,18 @@ import {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ photoerr?: string }>;
+}) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
   const { id } = await params;
+  const { photoerr } = await searchParams;
   const client = await getClient(sb, id);
   if (!client || client.techId !== tech.id) notFound();
 
@@ -245,6 +253,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <CardDescription>Only upload with the client&apos;s consent.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {photoerr && (
+            <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {photoerr === "size"
+                ? "That photo is too large. Please choose an image under 8MB."
+                : "Photo upload failed. Use a JPG, PNG or WebP image and try again."}
+            </div>
+          )}
           {photoItems.length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {photoItems.map(({ p, url }) => (
@@ -270,7 +285,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <input type="hidden" name="clientId" value={client.id} />
             <div>
               <Label>Photo</Label>
-              <input type="file" name="photo" accept="image/*" required className="input h-auto py-2 text-sm" />
+              <ImageFileInput name="photo" required className="input h-auto py-2 text-sm" />
             </div>
             <div>
               <Label>Type</Label>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
+import { ImageFileInput } from "@/components/ui/image-file-input";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
@@ -292,7 +293,7 @@ function ServicesView({
                     )}
                     <form action={setServicePhotoAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="serviceId" value={s.id} />
-                      <input type="file" name="photo" accept="image/*" required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
+                      <ImageFileInput name="photo" maxDimension={1600} required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
                       <SubmitButton size="sm" pendingLabel="Uploading…">{photoByService[s.id] ? "Replace" : "Upload"}</SubmitButton>
                     </form>
                     {photoByService[s.id] && (

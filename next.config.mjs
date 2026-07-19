@@ -12,7 +12,9 @@ const supabaseHost = process.env.SUPABASE_URL
 const nextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: "5mb",
+      // Images are resized client-side before upload (lib/image-prepare.ts);
+      // this leaves headroom for the rare original that can't be re-encoded.
+      bodySizeLimit: "10mb",
     },
     // Next.js 15 defaults dynamic staleTime to 0 — every click refetches the server.
     // Restore client router cache so repeat navigation feels instant.
