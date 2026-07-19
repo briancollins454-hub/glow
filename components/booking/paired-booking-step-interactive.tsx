@@ -18,6 +18,7 @@ import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
+import { usesCardCapture } from "@/lib/subscriptions";
 import {
   createPairedPublicBookingAction,
   joinWaitlistAction,
@@ -71,7 +72,9 @@ export function PairedBookingStepInteractive({
   photoUrl?: string;
   staffId?: string | null;
 }) {
-  const deposit = depositFor(treatmentService);
+  // Card capture: nothing is paid upfront; a card is saved at checkout instead.
+  const cardCapture = usesCardCapture(tech);
+  const deposit = cardCapture ? 0 : depositFor(treatmentService);
   const balance = Math.max(0, treatmentService.pricePennies - deposit);
   const [patchSlot, setPatchSlot] = useState(initialPatchSlot ?? "");
   const [treatmentSlot, setTreatmentSlot] = useState(initialTreatmentSlot ?? "");
@@ -152,9 +155,9 @@ export function PairedBookingStepInteractive({
           <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl border border-edge bg-cream/50 p-3 text-sm sm:gap-3 sm:p-4">
             <Stat label="Patch test" value={gbp(patchTestService.pricePennies)} brand={brand} />
             <Stat
-              label="Treatment deposit"
-              value={deposit > 0 ? gbp(deposit) : "None"}
-              highlight={deposit > 0}
+              label={cardCapture ? "Pay today" : "Treatment deposit"}
+              value={cardCapture ? "Card only" : deposit > 0 ? gbp(deposit) : "None"}
+              highlight={cardCapture || deposit > 0}
               brand={brand}
             />
             <Stat label="Balance on the day" value={gbp(balance)} />
@@ -302,6 +305,8 @@ export function PairedBookingStepInteractive({
               <span>
                 I agree to the {tech.cancellationWindowHours}h cancellation policy. My patch test and treatment
                 are booked together.
+                {cardCapture &&
+                  " A card saved securely at checkout holds my booking — nothing is charged today, but a no-show fee may be charged if I miss my appointment."}
               </span>
             </label>
             <SubmitButton
@@ -310,7 +315,11 @@ export function PairedBookingStepInteractive({
               pendingLabel="Securing your slots…"
             >
               <Lock className="h-4 w-4" />
-              {deposit > 0 ? `Pay ${gbp(deposit)} deposit & book both` : "Confirm both appointments"}
+              {cardCapture
+                ? "Save card & book both"
+                : deposit > 0
+                  ? `Pay ${gbp(deposit)} deposit & book both`
+                  : "Confirm both appointments"}
             </SubmitButton>
           </form>
         </div>

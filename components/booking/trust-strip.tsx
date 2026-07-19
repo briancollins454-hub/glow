@@ -1,8 +1,8 @@
 import { BellRing, ShieldCheck, Sparkles } from "lucide-react";
 
-export function TrustStrip() {
+export function TrustStrip({ secureLabel = "Secure deposit" }: { secureLabel?: string }) {
   const items = [
-    { icon: ShieldCheck, label: "Secure deposit" },
+    { icon: ShieldCheck, label: secureLabel },
     { icon: BellRing, label: "Automatic reminders" },
     { icon: Sparkles, label: "Built for beauty pros" },
   ];

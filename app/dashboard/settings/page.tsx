@@ -202,6 +202,43 @@ export default function SettingsPage() {
             <CardDescription>Deposits and a clear cancellation window protect your time.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-3 sm:col-span-2">
+              <input type="hidden" name="noShowProtectionField" value="1" />
+              <p className="text-sm font-medium">How you&apos;re protected against no-shows</p>
+              <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="radio"
+                  name="noShowProtection"
+                  value="deposit"
+                  defaultChecked={(tech.noShowProtection ?? "deposit") === "deposit"}
+                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium">Deposit upfront</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    Clients pay a deposit when they book. If they no-show, you keep it automatically.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="radio"
+                  name="noShowProtection"
+                  value="card_capture"
+                  defaultChecked={tech.noShowProtection === "card_capture"}
+                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium">Card on file — no deposit</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    Clients save a card when they book (nothing is charged). If they no-show, your
+                    no-show charge below is taken from the saved card. Banks can occasionally
+                    decline these charges, so a deposit is the stronger guarantee. Needs card
+                    payments set up.
+                  </span>
+                </span>
+              </label>
+            </div>
             <DepositFields
               label="Deposit you usually take"
               nameType="defaultDepositType"

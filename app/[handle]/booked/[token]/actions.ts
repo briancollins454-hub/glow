@@ -14,8 +14,8 @@ import {
   updateBooking,
 } from "@/lib/db/queries";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
-import { createDepositCheckout, refundOnConnect } from "@/lib/payments";
-import { isPaymentsReady } from "@/lib/subscriptions";
+import { createCardCaptureCheckout, createDepositCheckout, refundOnConnect } from "@/lib/payments";
+import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
 import type { Booking } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -51,6 +51,38 @@ export async function payDepositAction(formData: FormData) {
       ? { ...service, name: `${service.name} + ${group.length - 1} more treatment${group.length > 2 ? "s" : ""}` }
       : service;
   const url = await createDepositCheckout(tech, checkoutService, booking, APP_URL);
+  redirect(url);
+}
+
+/** Card capture mode: save a card to secure a pending booking (e.g. after approval). */
+export async function saveCardAction(formData: FormData) {
+  const handle = String(formData.get("handle") ?? "");
+  const token = String(formData.get("token") ?? "");
+  const sb = supabaseService();
+  const [tech, tokenBooking] = await Promise.all([
+    getTechByHandle(sb, handle),
+    getBookingByToken(sb, token),
+  ]);
+  if (!tech || !tokenBooking || tokenBooking.techId !== tech.id) redirect(`/${handle}`);
+  const { primary: booking, group } = await resolvePrimary(sb, tokenBooking!);
+  if (booking.status !== "pending" || booking.cardPaymentMethodId || !usesCardCapture(tech)) {
+    redirect(`/${handle}/booked/${token}`);
+  }
+  const service = await getService(sb, booking.serviceId);
+  if (!service) redirect(`/${handle}/booked/${token}`);
+  const checkoutService =
+    group.length > 1
+      ? { ...service, name: `${service.name} + ${group.length - 1} more treatment${group.length > 2 ? "s" : ""}` }
+      : service;
+  const { getClient } = await import("@/lib/db/queries");
+  const client = await getClient(sb, booking.clientId);
+  const url = await createCardCaptureCheckout(
+    tech,
+    checkoutService,
+    booking,
+    { name: client?.name ?? "", email: client?.email ?? "" },
+    APP_URL,
+  );
   redirect(url);
 }
 

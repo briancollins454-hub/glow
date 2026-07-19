@@ -41,6 +41,8 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
   const lateErr = searchParams.get("lateerr");
   const notified = searchParams.get("notified");
   const minutes = searchParams.get("minutes");
+  const noShowFee = searchParams.get("noshowfee");
+  const noShowAmt = Number(searchParams.get("noshowamt") ?? "0");
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
@@ -119,6 +121,18 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
       )}
       {lateErr && (
         <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{lateErr}</div>
+      )}
+      {noShowFee === "charged" && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>No-show fee of {gbp(noShowAmt)} charged to the client&apos;s saved card.</span>
+        </div>
+      )}
+      {noShowFee === "declined" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          We couldn&apos;t charge the {gbp(noShowAmt)} no-show fee — the client&apos;s bank declined it.
+          The no-show is still recorded; you can request payment from the client directly.
+        </div>
       )}
 
       {lateTargets.length > 0 && (

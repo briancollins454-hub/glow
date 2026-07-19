@@ -251,6 +251,9 @@ export default async function EditBookingPage({
             <Badge tone={booking.depositStatus === "paid" ? "green" : booking.depositStatus === "forfeited" ? "red" : "neutral"}>
               Deposit {gbp(booking.depositPennies)} · {booking.depositStatus === "none" ? "not taken" : booking.depositStatus}
             </Badge>
+            {booking.cardPaymentMethodId && (
+              <Badge tone="green">Card saved — no-show fee can be charged</Badge>
+            )}
             <Badge tone={booking.balanceStatus === "paid" ? "green" : "neutral"}>
               Balance {gbp(booking.balancePennies)} · {booking.balanceStatus}
             </Badge>

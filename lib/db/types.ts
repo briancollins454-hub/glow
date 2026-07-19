@@ -14,7 +14,9 @@ export type RiskTier = "low" | "medium" | "high";
 export type DepositType = "percent" | "fixed" | "none";
 export type DepositStatus = "none" | "paid" | "forfeited" | "refunded";
 export type BalanceStatus = "none" | "unpaid" | "paid" | "refunded";
-export type PaymentKind = "deposit" | "balance" | "refund";
+export type PaymentKind = "deposit" | "balance" | "refund" | "no_show_fee";
+/** deposit = pay upfront; card_capture = save a card at booking, charge the no-show fee if they don't turn up. */
+export type NoShowProtection = "deposit" | "card_capture";
 export type PaymentStatus = "succeeded" | "failed" | "refunded";
 export type PatchTestResult = "pending" | "pass" | "fail";
 export type ReminderChannel = "email" | "sms";
@@ -53,6 +55,8 @@ export interface Tech {
   noShowFeeType: "percent" | "fixed";
   /** percent: 0-100. fixed: pennies. Falls back to noShowFeePct. */
   noShowFeeValue: number;
+  /** Optional while the 0031 migration rolls out; null/undefined means "deposit". */
+  noShowProtection?: NoShowProtection | null;
   // Platform subscription (Stripe Billing)
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
@@ -300,6 +304,10 @@ export interface Booking {
   discountPennies: number;
   // Google Calendar event created by direct sync, if connected.
   googleEventId: string | null;
+  // Card saved at booking for no-show cover (Stripe, on the tech's connected
+  // account). Optional while the 0031 migration rolls out.
+  cardCustomerId?: string | null;
+  cardPaymentMethodId?: string | null;
   createdAt: string;
 }
 

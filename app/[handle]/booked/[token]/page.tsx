@@ -9,11 +9,12 @@ import {
   getTechByHandle,
   listBookingsByGroup,
 } from "@/lib/db/queries";
-import { confirmCheckoutPaid, checkoutMatchesDeposit } from "@/lib/payments";
-import { applyDepositPaid } from "@/lib/bookings";
+import { confirmCheckoutPaid, confirmCheckoutSetup, checkoutMatchesDeposit } from "@/lib/payments";
+import { applyCardCaptured, applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime, fmtTime } from "@/lib/format";
-import { cancelClientBookingAction, payDepositAction } from "./actions";
-import { isPaymentsReady } from "@/lib/subscriptions";
+import { cancelClientBookingAction, payDepositAction, saveCardAction } from "./actions";
+import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
+import { noShowFeeFor } from "@/lib/rules";
 import type { Booking } from "@/lib/db/types";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -45,10 +46,20 @@ export default async function BookedPage({
   }
 
   // Verify the deposit payment when returning from Stripe Checkout (with retry).
-  if (session_id && booking.depositStatus !== "paid") {
+  if (session_id && booking.depositPennies > 0 && booking.depositStatus !== "paid") {
     const result = await confirmCheckoutPaid(tech, session_id);
     if (checkoutMatchesDeposit(result, booking)) {
       await applyDepositPaid(sb, booking, result.paymentIntentId);
+      booking = (await getBookingByToken(sb, booking.balanceToken)) ?? booking;
+      if (booking.groupId) group = await listBookingsByGroup(sb, booking.groupId);
+    }
+  }
+
+  // Card capture mode: verify the card was saved when returning from Stripe.
+  if (session_id && !booking.cardPaymentMethodId && usesCardCapture(tech)) {
+    const result = await confirmCheckoutSetup(tech, session_id);
+    if (result.complete && result.bookingId === booking.id && result.kind === "card_capture") {
+      await applyCardCaptured(sb, booking, result.customerId, result.paymentMethodId);
       booking = (await getBookingByToken(sb, booking.balanceToken)) ?? booking;
       if (booking.groupId) group = await listBookingsByGroup(sb, booking.groupId);
     }
@@ -67,7 +78,13 @@ export default async function BookedPage({
   const brand = heroBrand(tech.brandColor || "#db2777");
   const needsDeposit =
     booking.status === "pending" && booking.depositPennies > 0 && booking.depositStatus !== "paid";
-  const awaitingStripeReturn = needsDeposit && !!session_id;
+  const needsCard =
+    booking.status === "pending" &&
+    !needsDeposit &&
+    usesCardCapture(tech) &&
+    !booking.cardPaymentMethodId;
+  const awaitingStripeReturn = (needsDeposit || needsCard) && !!session_id;
+  const noShowFee = noShowFeeFor(tech, booking.pricePennies);
   const canSelfCancel =
     booking.status !== "cancelled" &&
     booking.status !== "completed" &&
@@ -84,7 +101,8 @@ export default async function BookedPage({
                 <Clock className="mx-auto h-12 w-12" />
                 <h1 className="mt-3 font-display text-2xl font-semibold">Almost there…</h1>
                 <p className="mt-1 text-sm text-white/85">
-                  We&apos;re confirming your deposit. Refresh in a moment if this doesn&apos;t update.
+                  We&apos;re confirming your {needsCard ? "card details" : "deposit"}. Refresh in a
+                  moment if this doesn&apos;t update.
                 </p>
               </>
             ) : needsDeposit ? (
@@ -93,6 +111,15 @@ export default async function BookedPage({
                 <h1 className="mt-3 font-display text-2xl font-semibold">Approved — pay deposit</h1>
                 <p className="mt-1 text-sm text-white/85">
                   Pay now to secure your slot with {tech.businessName}.
+                </p>
+              </>
+            ) : needsCard ? (
+              <>
+                <Clock className="mx-auto h-12 w-12" />
+                <h1 className="mt-3 font-display text-2xl font-semibold">One last step — save a card</h1>
+                <p className="mt-1 text-sm text-white/85">
+                  No deposit needed. Save a card (nothing is charged) to secure your slot with{" "}
+                  {tech.businessName}.
                 </p>
               </>
             ) : (
@@ -121,7 +148,11 @@ export default async function BookedPage({
             <Row label="With" value={tech.businessName} />
             <hr className="border-edge" />
             <Row label="Total" value={gbp(booking.pricePennies)} />
-            <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
+            {booking.cardPaymentMethodId ? (
+              <Row label="Card saved (no deposit taken)" value="✓" />
+            ) : (
+              <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
+            )}
             <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
             {(cancelled || booking.status === "cancelled") && (
               <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-300">
@@ -141,7 +172,24 @@ export default async function BookedPage({
                 </button>
               </form>
             )}
-            {booking.status !== "cancelled" && booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !needsDeposit && (
+            {needsCard && !awaitingStripeReturn && (
+              <form action={saveCardAction}>
+                <input type="hidden" name="handle" value={tech.handle} />
+                <input type="hidden" name="token" value={booking.balanceToken} />
+                <button
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white"
+                  style={{ backgroundColor: brand }}
+                >
+                  <CreditCard className="h-4 w-4" /> Save card to secure booking
+                </button>
+                <p className="mt-2 text-center text-xs text-ink-faint">
+                  Nothing is charged today.
+                  {noShowFee > 0 && ` A no-show fee of up to ${gbp(noShowFee)} may apply if you miss the appointment.`}
+                </p>
+              </form>
+            )}
+            {booking.status !== "cancelled" && booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !needsDeposit && !needsCard && (
               <Link href={`/pay/${booking.balanceToken}`} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
                 <CreditCard className="h-4 w-4" /> Pay balance now (optional)
               </Link>

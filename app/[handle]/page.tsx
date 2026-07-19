@@ -32,7 +32,7 @@ import {
 } from "@/lib/booking/staff";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
-import { isLive } from "@/lib/subscriptions";
+import { isLive, usesCardCapture } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
@@ -66,7 +66,9 @@ export async function generateMetadata({
   const description =
     tech.tagline?.trim() ||
     tech.bio ||
-    `Book ${tech.businessName} online. Secure your slot with a deposit. Powered by Glow.`;
+    `Book ${tech.businessName} online. ${
+      usesCardCapture(tech) ? "No deposit needed to book." : "Secure your slot with a deposit."
+    } Powered by Glow.`;
   return {
     title,
     description,
@@ -118,10 +120,17 @@ export default async function PublicBookingPage({
 
   trackPageView({ techId: tech.id, path: `/${handle}` });
 
-  const [categories, services] = await Promise.all([
+  const [categories, allServices] = await Promise.all([
     listCategories(sb, tech.id),
     listServices(sb, tech.id, { activeOnly: true }),
   ]);
+  // Card capture mode: nothing is paid upfront (a card is saved at checkout
+  // instead), so the page must not advertise deposits. Zeroing them here keeps
+  // every deposit chip/amount downstream consistent; the booking actions
+  // re-read the DB and apply their own card-capture override.
+  const services = usesCardCapture(tech)
+    ? allServices.map((s) => ({ ...s, depositType: "none" as const, depositValue: 0 }))
+    : allServices;
   const selected = sp.service ? services.find((s) => s.id === sp.service) ?? null : null;
   const patchTestService =
     selected && canOfferPairedPatchTest(selected, services)
@@ -428,7 +437,7 @@ export default async function PublicBookingPage({
 
         {openingHours.length > 0 && <OpeningHours hours={openingHours} />}
 
-        <TrustStrip />
+        <TrustStrip secureLabel={usesCardCapture(tech) ? "Secure card payments" : "Secure deposit"} />
 
         <BookingFooterCta
           brand={brand}
