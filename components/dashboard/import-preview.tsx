@@ -290,9 +290,26 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
       {needsCalendarPick && (
         <div className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm text-ink">
           <p className="text-ink-soft">
-            This export contains appointments for more than one staff member. Glow is a single
-            diary, so pick whose appointments to import.
+            This export has more than one Acuity calendar (staff diary). Tick everyone to import —
+            each calendar is matched to the Glow team member with the same name (created if
+            missing).
           </p>
+          <div className="mt-2 flex flex-wrap gap-3 text-xs">
+            <button
+              type="button"
+              className="font-medium text-brand-600 hover:underline"
+              onClick={() => setSelectedCalendars(parsed.calendars.map((c) => c.name))}
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              className="font-medium text-ink-soft hover:underline"
+              onClick={() => setSelectedCalendars([])}
+            >
+              Clear
+            </button>
+          </div>
           <ul className="mt-3 space-y-2">
             {parsed.calendars.map((cal) => (
               <li key={cal.name}>
