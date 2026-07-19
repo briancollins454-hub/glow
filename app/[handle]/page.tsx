@@ -8,12 +8,14 @@ import {
   listServices,
   listTimeOff,
   listWorkingHours,
+  listRotaHours,
   getCategory,
   addonsForService,
   listApprovedReviews,
   listClientPhotosForTech,
   getClientNameMap,
 } from "@/lib/db/queries";
+import { addDaysToDateStr, currentWeekStartLondon } from "@/lib/rota";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
 import { signedPhotoUrls } from "@/lib/storage";
 import {
@@ -164,15 +166,19 @@ export default async function PublicBookingPage({
   let addableForStaff = addable;
   if (selected && live) {
     const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    const [workingHours, timeOff, bookings, qs, adds, category, staffList] = await Promise.all([
-      listWorkingHours(sb, tech.id),
-      listTimeOff(sb, tech.id),
-      listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
-      listQuestions(sb, tech.id, { activeOnly: true }),
-      addonsForService(sb, selected.id, { activeOnly: true }),
-      getCategory(sb, selected.categoryId),
-      listStaff(sb, tech.id, { activeOnly: true }).catch(() => [] as StaffMember[]),
-    ]);
+    const rotaFrom = currentWeekStartLondon();
+    const rotaTo = addDaysToDateStr(rotaFrom, 7 * 12);
+    const [workingHours, timeOff, bookings, qs, adds, category, staffList, rotaHours] =
+      await Promise.all([
+        listWorkingHours(sb, tech.id),
+        listTimeOff(sb, tech.id),
+        listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
+        listQuestions(sb, tech.id, { activeOnly: true }),
+        addonsForService(sb, selected.id, { activeOnly: true }),
+        getCategory(sb, selected.categoryId),
+        listStaff(sb, tech.id, { activeOnly: true }).catch(() => [] as StaffMember[]),
+        listRotaHours(sb, tech.id, { fromWeek: rotaFrom, toWeek: rotaTo }),
+      ]);
     minLeadHours = category?.patchTestMinLeadHours ?? 24;
     questions = qs;
     addons = adds;
@@ -191,16 +197,21 @@ export default async function PublicBookingPage({
 
     // Availability context per person (legacy rows with no staffId belong to
     // the owner). No staff rows at all = pre-migration account: whole diary.
-    const ctxFor = (staff: StaffMember) =>
-      withTechAvailability(
+    const ctxFor = (staff: StaffMember) => ({
+      ...withTechAvailability(
         {
           workingHours: forStaff(workingHours as WorkingHour[], staff),
           timeOff,
           bookings: forStaff(bookings as Booking[], staff),
         },
         tech,
-      );
-    const legacyCtx = withTechAvailability({ workingHours, timeOff, bookings }, tech);
+      ),
+      rotaHours: forStaff(rotaHours, staff),
+    });
+    const legacyCtx = {
+      ...withTechAvailability({ workingHours, timeOff, bookings }, tech),
+      rotaHours,
+    };
 
     if (capable.length > 1) {
       staffOptions = capable.map((s) => ({ id: s.id, name: s.name }));

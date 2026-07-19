@@ -94,9 +94,9 @@ function AvailabilityView({
               <span>
                 <span className="block font-medium text-ink">My days change each week</span>
                 <span className="mt-0.5 block text-sm text-ink-soft">
-                  Offer bookable times every day inside one daily window instead of a fixed Mon-Sun
-                  pattern. Use Time off below for days you are closed. Booking approval in Settings
-                  lets you accept or decline each request.
+                  Offer bookable times every day inside one daily window when a week has no staff
+                  rota saved. For a real changing roster, set each person&apos;s days under Team →
+                  Week rota (that overrides this window for weeks you save).
                 </span>
               </span>
             </label>

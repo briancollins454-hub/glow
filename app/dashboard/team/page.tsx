@@ -15,6 +15,7 @@ import {
   setStaffActiveAction,
   updateStaffDetailsAction,
 } from "./actions";
+import { StaffRotaEditor } from "@/components/dashboard/staff-rota";
 
 const DAYS = [
   { weekday: 1, label: "Monday" },
@@ -112,9 +113,9 @@ function TeamView({
 
       {flexibleHoursEnabled && (
         <div className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm text-ink-soft">
-          Flexible hours are on for this business (Opening hours → &quot;My days change each week&quot;).
-          Online booking uses that daily window for everyone; per-person weekly hours below are
-          saved for when you turn flexible mode off.
+          Flexible hours are on (Opening hours → &quot;My days change each week&quot;). Online booking
+          uses that daily window unless you save a <span className="font-medium text-ink">Week
+          rota</span> for someone below. A saved rota week wins for that person.
         </div>
       )}
 
@@ -261,10 +262,20 @@ function StaffCard({
 
         <details className="rounded-xl border border-edge">
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-ink-soft transition hover:text-ink [&::-webkit-details-marker]:hidden">
-            Working hours
+            Week rota
+          </summary>
+          <StaffRotaEditor staffId={member.id} templateHours={hours} />
+        </details>
+
+        <details className="rounded-xl border border-edge">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-ink-soft transition hover:text-ink [&::-webkit-details-marker]:hidden">
+            Usual weekly hours
           </summary>
           <form action={saveStaffHoursAction} className="space-y-3 border-t border-edge p-4">
             <input type="hidden" name="id" value={member.id} />
+            <p className="text-sm text-ink-soft">
+              Default Mon–Sun pattern used when a week has no rota saved.
+            </p>
             {DAYS.map(({ weekday, label }) => {
               const row = hours.find((h) => h.weekday === weekday);
               return (

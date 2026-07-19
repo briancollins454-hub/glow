@@ -14,6 +14,7 @@ import {
   listServices,
   listTimeOff,
   listWorkingHours,
+  listRotaHours,
   patchTestsForClient,
   createFormResponse,
   addonsForService,
@@ -39,6 +40,7 @@ import {
 } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
 import { createWaitlistEntry } from "@/lib/db/queries";
+import { addDaysToDateStr, currentWeekStartLondon } from "@/lib/rota";
 import {
   createBasketBookings,
   createConfirmedBooking,
@@ -97,12 +99,18 @@ async function loadAvailability(
   >,
 ): Promise<AvailabilityCtx> {
   const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-  const [workingHours, timeOff, bookings] = await Promise.all([
+  const rotaFrom = currentWeekStartLondon();
+  const rotaTo = addDaysToDateStr(rotaFrom, 7 * 12);
+  const [workingHours, timeOff, bookings, rotaHours] = await Promise.all([
     listWorkingHours(sb, tech.id),
     listTimeOff(sb, tech.id),
     listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
+    listRotaHours(sb, tech.id, { fromWeek: rotaFrom, toWeek: rotaTo }),
   ]);
-  return withTechAvailability({ workingHours, timeOff, bookings }, tech);
+  return {
+    ...withTechAvailability({ workingHours, timeOff, bookings }, tech),
+    rotaHours,
+  };
 }
 
 /** Rows belonging to one staff member (legacy null rows count as the owner's). */
@@ -144,6 +152,7 @@ async function resolveBookingStaff(
       timeOff: availability.timeOff,
       bookings: rowsForStaff(availability.bookings, staff),
       flexibleHours: availability.flexibleHours,
+      rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
     }).includes(slotIso);
 
   if (requested && requested !== ANY_STAFF) {
@@ -177,6 +186,7 @@ async function scopeCtxToStaff(
     timeOff: ctx.timeOff,
     bookings: rowsForStaff(ctx.bookings, staff),
     flexibleHours: ctx.flexibleHours,
+    rotaHours: rowsForStaff(ctx.rotaHours ?? [], staff),
   };
 }
 

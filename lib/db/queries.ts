@@ -27,6 +27,7 @@ import type {
   ReactionCheckin,
   Reminder,
   Review,
+  RotaHour,
   Service,
   ServiceAddon,
   ServiceCategory,
@@ -314,6 +315,61 @@ export async function replaceWorkingHours(
     if (error) throw new Error(error.message);
   }
 }
+/** Rota rows for a tech, optionally one staff member and/or a week range (inclusive). */
+export async function listRotaHours(
+  sb: SB,
+  techId: string,
+  opts: { staffId?: string; fromWeek?: string; toWeek?: string } = {},
+): Promise<RotaHour[]> {
+  let q = sb.from("rota_hours").select("*").eq("techId", techId);
+  if (opts.staffId) q = q.eq("staffId", opts.staffId);
+  if (opts.fromWeek) q = q.gte("weekStart", opts.fromWeek);
+  if (opts.toWeek) q = q.lte("weekStart", opts.toWeek);
+  const { data, error } = await q.order("weekStart").order("weekday");
+  if (error) {
+    // Migration not applied yet.
+    if (/rota_hours|schema cache/i.test(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data as RotaHour[]) ?? [];
+}
+
+/** Replace all 7 days for one staff member + week (delete then insert). */
+export async function replaceRotaWeek(
+  sb: SB,
+  techId: string,
+  staffId: string,
+  weekStart: string,
+  rows: RotaHour[],
+): Promise<void> {
+  const { error: delErr } = await sb
+    .from("rota_hours")
+    .delete()
+    .eq("techId", techId)
+    .eq("staffId", staffId)
+    .eq("weekStart", weekStart);
+  if (delErr) throw new Error(delErr.message);
+  if (!rows.length) return;
+  const { error } = await sb.from("rota_hours").insert(rows);
+  if (error) throw new Error(error.message);
+}
+
+/** Remove a saved rota week so booking falls back to flexible / template hours. */
+export async function clearRotaWeek(
+  sb: SB,
+  techId: string,
+  staffId: string,
+  weekStart: string,
+): Promise<void> {
+  const { error } = await sb
+    .from("rota_hours")
+    .delete()
+    .eq("techId", techId)
+    .eq("staffId", staffId)
+    .eq("weekStart", weekStart);
+  if (error) throw new Error(error.message);
+}
+
 export async function listTimeOff(sb: SB, techId: string): Promise<TimeOff[]> {
   const { data, error } = await sb.from("time_off").select("*").eq("techId", techId).order("startIso");
   return must(data as TimeOff[], error) ?? [];
