@@ -212,19 +212,25 @@ export async function confirmCheckoutSetup(
   return empty;
 }
 
+export type CardProtectionReason = "no_show" | "late_cancel";
+
 /**
- * Charge a no-show fee against the card saved at booking (off-session). The
- * client's bank can decline or demand authentication, so failure is a normal
- * outcome the caller must surface, not an exception.
+ * Charge a protection fee against the card saved at booking (off-session).
+ * Used for no-shows and late cancellations in card-capture mode. The client's
+ * bank can decline or demand authentication, so failure is a normal outcome
+ * the caller must surface, not an exception.
  */
 export async function chargeNoShowFee(
   tech: Tech,
   booking: Pick<Booking, "id" | "cardCustomerId" | "cardPaymentMethodId">,
   amountPennies: number,
+  opts: { reason?: CardProtectionReason } = {},
 ): Promise<{ ok: boolean; paymentIntentId: string; error?: string }> {
   if (!booking.cardCustomerId || !booking.cardPaymentMethodId) {
     return { ok: false, paymentIntentId: "", error: "No saved card" };
   }
+  const reason = opts.reason ?? "no_show";
+  const description = reason === "late_cancel" ? "Late cancellation fee" : "No-show fee";
   const s = stripe();
   try {
     const pi = await s.paymentIntents.create(
@@ -235,8 +241,8 @@ export async function chargeNoShowFee(
         payment_method: booking.cardPaymentMethodId,
         off_session: true,
         confirm: true,
-        description: "No-show fee",
-        metadata: { bookingId: booking.id, kind: "no_show_fee" },
+        description,
+        metadata: { bookingId: booking.id, kind: "no_show_fee", reason },
       },
       acct(tech),
     );

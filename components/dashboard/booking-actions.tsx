@@ -31,7 +31,8 @@ const transitions: Record<BookingStatus, { status: BookingStatus; label: string;
 const cancelOptions = [
   {
     cancelReason: "client_late_cancel",
-    label: "Client cancelled late, keep deposit",
+    // Deposit mode keeps the deposit; card-capture mode charges the saved card.
+    label: "Client cancelled late",
   },
   {
     cancelReason: "tech_cancelled",

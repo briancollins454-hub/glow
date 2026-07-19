@@ -835,7 +835,7 @@ export async function setBookingStatusAction(formData: FormData) {
   const becomingCompleted = status === "completed" && booking.status !== "completed";
   const batchId = becomingCompleted ? String(formData.get("batchId") ?? "").trim() : "";
 
-  // Outcome of a card-capture no-show charge, surfaced on the bookings page.
+  // Outcome of a card-capture protection charge, surfaced on the bookings page.
   let noShowCharge: "charged" | "declined" | null = null;
   let noShowChargePennies = 0;
 
@@ -844,42 +844,16 @@ export async function setBookingStatusAction(formData: FormData) {
     const client = await getClient(sb, booking.clientId);
     if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
 
-    // Card capture: charge the configured no-show fee against the saved card.
-    // Off-session charges can be declined by the client's bank, so a failure
-    // is reported to the tech rather than blocking the status change.
-    if (
-      booking.status !== "no_show" &&
-      booking.cardPaymentMethodId &&
-      tech.stripeConnectAccountId
-    ) {
-      const { noShowFeeFor } = await import("@/lib/rules");
-      const fee = noShowFeeFor(tech, booking.pricePennies);
-      if (fee > 0) {
-        const { chargeNoShowFee } = await import("@/lib/payments");
-        const result = await chargeNoShowFee(tech, booking, fee);
-        noShowChargePennies = fee;
-        if (result.ok) {
-          noShowCharge = "charged";
-          await createPayment(sb, {
-            techId: tech.id,
-            bookingId: booking.id,
-            kind: "no_show_fee",
-            amountPennies: fee,
-            status: "succeeded",
-            provider: "stripe",
-            providerRef: result.paymentIntentId,
-          }).catch(() => {});
-          await audit(sb, tech.id, "no_show_fee_charged", "booking", id, {
-            amountPennies: fee,
-            paymentIntentId: result.paymentIntentId,
-          });
-        } else {
-          noShowCharge = "declined";
-          await audit(sb, tech.id, "no_show_fee_failed", "booking", id, {
-            amountPennies: fee,
-            error: result.error ?? "",
-          });
-        }
+    // Card capture: charge the configured fee against the saved card.
+    if (booking.status !== "no_show") {
+      const { chargeCardProtectionFee } = await import("@/lib/card-protection");
+      const charged = await chargeCardProtectionFee(sb, tech, booking, "no_show");
+      if (charged.outcome === "charged") {
+        noShowCharge = "charged";
+        noShowChargePennies = charged.amountPennies;
+      } else if (charged.outcome === "declined") {
+        noShowCharge = "declined";
+        noShowChargePennies = charged.amountPennies;
       }
     }
   }
@@ -911,13 +885,24 @@ export async function setBookingStatusAction(formData: FormData) {
     };
 
     if (cancelReason === "tech_cancelled") {
-      // Tech initiated: always refund the client; never forfeit the deposit.
+      // Tech initiated: always refund the client; never forfeit / charge.
       await refundSucceededPayments();
     } else {
       const hoursOut = (new Date(booking.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
       if (hoursOut < tech.cancellationWindowHours) {
-        // Inside the window: deposit is forfeited (kept by the tech).
+        // Inside the window: keep any deposit, or charge the saved card.
         if (booking.depositStatus === "paid") patch.depositStatus = "forfeited";
+        if (booking.status !== "cancelled") {
+          const { chargeCardProtectionFee } = await import("@/lib/card-protection");
+          const charged = await chargeCardProtectionFee(sb, tech, booking, "late_cancel");
+          if (charged.outcome === "charged") {
+            noShowCharge = "charged";
+            noShowChargePennies = charged.amountPennies;
+          } else if (charged.outcome === "declined") {
+            noShowCharge = "declined";
+            noShowChargePennies = charged.amountPennies;
+          }
+        }
       } else {
         // Outside the window: refund everything the client paid (deposit + balance).
         await refundSucceededPayments();
