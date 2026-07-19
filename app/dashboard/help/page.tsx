@@ -25,7 +25,7 @@ export default function HelpPage() {
       <div className="card divide-y divide-edge">
         <Item title="I'm brand new. What do I do first?" open>
           <Step n={1}>Tap <B>Services</B> in the menu. Add what you offer: the name, the price, and how long it takes.</Step>
-          <Step n={2}>Tap <B>Opening hours</B>. Set the days and times you work (and any days off).</Step>
+          <Step n={2}>Tap <B>Opening hours</B>. Set the days and times you work (and any days off). If your roster changes each week, turn on <B>My days change each week</B> and use a daily window plus booking approval.</Step>
           <Step n={3}>Tap <B>Get paid</B> and connect your bank so you can take card deposits.</Step>
           <Step n={4}>Tap <B>My plan</B> and start your plan. This switches your booking page on.</Step>
           <Step n={5}>That&apos;s it. Your booking page is live at <B>{myLink}</B></Step>
@@ -125,6 +125,10 @@ export default function HelpPage() {
 
         <Item title="I work with other people - can they have their own diary?">
           <P>Yes. Open <B>Team</B>, add each person, and choose which services they can do. Clients pick who they want (or &ldquo;any available&rdquo;) when they book. Each person keeps their own opening hours and diary.</P>
+        </Item>
+
+        <Item title="Our days change every week - do we have to set fixed opening hours?">
+          <P>No. In <B>Opening hours</B>, turn on <B>My days change each week</B>. Clients can request times every day inside your daily window. Use <B>Time off</B> for days you are closed, and turn on <B>Booking approval</B> in Settings so you only confirm the days you are actually working.</P>
         </Item>
 
         <Item title="Can I ask clients questions before they book?">

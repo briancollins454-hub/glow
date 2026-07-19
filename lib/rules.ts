@@ -160,10 +160,59 @@ export function riskTierTone(tier: RiskTier): "green" | "amber" | "red" {
 }
 
 // ---------------- Availability ----------------
+export type FlexibleHoursWindow = {
+  startMinutes: number;
+  endMinutes: number;
+  lastStartMinutes: number | null;
+};
+
 export interface AvailabilityCtx {
   workingHours: WorkingHour[];
   timeOff: TimeOff[];
   bookings: Booking[];
+  /** When set, every day uses this window instead of weekday-specific hours. */
+  flexibleHours?: FlexibleHoursWindow | null;
+}
+
+const DEFAULT_FLEXIBLE_START = 9 * 60;
+const DEFAULT_FLEXIBLE_END = 20 * 60;
+
+/** Daily window for techs who opted into flexible / rotating hours. */
+export function flexibleHoursFromTech(
+  tech:
+    | Pick<
+        Tech,
+        | "flexibleHoursEnabled"
+        | "flexibleStartMinutes"
+        | "flexibleEndMinutes"
+        | "flexibleLastStartMinutes"
+      >
+    | null
+    | undefined,
+): FlexibleHoursWindow | null {
+  if (!tech?.flexibleHoursEnabled) return null;
+  const start = tech.flexibleStartMinutes ?? DEFAULT_FLEXIBLE_START;
+  const end = tech.flexibleEndMinutes ?? DEFAULT_FLEXIBLE_END;
+  if (!(end > start)) {
+    return {
+      startMinutes: DEFAULT_FLEXIBLE_START,
+      endMinutes: DEFAULT_FLEXIBLE_END,
+      lastStartMinutes: tech.flexibleLastStartMinutes ?? null,
+    };
+  }
+  return {
+    startMinutes: start,
+    endMinutes: end,
+    lastStartMinutes: tech.flexibleLastStartMinutes ?? null,
+  };
+}
+
+/** Attach the tech's flexible-hours window (if any) onto an availability ctx. */
+export function withTechAvailability(
+  ctx: Omit<AvailabilityCtx, "flexibleHours">,
+  tech: Parameters<typeof flexibleHoursFromTech>[0],
+): AvailabilityCtx {
+  return { ...ctx, flexibleHours: flexibleHoursFromTech(tech) };
 }
 
 function localInstant(dateStr: string, minutes: number): Date {
@@ -197,7 +246,13 @@ export function daySlotsForDuration(
   nowMs = Date.now(),
 ): string[] {
   const weekday = weekdayOf(dateStr);
-  const wh = ctx.workingHours.find((w) => w.weekday === weekday && w.enabled);
+  const wh = ctx.flexibleHours
+    ? {
+        startMinutes: ctx.flexibleHours.startMinutes,
+        endMinutes: ctx.flexibleHours.endMinutes,
+        lastStartMinutes: ctx.flexibleHours.lastStartMinutes,
+      }
+    : ctx.workingHours.find((w) => w.weekday === weekday && w.enabled);
   if (!wh) return [];
 
   const offs = ctx.timeOff.map((o) => ({

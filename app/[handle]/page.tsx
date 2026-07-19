@@ -22,6 +22,8 @@ import {
   basketDurationMin,
   canOfferPairedPatchTest,
   findPatchTestService,
+  flexibleHoursFromTech,
+  withTechAvailability,
 } from "@/lib/rules";
 import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
 import {
@@ -79,9 +81,11 @@ export async function generateMetadata({
 
 export const revalidate = 60;
 
+function hhmm(m: number) {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
 function buildOpeningHours(hours: Awaited<ReturnType<typeof listWorkingHours>>) {
-  const hhmm = (m: number) =>
-    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   return [1, 2, 3, 4, 5, 6, 0].map((weekday) => {
     // Salon mode can have one row per staff member per weekday: the business
@@ -187,12 +191,16 @@ export default async function PublicBookingPage({
 
     // Availability context per person (legacy rows with no staffId belong to
     // the owner). No staff rows at all = pre-migration account: whole diary.
-    const ctxFor = (staff: StaffMember) => ({
-      workingHours: forStaff(workingHours as WorkingHour[], staff),
-      timeOff,
-      bookings: forStaff(bookings as Booking[], staff),
-    });
-    const legacyCtx = { workingHours, timeOff, bookings };
+    const ctxFor = (staff: StaffMember) =>
+      withTechAvailability(
+        {
+          workingHours: forStaff(workingHours as WorkingHour[], staff),
+          timeOff,
+          bookings: forStaff(bookings as Booking[], staff),
+        },
+        tech,
+      );
+    const legacyCtx = withTechAvailability({ workingHours, timeOff, bookings }, tech);
 
     if (capable.length > 1) {
       staffOptions = capable.map((s) => ({ id: s.id, name: s.name }));
@@ -296,7 +304,17 @@ export default async function PublicBookingPage({
       })
       .filter((p): p is NonNullable<typeof p> => p !== null);
 
-    openingHours = buildOpeningHours(hours);
+    const flexible = flexibleHoursFromTech(tech);
+    if (flexible) {
+      openingHours = [
+        {
+          label: "Hours",
+          value: `Vary by week · usually ${hhmm(flexible.startMinutes)} - ${hhmm(flexible.endMinutes)}`,
+        },
+      ];
+    } else {
+      openingHours = buildOpeningHours(hours);
+    }
   } else {
     const paths = [
       ...brandPaths,

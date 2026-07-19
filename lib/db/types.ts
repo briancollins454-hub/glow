@@ -57,6 +57,16 @@ export interface Tech {
   noShowFeeValue: number;
   /** Optional while the 0031 migration rolls out; null/undefined means "deposit". */
   noShowProtection?: NoShowProtection | null;
+  /**
+   * When true, online booking ignores weekday working hours and offers slots
+   * every day inside flexibleStart/EndMinutes. Optional while 0032 rolls out.
+   */
+  flexibleHoursEnabled?: boolean | null;
+  /** Minutes from midnight (London). Used when flexibleHoursEnabled is on. */
+  flexibleStartMinutes?: number | null;
+  flexibleEndMinutes?: number | null;
+  /** Latest start when flexible; null = appointments must finish by end. */
+  flexibleLastStartMinutes?: number | null;
   // Platform subscription (Stripe Billing)
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
