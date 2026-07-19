@@ -39,7 +39,7 @@ export default function HelpPage() {
 
         <Item title="What happens when someone books me?">
           <Step n={1}>They pick a service and a time on your page.</Step>
-          <Step n={2}>They pay the deposit by card (if you&apos;ve connected payments).</Step>
+          <Step n={2}>They pay the deposit by card - or, if you use <B>card on file</B>, they save a card instead and pay nothing upfront (if you&apos;ve connected payments).</Step>
           <Step n={3}>You get an email. They get a confirmation email.</Step>
           <Step n={4}>The booking appears in your <B>Calendar</B> - and in your Google Calendar if you connected it.</Step>
           <P>You don&apos;t have to do anything. Reminders send themselves.</P>
@@ -48,8 +48,16 @@ export default function HelpPage() {
         <Item title="What do I do after an appointment?">
           <Step n={1}>Open <B>Calendar</B> and tap the booking.</Step>
           <Step n={2}>Tap <B>Completed</B> if they came. This sends their aftercare email and asks them for a review.</Step>
-          <Step n={3}>Tap <B>No-show</B> if they didn&apos;t come. They lose their deposit and get a strike on their record.</Step>
+          <Step n={3}>Tap <B>No-show</B> if they didn&apos;t come. They lose their deposit - or, if you use <B>card on file</B>, your no-show charge is taken from their saved card - and they get a strike on their record.</Step>
           <Step n={4}>Tap <B>Cancel</B> if they cancelled. Glow works out the deposit rules for you.</Step>
+        </Item>
+
+        <Item title="Do I have to take deposits?">
+          <P>No. There are two ways Glow can protect you from no-shows - pick one in <B>Settings</B> under <B>Deposit &amp; no-show protection</B>:</P>
+          <Step n={1}><B>Deposit upfront</B> (the usual way). Clients pay a deposit when they book. If they no-show, you keep it automatically.</Step>
+          <Step n={2}><B>Card on file - no deposit</B>. Clients save a card when they book but pay nothing. If they no-show, tap <B>No-show</B> on the booking and your no-show charge is taken from their saved card.</Step>
+          <P>Both need card payments connected in <B>Get paid</B>. One honest difference: a deposit is money you already have, while a card charge can occasionally be declined by the client&apos;s bank - Glow tells you straight away if that happens, so you can follow it up.</P>
+          <P>Set the size of your no-show charge in the same place in <B>Settings</B> (a percentage of the service price, or a fixed amount).</P>
         </Item>
 
         <Item title="How do I get paid?">

@@ -399,22 +399,24 @@ export const CHAPTERS: MarketingChapter[] = [
         id: "deposits-config",
         name: "Deposits & no-show protection",
         headline: "Another no-show? Not on Glow.",
-        tagline: "Take a deposit on every booking. Forfeit on late cancel or no-show.",
+        tagline: "Take a deposit on every booking — or save a card and charge no-shows instead.",
         category: "Payments",
         pain: "No-shows and late cancellations mean working for free.",
         whatItIs:
-          "Per-service deposit (% or fixed). Configurable cancellation window and no-show fee %. Deposits forfeit when rules are broken.",
+          "Two protection modes: per-service deposits (% or fixed) that forfeit when rules are broken, or card-on-file — clients save a card at booking (nothing charged) and your no-show fee is charged to it if they don't turn up. Configurable cancellation window and no-show fee.",
         howItWorks:
-          "Set defaults in Settings, override per service. Mark no-show or cancel in Calendar — Glow applies forfeit/refund logic. No-show count increments on the client.",
+          "Pick deposit or card-on-file in Settings, set defaults, override deposits per service. Mark no-show or cancel in Calendar — Glow applies forfeit/refund logic or charges the saved card. No-show count increments on the client.",
         benefits: [
           "Skin in the game for every client",
-          "Automatic forfeit — no awkward chasing",
+          "Automatic forfeit or card charge — no awkward chasing",
           "Clear policy shown at booking",
+          "No-deposit booking pages still stay protected",
         ],
         marketingHooks: [
           "Stop working for free.",
           "Take a deposit. Set your window. Keep it when they no-show.",
           "Another no-show? Their deposit stays with you.",
+          "No deposit? No problem — charge the saved card when they ghost.",
         ],
         whereInApp: "Dashboard → Settings · Dashboard → Calendar → Booking actions",
       },
