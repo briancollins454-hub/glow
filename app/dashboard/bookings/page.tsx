@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, BellRing, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, BellRing, Trash2, CheckCircle2, CalendarOff } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -14,12 +14,13 @@ import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
 import { BookingsMonthCalendar } from "@/components/dashboard/bookings-month-calendar";
 import { BookingsStaffDayView } from "@/components/dashboard/bookings-staff-day-view";
+import { BlockTimeForm } from "@/components/dashboard/block-time-form";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { bufferMapFromServices } from "@/lib/rules";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
-import type { Booking, Client, Service, StaffMember, WaitlistEntry } from "@/lib/db/types";
+import type { Booking, Client, Service, StaffMember, TimeOff, WaitlistEntry } from "@/lib/db/types";
 
 type BookingsData = {
   bookings: Booking[];
@@ -27,6 +28,7 @@ type BookingsData = {
   clients: Client[];
   waitlist: WaitlistEntry[];
   staff?: StaffMember[];
+  offs?: TimeOff[];
   now: number;
 };
 
@@ -38,10 +40,19 @@ export default function BookingsPage() {
   );
 }
 
-function BookingsView({ bookings, services, clients, waitlist, staff = [], now }: BookingsData) {
+function BookingsView({
+  bookings,
+  services,
+  clients,
+  waitlist,
+  staff = [],
+  offs = [],
+  now,
+}: BookingsData) {
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const lateErr = searchParams.get("lateerr");
+  const blockedDone = searchParams.get("blocked");
   const notified = searchParams.get("notified");
   const minutes = searchParams.get("minutes");
   const noShowFee = searchParams.get("noshowfee");
@@ -120,6 +131,12 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
         </p>
       </div>
 
+      {blockedDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Time blocked. Clients can book around it.</span>
+        </div>
+      )}
       {lateDone && (
         <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -224,6 +241,15 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
         hideDayList={showStaff}
       />
 
+      <details className="card">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
+          <CalendarOff className="h-4 w-4" /> Block time out
+        </summary>
+        <div className="border-t border-edge p-5">
+          <BlockTimeForm dateStr={selectedDate} offs={offs} staff={staff} />
+        </div>
+      </details>
+
       {showStaff ? (
         <BookingsStaffDayView
           dateStr={selectedDate}
@@ -233,6 +259,7 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
           clientById={clientById}
           serviceById={serviceById}
           bufferByServiceId={bufferByServiceId}
+          offs={offs}
         />
       ) : (
         <Card className="ring-1 ring-brand-500/30">

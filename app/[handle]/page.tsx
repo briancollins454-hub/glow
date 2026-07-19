@@ -36,6 +36,7 @@ import {
   staffCanPerform,
   unionDayOptions,
 } from "@/lib/booking/staff";
+import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
 import { isLive, usesCardCapture } from "@/lib/subscriptions";
@@ -204,7 +205,7 @@ export default async function PublicBookingPage({
       ...withTechAvailability(
         {
           workingHours: forStaff(workingHours as WorkingHour[], staff),
-          timeOff,
+          timeOff: timeOffAppliesToStaff(timeOff, staff.id),
           bookings: forStaff(bookings as Booking[], staff),
         },
         tech,

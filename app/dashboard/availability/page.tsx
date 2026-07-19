@@ -201,7 +201,10 @@ function AvailabilityView({
       <Card>
         <CardHeader>
           <CardTitle>Time off</CardTitle>
-          <CardDescription>Block out holidays, training days or breaks.</CardDescription>
+          <CardDescription>
+            One-off blocks (doctor&apos;s appointment, holiday, lunch). Clients book around them. You
+            can also add these from Calendar → Block time out.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {offs.length === 0 ? (

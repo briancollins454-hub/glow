@@ -525,23 +525,48 @@ export async function addTimeOffAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const start = String(formData.get("start") ?? "");
   const end = String(formData.get("end") ?? "");
+  const staffId = String(formData.get("staffId") ?? "").trim() || null;
+  const returnTo = safeDashboardReturn(formData, "/dashboard/availability");
   if (start && end) {
-    await createTimeOff(sb, {
-      techId: tech.id,
-      startIso: toIso(start),
-      endIso: toIso(end),
-      reason: String(formData.get("reason") ?? "").trim(),
-    });
+    const startIso = toIso(start);
+    const endIso = toIso(end);
+    if (new Date(endIso).getTime() > new Date(startIso).getTime()) {
+      try {
+        await createTimeOff(sb, {
+          techId: tech.id,
+          startIso,
+          endIso,
+          reason: String(formData.get("reason") ?? "").trim(),
+          staffId,
+        });
+      } catch (e) {
+        // Migration 0036 not applied — save without staff scoping.
+        const msg = e instanceof Error ? e.message : "";
+        if (!/staffId/i.test(msg)) throw e;
+        await createTimeOff(sb, {
+          techId: tech.id,
+          startIso,
+          endIso,
+          reason: String(formData.get("reason") ?? "").trim(),
+        });
+      }
+    }
   }
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability");
+  revalidatePath("/dashboard/bookings");
+  if (returnTo.startsWith("/dashboard/bookings")) {
+    redirect("/dashboard/bookings?blocked=1");
+  }
+  redirect(returnTo);
 }
 
 export async function deleteTimeOffAction(formData: FormData) {
   const { sb } = await ctx();
   await deleteTimeOff(sb, String(formData.get("id") ?? ""));
+  const returnTo = safeDashboardReturn(formData, "/dashboard/availability");
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability");
+  revalidatePath("/dashboard/bookings");
+  redirect(returnTo);
 }
 
 // ---------------- Categories ----------------

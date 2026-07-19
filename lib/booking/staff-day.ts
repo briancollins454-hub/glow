@@ -1,7 +1,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { TZ } from "@/lib/format";
 import { dateStrInTz } from "@/lib/rules";
-import type { Booking, StaffMember } from "@/lib/db/types";
+import type { Booking, StaffMember, TimeOff } from "@/lib/db/types";
 
 export const UNASSIGNED_STAFF_ID = "__unassigned__";
 
@@ -16,6 +16,37 @@ export function activeBookingsOnDate(bookings: Booking[], dateStr: string): Book
   return bookings
     .filter((b) => b.status !== "cancelled" && dateStrInTz(new Date(b.startIso)) === dateStr)
     .sort((a, b) => a.startIso.localeCompare(b.startIso));
+}
+
+/** Time-off rows that overlap a London calendar day. */
+export function timeOffOnDate(offs: TimeOff[], dateStr: string): TimeOff[] {
+  return offs
+    .filter((o) => {
+      const startDay = dateStrInTz(new Date(o.startIso));
+      const endDay = dateStrInTz(new Date(o.endIso));
+      return startDay <= dateStr && endDay >= dateStr;
+    })
+    .sort((a, b) => a.startIso.localeCompare(b.startIso) || a.id.localeCompare(b.id));
+}
+
+/** Blocks shown in one staff column (salon-wide + that person). */
+export function timeOffInColumn(
+  dayOffs: TimeOff[],
+  columnId: string,
+): TimeOff[] {
+  if (columnId === UNASSIGNED_STAFF_ID) {
+    return dayOffs.filter((o) => !o.staffId);
+  }
+  return dayOffs.filter((o) => !o.staffId || o.staffId === columnId);
+}
+
+/** null/missing staffId = applies to everyone; otherwise only that person. */
+export function timeOffAppliesToStaff(
+  offs: TimeOff[],
+  staffId: string | null | undefined,
+): TimeOff[] {
+  if (!staffId) return offs;
+  return offs.filter((o) => !o.staffId || o.staffId === staffId);
 }
 
 /** Staff columns for the day (active staff order + unassigned if needed). */
@@ -48,10 +79,11 @@ export function bookingsInColumn(
   return dayBookings.filter((b) => b.staffId === columnId);
 }
 
-/** Visible day window in minutes from midnight (padded around bookings). */
+/** Visible day window in minutes from midnight (padded around bookings / blocks). */
 export function dayWindowMinutes(
   dayBookings: Booking[],
   bufferByServiceId: Record<string, number> = {},
+  dayOffs: TimeOff[] = [],
 ): { start: number; end: number } {
   let start = 9 * 60;
   let end = 17 * 60;
@@ -61,6 +93,10 @@ export function dayWindowMinutes(
       minutesFromMidnightLondon(b.endIso) + Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
     start = Math.min(start, s);
     end = Math.max(end, e);
+  }
+  for (const o of dayOffs) {
+    start = Math.min(start, minutesFromMidnightLondon(o.startIso));
+    end = Math.max(end, minutesFromMidnightLondon(o.endIso));
   }
   // Pad half an hour; clamp to a sensible salon day.
   start = Math.max(6 * 60, Math.floor(start / 30) * 30 - 30);
