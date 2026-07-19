@@ -44,9 +44,37 @@ import type {
 
 type SB = SupabaseClient;
 
+/** PostgREST/Supabase caps a single select at 1000 rows by default. */
+const PAGE_SIZE = 1000;
+
 function must<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
   return data as T;
+}
+
+/** Load every row for a tech, paging past the 1000-row PostgREST default. */
+async function listAllForTech<T>(
+  sb: SB,
+  table: string,
+  techId: string,
+  orderCol: string,
+): Promise<T[]> {
+  const out: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await sb
+      .from(table)
+      .select("*")
+      .eq("techId", techId)
+      .order(orderCol)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const chunk = (data as T[]) ?? [];
+    out.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
 }
 
 // ---------------- Techs ----------------
@@ -301,8 +329,7 @@ export async function deleteTimeOff(sb: SB, id: string): Promise<void> {
 
 // ---------------- Clients ----------------
 export async function listClients(sb: SB, techId: string): Promise<Client[]> {
-  const { data, error } = await sb.from("clients").select("*").eq("techId", techId).order("name");
-  return must(data as Client[], error) ?? [];
+  return listAllForTech<Client>(sb, "clients", techId, "name");
 }
 export async function getClient(sb: SB, id: string): Promise<Client | null> {
   const { data, error } = await sb.from("clients").select("*").eq("id", id).maybeSingle();
@@ -321,12 +348,33 @@ export async function getClientByMessageToken(sb: SB, token: string): Promise<Cl
   if (error) throw new Error(error.message);
   return data as Client | null;
 }
-export async function createClient(
-  sb: SB,
-  c: Omit<Client, "id" | "createdAt" | "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso" | "marketingOptOut"> &
-    Partial<Pick<Client, "noShowCount" | "isBlacklisted" | "warningNote" | "messageToken" | "isVip" | "lastNudgeAtIso" | "marketingOptOut">>,
-): Promise<Client> {
-  const row = {
+type ClientInsert = Omit<
+  Client,
+  | "id"
+  | "createdAt"
+  | "noShowCount"
+  | "isBlacklisted"
+  | "warningNote"
+  | "messageToken"
+  | "isVip"
+  | "lastNudgeAtIso"
+  | "marketingOptOut"
+> &
+  Partial<
+    Pick<
+      Client,
+      | "noShowCount"
+      | "isBlacklisted"
+      | "warningNote"
+      | "messageToken"
+      | "isVip"
+      | "lastNudgeAtIso"
+      | "marketingOptOut"
+    >
+  >;
+
+function prepareClientRow(c: ClientInsert): Record<string, unknown> {
+  return {
     noShowCount: 0,
     isBlacklisted: false,
     warningNote: "",
@@ -334,8 +382,32 @@ export async function createClient(
     ...c,
     id: randomId("cli"),
   };
-  const { data, error } = await sb.from("clients").insert(row).select("*").single();
+}
+
+export async function createClient(sb: SB, c: ClientInsert): Promise<Client> {
+  const { data, error } = await sb.from("clients").insert(prepareClientRow(c)).select("*").single();
   return must(data as Client, error);
+}
+
+/** Bulk insert clients (used by Move to Glow). Falls back per-row on unique conflicts. */
+export async function createClientsBatch(sb: SB, rows: ClientInsert[]): Promise<Client[]> {
+  if (rows.length === 0) return [];
+  const prepared = rows.map(prepareClientRow);
+  const { data, error } = await sb.from("clients").insert(prepared).select("*");
+  if (!error) return (data as Client[]) ?? [];
+  if (!/duplicate key|unique constraint|23505/i.test(error.message)) throwDbError(error);
+
+  // One bad row would abort the whole batch — insert survivors individually.
+  const created: Client[] = [];
+  for (const row of rows) {
+    try {
+      created.push(await createClient(sb, row));
+    } catch (e) {
+      if (/duplicate key|unique constraint|23505/i.test(e instanceof Error ? e.message : "")) continue;
+      throw e;
+    }
+  }
+  return created;
 }
 export async function updateClient(sb: SB, id: string, patch: Partial<Client>): Promise<void> {
   const { error } = await sb.from("clients").update(patch).eq("id", id);
@@ -382,8 +454,7 @@ export async function findOrCreateClient(
 
 // ---------------- Bookings ----------------
 export async function listBookings(sb: SB, techId: string): Promise<Booking[]> {
-  const { data, error } = await sb.from("bookings").select("*").eq("techId", techId).order("startIso");
-  return must(data as Booking[], error) ?? [];
+  return listAllForTech<Booking>(sb, "bookings", techId, "startIso");
 }
 
 /** Bookings that block availability within a time window (for slot calculation). */

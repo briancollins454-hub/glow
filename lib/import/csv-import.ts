@@ -6,6 +6,7 @@ import {
   createAuditEvent,
   createCategory,
   createClient,
+  createClientsBatch,
   createService,
   createStaff,
   listBookings,
@@ -161,15 +162,15 @@ export async function importClientsForTech(
 
   if (iName === -1 && iFirst === -1) go(scope, { import: "badformat" });
 
-  // Preload once — Acuity clients exports (or appointments files reused here) can
-  // be thousands of rows; a DB email lookup per row times out the serverless fn.
+  // Preload ALL existing clients (paged — PostgREST defaults to 1000/page).
   const existingClients = await listClients(scope.sb, scope.tech.id);
   const indexes = buildClientIndexes(existingClients);
   const seenEmails = new Set(indexes.byEmail.keys());
   const seenPhones = new Set(indexes.byPhone.keys());
   const seenNames = new Set(indexes.byName.keys());
 
-  let imported = 0;
+  type Pending = { techId: string; name: string; email: string; phone: string; notes: string };
+  const pending: Pending[] = [];
   let skipped = 0;
 
   for (const cols of rows) {
@@ -204,35 +205,20 @@ export async function importClientsForTech(
       continue;
     }
 
-    try {
-      const created = await createClient(scope.sb, {
-        techId: scope.tech.id,
-        name,
-        email,
-        phone,
-        notes,
-      });
-      if (emailKey) {
-        seenEmails.add(emailKey);
-        indexes.byEmail.set(emailKey, created);
-      }
-      if (phoneKey.length >= 7) {
-        seenPhones.add(phoneKey);
-        indexes.byPhone.set(phoneKey, created);
-      }
-      if (nameKey) {
-        seenNames.add(nameKey);
-        indexes.byName.set(nameKey, created);
-      }
-      imported++;
-    } catch (e) {
-      if (isUniqueViolation(e)) {
-        skipped++;
-        if (emailKey) seenEmails.add(emailKey);
-        continue;
-      }
-      throw e;
-    }
+    pending.push({ techId: scope.tech.id, name, email, phone, notes });
+    // Reserve keys so later rows in this file don't queue duplicates.
+    if (emailKey) seenEmails.add(emailKey);
+    if (phoneKey.length >= 7) seenPhones.add(phoneKey);
+    if (nameKey) seenNames.add(nameKey);
+  }
+
+  const BATCH = 100;
+  let imported = 0;
+  for (let i = 0; i < pending.length; i += BATCH) {
+    const chunk = pending.slice(i, i + BATCH);
+    const created = await createClientsBatch(scope.sb, chunk);
+    imported += created.length;
+    skipped += chunk.length - created.length;
   }
 
   await auditImport(scope, "clients_imported", "clients", {

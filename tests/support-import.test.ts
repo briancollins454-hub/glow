@@ -105,6 +105,14 @@ describe("importClientsForTech scopes writes to the selected tech", () => {
       email: (row as { email?: string }).email ?? "",
       phone: (row as { phone?: string }).phone ?? "",
     }));
+    const createClientsBatch = vi.fn(async (_sb: unknown, rows: { techId: string; name: string }[]) =>
+      rows.map((row, i) => ({
+        ...row,
+        id: `cli_${i + 1}`,
+        email: (row as { email?: string }).email ?? "",
+        phone: (row as { phone?: string }).phone ?? "",
+      })),
+    );
     const listClients = vi.fn(async () => []);
     const createAuditEvent = vi.fn(async () => undefined);
     const redirect = vi.fn((url: string) => {
@@ -118,6 +126,7 @@ describe("importClientsForTech scopes writes to the selected tech", () => {
       return {
         ...actual,
         createClient,
+        createClientsBatch,
         listClients,
         createAuditEvent,
       };
@@ -152,8 +161,8 @@ describe("importClientsForTech scopes writes to the selected tech", () => {
       expect(String((e as { digest?: string }).digest)).toContain("import=done");
     }
 
-    expect(createClient).toHaveBeenCalledTimes(1);
-    expect(createClient.mock.calls[0][1].techId).toBe("tech_target");
+    expect(createClientsBatch).toHaveBeenCalledTimes(1);
+    expect(createClientsBatch.mock.calls[0][1][0].techId).toBe("tech_target");
     expect(createAuditEvent).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
