@@ -1,19 +1,21 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BookingStatus, Tech } from "@/lib/db/types";
+import type { Booking, BookingStatus, Client, Tech } from "@/lib/db/types";
 import {
   createAuditEvent,
   createCategory,
+  createClient,
   createService,
   createStaff,
-  findOrCreateClient,
   listBookings,
   listCategories,
+  listClients,
   listServices,
   listStaff,
   updateBooking,
 } from "@/lib/db/queries";
+import { isUniqueViolation } from "@/lib/db/errors";
 import { importResultUrl } from "@/lib/import/import-url";
 import {
   ACUITY_NO_CALENDAR,
@@ -21,6 +23,53 @@ import {
   findStaffForCalendarName,
   normalizeStaffMatchName,
 } from "@/lib/import/staff-map";
+
+/** In-memory client lookup for bulk appointment imports (avoids per-row table scans). */
+function buildClientIndexes(clients: Client[]) {
+  const byEmail = new Map<string, Client>();
+  const byPhone = new Map<string, Client>();
+  const byName = new Map<string, Client>();
+  for (const c of clients) {
+    const email = c.email.trim().toLowerCase();
+    if (email) byEmail.set(email, c);
+    const digits = c.phone.replace(/\D/g, "");
+    if (digits.length >= 7) byPhone.set(digits, c);
+    const name = c.name.trim().toLowerCase();
+    if (name) byName.set(name, c);
+  }
+  return { byEmail, byPhone, byName };
+}
+
+async function resolveImportClient(
+  sb: SupabaseClient,
+  techId: string,
+  indexes: ReturnType<typeof buildClientIndexes>,
+  data: { name: string; email: string; phone: string },
+): Promise<Client> {
+  const email = data.email.trim().toLowerCase();
+  const digits = data.phone.replace(/\D/g, "");
+  const nameKey = data.name.trim().toLowerCase();
+
+  let existing =
+    (email ? indexes.byEmail.get(email) : undefined) ??
+    (digits.length >= 7 ? indexes.byPhone.get(digits) : undefined) ??
+    (nameKey ? indexes.byName.get(nameKey) : undefined) ??
+    null;
+
+  if (existing) return existing;
+
+  const created = await createClient(sb, {
+    techId,
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    notes: "",
+  });
+  if (email) indexes.byEmail.set(email, created);
+  if (digits.length >= 7) indexes.byPhone.set(digits, created);
+  if (nameKey) indexes.byName.set(nameKey, created);
+  return created;
+}
 
 export type CsvImportScope = {
   sb: SupabaseClient;
@@ -395,9 +444,23 @@ export async function importBookingsForTech(
 
   const services = await listServices(scope.sb, scope.tech.id);
   const serviceByName = new Map(services.map((s) => [normalizeImportName(s.name), s]));
-  const existingBookings = await listBookings(scope.sb, scope.tech.id);
+  const [existingBookings, existingClients] = await Promise.all([
+    listBookings(scope.sb, scope.tech.id),
+    listClients(scope.sb, scope.tech.id),
+  ]);
+  const clientIndexes = buildClientIndexes(existingClients);
+  // Fast duplicate / slot checks — O(1) instead of scanning every booking per row.
+  const bookingSlotKeys = new Set<string>();
+  const staffSlotKeys = new Set<string>();
+  const orphanByClientSlot = new Map<string, Booking>();
+  for (const b of existingBookings) {
+    const startMs = new Date(b.startIso).getTime();
+    bookingSlotKeys.add(`${b.clientId}|${startMs}|${b.staffId ?? ""}`);
+    if (b.staffId) staffSlotKeys.add(`${b.staffId}|${startMs}`);
+    if (!b.staffId) orphanByClientSlot.set(`${b.clientId}|${startMs}`, b);
+  }
+
   const { createBooking: createBookingRow } = await import("@/lib/db/queries");
-  const { rescheduleReminders } = await import("@/lib/bookings");
   const { randomToken: newToken } = await import("@/lib/ids");
   const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
 
@@ -444,6 +507,8 @@ export async function importBookingsForTech(
   let skipNoClient = 0;
   let skipDuplicate = 0;
   let staffLinked = 0;
+  const nowMs = Date.now();
+  const futureReminderBookings: Booking[] = [];
 
   for (const cols of rows) {
     const clientName = appointmentClientName(cols, headers);
@@ -492,32 +557,52 @@ export async function importBookingsForTech(
           ? endDurationMin
           : safeMinutes(service.durationMin);
 
-    const client = await findOrCreateClient(scope.sb, scope.tech.id, {
-      name: clientName,
-      email: iEmail !== -1 ? (cols[iEmail] ?? "").trim() : "",
-      phone: iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "",
-    });
+    let client: Client;
+    try {
+      client = await resolveImportClient(scope.sb, scope.tech.id, clientIndexes, {
+        name: clientName,
+        email: iEmail !== -1 ? (cols[iEmail] ?? "").trim() : "",
+        phone: iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "",
+      });
+    } catch {
+      skipped++;
+      skipNoClient++;
+      continue;
+    }
 
     const startMs = when.getTime();
-    const sameSlot = existingBookings.filter(
-      (b) => b.clientId === client.id && new Date(b.startIso).getTime() === startMs,
-    );
-    const exact = sameSlot.find((b) => (b.staffId ?? null) === staffId);
-    if (exact) {
+    const clientSlotKey = `${client.id}|${startMs}`;
+    const exactKey = `${clientSlotKey}|${staffId}`;
+    if (bookingSlotKeys.has(exactKey)) {
       skipped++;
       skipDuplicate++;
       continue;
     }
-    const orphan = sameSlot.find((b) => !b.staffId);
+    const orphan = orphanByClientSlot.get(clientSlotKey);
     if (orphan) {
       // Earlier imports left staffId null — attach to the Acuity Calendar's staff.
-      await updateBooking(scope.sb, orphan.id, { staffId });
-      orphan.staffId = staffId;
-      staffLinked++;
+      try {
+        await updateBooking(scope.sb, orphan.id, { staffId });
+        orphan.staffId = staffId;
+        bookingSlotKeys.add(exactKey);
+        bookingSlotKeys.delete(`${clientSlotKey}|`);
+        orphanByClientSlot.delete(clientSlotKey);
+        staffSlotKeys.add(`${staffId}|${startMs}`);
+        staffLinked++;
+      } catch {
+        skipped++;
+        skipDuplicate++;
+      }
+      continue;
+    }
+    // Per-staff diary unique index — skip clashes instead of aborting the whole file.
+    if (staffSlotKeys.has(`${staffId}|${startMs}`)) {
+      skipped++;
+      skipDuplicate++;
       continue;
     }
 
-    const isPast = startMs < Date.now();
+    const isPast = startMs < nowMs;
     const rawStatus = iStatus !== -1 ? (cols[iStatus] ?? "").toLowerCase() : "";
     const rawCancelled = iCancelled !== -1 ? (cols[iCancelled] ?? "").trim().toLowerCase() : "";
     const cancelledFlag = ["yes", "true", "1", "canceled", "cancelled"].includes(rawCancelled);
@@ -530,34 +615,58 @@ export async function importBookingsForTech(
             ? "completed"
             : "confirmed";
 
-    const booking = await createBookingRow(scope.sb, {
-      techId: scope.tech.id,
-      clientId: client.id,
-      serviceId: service.id,
-      staffId,
-      startIso: when.toISOString(),
-      endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
-      status,
-      pricePennies,
-      depositPennies: 0,
-      depositStatus: "none",
-      balancePennies: isPast ? 0 : pricePennies,
-      balanceStatus: isPast ? "paid" : "unpaid",
-      balanceToken: newToken(),
-      pairedBookingId: null,
-      riskTier: null,
-      autoApproved: false,
-      isPatchTest: false,
-      notes: "Imported",
-      lashMap: "",
-      lashCurl: "",
-      lashLength: "",
-      addons: [],
-      discountPennies: 0,
-    });
-    if (!isPast && status === "confirmed") await rescheduleReminders(scope.sb, booking);
-    existingBookings.push(booking);
-    imported++;
+    try {
+      const booking = await createBookingRow(scope.sb, {
+        techId: scope.tech.id,
+        clientId: client.id,
+        serviceId: service.id,
+        staffId,
+        startIso: when.toISOString(),
+        endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
+        status,
+        pricePennies,
+        depositPennies: 0,
+        depositStatus: "none",
+        balancePennies: isPast ? 0 : pricePennies,
+        balanceStatus: isPast ? "paid" : "unpaid",
+        balanceToken: newToken(),
+        pairedBookingId: null,
+        riskTier: null,
+        autoApproved: false,
+        isPatchTest: false,
+        notes: "Imported",
+        lashMap: "",
+        lashCurl: "",
+        lashLength: "",
+        addons: [],
+        discountPennies: 0,
+      });
+      bookingSlotKeys.add(exactKey);
+      staffSlotKeys.add(`${staffId}|${startMs}`);
+      imported++;
+      // Reminders for future imports only — capped so a huge diary can't time out.
+      if (!isPast && status === "confirmed" && futureReminderBookings.length < 250) {
+        futureReminderBookings.push(booking);
+      }
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        skipped++;
+        skipDuplicate++;
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  if (futureReminderBookings.length > 0) {
+    const { rescheduleReminders } = await import("@/lib/bookings");
+    for (const booking of futureReminderBookings) {
+      try {
+        await rescheduleReminders(scope.sb, booking);
+      } catch {
+        // Reminder scheduling must not fail the import.
+      }
+    }
   }
 
   await auditImport(scope, "appointments_imported", "appointments", {
