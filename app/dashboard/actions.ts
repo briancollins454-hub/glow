@@ -19,6 +19,7 @@ import {
   createService,
   createTimeOff,
   deleteService,
+  deleteServices,
   deleteTimeOff,
   findOrCreateClient,
   getBooking,
@@ -683,6 +684,29 @@ export async function deleteServiceAction(formData: FormData) {
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/${tech.handle}`);
   redirect("/dashboard/services");
+}
+
+/** Bulk delete selected services (and linked appointments). */
+export async function deleteServicesAction(
+  ids: string[],
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const { sb, tech } = await ctx();
+  const services = await listServices(sb, tech.id);
+  const owned = new Set(services.map((s) => s.id));
+  const toDelete = [...new Set(ids)].filter((id) => owned.has(id));
+  if (!toDelete.length) return { ok: false, error: "No services selected." };
+  try {
+    const deleted = await deleteServices(sb, toDelete);
+    revalidatePath("/dashboard/services");
+    revalidatePath("/dashboard/bookings");
+    revalidatePath(`/${tech.handle}`);
+    return { ok: true, deleted };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Could not delete services.",
+    };
+  }
 }
 
 // ---------------- Clients ----------------

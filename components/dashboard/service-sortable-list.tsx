@@ -26,13 +26,19 @@ import { cn } from "@/lib/utils";
 
 function SortableServiceRow({
   id,
+  disableDrag,
+  selected,
+  onToggleSelect,
   children,
 }: {
   id: string;
+  disableDrag?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+    useSortable({ id, disabled: disableDrag });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -45,16 +51,28 @@ function SortableServiceRow({
       style={style}
       className={cn("flex items-stretch gap-2", isDragging && "z-10 opacity-90")}
     >
-      <button
-        ref={setActivatorNodeRef}
-        type="button"
-        className="mt-3 flex h-11 w-10 shrink-0 touch-none cursor-grab flex-col items-center justify-center rounded-xl border border-edge text-ink-faint transition hover:bg-white/[0.06] active:cursor-grabbing"
-        aria-label="Drag to reorder"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-5 w-5" />
-      </button>
+      {onToggleSelect ? (
+        <label className="mt-3 flex h-11 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-edge">
+          <input
+            type="checkbox"
+            checked={selected ?? false}
+            onChange={onToggleSelect}
+            className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+            aria-label="Select service"
+          />
+        </label>
+      ) : (
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          className="mt-3 flex h-11 w-10 shrink-0 touch-none cursor-grab flex-col items-center justify-center rounded-xl border border-edge text-ink-faint transition hover:bg-white/[0.06] active:cursor-grabbing"
+          aria-label="Drag to reorder"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+      )}
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -63,9 +81,16 @@ function SortableServiceRow({
 export function ServiceSortableList({
   services,
   renderService,
+  disableDrag,
+  selection,
 }: {
   services: Service[];
   renderService: (service: Service) => React.ReactNode;
+  disableDrag?: boolean;
+  selection?: {
+    selectedIds: Set<string>;
+    onToggle: (id: string) => void;
+  };
 }) {
   const [items, setItems] = useState(services);
   const [pending, startTransition] = useTransition();
@@ -82,6 +107,7 @@ export function ServiceSortableList({
   );
 
   const onDragEnd = (event: DragEndEvent) => {
+    if (disableDrag) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -108,15 +134,23 @@ export function ServiceSortableList({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-ink-faint">
-        Drag the handle to reorder. On phone, press and hold the handle, then move.
-        {pending ? " Saving…" : ""}
-      </p>
+      {!disableDrag && (
+        <p className="text-xs text-ink-faint">
+          Drag the handle to reorder. On phone, press and hold the handle, then move.
+          {pending ? " Saving…" : ""}
+        </p>
+      )}
       {error && <p className="text-xs text-red-400">{error}</p>}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={items.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           {items.map((service) => (
-            <SortableServiceRow key={service.id} id={service.id}>
+            <SortableServiceRow
+              key={service.id}
+              id={service.id}
+              disableDrag={disableDrag}
+              selected={selection?.selectedIds.has(service.id)}
+              onToggleSelect={selection ? () => selection.onToggle(service.id) : undefined}
+            >
               {renderService(service)}
             </SortableServiceRow>
           ))}
