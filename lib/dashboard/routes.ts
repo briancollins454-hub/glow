@@ -16,4 +16,6 @@ export const DASHBOARD_ROUTES = [
   "/dashboard/settings",
   "/dashboard/help",
   "/dashboard/feedback",
+  "/dashboard/admin",
+  "/dashboard/admin/support-import",
 ] as const;
