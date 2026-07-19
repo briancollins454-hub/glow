@@ -4,13 +4,9 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseService } from "@/lib/supabase/service";
-import {
-  createTech,
-  getTechByHandle,
-  replaceWorkingHours,
-} from "@/lib/db/queries";
+import { getTechByAuthUserId } from "@/lib/db/queries";
+import { postSignupPath, provisionNewTechAccount } from "@/lib/signup";
 import { slugify } from "@/lib/utils";
-import { randomId, randomToken } from "@/lib/ids";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function loginAction(formData: FormData) {
@@ -18,7 +14,7 @@ export async function loginAction(formData: FormData) {
   if (!(await rateLimit("login", { limit: 10, windowMinutes: 5 })).ok) {
     redirect("/login?error=invalid");
   }
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const sb = await createSupabaseServerClient();
   const { error } = await sb.auth.signInWithPassword({ email, password });
@@ -33,126 +29,71 @@ export async function signupAction(formData: FormData) {
     redirect("/signup?error=missing");
   }
   const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const businessName = String(formData.get("businessName") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  let handle = slugify(String(formData.get("handle") ?? "") || businessName || name);
+  const handleSeed = String(formData.get("handle") ?? "") || businessName || name;
+  const refRaw = slugify(String(formData.get("ref") ?? ""));
 
   if (!email || !password || !businessName) {
     redirect("/signup?error=missing");
   }
+  if (password.length < 8) {
+    redirect("/signup?error=password");
+  }
 
   const admin = supabaseService();
+  const sb = await createSupabaseServerClient();
+  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
 
-  // Create the auth user (auto-confirmed so they can log in immediately).
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+  // 1) Create Auth user. On "already registered" (double-submit / orphan),
+  //    sign in with the password they just typed and continue.
+  const { data: created } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
   });
-  if (createErr || !created.user) {
-    redirect("/signup?error=email");
+
+  let authUserId: string;
+  if (created?.user) {
+    authUserId = created.user.id;
+  } else {
+    const { data: signed, error: signErr } = await sb.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signErr || !signed.user) {
+      // Real duplicate with a different password, or Auth in a bad state.
+      redirect("/signup?error=email");
+    }
+    authUserId = signed.user.id;
+
+    const existing = await getTechByAuthUserId(admin, authUserId);
+    if (existing) {
+      // Double-submit after a successful signup — don't show an error.
+      redirect(postSignupPath(existing));
+    }
+    // Auth user exists but Glow profile never finished — provision below.
   }
-  const authUserId = created.user!.id;
 
-  // Ensure a unique handle.
-  if (!handle) handle = "studio";
-  let candidate = handle;
-  let n = 1;
-  while (await getTechByHandle(admin, candidate)) candidate = `${handle}${n++}`;
-
-  // Referral attribution: only record codes that match a real tech's handle.
-  const refRaw = slugify(String(formData.get("ref") ?? ""));
-  const referrer = refRaw && refRaw !== candidate ? await getTechByHandle(admin, refRaw) : null;
-
-  // Capture the signup offer on the ACCOUNT. The cookie only decides the offer
-  // at this moment; afterwards the account owns it, so it can't leak to other
-  // accounts created in the same browser.
-  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
-
-  const techId = randomId("tech");
-  const tech = await createTech(admin, {
-    id: techId,
+  const { tech } = await provisionNewTechAccount(admin, {
     authUserId,
     email,
     name,
-    handle: candidate,
     businessName,
-    bio: "",
-    tagline: "",
-    coverPhotoPath: null,
-    profilePhotoPath: null,
-    brandColor: "#db2777",
-    instagram: "",
-    tiktok: "",
-    location: "",
-    defaultDepositPct: 30,
-    defaultDepositType: "percent",
-    defaultDepositValue: 30,
-    cancellationWindowHours: 48,
-    noShowFeePct: 100,
-    noShowFeeType: "percent",
-    noShowFeeValue: 100,
-    referredBy: referrer?.handle ?? null,
-    calendarToken: randomToken(),
-    signupOffer: isTester ? "tester" : "",
+    handleSeed,
+    refRaw,
+    isTester,
   });
 
-  // Owner staff member: every account has one person from day one (salon
-  // accounts add more from the Team page). Best-effort pre-migration.
-  let ownerStaffId: string | null = null;
-  try {
-    const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
-    ownerStaffId = (await getOrCreateOwnerStaff(admin, tech)).id;
-  } catch {
-    // staff_members table not deployed yet — hours stay unscoped.
+  // Ensure a session cookie. Ignore "already signed in" from the recovery path.
+  const { error: sessionErr } = await sb.auth.signInWithPassword({ email, password });
+  if (sessionErr) {
+    // Account is ready; don't strand them on a signup error.
+    redirect("/login?signedup=1");
   }
 
-  await replaceWorkingHours(
-    admin,
-    techId,
-    [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-      id: randomId("wh"),
-      techId,
-      staffId: ownerStaffId,
-      weekday,
-      startMinutes: 9 * 60,
-      endMinutes: 17 * 60,
-      lastStartMinutes: null,
-      enabled: weekday >= 2 && weekday <= 6,
-    })),
-    ownerStaffId ?? undefined,
-  );
-
-  // Starter categories so adding a first service is a single step.
-  const { createCategory } = await import("@/lib/db/queries");
-  for (const catName of ["Lashes", "Brows", "Nails"]) {
-    await createCategory(admin, {
-      techId,
-      name: catName,
-      patchTestValidityDays: 180,
-      patchTestMinLeadHours: 24,
-    });
-  }
-
-  // Welcome email now + a setup nudge in 2 days + an owner alert (all
-  // best-effort so email problems never block signup).
-  try {
-    const { sendWelcomeEmail, scheduleOnboardingEmails, notifyOwnerOfSignup } =
-      await import("@/lib/onboarding");
-    await sendWelcomeEmail(tech);
-    await scheduleOnboardingEmails(admin, techId);
-    await notifyOwnerOfSignup(tech);
-  } catch {
-    // Never block signup on email problems.
-  }
-
-  // Sign them in (sets the session cookie), then send them straight to billing:
-  // a new account can't take bookings until it activates a plan (£9.50 first
-  // month), so we land them on checkout rather than a locked dashboard.
-  const sb = await createSupabaseServerClient();
-  await sb.auth.signInWithPassword({ email, password });
-  redirect("/dashboard/billing?welcome=1");
+  redirect(postSignupPath(tech));
 }
 
 export async function logoutAction() {
@@ -165,7 +106,7 @@ export async function forgotPasswordAction(formData: FormData) {
   if (!(await rateLimit("forgot-password", { limit: 5, windowMinutes: 15 })).ok) {
     redirect("/forgot?sent=1");
   }
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (email) {
     const { requestPasswordReset } = await import("@/lib/password-reset");
     await requestPasswordReset(email);
