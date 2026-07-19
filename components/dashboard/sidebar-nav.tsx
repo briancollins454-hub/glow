@@ -30,7 +30,7 @@ const items = [
   { href: "/dashboard/clients", label: "Clients", icon: Users },
   { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
   { href: "/dashboard/availability", label: "Opening hours", icon: Clock, ownerOnly: true },
-  { href: "/dashboard/team", label: "Team", icon: UsersRound, ownerOnly: true },
+  { href: "/dashboard/team", label: "Team", icon: UsersRound },
   { href: "/dashboard/forms", label: "Forms", icon: ClipboardList },
   { href: "/dashboard/reminders", label: "Reminders", icon: BellRing },
   { href: "/dashboard/reviews", label: "Reviews", icon: Star },

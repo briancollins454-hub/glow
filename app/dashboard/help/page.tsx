@@ -127,7 +127,7 @@ export default function HelpPage() {
           <P>Yes. Open <B>Team</B>, add each person, and choose which services they can do. Clients pick who they want (or &ldquo;any available&rdquo;) when they book. Each person keeps their own hours and diary.</P>
           <P>On <B>Calendar</B>, tap a day to open the <B>Team day view</B> — one column per person so you can see who is with who.</P>
           <P><B>One login for the whole salon:</B> share the owner Glow login. Everyone uses that email and password. It sees every diary and all settings. You do not need a separate login per person.</P>
-          <P>Prefer separate logins? On a person who shows <B>No login</B>, open <B>Add login</B> and set their own email and password. Those logins can use the diary but not billing or team settings.</P>
+          <P>Prefer separate logins? On a person who shows <B>No login</B>, open <B>Add login</B> and set their own email and password. Staff logins can also open <B>Team</B> to set hours and treatments. Billing and plan stay on the owner login.</P>
         </Item>
 
         <Item title="Our days change every week - how do we set a rota?">

@@ -211,7 +211,6 @@ export async function loadDashboardPageData(
       };
     }
     case "team": {
-      if (role !== "owner") return { forbidden: true };
       try {
         const svc = supabaseService();
         const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
