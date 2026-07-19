@@ -125,7 +125,8 @@ export default function HelpPage() {
 
         <Item title="I work with other people - can they have their own diary?">
           <P>Yes. Open <B>Team</B>, add each person, and choose which services they can do. Clients pick who they want (or &ldquo;any available&rdquo;) when they book. Each person keeps their own hours and diary.</P>
-          <P>If someone was added by an import and shows <B>No login</B>, open their card → <B>Add login</B>, set an email and password, then they can sign in.</P>
+          <P><B>One login for the whole salon:</B> share the owner Glow login. Everyone uses that email and password. It sees every diary and all settings. You do not need a separate login per person.</P>
+          <P>Prefer separate logins? On a person who shows <B>No login</B>, open <B>Add login</B> and set their own email and password. Those logins can use the diary but not billing or team settings.</P>
         </Item>
 
         <Item title="Our days change every week - how do we set a rota?">

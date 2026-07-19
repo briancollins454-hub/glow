@@ -326,8 +326,8 @@ function StaffCard({
             <form action={setStaffLoginAction} className="space-y-3 border-t border-edge p-4">
               <input type="hidden" name="id" value={member.id} />
               <p className="text-sm text-ink-soft">
-                Imported staff start without a login. Set an email and password so they can sign in
-                and see the diary.
+                Optional. Only needed if this person should sign in with their own email. For one
+                shared salon login, skip this and use the owner account instead.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
