@@ -11,6 +11,7 @@ import {
   bookingsInColumn,
   dayWindowMinutes,
   minutesFromMidnightLondon,
+  packBookingLanes,
   staffColumnsForDay,
 } from "@/lib/booking/staff-day";
 import { addDaysToDateStr } from "@/lib/rota";
@@ -18,6 +19,7 @@ import type { Booking, StaffMember } from "@/lib/db/types";
 
 const PX_PER_MIN = 1.15;
 const COL_MIN_WIDTH = 160;
+const LANE_GAP_PX = 2;
 
 type Props = {
   dateStr: string;
@@ -26,6 +28,8 @@ type Props = {
   staff: StaffMember[];
   clientById: Record<string, string>;
   serviceById: Record<string, string>;
+  /** serviceId → cleanup minutes after the appointment. */
+  bufferByServiceId?: Record<string, number>;
 };
 
 function hourLabels(startMin: number, endMin: number): number[] {
@@ -47,11 +51,12 @@ export function BookingsStaffDayView({
   staff,
   clientById,
   serviceById,
+  bufferByServiceId = {},
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const columns = staffColumnsForDay(staff, dayBookings);
   const knownStaffIds = new Set(staff.map((s) => s.id));
-  const { start: windowStart, end: windowEnd } = dayWindowMinutes(dayBookings);
+  const { start: windowStart, end: windowEnd } = dayWindowMinutes(dayBookings, bufferByServiceId);
   const height = (windowEnd - windowStart) * PX_PER_MIN;
   const hours = hourLabels(windowStart, windowEnd);
 
@@ -62,7 +67,8 @@ export function BookingsStaffDayView({
           <div>
             <CardTitle>Team day view</CardTitle>
             <CardDescription>
-              One column per person so you can see who is with who.
+              One column per person. Overlapping bookings sit side by side; hatched strips are cleanup
+              buffer.
             </CardDescription>
           </div>
           <div className="flex items-center gap-1">
@@ -146,6 +152,10 @@ export function BookingsStaffDayView({
 
               {columns.map((col) => {
                 const colBookings = bookingsInColumn(dayBookings, col.id, knownStaffIds);
+                const laidOut = packBookingLanes(colBookings, (b) => {
+                  const bufferMin = Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
+                  return minutesFromMidnightLondon(b.endIso) + bufferMin;
+                });
                 return (
                   <div
                     key={col.id}
@@ -159,37 +169,63 @@ export function BookingsStaffDayView({
                         style={{ top: (m - windowStart) * PX_PER_MIN }}
                       />
                     ))}
-                    {colBookings.map((b) => {
-                      const startM = minutesFromMidnightLondon(b.startIso);
-                      const endM = Math.max(
-                        startM + 15,
-                        minutesFromMidnightLondon(b.endIso),
-                      );
+                    {laidOut.map(({ booking: b, lane, laneCount, startM, endM }) => {
+                      const apptEndM = minutesFromMidnightLondon(b.endIso);
+                      const bufferMin = Math.max(0, endM - apptEndM);
                       const top = (startM - windowStart) * PX_PER_MIN;
                       const blockHeight = Math.max(28, (endM - startM) * PX_PER_MIN - 2);
+                      const apptHeight =
+                        bufferMin > 0
+                          ? Math.max(18, (apptEndM - startM) * PX_PER_MIN)
+                          : blockHeight;
+                      const widthPct = 100 / laneCount;
+                      const leftPct = lane * widthPct;
                       return (
                         <div
                           key={b.id}
-                          className="absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 px-1.5 py-1 shadow-sm"
-                          style={{ top, height: blockHeight }}
+                          className="absolute z-[1] overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 shadow-sm"
+                          style={{
+                            top,
+                            height: blockHeight,
+                            left: `calc(${leftPct}% + ${LANE_GAP_PX}px)`,
+                            width: `calc(${widthPct}% - ${LANE_GAP_PX * 2}px)`,
+                          }}
                         >
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="min-w-0 flex-1">
-                              <Link
-                                href={`/dashboard/bookings/${b.id}`}
-                                className="block truncate text-xs font-semibold text-ink hover:text-brand-300"
-                              >
-                                {clientById[b.clientId] ?? "Client"}
-                              </Link>
-                              <p className="truncate text-[10px] text-ink-faint">
-                                {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"}
-                              </p>
-                              <div className="mt-0.5 scale-90 origin-left">{statusBadge(b.status)}</div>
-                            </div>
-                            <div className="shrink-0 scale-90 origin-top-right">
-                              <BookingActions id={b.id} status={b.status} />
+                          <div
+                            className="overflow-hidden px-1.5 py-1"
+                            style={{ height: Math.min(apptHeight, blockHeight) }}
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="min-w-0 flex-1">
+                                <Link
+                                  href={`/dashboard/bookings/${b.id}`}
+                                  className="block truncate text-xs font-semibold text-ink hover:text-brand-300"
+                                >
+                                  {clientById[b.clientId] ?? "Client"}
+                                </Link>
+                                <p className="truncate text-[10px] text-ink-faint">
+                                  {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"}
+                                </p>
+                                <div className="mt-0.5 origin-left scale-90">
+                                  {statusBadge(b.status)}
+                                </div>
+                              </div>
+                              <div className="shrink-0 origin-top-right scale-90">
+                                <BookingActions id={b.id} status={b.status} />
+                              </div>
                             </div>
                           </div>
+                          {bufferMin > 0 && blockHeight > apptHeight + 4 && (
+                            <div
+                              className="absolute inset-x-0 bottom-0 border-t border-dashed border-brand-400/50 bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(255,255,255,0.06)_3px,rgba(255,255,255,0.06)_6px)]"
+                              style={{ height: blockHeight - apptHeight }}
+                              title={`${bufferMin} min cleanup buffer`}
+                            >
+                              {blockHeight - apptHeight >= 14 && (
+                                <p className="px-1.5 pt-0.5 text-[9px] text-ink-faint">Buffer</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

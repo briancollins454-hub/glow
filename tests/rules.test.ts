@@ -179,6 +179,44 @@ describe("daySlots", () => {
     expect(slots.length).toBeGreaterThan(0);
   });
 
+  it("blocks cleanup buffer after an existing booking", () => {
+    const busy = makeBooking({
+      serviceId: "svc_busy",
+      startIso: "2030-07-10T08:00:00.000Z", // 09:00 London
+      endIso: "2030-07-10T09:00:00.000Z", // 10:00 London
+      status: "confirmed",
+    });
+    const slots = daySlots(
+      service,
+      dateStr,
+      {
+        workingHours: [makeWorkingHour()],
+        timeOff: [],
+        bookings: [busy],
+        bufferByServiceId: { svc_busy: 30 },
+      },
+      now,
+    );
+    // 10:00 London would start during the 30-min buffer after 10:00 end.
+    expect(slots).not.toContain("2030-07-10T09:00:00.000Z");
+    // 10:30 London is free again.
+    expect(slots).toContain("2030-07-10T09:30:00.000Z");
+  });
+
+  it("uses service buffer when finding slots for that service", () => {
+    const withBuffer = makeService({ durationMin: 60, bufferMinutes: 30 });
+    const wh = makeWorkingHour({ lastStartMinutes: 10 * 60 }); // last start 10:00 London
+    const slots = daySlots(
+      withBuffer,
+      dateStr,
+      { workingHours: [wh], timeOff: [], bookings: [] },
+      now,
+    );
+    // 60 + 30 buffer must finish by close unless lastStart is set; lastStart wins,
+    // so 10:00 is still offered (appointment may run past close).
+    expect(slots[slots.length - 1]).toBe("2030-07-10T09:00:00.000Z");
+  });
+
   it("respects a custom last-start time", () => {
     const wh = makeWorkingHour({ lastStartMinutes: 10 * 60 }); // last start 10:00 London
     const slots = daySlots(service, dateStr, { workingHours: [wh], timeOff: [], bookings: [] }, now);

@@ -2,20 +2,24 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ServiceSortableList } from "@/components/dashboard/service-sortable-list";
 import { deleteServicesAction } from "@/app/dashboard/actions";
+import { groupServicesForDashboard } from "@/lib/booking/service-groups";
 import type { Service, ServiceCategory } from "@/lib/db/types";
 
 export function ServicesBulkDelete({
   services,
   categories,
   renderService,
+  openServiceId,
 }: {
   services: Service[];
   categories: ServiceCategory[];
   renderService: (service: Service) => React.ReactNode;
+  /** When set, the category containing this service opens by default. */
+  openServiceId?: string | null;
 }) {
   const router = useRouter();
   const [selecting, setSelecting] = useState(false);
@@ -23,6 +27,16 @@ export function ServicesBulkDelete({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const groups = useMemo(
+    () => groupServicesForDashboard(categories, services),
+    [categories, services],
+  );
+
+  const openGroupId = useMemo(() => {
+    if (!openServiceId) return groups.length === 1 ? groups[0]?.id ?? null : null;
+    return groups.find((g) => g.services.some((s) => s.id === openServiceId))?.id ?? null;
+  }, [groups, openServiceId]);
 
   const catOptions = useMemo(
     () =>
@@ -144,19 +158,42 @@ export function ServicesBulkDelete({
         </p>
       )}
 
-      <ServiceSortableList
-        services={services}
-        disableDrag={selecting}
-        renderService={renderService}
-        selection={
-          selecting
-            ? {
-                selectedIds: selected,
-                onToggle: toggle,
-              }
-            : undefined
-        }
-      />
+      {groups.length === 0 ? (
+        <p className="text-sm text-ink-faint">No services yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {groups.map((group) => (
+            <details
+              key={group.id}
+              className="rounded-xl border border-edge bg-white/[0.02]"
+              open={openGroupId === group.id || groups.length === 1}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 [&::-webkit-details-marker]:hidden">
+                <span className="font-medium text-ink">
+                  {group.title}{" "}
+                  <span className="font-normal text-ink-faint">({group.services.length})</span>
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-ink-faint" />
+              </summary>
+              <div className="border-t border-edge px-3 py-3">
+                <ServiceSortableList
+                  services={group.services}
+                  disableDrag={selecting}
+                  renderService={renderService}
+                  selection={
+                    selecting
+                      ? {
+                          selectedIds: selected,
+                          onToggle: toggle,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

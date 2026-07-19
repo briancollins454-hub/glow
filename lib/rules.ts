@@ -185,6 +185,26 @@ export interface AvailabilityCtx {
    * may offer slots (per-service available days / basket intersection).
    */
   allowedWeekdays?: number[] | null;
+  /** serviceId → buffer minutes after the appointment (cleanup). */
+  bufferByServiceId?: Record<string, number>;
+}
+
+/** Appointment length that blocks the diary (service + cleanup buffer). */
+export function blockedDurationMin(
+  service: Pick<Service, "durationMin" | "bufferMinutes">,
+): number {
+  return service.durationMin + Math.max(0, service.bufferMinutes ?? 0);
+}
+
+export function bufferMapFromServices(
+  services: Pick<Service, "id" | "bufferMinutes">[],
+): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const s of services) {
+    const buf = Math.max(0, s.bufferMinutes ?? 0);
+    if (buf > 0) map[s.id] = buf;
+  }
+  return map;
 }
 
 /** null/empty weekday list means every day. */
@@ -339,10 +359,13 @@ export function daySlotsForDuration(
   }));
   const busy = ctx.bookings
     .filter((b) => BLOCKING_STATUSES.includes(b.status))
-    .map((b) => ({
-      start: new Date(b.startIso).getTime(),
-      end: new Date(b.endIso).getTime(),
-    }));
+    .map((b) => {
+      const bufferMin = ctx.bufferByServiceId?.[b.serviceId] ?? 0;
+      return {
+        start: new Date(b.startIso).getTime(),
+        end: new Date(b.endIso).getTime() + Math.max(0, bufferMin) * 60 * 1000,
+      };
+    });
 
   const slots: string[] = [];
   // A set "last appointment" time wins over closing time (the tech accepts the
@@ -370,7 +393,7 @@ export function daySlots(
   nowMs = Date.now(),
 ): string[] {
   return daySlotsForDuration(
-    service.durationMin,
+    blockedDurationMin(service),
     dateStr,
     { ...ctx, allowedWeekdays: intersectWeekdays([service]) },
     nowMs,
@@ -405,7 +428,7 @@ export function availableDays(
   nowMs = Date.now(),
 ): { dateStr: string; slots: string[] }[] {
   return availableDaysForDuration(
-    service.durationMin,
+    blockedDurationMin(service),
     { ...ctx, allowedWeekdays: intersectWeekdays([service]) },
     count,
     nowMs,
@@ -414,9 +437,9 @@ export function availableDays(
 
 // ---------------- Basket (multiple treatments, one visit) ----------------
 
-/** Total appointment length when treatments run back-to-back. */
+/** Total diary block when treatments run back-to-back (includes cleanup buffers). */
 export function basketDurationMin(services: Service[]): number {
-  return services.reduce((sum, s) => sum + s.durationMin, 0);
+  return services.reduce((sum, s) => sum + blockedDurationMin(s), 0);
 }
 
 /**
@@ -453,7 +476,7 @@ export function basketStartTimes(services: Service[], slotIso: string): string[]
   let cursor = new Date(slotIso).getTime();
   for (const s of services) {
     starts.push(new Date(cursor).toISOString());
-    cursor += s.durationMin * 60 * 1000;
+    cursor += blockedDurationMin(s) * 60 * 1000;
   }
   return starts;
 }

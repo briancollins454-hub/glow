@@ -49,12 +49,16 @@ export function bookingsInColumn(
 }
 
 /** Visible day window in minutes from midnight (padded around bookings). */
-export function dayWindowMinutes(dayBookings: Booking[]): { start: number; end: number } {
+export function dayWindowMinutes(
+  dayBookings: Booking[],
+  bufferByServiceId: Record<string, number> = {},
+): { start: number; end: number } {
   let start = 9 * 60;
   let end = 17 * 60;
   for (const b of dayBookings) {
     const s = minutesFromMidnightLondon(b.startIso);
-    const e = minutesFromMidnightLondon(b.endIso);
+    const e =
+      minutesFromMidnightLondon(b.endIso) + Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
     start = Math.min(start, s);
     end = Math.max(end, e);
   }
@@ -63,4 +67,57 @@ export function dayWindowMinutes(dayBookings: Booking[]): { start: number; end: 
   end = Math.min(22 * 60, Math.ceil(end / 30) * 30 + 30);
   if (end <= start) end = start + 60;
   return { start, end };
+}
+
+export type LaidOutBooking = {
+  booking: Booking;
+  lane: number;
+  laneCount: number;
+  startM: number;
+  endM: number;
+};
+
+/**
+ * Pack overlapping bookings into side-by-side lanes (like a salon diary).
+ * endM should already include any buffer minutes for layout height.
+ */
+export function packBookingLanes(
+  bookings: Booking[],
+  endMinutesFor: (b: Booking) => number,
+): LaidOutBooking[] {
+  const items = bookings
+    .map((booking) => {
+      const startM = minutesFromMidnightLondon(booking.startIso);
+      const endM = Math.max(startM + 15, endMinutesFor(booking));
+      return { booking, startM, endM, lane: 0, laneCount: 1 };
+    })
+    .sort((a, b) => a.startM - b.startM || a.endM - b.endM);
+
+  const laneEnds: number[] = [];
+  for (const item of items) {
+    let lane = laneEnds.findIndex((end) => end <= item.startM);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(item.endM);
+    } else {
+      laneEnds[lane] = item.endM;
+    }
+    item.lane = lane;
+  }
+
+  // Widen each event to the max concurrent lanes in its overlap cluster.
+  for (let i = 0; i < items.length; i++) {
+    let maxLane = items[i]!.lane;
+    for (let j = 0; j < items.length; j++) {
+      if (i === j) continue;
+      const a = items[i]!;
+      const b = items[j]!;
+      if (a.startM < b.endM && b.startM < a.endM) {
+        maxLane = Math.max(maxLane, b.lane);
+      }
+    }
+    items[i]!.laneCount = maxLane + 1;
+  }
+
+  return items;
 }

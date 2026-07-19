@@ -70,10 +70,22 @@ export function ServiceForm({
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:grid-cols-3">
         <div>
           <Label>Duration (mins)</Label>
           <Input name="durationMin" type="number" min={5} step={5} defaultValue={s?.durationMin ?? 60} />
+        </div>
+        <div>
+          <Label>Buffer after (mins)</Label>
+          <Input
+            name="bufferMinutes"
+            type="number"
+            min={0}
+            max={180}
+            step={5}
+            defaultValue={s?.bufferMinutes ?? 0}
+          />
+          <p className="mt-1 text-xs text-ink-faint">Blocks the diary after (cleanup). Clients still see the duration above.</p>
         </div>
         <div>
           <Label>Price (£)</Label>
