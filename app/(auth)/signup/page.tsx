@@ -1,16 +1,31 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { CalendarHeart, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { ClearSessionCache } from "@/components/auth/clear-session-cache";
+import { OnceSubmitForm } from "@/components/auth/once-submit-form";
 import { signupAction } from "../actions";
 import { trackPageView } from "@/lib/page-views";
 
-const errors: Record<string, string> = {
-  email: "An account with that email already exists.",
+const errors: Record<string, ReactNode> = {
+  email: (
+    <>
+      An account with that email already exists.{" "}
+      <Link href="/login" className="font-medium underline underline-offset-2">
+        Log in
+      </Link>{" "}
+      or{" "}
+      <Link href="/forgot" className="font-medium underline underline-offset-2">
+        reset your password
+      </Link>
+      .
+    </>
+  ),
   missing: "Please fill in your business name, email and password.",
+  password: "Password needs to be at least 8 characters.",
 };
 
 /** When the private tester cookie is set, keep the £1 offer out of search results. */
@@ -68,7 +83,7 @@ export default async function SignupPage({
             </p>
           )}
 
-          <form action={signupAction} className="mt-6 space-y-4">
+          <OnceSubmitForm action={signupAction} className="mt-6 space-y-4">
             {ref && <input type="hidden" name="ref" value={ref} />}
             <div>
               <Label htmlFor="businessName">Business name</Label>
@@ -97,16 +112,23 @@ export default async function SignupPage({
             </div>
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required />
+              <Input id="email" name="email" type="email" required autoComplete="email" />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
             </div>
             <Button type="submit" className="w-full">
               Create my page
             </Button>
-          </form>
+          </OnceSubmitForm>
 
           <p className="mt-5 text-center text-sm text-ink-soft">
             Already have an account?{" "}

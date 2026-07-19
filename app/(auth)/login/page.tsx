@@ -8,9 +8,9 @@ import { loginAction } from "../actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string; signedup?: string }>;
 }) {
-  const { error, reset } = await searchParams;
+  const { error, reset, signedup } = await searchParams;
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4">
       <ClearSessionCache />
@@ -30,6 +30,11 @@ export default async function LoginPage({
           {reset === "1" && (
             <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
               Password updated. Log in with your new password.
+            </p>
+          )}
+          {signedup === "1" && (
+            <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              Your account is ready. Log in with the password you just chose.
             </p>
           )}
           {error && (
