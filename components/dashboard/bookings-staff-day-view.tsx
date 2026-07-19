@@ -13,9 +13,11 @@ import {
   minutesFromMidnightLondon,
   packBookingLanes,
   staffColumnsForDay,
+  timeOffInColumn,
+  timeOffOnDate,
 } from "@/lib/booking/staff-day";
 import { addDaysToDateStr } from "@/lib/rota";
-import type { Booking, StaffMember } from "@/lib/db/types";
+import type { Booking, StaffMember, TimeOff } from "@/lib/db/types";
 
 const PX_PER_MIN = 1.15;
 const COL_MIN_WIDTH = 160;
@@ -30,6 +32,7 @@ type Props = {
   serviceById: Record<string, string>;
   /** serviceId → cleanup minutes after the appointment. */
   bufferByServiceId?: Record<string, number>;
+  offs?: TimeOff[];
 };
 
 function hourLabels(startMin: number, endMin: number): number[] {
@@ -52,11 +55,17 @@ export function BookingsStaffDayView({
   clientById,
   serviceById,
   bufferByServiceId = {},
+  offs = [],
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
+  const dayOffs = timeOffOnDate(offs, dateStr);
   const columns = staffColumnsForDay(staff, dayBookings);
   const knownStaffIds = new Set(staff.map((s) => s.id));
-  const { start: windowStart, end: windowEnd } = dayWindowMinutes(dayBookings, bufferByServiceId);
+  const { start: windowStart, end: windowEnd } = dayWindowMinutes(
+    dayBookings,
+    bufferByServiceId,
+    dayOffs,
+  );
   const height = (windowEnd - windowStart) * PX_PER_MIN;
   const hours = hourLabels(windowStart, windowEnd);
 
@@ -67,8 +76,8 @@ export function BookingsStaffDayView({
           <div>
             <CardTitle>Team day view</CardTitle>
             <CardDescription>
-              One column per person. Overlapping bookings sit side by side; hatched strips are cleanup
-              buffer.
+              One column per person. Grey blocks are one-off blocked time; hatched pink strips are
+              service cleanup buffers.
             </CardDescription>
           </div>
           <div className="flex items-center gap-1">
@@ -152,6 +161,7 @@ export function BookingsStaffDayView({
 
               {columns.map((col) => {
                 const colBookings = bookingsInColumn(dayBookings, col.id, knownStaffIds);
+                const colOffs = timeOffInColumn(dayOffs, col.id);
                 const laidOut = packBookingLanes(colBookings, (b) => {
                   const bufferMin = Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
                   return minutesFromMidnightLondon(b.endIso) + bufferMin;
@@ -169,6 +179,31 @@ export function BookingsStaffDayView({
                         style={{ top: (m - windowStart) * PX_PER_MIN }}
                       />
                     ))}
+                    {colOffs.map((o) => {
+                      const startM = Math.max(
+                        windowStart,
+                        minutesFromMidnightLondon(o.startIso),
+                      );
+                      const endM = Math.min(windowEnd, minutesFromMidnightLondon(o.endIso));
+                      if (endM <= startM) return null;
+                      const top = (startM - windowStart) * PX_PER_MIN;
+                      const blockHeight = Math.max(20, (endM - startM) * PX_PER_MIN - 2);
+                      return (
+                        <div
+                          key={o.id}
+                          className="absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.04),rgba(255,255,255,0.04)_4px,transparent_4px,transparent_8px)] px-1.5 py-1"
+                          style={{ top, height: blockHeight }}
+                          title={o.reason || "Blocked"}
+                        >
+                          <p className="truncate text-[10px] font-medium text-ink-soft">
+                            Unavailable
+                          </p>
+                          {o.reason && (
+                            <p className="truncate text-[10px] text-ink-faint">{o.reason}</p>
+                          )}
+                        </div>
+                      );
+                    })}
                     {laidOut.map(({ booking: b, lane, laneCount, startM, endM }) => {
                       const apptEndM = minutesFromMidnightLondon(b.endIso);
                       const bufferMin = Math.max(0, endM - apptEndM);
@@ -183,7 +218,7 @@ export function BookingsStaffDayView({
                       return (
                         <div
                           key={b.id}
-                          className="absolute z-[1] overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 shadow-sm"
+                          className="absolute z-[2] overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 shadow-sm"
                           style={{
                             top,
                             height: blockHeight,

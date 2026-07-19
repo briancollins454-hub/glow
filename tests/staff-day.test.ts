@@ -7,9 +7,21 @@ import {
   minutesFromMidnightLondon,
   packBookingLanes,
   staffColumnsForDay,
+  timeOffAppliesToStaff,
+  timeOffInColumn,
+  timeOffOnDate,
 } from "@/lib/booking/staff-day";
-import type { StaffMember } from "@/lib/db/types";
+import type { StaffMember, TimeOff } from "@/lib/db/types";
 import { makeBooking } from "./fixtures";
+
+function off(partial: Partial<TimeOff> & Pick<TimeOff, "id" | "startIso" | "endIso">): TimeOff {
+  return {
+    techId: "tech_1",
+    reason: "",
+    staffId: null,
+    ...partial,
+  };
+}
 
 function staff(partial: Partial<StaffMember> & Pick<StaffMember, "id" | "name">): StaffMember {
   return {
@@ -98,6 +110,33 @@ describe("staff day calendar helpers", () => {
     ];
     const win = dayWindowMinutes(dayBookings, { svc_1: 30 });
     expect(win.end).toBeGreaterThanOrEqual(17 * 60 + 30);
+  });
+
+  it("filters time off for a staff member vs salon-wide", () => {
+    const rows = [
+      off({
+        id: "o1",
+        startIso: "2030-07-10T11:00:00.000Z",
+        endIso: "2030-07-10T12:00:00.000Z",
+        staffId: null,
+      }),
+      off({
+        id: "o2",
+        startIso: "2030-07-10T13:00:00.000Z",
+        endIso: "2030-07-10T14:00:00.000Z",
+        staffId: "stf_a",
+      }),
+      off({
+        id: "o3",
+        startIso: "2030-07-10T15:00:00.000Z",
+        endIso: "2030-07-10T16:00:00.000Z",
+        staffId: "stf_b",
+      }),
+    ];
+    expect(timeOffAppliesToStaff(rows, "stf_a").map((o) => o.id)).toEqual(["o1", "o2"]);
+    expect(timeOffInColumn(rows, "stf_a").map((o) => o.id)).toEqual(["o1", "o2"]);
+    expect(timeOffOnDate(rows, "2030-07-10")).toHaveLength(3);
+    expect(timeOffOnDate(rows, "2030-07-11")).toHaveLength(0);
   });
 
   it("packs overlapping bookings into side-by-side lanes", () => {

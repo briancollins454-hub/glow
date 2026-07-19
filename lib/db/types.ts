@@ -256,6 +256,12 @@ export interface TimeOff {
   startIso: string;
   endIso: string;
   reason: string;
+  /**
+   * When set, only this staff member's diary is blocked.
+   * null / missing = whole salon (holidays, shared closures).
+   * Optional until migration 0036 is applied.
+   */
+  staffId?: string | null;
 }
 
 export interface Client {

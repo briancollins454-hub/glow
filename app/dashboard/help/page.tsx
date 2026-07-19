@@ -95,8 +95,11 @@ export default function HelpPage() {
         </Item>
 
         <Item title="Can I block time after an appointment for cleanup?">
-          <P>Yes. Edit a service in <B>Services</B> and set <B>Buffer after (mins)</B> - for example 30. That time is blocked on the diary after each booking for that treatment (shown as a hatched strip in team day view). Clients still see the normal duration; they just cannot book into the buffer.</P>
-          <P>For holidays, training, or one-off breaks, use <B>Opening hours</B> → <B>Time off</B>.</P>
+          <P>Yes. Edit a service in <B>Services</B> and set <B>Buffer after (mins)</B> - for example 30. That repeats after <B>every</B> booking of that treatment (cleanup). Clients still see the normal duration; they just cannot book into the buffer.</P>
+        </Item>
+
+        <Item title="Can I block out one hour for a doctor's appointment?">
+          <P>Yes - that is a one-off block, not a service buffer. On <B>Calendar</B>, open <B>Block time out</B>, set From/To (e.g. 12:00-13:00), optionally pick whose diary, and save. Clients can book before and after. The same tool lives under <B>Opening hours</B> → <B>Time off</B>.</P>
         </Item>
 
         <Item title="What are patch tests and why does Glow block some bookings?">

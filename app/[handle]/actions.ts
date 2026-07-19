@@ -54,6 +54,7 @@ import {
 } from "@/lib/bookings";
 import { resolveBasketExtras } from "@/lib/booking/basket";
 import { ANY_STAFF, capableStaff } from "@/lib/booking/staff";
+import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
 
@@ -154,7 +155,7 @@ async function resolveBookingStaff(
   const freeFor = (staff: StaffMember) =>
     daySlotsForDuration(totalDurationMin, dateStr, {
       workingHours: rowsForStaff(availability.workingHours, staff),
-      timeOff: availability.timeOff,
+      timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
       bookings: rowsForStaff(availability.bookings, staff),
       flexibleHours: availability.flexibleHours,
       rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
@@ -190,7 +191,7 @@ async function scopeCtxToStaff(
   if (!staff) return ctx;
   return {
     workingHours: rowsForStaff(ctx.workingHours, staff),
-    timeOff: ctx.timeOff,
+    timeOff: timeOffAppliesToStaff(ctx.timeOff, staff.id),
     bookings: rowsForStaff(ctx.bookings, staff),
     flexibleHours: ctx.flexibleHours,
     rotaHours: rowsForStaff(ctx.rotaHours ?? [], staff),

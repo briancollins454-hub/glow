@@ -400,7 +400,13 @@ export async function listTimeOff(sb: SB, techId: string): Promise<TimeOff[]> {
   return must(data as TimeOff[], error) ?? [];
 }
 export async function createTimeOff(sb: SB, t: Omit<TimeOff, "id">): Promise<void> {
-  const { error } = await sb.from("time_off").insert({ ...t, id: randomId("off") });
+  // Omit null staffId so pre-migration DBs (no column) still accept inserts.
+  const { staffId, ...rest } = t;
+  const row =
+    staffId != null
+      ? { ...rest, staffId, id: randomId("off") }
+      : { ...rest, id: randomId("off") };
+  const { error } = await sb.from("time_off").insert(row);
   if (error) throw new Error(error.message);
 }
 export async function deleteTimeOff(sb: SB, id: string): Promise<void> {

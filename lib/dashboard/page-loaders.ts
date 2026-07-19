@@ -151,14 +151,15 @@ export async function loadDashboardPageData(
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
       const { listStaff } = await import("@/lib/db/queries");
-      const [bookings, services, clients, waitlist, staff] = await Promise.all([
+      const [bookings, services, clients, waitlist, staff, offs] = await Promise.all([
         listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
         listServices(sb, tech.id),
         listClients(sb, tech.id),
         listWaitlist(sb, tech.id).catch(() => []),
         listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
+        listTimeOff(sb, tech.id).catch(() => []),
       ]);
-      return { bookings, services, clients, waitlist, staff, now };
+      return { bookings, services, clients, waitlist, staff, offs, now };
     }
     case "services": {
       const [categories, services, addons, retests, clients, bookings, products, batchSummary] =
