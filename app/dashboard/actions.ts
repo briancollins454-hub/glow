@@ -1545,7 +1545,7 @@ export async function importClientsAction(formData: FormData) {
     const { sb, tech } = await ctx();
     const returnTo = String(formData.get("back") ?? "/dashboard/import");
     const { importClientsForTech } = await import("@/lib/import/csv-import");
-    await importClientsForTech(formData, { sb, tech, returnTo });
+    await importClientsForTech(formData, { sb, tech, returnTo, importActorTechId: tech.id });
   }, "importClientsAction");
 }
 
@@ -1553,7 +1553,12 @@ export async function importServicesAction(formData: FormData) {
   return runImport(async () => {
     const { sb, tech } = await ctx();
     const { importServicesForTech } = await import("@/lib/import/csv-import");
-    await importServicesForTech(formData, { sb, tech, returnTo: "/dashboard/import" });
+    await importServicesForTech(formData, {
+      sb,
+      tech,
+      returnTo: "/dashboard/import",
+      importActorTechId: tech.id,
+    });
   }, "importServicesAction");
 }
 
@@ -1561,7 +1566,12 @@ export async function importBookingsAction(formData: FormData) {
   return runImport(async () => {
     const { sb, tech } = await ctx();
     const { importBookingsForTech } = await import("@/lib/import/csv-import");
-    await importBookingsForTech(formData, { sb, tech, returnTo: "/dashboard/import" });
+    await importBookingsForTech(formData, {
+      sb,
+      tech,
+      returnTo: "/dashboard/import",
+      importActorTechId: tech.id,
+    });
   }, "importBookingsAction");
 }
 

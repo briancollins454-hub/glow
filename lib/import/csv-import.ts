@@ -18,6 +18,11 @@ export type CsvImportScope = {
   tech: Tech;
   /** Page to redirect back to (may already include ?tech=...). */
   returnTo: string;
+  /**
+   * Tech id that owns staged CSV paths under tmp-imports/{id}/.
+   * Defaults to tech.id; support import passes the admin's id.
+   */
+  importActorTechId?: string;
   /** Merged into the standard import audit on the target tech. */
   auditExtra?: Record<string, unknown>;
   /**
@@ -59,23 +64,31 @@ function go(scope: CsvImportScope, params: Record<string, string | number>) {
   redirect(importResultUrl(scope.returnTo, params));
 }
 
-function csvFileName(formData: FormData): string {
+function csvFileName(formData: FormData, fallback = "upload.csv"): string {
+  const staged = String(formData.get("csvFileName") ?? "").trim();
+  if (staged) return staged;
   const file = formData.get("csv");
   if (file && typeof file === "object" && "name" in file) {
-    return String((file as File).name || "upload.csv");
+    return String((file as File).name || fallback);
   }
-  return "upload.csv";
+  return fallback;
+}
+
+async function loadCsv(formData: FormData, scope: CsvImportScope) {
+  const { readCsvFromFormData } = await import("@/lib/import/csv-source");
+  const ownerId = scope.importActorTechId ?? scope.tech.id;
+  return readCsvFromFormData(formData, ownerId);
 }
 
 export async function importClientsForTech(
   formData: FormData,
   scope: CsvImportScope,
 ): Promise<void> {
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) go(scope, { import: "empty" });
+  const loaded = await loadCsv(formData, scope);
+  if (!loaded) go(scope, { import: "empty" });
 
   const { parseCsv, col, normalizeImportPhone } = await import("@/lib/csv");
-  const { headers, rows } = parseCsv(await file!.text());
+  const { headers, rows } = parseCsv(loaded!.text);
   if (rows.length === 0) go(scope, { import: "empty" });
 
   const iFirst = col(headers, "firstname", "first");
@@ -145,8 +158,8 @@ export async function importServicesForTech(
   formData: FormData,
   scope: CsvImportScope,
 ): Promise<void> {
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) go(scope, { import: "empty" });
+  const loaded = await loadCsv(formData, scope);
+  if (!loaded) go(scope, { import: "empty" });
 
   const {
     parseCsv,
@@ -160,7 +173,7 @@ export async function importServicesForTech(
     acuityDerivedServices,
     resolveAcuityImportRows,
   } = await import("@/lib/csv");
-  const { headers, rows: allRows } = parseCsv(await file!.text());
+  const { headers, rows: allRows } = parseCsv(loaded!.text);
   if (allRows.length === 0) go(scope, { import: "empty" });
 
   const iName = col(headers, ...IMPORT_SERVICE_COLS.name);
@@ -314,8 +327,8 @@ export async function importBookingsForTech(
   formData: FormData,
   scope: CsvImportScope,
 ): Promise<void> {
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) go(scope, { import: "empty" });
+  const loaded = await loadCsv(formData, scope);
+  if (!loaded) go(scope, { import: "empty" });
 
   const {
     parseCsv,
@@ -335,7 +348,7 @@ export async function importBookingsForTech(
     isAcuityAppointmentCsv,
     MAX_MINUTES,
   } = await import("@/lib/csv");
-  const { headers, rows: allRows } = parseCsv(await file!.text());
+  const { headers, rows: allRows } = parseCsv(loaded!.text);
   if (allRows.length === 0) go(scope, { import: "empty" });
 
   const iClient = col(headers, ...IMPORT_COLS.appointmentClient);

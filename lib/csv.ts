@@ -396,8 +396,13 @@ function zonedLocalInstant(
   timeZone?: string,
 ): Date | null {
   const local = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  const d = fromZonedTime(local, resolveImportTimeZone(timeZone));
-  return Number.isNaN(d.getTime()) ? null : d;
+  try {
+    const d = fromZonedTime(local, resolveImportTimeZone(timeZone));
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    // Invalid local wall times / rare date-fns-tz edge cases must not crash preview.
+    return null;
+  }
 }
 
 /**
@@ -407,6 +412,18 @@ function zonedLocalInstant(
  * Pass { monthFirst: true } only for numeric slash dates that are US-ordered.
  */
 export function parseAppointmentWhen(
+  dateRaw: string,
+  timeRaw = "",
+  opts: { monthFirst?: boolean; timeZone?: string } = {},
+): Date | null {
+  try {
+    return parseAppointmentWhenUnsafe(dateRaw, timeRaw, opts);
+  } catch {
+    return null;
+  }
+}
+
+function parseAppointmentWhenUnsafe(
   dateRaw: string,
   timeRaw = "",
   opts: { monthFirst?: boolean; timeZone?: string } = {},

@@ -94,6 +94,11 @@ describe("parseAppointmentWhen", () => {
     const d = parseAppointmentWhen("04/07/2026", "15:30");
     expect(d).not.toBeNull();
   });
+
+  it("returns null instead of throwing on unreadable values", () => {
+    expect(parseAppointmentWhen("", "")).toBeNull();
+    expect(parseAppointmentWhen("not a date", "also not", { timeZone: "Not/AZone" })).toBeNull();
+  });
 });
 
 describe("moneyToPennies", () => {
