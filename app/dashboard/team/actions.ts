@@ -21,11 +21,10 @@ import type { RotaHour, WorkingHour } from "@/lib/db/types";
 
 const TEAM = "/dashboard/team";
 
-/** Team management is owner-only; staff logins never reach these actions. */
-async function ownerCtx() {
+/** Any salon login (owner or staff) can manage team hours, treatments, and rotas. */
+async function teamCtx() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
-  if (c!.role !== "owner") redirect("/dashboard");
   return c!;
 }
 
@@ -61,7 +60,7 @@ function serviceIdsFromForm(formData: FormData): { all: boolean; ids: string[] }
 }
 
 export async function createStaffAction(formData: FormData) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -121,7 +120,7 @@ export async function createStaffAction(formData: FormData) {
 }
 
 export async function updateStaffDetailsAction(formData: FormData) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const svc = supabaseService();
@@ -137,7 +136,7 @@ export async function updateStaffDetailsAction(formData: FormData) {
 }
 
 export async function saveStaffHoursAction(formData: FormData) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const id = String(formData.get("id") ?? "");
   const svc = supabaseService();
   const staff = await getStaff(svc, id);
@@ -148,7 +147,7 @@ export async function saveStaffHoursAction(formData: FormData) {
 }
 
 export async function setStaffActiveAction(formData: FormData) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "1";
   const svc = supabaseService();
@@ -162,7 +161,7 @@ export async function setStaffActiveAction(formData: FormData) {
 }
 
 export async function resetStaffPasswordAction(formData: FormData) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const id = String(formData.get("id") ?? "");
   const password = String(formData.get("password") ?? "");
   if (password.length < 8) redirect(`${TEAM}?err=password`);
@@ -177,7 +176,7 @@ export async function resetStaffPasswordAction(formData: FormData) {
 
 /** Give a diary-only (imported) staff member a login email + password. */
 export async function setStaffLoginAction(formData: FormData) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const id = String(formData.get("id") ?? "");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -232,7 +231,7 @@ function rotaRowsFromForm(
 }
 
 async function assertOwnedStaff(staffId: string) {
-  const { tech } = await ownerCtx();
+  const { tech } = await teamCtx();
   const svc = supabaseService();
   const staff = await getStaff(svc, staffId);
   if (!staff || staff.techId !== tech.id) return null;

@@ -61,7 +61,7 @@ export default function TeamPage() {
 
 function TeamGate({ data }: { data: TeamData }) {
   if ("forbidden" in data) {
-    return <p className="text-sm text-ink-soft">Only the owner can manage the team.</p>;
+    return <p className="text-sm text-ink-soft">You don&apos;t have access to team settings.</p>;
   }
   if ("unavailable" in data) {
     return (
