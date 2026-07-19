@@ -25,6 +25,7 @@ import {
   canOfferPairedPatchTest,
   findPatchTestService,
   flexibleHoursFromTech,
+  intersectWeekdays,
   withTechAvailability,
 } from "@/lib/rules";
 import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
@@ -230,16 +231,20 @@ export default async function PublicBookingPage({
       );
     } else {
       const duration = basketDurationMin(basketServices);
+      const allowedWeekdays = intersectWeekdays(basketServices);
+      const withDays = (ctx: typeof legacyCtx) => ({ ...ctx, allowedWeekdays });
       if (capable.length === 0) {
         // Pre-migration or no active staff: book against the whole diary.
-        days = availableDaysForDuration(duration, legacyCtx, 14);
+        days = availableDaysForDuration(duration, withDays(legacyCtx), 14);
       } else if (selectedStaff !== ANY_STAFF) {
         const staff = capable.find((s) => s.id === selectedStaff)!;
-        days = availableDaysForDuration(duration, ctxFor(staff), 14);
+        days = availableDaysForDuration(duration, withDays(ctxFor(staff)), 14);
       } else {
         // "Any available": union of everyone who can do the whole visit.
         days = unionDayOptions(
-          capable.map((s) => availableDaysForDuration(duration, ctxFor(s), 60)),
+          capable.map((s) =>
+            availableDaysForDuration(duration, withDays(ctxFor(s)), 60),
+          ),
           14,
         );
       }

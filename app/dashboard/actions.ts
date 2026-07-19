@@ -574,6 +574,13 @@ export async function saveServiceAction(formData: FormData) {
     depositType === "fixed" ? poundsToPennies(depositRaw) : clampInt(depositRaw, 0, 100, 0);
   const fullSet = String(formData.get("fullSetServiceId") ?? "");
 
+  const weekdayRaw = formData
+    .getAll("availableWeekday")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+  const { normalizeAvailableWeekdays } = await import("@/lib/rules");
+  const availableWeekdays = normalizeAvailableWeekdays(weekdayRaw);
+
   const data = {
     techId: tech.id,
     categoryId: String(formData.get("categoryId") ?? ""),
@@ -592,6 +599,7 @@ export async function saveServiceAction(formData: FormData) {
     sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
     aftercareText: String(formData.get("aftercareText") ?? "").trim(),
     precareText: String(formData.get("precareText") ?? "").trim(),
+    availableWeekdays,
   };
 
   if (!data.name || !data.categoryId) {
@@ -600,11 +608,24 @@ export async function saveServiceAction(formData: FormData) {
 
   const existing = id ? await getService(sb, id) : null;
   let serviceId = id;
-  if (existing) {
-    await updateService(sb, id, data);
-  } else {
-    const created = await createService(sb, data);
-    serviceId = created.id;
+  try {
+    if (existing) {
+      await updateService(sb, id, data);
+    } else {
+      const created = await createService(sb, data);
+      serviceId = created.id;
+    }
+  } catch (e) {
+    // Migration 0034 not applied yet — save without weekday rules.
+    const msg = e instanceof Error ? e.message : "";
+    if (!/availableWeekdays/i.test(msg)) throw e;
+    const { availableWeekdays: _days, ...withoutDays } = data;
+    if (existing) {
+      await updateService(sb, id, withoutDays);
+    } else {
+      const created = await createService(sb, withoutDays);
+      serviceId = created.id;
+    }
   }
 
   // Optional photo included with the form (create flow offers it inline).
