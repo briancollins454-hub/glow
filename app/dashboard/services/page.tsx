@@ -248,7 +248,7 @@ function ServicesView({
         <CardHeader>
           <CardTitle>Your services ({services.length})</CardTitle>
           <CardDescription>
-            Tap a service name to open it — only one open at a time. Drag the handle to reorder, or use
+            Grouped by category - tap a category to expand. Drag within a category to reorder, or use
             Select to delete for bulk removal.
           </CardDescription>
         </CardHeader>
@@ -256,6 +256,7 @@ function ServicesView({
           <ServicesBulkDelete
             services={services}
             categories={categories}
+            openServiceId={openServiceId}
             renderService={(s) => (
               <ServiceListItem
                 serviceId={s.id}
@@ -279,7 +280,10 @@ function ServicesView({
                         )}
                       </div>
                       <p className="mt-0.5 text-xs text-ink-faint">
-                        {catById[s.categoryId]} · {minutesToLabel(s.durationMin)} · {gbp(s.pricePennies)} ·{" "}
+                        {catById[s.categoryId]} · {minutesToLabel(s.durationMin)}
+                        {(s.bufferMinutes ?? 0) > 0 ? ` + ${minutesToLabel(s.bufferMinutes ?? 0)} buffer` : ""}
+                        {" · "}
+                        {gbp(s.pricePennies)} ·{" "}
                         {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
                       </p>
                     </div>

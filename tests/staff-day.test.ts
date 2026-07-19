@@ -5,6 +5,7 @@ import {
   bookingsInColumn,
   dayWindowMinutes,
   minutesFromMidnightLondon,
+  packBookingLanes,
   staffColumnsForDay,
 } from "@/lib/booking/staff-day";
 import type { StaffMember } from "@/lib/db/types";
@@ -84,5 +85,45 @@ describe("staff day calendar helpers", () => {
     const win = dayWindowMinutes(dayBookings);
     expect(win.start).toBeLessThanOrEqual(10 * 60);
     expect(win.end).toBeGreaterThanOrEqual(13 * 60);
+  });
+
+  it("extends the day window for service buffers", () => {
+    const dayBookings = [
+      makeBooking({
+        id: "b1",
+        serviceId: "svc_1",
+        startIso: "2030-07-10T15:00:00.000Z", // 16:00 London
+        endIso: "2030-07-10T16:00:00.000Z", // 17:00 London
+      }),
+    ];
+    const win = dayWindowMinutes(dayBookings, { svc_1: 30 });
+    expect(win.end).toBeGreaterThanOrEqual(17 * 60 + 30);
+  });
+
+  it("packs overlapping bookings into side-by-side lanes", () => {
+    const a = makeBooking({
+      id: "a",
+      startIso: "2030-07-10T09:00:00.000Z", // 10:00
+      endIso: "2030-07-10T10:00:00.000Z", // 11:00
+    });
+    const b = makeBooking({
+      id: "b",
+      startIso: "2030-07-10T09:30:00.000Z", // 10:30
+      endIso: "2030-07-10T10:30:00.000Z", // 11:30
+    });
+    const c = makeBooking({
+      id: "c",
+      startIso: "2030-07-10T11:00:00.000Z", // 12:00
+      endIso: "2030-07-10T12:00:00.000Z", // 13:00
+    });
+    const laid = packBookingLanes([a, b, c], (booking) =>
+      minutesFromMidnightLondon(booking.endIso),
+    );
+    const byId = Object.fromEntries(laid.map((x) => [x.booking.id, x]));
+    expect(byId.a!.lane).not.toBe(byId.b!.lane);
+    expect(byId.a!.laneCount).toBe(2);
+    expect(byId.b!.laneCount).toBe(2);
+    expect(byId.c!.lane).toBe(0);
+    expect(byId.c!.laneCount).toBe(1);
   });
 });

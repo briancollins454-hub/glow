@@ -587,6 +587,7 @@ export async function saveServiceAction(formData: FormData) {
     name: String(formData.get("name") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
     durationMin: clampInt(String(formData.get("durationMin") ?? "60"), 5, 600, 60),
+    bufferMinutes: clampInt(String(formData.get("bufferMinutes") ?? "0"), 0, 180, 0),
     pricePennies: poundsToPennies(String(formData.get("price") ?? "0")),
     depositType,
     depositValue,
@@ -616,14 +617,20 @@ export async function saveServiceAction(formData: FormData) {
       serviceId = created.id;
     }
   } catch (e) {
-    // Migration 0034 not applied yet — save without weekday rules.
+    // Migrations 0034 / 0035 may not be applied yet — retry without new columns.
     const msg = e instanceof Error ? e.message : "";
-    if (!/availableWeekdays/i.test(msg)) throw e;
-    const { availableWeekdays: _days, ...withoutDays } = data;
+    if (!/availableWeekdays/i.test(msg) && !/bufferMinutes/i.test(msg)) throw e;
+    const fallback = { ...data };
+    if (/availableWeekdays/i.test(msg)) {
+      delete (fallback as { availableWeekdays?: unknown }).availableWeekdays;
+    }
+    if (/bufferMinutes/i.test(msg)) {
+      delete (fallback as { bufferMinutes?: unknown }).bufferMinutes;
+    }
     if (existing) {
-      await updateService(sb, id, withoutDays);
+      await updateService(sb, id, fallback);
     } else {
-      const created = await createService(sb, withoutDays);
+      const created = await createService(sb, fallback);
       serviceId = created.id;
     }
   }
@@ -666,15 +673,34 @@ export async function moveServiceAction(formData: FormData) {
   redirect("/dashboard/services");
 }
 
-/** Drag-and-drop reorder — no page reload. */
+/** Drag-and-drop reorder — no page reload. Accepts a full list or a category subset. */
 export async function reorderServicesAction(order: string[]): Promise<{ ok: boolean }> {
   const { sb, tech } = await ctx();
   const services = await listServices(sb, tech.id);
   const owned = new Set(services.map((s) => s.id));
-  if (order.length !== services.length || order.some((id) => !owned.has(id))) {
+  if (!order.length || order.some((id) => !owned.has(id))) {
     return { ok: false };
   }
-  await applyServiceOrder(sb, tech.id, order, services);
+  const unique = new Set(order);
+  if (unique.size !== order.length) return { ok: false };
+
+  let nextOrder = order;
+  if (order.length !== services.length) {
+    // Subset: keep global positions, rewrite those slots in the new relative order.
+    const current = services.map((s) => s.id);
+    const positions = order
+      .map((id) => current.indexOf(id))
+      .filter((i) => i >= 0)
+      .sort((a, b) => a - b);
+    if (positions.length !== order.length) return { ok: false };
+    const merged = [...current];
+    positions.forEach((pos, i) => {
+      merged[pos] = order[i]!;
+    });
+    nextOrder = merged;
+  }
+
+  await applyServiceOrder(sb, tech.id, nextOrder, services);
   revalidatePath("/dashboard/services");
   revalidatePath(`/${tech.handle}`);
   return { ok: true };

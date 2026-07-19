@@ -32,6 +32,7 @@ import {
   dateStrInTz,
   evaluateEligibility,
   findPatchTestService,
+  bufferMapFromServices,
   intersectWeekdays,
   needsManualApproval,
   scoreClientRisk,
@@ -102,15 +103,17 @@ async function loadAvailability(
   const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
   const rotaFrom = currentWeekStartLondon();
   const rotaTo = addDaysToDateStr(rotaFrom, 7 * 12);
-  const [workingHours, timeOff, bookings, rotaHours] = await Promise.all([
+  const [workingHours, timeOff, bookings, rotaHours, services] = await Promise.all([
     listWorkingHours(sb, tech.id),
     listTimeOff(sb, tech.id),
     listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
     listRotaHours(sb, tech.id, { fromWeek: rotaFrom, toWeek: rotaTo }),
+    listServices(sb, tech.id),
   ]);
   return {
     ...withTechAvailability({ workingHours, timeOff, bookings }, tech),
     rotaHours,
+    bufferByServiceId: bufferMapFromServices(services),
   };
 }
 
@@ -156,6 +159,7 @@ async function resolveBookingStaff(
       flexibleHours: availability.flexibleHours,
       rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
       allowedWeekdays,
+      bufferByServiceId: availability.bufferByServiceId,
     }).includes(slotIso);
 
   if (requested && requested !== ANY_STAFF) {
@@ -190,6 +194,8 @@ async function scopeCtxToStaff(
     bookings: rowsForStaff(ctx.bookings, staff),
     flexibleHours: ctx.flexibleHours,
     rotaHours: rowsForStaff(ctx.rotaHours ?? [], staff),
+    bufferByServiceId: ctx.bufferByServiceId,
+    allowedWeekdays: ctx.allowedWeekdays,
   };
 }
 

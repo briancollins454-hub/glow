@@ -169,6 +169,12 @@ export interface Service {
   name: string;
   description: string;
   durationMin: number;
+  /**
+   * Extra diary block after the appointment (cleanup / turnaround).
+   * Clients still see durationMin; online booking won't offer the buffer window.
+   * Optional until migration 0035 is applied.
+   */
+  bufferMinutes?: number | null;
   pricePennies: number;
   depositType: DepositType;
   // For percent: 0-100. For fixed: pennies. For none: ignored.

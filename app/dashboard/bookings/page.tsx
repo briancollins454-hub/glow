@@ -17,6 +17,7 @@ import { BookingsStaffDayView } from "@/components/dashboard/bookings-staff-day-
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
+import { bufferMapFromServices } from "@/lib/rules";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
 import type { Booking, Client, Service, StaffMember, WaitlistEntry } from "@/lib/db/types";
 
@@ -48,6 +49,7 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
+  const bufferByServiceId = bufferMapFromServices(services);
 
   const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
   const showStaff = staff.length > 1;
@@ -230,6 +232,7 @@ function BookingsView({ bookings, services, clients, waitlist, staff = [], now }
           staff={staff}
           clientById={clientById}
           serviceById={serviceById}
+          bufferByServiceId={bufferByServiceId}
         />
       ) : (
         <Card className="ring-1 ring-brand-500/30">

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   UNCATEGORISED_ID,
   defaultOpenCategoryId,
+  groupServicesForDashboard,
   groupServicesForMenu,
 } from "@/lib/booking/service-groups";
 import { makeCategory, makeService } from "./fixtures";
@@ -51,6 +52,21 @@ describe("groupServicesForMenu", () => {
     ];
     const groups = groupServicesForMenu([lashes], services);
     expect(groups[0]!.services.map((s) => s.id)).toEqual(["s2", "s1"]);
+  });
+});
+
+describe("groupServicesForDashboard", () => {
+  const lashes = makeCategory({ id: "cat_lashes", name: "Lashes" });
+  const brows = makeCategory({ id: "cat_brows", name: "Brows" });
+
+  it("includes inactive and patch-test services", () => {
+    const services = [
+      makeService({ id: "s1", categoryId: "cat_lashes", active: false }),
+      makeService({ id: "s2", categoryId: "cat_brows", isPatchTestService: true }),
+    ];
+    const groups = groupServicesForDashboard([lashes, brows], services);
+    expect(groups).toHaveLength(2);
+    expect(groups.flatMap((g) => g.services.map((s) => s.id)).sort()).toEqual(["s1", "s2"]);
   });
 });
 

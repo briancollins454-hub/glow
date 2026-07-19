@@ -86,6 +86,19 @@ export default function HelpPage() {
           <P>Yes. Open <B>Services</B>, edit the treatment, and under <B>Available days</B> untick the days it shouldn&apos;t be bookable. Clients only see free slots on the days you leave ticked.</P>
         </Item>
 
+        <Item title="Can I organise a long list of services into categories?">
+          <P>Yes. On <B>Services</B>, your list is grouped by category. Tap a category name to open or close it like a dropdown. Add categories at the top of the page, then pick the right category when you add or edit a service.</P>
+        </Item>
+
+        <Item title="Why do appointments overlap on the calendar?">
+          <P>In <B>Calendar</B> team day view, overlapping bookings for the same person sit side by side so you can still read each one. Online booking will not offer a slot that clashes with an existing appointment (including any cleanup buffer). You can still add a manual booking that overlaps if you need to.</P>
+        </Item>
+
+        <Item title="Can I block time after an appointment for cleanup?">
+          <P>Yes. Edit a service in <B>Services</B> and set <B>Buffer after (mins)</B> - for example 30. That time is blocked on the diary after each booking for that treatment (shown as a hatched strip in team day view). Clients still see the normal duration; they just cannot book into the buffer.</P>
+          <P>For holidays, training, or one-off breaks, use <B>Opening hours</B> → <B>Time off</B>.</P>
+        </Item>
+
         <Item title="What are patch tests and why does Glow block some bookings?">
           <P>Some treatments (like lash lifts and tints) need a skin test first, for insurance and safety.</P>
           <Step n={1}>When you do a patch test, open the client in <B>Clients</B> and record it (takes 10 seconds).</Step>

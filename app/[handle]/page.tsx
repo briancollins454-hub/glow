@@ -24,6 +24,7 @@ import {
   basketDurationMin,
   canOfferPairedPatchTest,
   findPatchTestService,
+  bufferMapFromServices,
   flexibleHoursFromTech,
   intersectWeekdays,
   withTechAvailability,
@@ -196,6 +197,7 @@ export default async function PublicBookingPage({
       : basketServices.map((s) => s.id);
     const capable = capableStaff(staffList, restrictions, basketIds);
 
+    const bufferByServiceId = bufferMapFromServices(services);
     // Availability context per person (legacy rows with no staffId belong to
     // the owner). No staff rows at all = pre-migration account: whole diary.
     const ctxFor = (staff: StaffMember) => ({
@@ -208,10 +210,12 @@ export default async function PublicBookingPage({
         tech,
       ),
       rotaHours: forStaff(rotaHours, staff),
+      bufferByServiceId,
     });
     const legacyCtx = {
       ...withTechAvailability({ workingHours, timeOff, bookings }, tech),
       rotaHours,
+      bufferByServiceId,
     };
 
     if (capable.length > 1) {

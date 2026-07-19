@@ -62,3 +62,39 @@ export function serviceSectionId(serviceId: string): string {
 export function defaultOpenCategoryId(groups: ServiceGroup[]): string | null {
   return groups.length === 1 ? groups[0]!.id : null;
 }
+
+/**
+ * Groups all dashboard services by category (includes inactive + patch-test rows).
+ * Used for collapsible category sections on Services.
+ */
+export function groupServicesForDashboard(
+  categories: ServiceCategory[],
+  services: Service[],
+): ServiceGroup[] {
+  const categoryIds = new Set(categories.map((c) => c.id));
+  const byCategory = new Map<string, Service[]>();
+
+  for (const service of services) {
+    const bucket = categoryIds.has(service.categoryId) ? service.categoryId : UNCATEGORISED_ID;
+    const list = byCategory.get(bucket) ?? [];
+    list.push(service);
+    byCategory.set(bucket, list);
+  }
+
+  const groups: ServiceGroup[] = [];
+  for (const cat of categories) {
+    const catServices = byCategory.get(cat.id);
+    if (catServices?.length) {
+      groups.push({ id: cat.id, title: cat.name, services: catServices });
+    }
+  }
+  const loose = byCategory.get(UNCATEGORISED_ID);
+  if (loose?.length) {
+    groups.push({
+      id: UNCATEGORISED_ID,
+      title: groups.length > 0 ? "Other" : "Services",
+      services: loose,
+    });
+  }
+  return groups;
+}
