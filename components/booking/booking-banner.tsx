@@ -1,6 +1,6 @@
 "use client";
 
-import { RemoteImage } from "@/components/ui/remote-image";
+import { useState } from "react";
 import { heroBrand, onBrand, shade, withAlpha } from "@/lib/booking/brand";
 
 export function BookingBanner({
@@ -21,16 +21,54 @@ export function BookingBanner({
   const heroBase = heroBrand(brand);
   const darker = shade(heroBase, -32);
 
+  // The banner is never cropped: the sharp image is letterboxed (object-contain)
+  // over a blurred copy of itself that fills the gaps. Once loaded we also know
+  // the image's shape, so the hero height tracks it (within limits) to keep the
+  // letterboxing minimal. Pages without a banner keep the fixed-height gradient.
+  const [ratio, setRatio] = useState<number | null>(null);
+  const measure = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth && img.naturalHeight) {
+      setRatio(img.naturalWidth / img.naturalHeight);
+    }
+  };
+  const adaptive = Boolean(coverUrl && ratio);
+  const heightStyle = adaptive
+    ? { minHeight: `clamp(400px, calc(100vw / ${ratio}), min(72vh, 520px))` }
+    : undefined;
+  const heightClass = adaptive ? "" : "min-h-[min(72vh,520px)]";
+
   const scrollToServices = () => {
     document.getElementById("services")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
-    <section data-booking-hero className="relative isolate min-h-[min(72vh,520px)] w-full overflow-hidden">
+    <section
+      data-booking-hero
+      className={`relative isolate flex w-full items-center justify-center overflow-hidden ${heightClass}`}
+      style={heightStyle}
+    >
       <div className="absolute inset-0">
         {coverUrl ? (
           <>
-            <RemoteImage src={coverUrl} alt="" fill fit="cover" position="center" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverUrl}
+              alt=""
+              aria-hidden
+              decoding="async"
+              draggable={false}
+              className="absolute inset-0 block h-full w-full max-w-none scale-110 object-cover object-center blur-2xl"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverUrl}
+              alt=""
+              ref={measure}
+              onLoad={(e) => measure(e.currentTarget)}
+              decoding="async"
+              draggable={false}
+              className="absolute inset-0 block h-full w-full max-w-none object-contain object-center"
+            />
             <div
               className="absolute inset-0"
               style={{
@@ -54,7 +92,7 @@ export function BookingBanner({
         />
       </div>
 
-      <div className="relative mx-auto flex min-h-[min(72vh,520px)] max-w-5xl flex-col items-center justify-center px-4 py-20 text-center sm:px-6">
+      <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center justify-center px-4 py-20 text-center sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
           Book online
         </p>

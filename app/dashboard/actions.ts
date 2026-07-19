@@ -244,6 +244,10 @@ export async function updateSettingsAction(formData: FormData) {
   redirect("/dashboard/settings?saved=1");
 }
 
+// Uploads are resized in the browser first (see lib/image-prepare.ts); this is
+// the server-side backstop, kept under the server action body size limit.
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+
 async function uploadBrandImage(
   tech: { id: string; handle: string; authUserId: string | null },
   file: File,
@@ -260,6 +264,7 @@ export async function uploadBrandCoverAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const file = formData.get("cover") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/settings?photoerr=1");
+  if (file.size > MAX_PHOTO_BYTES) redirect("/dashboard/settings?photoerr=size");
   try {
     if (tech.coverPhotoPath) await removePhoto(tech.coverPhotoPath).catch(() => {});
     const path = await uploadBrandImage(tech, file, "cover");
@@ -277,6 +282,7 @@ export async function uploadBrandProfileAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const file = formData.get("profile") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/settings?photoerr=1");
+  if (file.size > MAX_PHOTO_BYTES) redirect("/dashboard/settings?photoerr=size");
   try {
     if (tech.profilePhotoPath) await removePhoto(tech.profilePhotoPath).catch(() => {});
     const path = await uploadBrandImage(tech, file, "profile");
@@ -576,7 +582,7 @@ export async function saveServiceAction(formData: FormData) {
 
   // Optional photo included with the form (create flow offers it inline).
   const photo = formData.get("photo") as File | null;
-  if (serviceId && photo && photo.size > 0) {
+  if (serviceId && photo && photo.size > 0 && photo.size <= MAX_PHOTO_BYTES) {
     try {
       const ext = (photo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
       const path = `svc/${tech.id}/${serviceId}.${ext}`;
@@ -1305,6 +1311,9 @@ export async function setServicePhotoAction(formData: FormData) {
   const serviceId = String(formData.get("serviceId") ?? "");
   const file = formData.get("photo") as File | null;
   const service = await getService(sb, serviceId);
+  if (file && file.size > MAX_PHOTO_BYTES) {
+    redirect(`/dashboard/services?photoerr=size&open=${serviceId}`);
+  }
   if (service && service.techId === tech.id && file && file.size > 0) {
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
     const path = `svc/${tech.id}/${serviceId}.${ext}`;
@@ -1676,6 +1685,9 @@ export async function uploadPhotoAction(formData: FormData) {
   const consent = formData.get("consent") === "on";
   const file = formData.get("photo") as File | null;
 
+  if (clientId && file && file.size > MAX_PHOTO_BYTES) {
+    redirect(`/dashboard/clients/${clientId}?photoerr=size`);
+  }
   if (clientId && file && file.size > 0) {
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
     const path = `${tech.id}/${clientId}/${randomId("ph")}.${ext}`;

@@ -12,6 +12,7 @@ import {
   uploadBrandProfileAction,
 } from "@/app/dashboard/actions";
 import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
+import { ImageTooLargeError, prepareImageForUpload } from "@/lib/image-prepare";
 import type { Tech } from "@/lib/db/types";
 
 type BrandUrls = { cover: string | null; profile: string | null };
@@ -39,7 +40,7 @@ export function PageBrandingUploads({ tech }: { tech: Tech }) {
     <div className="grid gap-6 sm:grid-cols-2">
       <PhotoUpload
         label="Banner image"
-        hint="Wide landscape photo works best (like a website header). Shown full-width at the top of your page."
+        hint="Wide landscape photo works best (like a website header). Shown full-width at the top of your page. Big photos are resized automatically."
         url={urls.cover}
         inputName="cover"
         uploadAction={uploadBrandCoverAction}
@@ -47,7 +48,7 @@ export function PageBrandingUploads({ tech }: { tech: Tech }) {
       />
       <PhotoUpload
         label="Profile photo"
-        hint="Square headshot or logo. Shown in your page header next to your business name."
+        hint="Square headshot or logo. Shown in your page header next to your business name. Big photos are resized automatically."
         url={urls.profile}
         inputName="profile"
         aspect="square"
@@ -110,13 +111,27 @@ function PhotoUpload({
       setError("Choose a photo first, then tap Upload.");
       return;
     }
-    const fd = new FormData();
-    fd.append(inputName, file);
     startUpload(async () => {
+      let prepared: File;
+      try {
+        // Resize big phone photos in the browser so any image fits the upload limit.
+        prepared = await prepareImageForUpload(file, {
+          maxDimension: aspect === "square" ? 1200 : 2400,
+        });
+      } catch (err) {
+        setError(
+          err instanceof ImageTooLargeError
+            ? "That photo is too large. Please choose an image under 8MB."
+            : "We couldn't read that image. Try a JPG, PNG or WebP instead.",
+        );
+        return;
+      }
+      const fd = new FormData();
+      fd.append(inputName, prepared, prepared.name);
       try {
         await uploadAction(fd);
       } catch {
-        setError("Upload failed. Try a JPG, PNG or WebP under 10MB.");
+        setError("Upload failed. Please check your connection and try again.");
       }
     });
   }
@@ -141,8 +156,9 @@ function PhotoUpload({
       <div className="mt-4 overflow-hidden rounded-xl border border-edge bg-surface">
         {previewUrl ? (
           <div className={`relative ${aspectClass}`}>
+            {/* Contain matches the live page, which never crops the image. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+            <img src={previewUrl} alt="" className="h-full w-full object-contain" />
           </div>
         ) : (
           <div className={`flex ${aspectClass} flex-col items-center justify-center gap-2 text-ink-faint`}>

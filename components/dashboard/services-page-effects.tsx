@@ -5,14 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { serviceSectionId } from "@/lib/booking/service-groups";
 
-/** Scroll to the saved service and show a brief confirmation banner. */
+/** Scroll to the saved service and show a brief confirmation or error banner. */
 export function ServicesPageEffects() {
   const searchParams = useSearchParams();
   const open = searchParams.get("open");
   const saved = searchParams.get("saved") === "1";
+  const photoerr = searchParams.get("photoerr");
 
   useEffect(() => {
-    if (!saved || !open) return;
+    if (!(saved || photoerr) || !open) return;
     const timer = window.setTimeout(() => {
       document.getElementById(serviceSectionId(open))?.scrollIntoView({
         behavior: "smooth",
@@ -20,7 +21,17 @@ export function ServicesPageEffects() {
       });
     }, 150);
     return () => window.clearTimeout(timer);
-  }, [saved, open]);
+  }, [saved, photoerr, open]);
+
+  if (photoerr) {
+    return (
+      <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        {photoerr === "size"
+          ? "That photo is too large. Please choose an image under 8MB."
+          : "Photo upload failed. Use a JPG, PNG or WebP image and try again."}
+      </div>
+    );
+  }
 
   if (!saved) return null;
 
