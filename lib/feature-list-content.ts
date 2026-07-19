@@ -117,11 +117,11 @@ export const CHAPTERS: MarketingChapter[] = [
         whatItIs:
           "Clients only see genuinely free times based on your working hours (or a flexible daily window if your days change each week), time off, service duration, and what's already in the diary.",
         howItWorks:
-          "Set opening hours and block time off - or turn on flexible hours for rotating rosters and pair with booking approval. When a client books, the slot is held. Google Calendar sync keeps everything aligned.",
+          "Set opening hours and block time off - or use Team → Week rota for changing weekly hours. Flexible daily windows remain a fallback. When a client books, the slot is held. Google Calendar sync keeps everything aligned.",
         benefits: [
           "No double bookings",
           "Clients self-serve times that work",
-          "Works for fixed weeks or rotating diaries",
+          "Works for fixed weeks or week-by-week rotas",
           "Less WhatsApp ping-pong",
         ],
         marketingHooks: [

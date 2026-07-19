@@ -1,8 +1,10 @@
 import { fromZonedTime } from "date-fns-tz";
 import { TZ } from "@/lib/format";
+import { mondayOfWeekContaining } from "@/lib/rota";
 import type {
   Booking,
   BookingAddon,
+  RotaHour,
   Client,
   PatchTest,
   Service,
@@ -172,6 +174,50 @@ export interface AvailabilityCtx {
   bookings: Booking[];
   /** When set, every day uses this window instead of weekday-specific hours. */
   flexibleHours?: FlexibleHoursWindow | null;
+  /**
+   * Week-by-week rota rows for the staff member in this ctx.
+   * If any row exists for the week containing the date, that week uses the rota
+   * (closed days = no enabled row) instead of flexible / recurring hours.
+   */
+  rotaHours?: RotaHour[];
+}
+
+/** Resolve the open window for one calendar day (or null if closed). */
+export function dayWindowForDate(
+  dateStr: string,
+  ctx: AvailabilityCtx,
+): { startMinutes: number; endMinutes: number; lastStartMinutes: number | null } | null {
+  const weekday = weekdayOf(dateStr);
+
+  if (ctx.rotaHours?.length) {
+    const weekStart = mondayOfWeekContaining(dateStr);
+    const weekRows = ctx.rotaHours.filter((r) => r.weekStart.slice(0, 10) === weekStart);
+    if (weekRows.length > 0) {
+      const row = weekRows.find((w) => w.weekday === weekday && w.enabled);
+      if (!row) return null;
+      return {
+        startMinutes: row.startMinutes,
+        endMinutes: row.endMinutes,
+        lastStartMinutes: row.lastStartMinutes,
+      };
+    }
+  }
+
+  if (ctx.flexibleHours) {
+    return {
+      startMinutes: ctx.flexibleHours.startMinutes,
+      endMinutes: ctx.flexibleHours.endMinutes,
+      lastStartMinutes: ctx.flexibleHours.lastStartMinutes,
+    };
+  }
+
+  const wh = ctx.workingHours.find((w) => w.weekday === weekday && w.enabled);
+  if (!wh) return null;
+  return {
+    startMinutes: wh.startMinutes,
+    endMinutes: wh.endMinutes,
+    lastStartMinutes: wh.lastStartMinutes,
+  };
 }
 
 const DEFAULT_FLEXIBLE_START = 9 * 60;
@@ -245,14 +291,7 @@ export function daySlotsForDuration(
   ctx: AvailabilityCtx,
   nowMs = Date.now(),
 ): string[] {
-  const weekday = weekdayOf(dateStr);
-  const wh = ctx.flexibleHours
-    ? {
-        startMinutes: ctx.flexibleHours.startMinutes,
-        endMinutes: ctx.flexibleHours.endMinutes,
-        lastStartMinutes: ctx.flexibleHours.lastStartMinutes,
-      }
-    : ctx.workingHours.find((w) => w.weekday === weekday && w.enabled);
+  const wh = dayWindowForDate(dateStr, ctx);
   if (!wh) return [];
 
   const offs = ctx.timeOff.map((o) => ({

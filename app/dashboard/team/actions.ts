@@ -5,15 +5,19 @@ import { revalidatePath } from "next/cache";
 import { getDashboardContext } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
 import {
+  clearRotaWeek,
   createStaff,
   getStaff,
+  listRotaHours,
   listStaff,
+  replaceRotaWeek,
   replaceWorkingHours,
   setStaffServices,
   updateStaff,
 } from "@/lib/db/queries";
 import { randomId } from "@/lib/ids";
-import type { WorkingHour } from "@/lib/db/types";
+import { addDaysToDateStr, mondayOfWeekContaining } from "@/lib/rota";
+import type { RotaHour, WorkingHour } from "@/lib/db/types";
 
 const TEAM = "/dashboard/team";
 
@@ -169,4 +173,128 @@ export async function resetStaffPasswordAction(formData: FormData) {
   if (error) redirect(`${TEAM}?err=password`);
   revalidatePath(TEAM);
   redirect(`${TEAM}?saved=1`);
+}
+
+function rotaRowsFromForm(
+  formData: FormData,
+  techId: string,
+  staffId: string,
+  weekStart: string,
+): RotaHour[] {
+  const rows: RotaHour[] = [];
+  for (let weekday = 0; weekday <= 6; weekday++) {
+    rows.push({
+      id: randomId("rota"),
+      techId,
+      staffId,
+      weekStart,
+      weekday,
+      startMinutes: hhmmToMin(String(formData.get(`start_${weekday}`) ?? "09:00")),
+      endMinutes: hhmmToMin(String(formData.get(`end_${weekday}`) ?? "17:00")),
+      lastStartMinutes: null,
+      enabled: formData.get(`enabled_${weekday}`) === "on",
+    });
+  }
+  return rows;
+}
+
+async function assertOwnedStaff(staffId: string) {
+  const { tech } = await ownerCtx();
+  const svc = supabaseService();
+  const staff = await getStaff(svc, staffId);
+  if (!staff || staff.techId !== tech.id) return null;
+  return { tech, svc, staff };
+}
+
+export async function loadStaffRotaWeekAction(
+  staffId: string,
+  weekStart: string,
+): Promise<RotaHour[]> {
+  const owned = await assertOwnedStaff(staffId);
+  if (!owned) return [];
+  const week = mondayOfWeekContaining(weekStart);
+  return listRotaHours(owned.svc, owned.tech.id, {
+    staffId,
+    fromWeek: week,
+    toWeek: week,
+  });
+}
+
+export async function saveStaffRotaWeekAction(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const staffId = String(formData.get("id") ?? "");
+  const weekStart = mondayOfWeekContaining(String(formData.get("weekStart") ?? ""));
+  const owned = await assertOwnedStaff(staffId);
+  if (!owned) return { ok: false, error: "Staff member not found." };
+  try {
+    await replaceRotaWeek(
+      owned.svc,
+      owned.tech.id,
+      staffId,
+      weekStart,
+      rotaRowsFromForm(formData, owned.tech.id, staffId, weekStart),
+    );
+    revalidatePath(TEAM);
+    revalidatePath(`/${owned.tech.handle}`);
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Could not save rota.";
+    if (/rota_hours|schema cache/i.test(msg)) {
+      return {
+        ok: false,
+        error: "Rota needs a database update first. Ask Glow support to run migration 0033.",
+      };
+    }
+    return { ok: false, error: msg };
+  }
+}
+
+export async function clearStaffRotaWeekAction(
+  staffId: string,
+  weekStart: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const owned = await assertOwnedStaff(staffId);
+  if (!owned) return { ok: false, error: "Staff member not found." };
+  const week = mondayOfWeekContaining(weekStart);
+  try {
+    await clearRotaWeek(owned.svc, owned.tech.id, staffId, week);
+    revalidatePath(TEAM);
+    revalidatePath(`/${owned.tech.handle}`);
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Could not clear rota.";
+    return { ok: false, error: msg };
+  }
+}
+
+/** Copy the previous week's rota into this week (saved immediately). */
+export async function copyStaffRotaFromPreviousAction(
+  staffId: string,
+  weekStart: string,
+): Promise<{ ok: true; rows: RotaHour[] } | { ok: false; error: string }> {
+  const owned = await assertOwnedStaff(staffId);
+  if (!owned) return { ok: false, error: "Staff member not found." };
+  const week = mondayOfWeekContaining(weekStart);
+  const prev = addDaysToDateStr(week, -7);
+  try {
+    const prevRows = await listRotaHours(owned.svc, owned.tech.id, {
+      staffId,
+      fromWeek: prev,
+      toWeek: prev,
+    });
+    if (!prevRows.length) return { ok: true, rows: [] };
+    const rows: RotaHour[] = prevRows.map((r) => ({
+      ...r,
+      id: randomId("rota"),
+      weekStart: week,
+    }));
+    await replaceRotaWeek(owned.svc, owned.tech.id, staffId, week, rows);
+    revalidatePath(TEAM);
+    revalidatePath(`/${owned.tech.handle}`);
+    return { ok: true, rows };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Could not copy rota.";
+    return { ok: false, error: msg };
+  }
 }

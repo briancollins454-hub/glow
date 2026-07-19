@@ -220,6 +220,24 @@ export interface WorkingHour {
   enabled: boolean;
 }
 
+/**
+ * One day in a staff member's week-by-week rota.
+ * When any rows exist for a staffId + weekStart, that week uses the rota
+ * instead of recurring working hours / flexible daily window.
+ */
+export interface RotaHour {
+  id: string;
+  techId: string;
+  staffId: string;
+  /** Monday of the week (YYYY-MM-DD, Europe/London). */
+  weekStart: string;
+  weekday: number; // 0 = Sunday ... 6 = Saturday
+  startMinutes: number;
+  endMinutes: number;
+  lastStartMinutes: number | null;
+  enabled: boolean;
+}
+
 export interface TimeOff {
   id: string;
   techId: string;
