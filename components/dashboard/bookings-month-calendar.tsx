@@ -24,6 +24,11 @@ type Props = {
   bookings: Booking[];
   clientById: Record<string, string>;
   serviceById: Record<string, string>;
+  /** Controlled selected day (YYYY-MM-DD London). */
+  selected?: string;
+  onSelectedChange?: (dateStr: string) => void;
+  /** Hide the flat day list (e.g. when team columns are shown instead). */
+  hideDayList?: boolean;
 };
 
 function activeBookings(bookings: Booking[]): Booking[] {
@@ -63,10 +68,22 @@ function monthCells(cursor: Date): { dateStr: string; inMonth: boolean }[] {
   return cells;
 }
 
-export function BookingsMonthCalendar({ bookings, clientById, serviceById }: Props) {
+export function BookingsMonthCalendar({
+  bookings,
+  clientById,
+  serviceById,
+  selected: selectedProp,
+  onSelectedChange,
+  hideDayList = false,
+}: Props) {
   const todayStr = dateStrInTz(new Date());
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
-  const [selected, setSelected] = useState(todayStr);
+  const [internalSelected, setInternalSelected] = useState(todayStr);
+  const selected = selectedProp ?? internalSelected;
+  const setSelected = (dateStr: string) => {
+    if (onSelectedChange) onSelectedChange(dateStr);
+    else setInternalSelected(dateStr);
+  };
 
   const byDate = useMemo(() => bookingsByDate(bookings), [bookings]);
   const cells = useMemo(() => monthCells(cursor), [cursor]);
@@ -153,45 +170,52 @@ export function BookingsMonthCalendar({ bookings, clientById, serviceById }: Pro
           })}
         </div>
 
-        <div className="border-t border-edge pt-4">
-          <p className="mb-2 text-sm font-medium text-ink">
-            {fmtDate(`${selected}T12:00:00Z`)}
-            <span className="ml-2 font-normal text-ink-faint">
-              ({selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"})
-            </span>
-          </p>
-          {selectedBookings.length === 0 ? (
-            <p className="py-3 text-center text-sm text-ink-faint">Nothing booked this day.</p>
-          ) : (
-            <ul className="space-y-2">
-              {selectedBookings.map((b) => (
-                <li
-                  key={b.id}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-cream px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <Link
-                        href={`/dashboard/bookings/${b.id}`}
-                        className="truncate font-medium hover:text-brand-300"
-                      >
-                        {clientById[b.clientId] ?? "Client"}
-                      </Link>
-                      {statusBadge(b.status)}
+        {!hideDayList && (
+          <div className="border-t border-edge pt-4">
+            <p className="mb-2 text-sm font-medium text-ink">
+              {fmtDate(`${selected}T12:00:00Z`)}
+              <span className="ml-2 font-normal text-ink-faint">
+                ({selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"})
+              </span>
+            </p>
+            {selectedBookings.length === 0 ? (
+              <p className="py-3 text-center text-sm text-ink-faint">Nothing booked this day.</p>
+            ) : (
+              <ul className="space-y-2">
+                {selectedBookings.map((b) => (
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-cream px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Link
+                          href={`/dashboard/bookings/${b.id}`}
+                          className="truncate font-medium hover:text-brand-300"
+                        >
+                          {clientById[b.clientId] ?? "Client"}
+                        </Link>
+                        {statusBadge(b.status)}
+                      </div>
+                      <p className="mt-0.5 text-xs text-ink-faint">
+                        {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"} ·{" "}
+                        <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
+                      </p>
                     </div>
-                    <p className="mt-0.5 text-xs text-ink-faint">
-                      {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"} ·{" "}
-                      <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
-                    </p>
-                  </div>
-                  <div className="shrink-0">
-                    <BookingActions id={b.id} status={b.status} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    <div className="shrink-0">
+                      <BookingActions id={b.id} status={b.status} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {hideDayList && (
+          <p className="border-t border-edge pt-3 text-xs text-ink-faint">
+            Selected day opens in the team columns below.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
