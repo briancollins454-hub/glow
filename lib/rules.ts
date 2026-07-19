@@ -43,6 +43,14 @@ export function amountFromPolicy(
   return Math.min(Math.round((pricePennies * pct) / 100), pricePennies);
 }
 
+/** No-show fee in pennies for a booking price, from the tech's policy. */
+export function noShowFeeFor(
+  tech: Pick<Tech, "noShowFeePct"> & Partial<Pick<Tech, "noShowFeeType" | "noShowFeeValue">>,
+  pricePennies: number,
+): number {
+  return amountFromPolicy(tech.noShowFeeType, tech.noShowFeeValue, tech.noShowFeePct, pricePennies);
+}
+
 export function depositForRisk(
   service: Service,
   tech: Pick<Tech, "depositTierMediumPct" | "depositTierHighPct"> &

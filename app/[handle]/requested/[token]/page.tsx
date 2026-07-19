@@ -5,6 +5,7 @@ import { Clock, CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle, listBookingsByGroup } from "@/lib/db/queries";
 import { fmtDateTime } from "@/lib/format";
+import { usesCardCapture } from "@/lib/subscriptions";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -43,8 +44,10 @@ export default async function RequestedBookingPage({
             <Clock className="mx-auto h-12 w-12" />
             <h1 className="mt-3 font-display text-2xl font-semibold">Request sent</h1>
             <p className="mt-1 text-sm text-white/85">
-              {tech.businessName} will review your booking. You&apos;ll get an email to pay your deposit once
-              approved.
+              {tech.businessName} will review your booking.{" "}
+              {usesCardCapture(tech)
+                ? "You'll get an email to save a card (nothing is charged) once approved."
+                : "You'll get an email to pay your deposit once approved."}
             </p>
           </div>
           <div className="space-y-4 p-6">

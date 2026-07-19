@@ -173,6 +173,7 @@ function bodyLine(ctx: PdfCtx, text: string, opts: { bold?: boolean; gap?: numbe
 function kindLabel(kind: Payment["kind"]): string {
   if (kind === "deposit") return "Deposit";
   if (kind === "balance") return "Balance";
+  if (kind === "no_show_fee") return "No-show fee";
   return "Refund";
 }
 

@@ -12,6 +12,17 @@ export function isPaymentsReady(tech: Pick<Tech, "connectChargesEnabled">): bool
   return !!tech.connectChargesEnabled;
 }
 
+/**
+ * True when this tech protects against no-shows by saving the client's card at
+ * booking (nothing charged upfront) instead of taking a deposit. Only takes
+ * effect when Stripe payments are ready.
+ */
+export function usesCardCapture(
+  tech: Pick<Tech, "connectChargesEnabled"> & { noShowProtection?: Tech["noShowProtection"] },
+): boolean {
+  return tech.noShowProtection === "card_capture" && isPaymentsReady(tech);
+}
+
 export function planLabel(tech: Pick<Tech, "plan" | "subscriptionStatus">): string {
   if (tech.subscriptionStatus === "comped") return "Complimentary";
   if (tech.plan === "annual") return "Annual (£180/yr)";

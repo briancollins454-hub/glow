@@ -498,25 +498,42 @@ export async function notifyClientBookingApproved(
   const actionUrl = `${APP_URL}/${tech.handle}/booked/${booking.balanceToken}`;
 
   const needsDeposit = booking.status === "pending" && booking.depositPennies > 0;
+  // Card capture mode: approved bookings stay pending until a card is saved.
+  const needsCard =
+    booking.status === "pending" && !needsDeposit && !booking.cardPaymentMethodId;
   const html = brandedEmail({
     brand,
     businessName: biz,
-    heading: needsDeposit ? "You're approved — pay your deposit" : "You're booked in!",
+    heading: needsDeposit
+      ? "You're approved — pay your deposit"
+      : needsCard
+        ? "You're approved — save a card to secure your slot"
+        : "You're booked in!",
     bodyHtml: needsDeposit
       ? `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>.<br/><br/>Pay your <strong>${gbp(booking.depositPennies)}</strong> deposit now to secure the slot.`
-      : `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>. See you then!`,
-    buttonLabel: needsDeposit ? `Pay ${gbp(booking.depositPennies)} deposit` : "View booking",
+      : needsCard
+        ? `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>.<br/><br/>No deposit needed — just save a card (nothing is charged) to secure the slot.`
+        : `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>. See you then!`,
+    buttonLabel: needsDeposit
+      ? `Pay ${gbp(booking.depositPennies)} deposit`
+      : needsCard
+        ? "Save card to secure booking"
+        : "View booking",
     buttonUrl: actionUrl,
   });
   await sendEmail({
     to: client.email,
     subject: needsDeposit
       ? `${biz} approved your booking — deposit due`
-      : `Your booking with ${biz} is confirmed`,
+      : needsCard
+        ? `${biz} approved your booking — one last step`
+        : `Your booking with ${biz} is confirmed`,
     html,
     text: needsDeposit
       ? `Hi ${name}, ${biz} approved your ${service.name} on ${when}. Pay your deposit: ${actionUrl}`
-      : `Hi ${name}, your ${service.name} with ${biz} on ${when} is confirmed. ${actionUrl}`,
+      : needsCard
+        ? `Hi ${name}, ${biz} approved your ${service.name} on ${when}. Save a card (nothing charged) to secure it: ${actionUrl}`
+        : `Hi ${name}, your ${service.name} with ${biz} on ${when} is confirmed. ${actionUrl}`,
     idempotencyKey: `booking-approved/${booking.id}`,
   });
 }

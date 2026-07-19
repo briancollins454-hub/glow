@@ -78,8 +78,8 @@ export async function joinWaitlistAction(formData: FormData) {
   redirect(`/${handle}?service=${serviceId}&wl=1`);
 }
 
-import { createDepositCheckout } from "@/lib/payments";
-import { isLive, isPaymentsReady } from "@/lib/subscriptions";
+import { createCardCaptureCheckout, createDepositCheckout } from "@/lib/payments";
+import { isLive, isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -317,6 +317,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const riskTier = scoreClientRisk(client, { completedVisits }, tech);
   const manualApproval = needsManualApproval(tech, riskTier);
   const autoApproved = !manualApproval && tech.approvalMode === "rules";
+  const cardCapture = usesCardCapture(tech);
 
   if (manualApproval) {
     let pending;
@@ -332,6 +333,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         discountPennies,
         riskTier,
         pairedBookingId: patchBooking.id,
+        depositOverridePennies: cardCapture ? 0 : null,
       });
     } catch (e) {
       if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -344,9 +346,11 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     redirect(`/${tech.handle}/requested/${pending.balanceToken}`);
   }
 
-  const deposit = bookingAmounts(service, tech, riskTier, addons, discountPennies).deposit;
+  const deposit = cardCapture
+    ? 0
+    : bookingAmounts(service, tech, riskTier, addons, discountPennies).deposit;
 
-  if (deposit > 0 && isPaymentsReady(tech)) {
+  if ((deposit > 0 || cardCapture) && isPaymentsReady(tech)) {
     let pending;
     try {
       pending = await createPendingOnlineBooking({
@@ -361,6 +365,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         riskTier,
         autoApproved,
         pairedBookingId: patchBooking.id,
+        depositOverridePennies: cardCapture ? 0 : null,
       });
     } catch (e) {
       if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -368,7 +373,9 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     }
     await linkPairedBookings(sb, patchBooking.id, pending.id);
     await saveAnswers(pending.id);
-    const url = await createDepositCheckout(tech, service, pending, APP_URL);
+    const url = cardCapture
+      ? await createCardCaptureCheckout(tech, service, pending, client, APP_URL)
+      : await createDepositCheckout(tech, service, pending, APP_URL);
     redirect(url);
   }
 
@@ -563,6 +570,10 @@ export async function createPublicBookingAction(formData: FormData) {
   const autoApproved = !manualApproval && tech!.approvalMode === "rules";
   const isBasket = basket.length > 1;
 
+  // Card capture mode: no deposit is taken; the client saves a card instead
+  // and the tech can charge their no-show fee if the client doesn't turn up.
+  const cardCapture = usesCardCapture(tech!);
+
   // Stripe line-item label: name the whole visit, not just the first treatment.
   const checkoutService = isBasket
     ? { ...service!, name: `${service!.name} + ${extras.length} more treatment${extras.length > 1 ? "s" : ""}` }
@@ -583,6 +594,7 @@ export async function createPublicBookingAction(formData: FormData) {
           addons,
           discountPennies,
           riskTier,
+          depositOverridePennies: cardCapture ? 0 : null,
         });
         pending = created.primary;
       } else {
@@ -596,6 +608,7 @@ export async function createPublicBookingAction(formData: FormData) {
           addons,
           discountPennies,
           riskTier,
+          depositOverridePennies: cardCapture ? 0 : null,
         });
       }
     } catch (e) {
@@ -608,14 +621,16 @@ export async function createPublicBookingAction(formData: FormData) {
     redirect(`/${tech!.handle}/requested/${pending.balanceToken}`);
   }
 
-  const deposit = isBasket
-    ? basketAmounts(basket, tech!, riskTier, addons, discountPennies).deposit
-    : bookingAmounts(service!, tech!, riskTier, addons, discountPennies).deposit;
+  const deposit = cardCapture
+    ? 0
+    : isBasket
+      ? basketAmounts(basket, tech!, riskTier, addons, discountPennies).deposit
+      : bookingAmounts(service!, tech!, riskTier, addons, discountPennies).deposit;
 
-  // If a deposit applies and the tech can take card payments, send the client to
-  // Stripe Checkout on the tech's connected account. Otherwise confirm now
-  // (deposit settled in person).
-  if (deposit > 0 && isPaymentsReady(tech!)) {
+  // If money (deposit) or a saved card is needed and the tech can take card
+  // payments, send the client to Stripe Checkout on the tech's connected
+  // account. Otherwise confirm now (deposit settled in person).
+  if ((deposit > 0 || cardCapture) && isPaymentsReady(tech!)) {
     let pending;
     try {
       if (isBasket) {
@@ -631,6 +646,7 @@ export async function createPublicBookingAction(formData: FormData) {
           discountPennies,
           riskTier,
           autoApproved,
+          depositOverridePennies: cardCapture ? 0 : null,
         });
         pending = created.primary;
       } else {
@@ -645,6 +661,7 @@ export async function createPublicBookingAction(formData: FormData) {
           discountPennies,
           riskTier,
           autoApproved,
+          depositOverridePennies: cardCapture ? 0 : null,
         });
       }
     } catch (e) {
@@ -652,7 +669,9 @@ export async function createPublicBookingAction(formData: FormData) {
       throw e;
     }
     await saveAnswers(pending.id);
-    const url = await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
+    const url = cardCapture
+      ? await createCardCaptureCheckout(tech!, checkoutService, pending, client, APP_URL)
+      : await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
     redirect(url);
   }
 

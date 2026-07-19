@@ -221,6 +221,16 @@ export async function updateSettingsAction(formData: FormData) {
     noShowFeeType: noShowFee.type === "none" ? "percent" : noShowFee.type,
     noShowFeeValue: noShowFee.value,
     noShowFeePct: noShowFee.type === "percent" ? noShowFee.value : tech.noShowFeePct,
+    // Only present on settings forms that render the control (marker field),
+    // so stale tabs from before the deploy can't silently reset the choice.
+    ...(formData.get("noShowProtectionField") === "1"
+      ? {
+          noShowProtection:
+            formData.get("noShowProtection") === "card_capture"
+              ? ("card_capture" as const)
+              : ("deposit" as const),
+        }
+      : {}),
     rebookNudgesEnabled: formData.get("rebookNudgesEnabled") === "on",
     infillNudgesEnabled: formData.get("infillNudgesEnabled") === "on",
     preCareConfirmationsEnabled: formData.get("preCareConfirmationsEnabled") === "on",
@@ -809,10 +819,53 @@ export async function setBookingStatusAction(formData: FormData) {
   const becomingCompleted = status === "completed" && booking.status !== "completed";
   const batchId = becomingCompleted ? String(formData.get("batchId") ?? "").trim() : "";
 
+  // Outcome of a card-capture no-show charge, surfaced on the bookings page.
+  let noShowCharge: "charged" | "declined" | null = null;
+  let noShowChargePennies = 0;
+
   if (status === "no_show") {
     patch.depositStatus = booking.depositStatus === "paid" ? "forfeited" : booking.depositStatus;
     const client = await getClient(sb, booking.clientId);
     if (client) await updateClient(sb, client.id, { noShowCount: client.noShowCount + 1 });
+
+    // Card capture: charge the configured no-show fee against the saved card.
+    // Off-session charges can be declined by the client's bank, so a failure
+    // is reported to the tech rather than blocking the status change.
+    if (
+      booking.status !== "no_show" &&
+      booking.cardPaymentMethodId &&
+      tech.stripeConnectAccountId
+    ) {
+      const { noShowFeeFor } = await import("@/lib/rules");
+      const fee = noShowFeeFor(tech, booking.pricePennies);
+      if (fee > 0) {
+        const { chargeNoShowFee } = await import("@/lib/payments");
+        const result = await chargeNoShowFee(tech, booking, fee);
+        noShowChargePennies = fee;
+        if (result.ok) {
+          noShowCharge = "charged";
+          await createPayment(sb, {
+            techId: tech.id,
+            bookingId: booking.id,
+            kind: "no_show_fee",
+            amountPennies: fee,
+            status: "succeeded",
+            provider: "stripe",
+            providerRef: result.paymentIntentId,
+          }).catch(() => {});
+          await audit(sb, tech.id, "no_show_fee_charged", "booking", id, {
+            amountPennies: fee,
+            paymentIntentId: result.paymentIntentId,
+          });
+        } else {
+          noShowCharge = "declined";
+          await audit(sb, tech.id, "no_show_fee_failed", "booking", id, {
+            amountPennies: fee,
+            error: result.error ?? "",
+          });
+        }
+      }
+    }
   }
   if (status === "cancelled") {
     const cancelReason = String(formData.get("cancelReason") ?? "client_late_cancel");
@@ -937,7 +990,8 @@ export async function setBookingStatusAction(formData: FormData) {
   });
 
   // ?saved=1 busts the client dashboard cache so the new status is visible.
-  redirect(`${returnTo}?saved=1`);
+  const chargeQs = noShowCharge ? `&noshowfee=${noShowCharge}&noshowamt=${noShowChargePennies}` : "";
+  redirect(`${returnTo}?saved=1${chargeQs}`);
 }
 
 export async function approveBookingRequestDashboardAction(formData: FormData) {

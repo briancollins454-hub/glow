@@ -20,7 +20,8 @@ import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
-import { depositFor } from "@/lib/rules";
+import { depositFor, noShowFeeFor } from "@/lib/rules";
+import { usesCardCapture } from "@/lib/subscriptions";
 import { createPublicBookingAction, joinWaitlistAction } from "@/app/[handle]/actions";
 import { onBrand } from "@/lib/booking/brand";
 import { BASKET_MAX_EXTRAS, basketParam } from "@/lib/booking/basket";
@@ -80,8 +81,11 @@ export function BookingStepInteractive({
   const basket = [service, ...basketExtras];
   const totalPrice = basket.reduce((s, x) => s + x.pricePennies, 0);
   const totalDuration = basket.reduce((s, x) => s + x.durationMin, 0);
-  const deposit = basket.reduce((s, x) => s + depositFor(x), 0);
+  // Card capture: nothing is paid upfront; a card is saved at checkout instead.
+  const cardCapture = usesCardCapture(tech);
+  const deposit = cardCapture ? 0 : basket.reduce((s, x) => s + depositFor(x), 0);
   const balance = Math.max(0, totalPrice - deposit);
+  const noShowFee = cardCapture ? noShowFeeFor(tech, totalPrice) : 0;
   const hasBasket = basketExtras.length > 0;
   const alsoValue = basketParam(basketExtras);
   const [slot, setSlot] = useState(initialSlot ?? "");
@@ -196,10 +200,22 @@ export function BookingStepInteractive({
           )}
 
           <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl border border-edge bg-cream/50 p-3 text-sm sm:gap-3 sm:p-4">
-            <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} highlight={deposit > 0} brand={brand} />
-            <Stat label="Balance on the day" value={gbp(balance)} />
+            {cardCapture ? (
+              <Stat label="Pay today" value="Nothing" highlight brand={brand} />
+            ) : (
+              <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} highlight={deposit > 0} brand={brand} />
+            )}
+            <Stat label={cardCapture ? "Pay on the day" : "Balance on the day"} value={gbp(balance)} />
             <Stat label="Cancellation" value={`${tech.cancellationWindowHours}h notice`} />
           </div>
+
+          {cardCapture && (
+            <p className="mt-3 text-xs leading-relaxed text-ink-faint">
+              No deposit — a card saved securely at checkout holds your booking. Nothing is
+              charged unless you miss your appointment
+              {noShowFee > 0 ? ` (no-show fee up to ${gbp(noShowFee)})` : ""}.
+            </p>
+          )}
 
           {(service.requiresPatchTest || service.isInfill) && (
             <div className="mt-4 space-y-2">
@@ -441,8 +457,10 @@ export function BookingStepInteractive({
                 <Link href="/privacy" className="text-brand-400 underline-offset-2 hover:underline">
                   privacy policy
                 </Link>
-                . My {deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is
-                deducted from the total.
+                .{" "}
+                {cardCapture
+                  ? `A card saved securely at checkout holds my booking — nothing is charged today. If I miss the appointment, a no-show fee${noShowFee > 0 ? ` of up to ${gbp(noShowFee)}` : ""} may be charged to it.`
+                  : `My ${deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.`}
               </span>
             </label>
             <SubmitButton
@@ -451,7 +469,11 @@ export function BookingStepInteractive({
               pendingLabel="Securing your slot…"
             >
               <Lock className="h-4 w-4" />
-              {deposit > 0 ? `Pay ${gbp(deposit)} deposit & book` : "Confirm booking"}
+              {cardCapture
+                ? "Save card & book"
+                : deposit > 0
+                  ? `Pay ${gbp(deposit)} deposit & book`
+                  : "Confirm booking"}
             </SubmitButton>
             {(process.env.NEXT_PUBLIC_STRIPE_TEST_MODE === "1" ||
               (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test")) && (

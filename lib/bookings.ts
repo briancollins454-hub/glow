@@ -11,7 +11,7 @@ import { sendReminder } from "@/lib/notify";
 import { randomId, randomToken } from "@/lib/ids";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, RiskTier, Service, Tech } from "@/lib/db/types";
-import { isPaymentsReady } from "@/lib/subscriptions";
+import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -186,7 +186,7 @@ export async function createConfirmedBooking({
   return booking;
 }
 
-/** Pending booking awaiting an online deposit payment (confirmed once paid). */
+/** Pending booking awaiting an online deposit payment or card capture (confirmed once done). */
 export async function createPendingOnlineBooking({
   sb,
   tech,
@@ -201,6 +201,7 @@ export async function createPendingOnlineBooking({
   pairedBookingId = null,
   riskTier = null,
   autoApproved = false,
+  depositOverridePennies = null,
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
@@ -210,6 +211,7 @@ export async function createPendingOnlineBooking({
     addons,
     discountPennies,
     riskTier,
+    depositOverridePennies,
   );
 
   return createBooking(sb, {
@@ -254,6 +256,7 @@ export async function createPendingApprovalBooking({
   discountPennies = 0,
   pairedBookingId = null,
   riskTier = null,
+  depositOverridePennies = null,
 }: BaseParams): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
@@ -263,6 +266,7 @@ export async function createPendingApprovalBooking({
     addons,
     discountPennies,
     riskTier,
+    depositOverridePennies,
   );
 
   return createBooking(sb, {
@@ -293,7 +297,7 @@ export async function createPendingApprovalBooking({
   });
 }
 
-/** Tech approved a request — client pays deposit next, or booking confirms immediately. */
+/** Tech approved a request — client pays deposit / saves a card next, or booking confirms immediately. */
 export async function approveBookingRequest(sb: SupabaseClient, booking: Booking): Promise<Booking> {
   if (booking.status !== "pending_approval") return booking;
 
@@ -306,7 +310,10 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
   ]);
   if (!tech || !service || !client) throw new Error("Booking data missing");
 
-  const needsDeposit = booking.depositPennies > 0 && isPaymentsReady(tech);
+  // Card capture mode: the client saves a card (via the booked page) before
+  // the booking confirms, mirroring the deposit path.
+  const needsCard = usesCardCapture(tech) && !booking.cardPaymentMethodId;
+  const needsDeposit = (booking.depositPennies > 0 && isPaymentsReady(tech)) || needsCard;
   if (needsDeposit) {
     await updateBooking(sb, booking.id, { status: "pending", approvalToken: null });
     await propagateGroupStatus(sb, booking, "pending");
@@ -373,6 +380,41 @@ export async function applyDepositPaid(
   await updateBooking(sb, booking.id, { status: "confirmed", depositStatus: "paid" });
   await propagateGroupStatus(sb, booking, "confirmed");
   const confirmed = { ...booking, status: "confirmed" as const, depositStatus: "paid" as const };
+  await scheduleReminders(sb, confirmed);
+  try {
+    const { getTechById } = await import("@/lib/db/queries");
+    const tech = await getTechById(sb, booking.techId);
+    await syncBookingToGoogle(sb, tech, confirmed);
+    if (booking.groupId && tech) {
+      for (const b of await listBookingsByGroup(sb, booking.groupId)) {
+        if (b.id !== booking.id) await syncBookingToGoogle(sb, tech, { ...b, status: "confirmed" });
+      }
+    }
+  } catch {
+    // Calendar sync is best-effort.
+  }
+}
+
+/** Card saved for no-show cover (idempotent): confirm the booking + schedule reminders. */
+export async function applyCardCaptured(
+  sb: SupabaseClient,
+  booking: Booking,
+  customerId: string,
+  paymentMethodId: string,
+): Promise<void> {
+  if (booking.cardPaymentMethodId) return;
+  await updateBooking(sb, booking.id, {
+    status: "confirmed",
+    cardCustomerId: customerId,
+    cardPaymentMethodId: paymentMethodId,
+  });
+  await propagateGroupStatus(sb, booking, "confirmed");
+  const confirmed = {
+    ...booking,
+    status: "confirmed" as const,
+    cardCustomerId: customerId,
+    cardPaymentMethodId: paymentMethodId,
+  };
   await scheduleReminders(sb, confirmed);
   try {
     const { getTechById } = await import("@/lib/db/queries");
@@ -538,6 +580,7 @@ export async function createBasketBookings({
   discountPennies = 0,
   riskTier = null,
   autoApproved = false,
+  depositOverridePennies = null,
 }: {
   sb: SupabaseClient;
   tech: Tech;
@@ -550,12 +593,20 @@ export async function createBasketBookings({
   discountPennies?: number;
   riskTier?: RiskTier | null;
   autoApproved?: boolean;
+  depositOverridePennies?: number | null;
 }): Promise<{ primary: Booking; all: Booking[] }> {
   if (services.length < 2) throw new Error("Basket needs at least two treatments");
 
   const groupId = randomId("grp");
   const tier = riskTier ?? "medium";
-  const money = basketAmounts(services, tech, tier, addons, discountPennies);
+  const computed = basketAmounts(services, tech, tier, addons, discountPennies);
+  const money =
+    depositOverridePennies == null
+      ? computed
+      : (() => {
+          const deposit = Math.min(Math.max(0, depositOverridePennies), computed.price);
+          return { ...computed, deposit, balance: Math.max(0, computed.price - deposit) };
+        })();
   const starts = basketStartTimes(services, startIso);
   const created: Booking[] = [];
 
