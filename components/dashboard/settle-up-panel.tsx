@@ -147,7 +147,7 @@ export function SettleUpPanel({
                     <input type="hidden" name="cancelReason" value="client_late_cancel" />
                     <input type="hidden" name="returnTo" value="/dashboard" />
                     <SubmitButton size="sm" variant="outline" pendingLabel="Cancelling…">
-                      Cancel, keep deposit
+                      Cancel late
                     </SubmitButton>
                   </form>
                 )}

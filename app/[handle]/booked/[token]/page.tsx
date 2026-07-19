@@ -205,7 +205,9 @@ export default async function BookedPage({
                   <XCircle className="h-4 w-4" /> Cancel booking
                 </button>
                 <p className="mt-2 text-center text-xs text-ink-faint">
-                  Cancellations inside {tech.cancellationWindowHours}h may forfeit your deposit.
+                  {usesCardCapture(tech)
+                    ? `Cancellations inside ${tech.cancellationWindowHours}h may charge your saved card.`
+                    : `Cancellations inside ${tech.cancellationWindowHours}h may forfeit your deposit.`}
                 </p>
               </form>
             )}

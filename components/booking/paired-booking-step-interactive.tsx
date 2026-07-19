@@ -306,7 +306,7 @@ export function PairedBookingStepInteractive({
                 I agree to the {tech.cancellationWindowHours}h cancellation policy. My patch test and treatment
                 are booked together.
                 {cardCapture &&
-                  " A card saved securely at checkout holds my booking — nothing is charged today, but a no-show fee may be charged if I miss my appointment."}
+                  " A card saved securely at checkout holds my booking — nothing is charged today, but a fee may be charged if I miss my appointment or cancel late."}
               </span>
             </label>
             <SubmitButton

@@ -15,7 +15,7 @@ export type DepositType = "percent" | "fixed" | "none";
 export type DepositStatus = "none" | "paid" | "forfeited" | "refunded";
 export type BalanceStatus = "none" | "unpaid" | "paid" | "refunded";
 export type PaymentKind = "deposit" | "balance" | "refund" | "no_show_fee";
-/** deposit = pay upfront; card_capture = save a card at booking, charge the no-show fee if they don't turn up. */
+/** deposit = pay upfront; card_capture = save a card at booking, charge the fee on no-show or late cancel. */
 export type NoShowProtection = "deposit" | "card_capture";
 export type PaymentStatus = "succeeded" | "failed" | "refunded";
 export type PatchTestResult = "pending" | "pass" | "fail";

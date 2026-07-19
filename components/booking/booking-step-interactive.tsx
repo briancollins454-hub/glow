@@ -212,8 +212,8 @@ export function BookingStepInteractive({
           {cardCapture && (
             <p className="mt-3 text-xs leading-relaxed text-ink-faint">
               No deposit — a card saved securely at checkout holds your booking. Nothing is
-              charged unless you miss your appointment
-              {noShowFee > 0 ? ` (no-show fee up to ${gbp(noShowFee)})` : ""}.
+              charged unless you miss your appointment or cancel inside the notice window
+              {noShowFee > 0 ? ` (fee up to ${gbp(noShowFee)})` : ""}.
             </p>
           )}
 
@@ -459,7 +459,7 @@ export function BookingStepInteractive({
                 </Link>
                 .{" "}
                 {cardCapture
-                  ? `A card saved securely at checkout holds my booking — nothing is charged today. If I miss the appointment, a no-show fee${noShowFee > 0 ? ` of up to ${gbp(noShowFee)}` : ""} may be charged to it.`
+                  ? `A card saved securely at checkout holds my booking — nothing is charged today. If I miss the appointment or cancel inside the notice window, a fee${noShowFee > 0 ? ` of up to ${gbp(noShowFee)}` : ""} may be charged to it.`
                   : `My ${deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.`}
               </span>
             </label>

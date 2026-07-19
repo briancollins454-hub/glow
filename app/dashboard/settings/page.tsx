@@ -231,10 +231,11 @@ export default function SettingsPage() {
                 <span>
                   <span className="font-medium">Card on file — no deposit</span>
                   <span className="mt-0.5 block text-xs text-ink-faint">
-                    Clients save a card when they book (nothing is charged). If they no-show, your
-                    no-show charge below is taken from the saved card. Banks can occasionally
-                    decline these charges, so a deposit is the stronger guarantee. Needs card
-                    payments set up.
+                    Clients save a card when they book (nothing is charged today). If they no-show
+                    or cancel inside your notice window, your no-show charge below is taken from
+                    the saved card. You still take the rest of the payment yourself on the day.
+                    Banks can occasionally decline these charges, so a deposit is the stronger
+                    guarantee. Needs card payments set up.
                   </span>
                 </span>
               </label>
@@ -254,7 +255,7 @@ export default function SettingsPage() {
               <Input id="cancellationWindowHours" name="cancellationWindowHours" type="number" min={0} max={336} defaultValue={tech.cancellationWindowHours} />
             </div>
             <DepositFields
-              label="No-show charge"
+              label="No-show / late-cancel charge"
               nameType="noShowFeeType"
               nameValue="noShowFeeValue"
               defaultType={noShowFee.type === "none" ? "percent" : noShowFee.type}

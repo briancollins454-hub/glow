@@ -110,6 +110,9 @@ export async function cancelClientBookingAction(formData: FormData) {
   const hoursOut = (new Date(booking.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
   if (hoursOut < tech.cancellationWindowHours) {
     if (booking.depositStatus === "paid") patch.depositStatus = "forfeited";
+    // Card capture: charge the protection fee on late self-cancel.
+    const { chargeCardProtectionFee } = await import("@/lib/card-protection");
+    await chargeCardProtectionFee(sb, tech, booking, "late_cancel");
   } else if (tech.stripeConnectAccountId) {
     const payments = await paymentsForBooking(sb, booking.id);
     for (const p of payments) {
