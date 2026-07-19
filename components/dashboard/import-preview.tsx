@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   IMPORT_APPOINTMENT_GROUPS,
   IMPORT_COLS,
-  acuityServiceNames,
+  acuityCalendarCounts,
+  acuityDerivedServices,
   appointmentColumnsOk,
   appointmentServiceCol,
   appointmentWhenRaw,
   col,
+  filterAcuityRowsByCalendars,
   isAcuityAppointmentCsv,
   missingAppointmentGroups,
   parseAppointmentWhen,
   parseCsv,
+  type AcuityCalendarCount,
 } from "@/lib/csv";
 
 type Kind = "services" | "clients" | "appointments";
@@ -85,14 +88,20 @@ function describeMissing(kind: Kind, headers: string[]): string {
   return `${missing} required column group${missing === 1 ? "" : "s"} missing.`;
 }
 
+function formatCount(n: number): string {
+  return n.toLocaleString("en-GB");
+}
+
+type ParsedFile = {
+  headers: string[];
+  rows: string[][];
+  acuity: boolean;
+  calendars: AcuityCalendarCount[];
+};
+
 export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }) {
-  const [state, setState] = useState<{
-    rows: number;
-    ok: boolean;
-    sample: string;
-    detail: string;
-    notes: string[];
-  } | null>(null);
+  const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  const [selectedCalendars, setSelectedCalendars] = useState<string[]>([]);
 
   useEffect(() => {
     const input = document.getElementById(inputId) as HTMLInputElement | null;
@@ -101,109 +110,201 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
     const onChange = async () => {
       const file = input.files?.[0];
       if (!file) {
-        setState(null);
+        setParsed(null);
+        setSelectedCalendars([]);
         return;
       }
-      const parsed = parseCsv(await file.text());
-      const acuity = isAcuityAppointmentCsv(parsed.headers);
-      const notes: string[] = [];
-      let rows = parsed.rows.length;
-
-      let ok =
-        parsed.rows.length > 0 &&
-        (kind === "appointments"
-          ? appointmentColumnsOk(parsed.headers)
-          : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
-
-      // Acuity has no services export: the services step accepts the Acuity
-      // appointments file and derives services from the Type column.
-      if (kind === "services" && !ok && acuity && parsed.rows.length > 0) {
-        const derived = acuityServiceNames(parsed.headers, parsed.rows);
-        if (derived.length > 0) {
-          ok = true;
-          rows = derived.length;
-          notes.push(
-            `Acuity export detected: services are read from the appointments file because Acuity does not export services separately. ${derived.length} service${derived.length === 1 ? "" : "s"} will be created with a default price and duration for you to fill in.`,
-          );
-        }
-      }
-
-      if (kind === "appointments" && ok && acuity) {
-        notes.push(
-          "Acuity export detected: Start/End Time are read as long-form dates (for example December 2, 2020 9:00 am) using the Timezone column. Date Scheduled is when the booking was made and is ignored.",
-        );
-
-        const iTimezone = col(parsed.headers, "timezone", "tz");
-        const bad = parsed.rows.filter((row) => {
-          const { dateRaw, timeRaw } = appointmentWhenRaw(row, parsed.headers);
-          const timeZone = iTimezone !== -1 ? (row[iTimezone] ?? "").trim() : "";
-          return !parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
-        }).length;
-        if (bad > 0) {
-          notes.push(
-            `${bad} row${bad === 1 ? "" : "s"} have dates we cannot read, so they will be skipped.`,
-          );
-        }
-
-        const extras = parsed.headers.filter((h) => h && !ACUITY_KNOWN_COLS.has(h)).length;
-        if (extras > 0) {
-          notes.push(
-            "Extra columns such as Calendar, Certificate Code, Label, Scheduled By and Appointment ID are not imported.",
-          );
-        }
-      }
-
-      const sample =
-        kind === "appointments"
-          ? (() => {
-              const row = parsed.rows[0];
-              if (!row) return "";
-              const iClient = col(parsed.headers, ...IMPORT_COLS.appointmentClient);
-              const iFirst = col(parsed.headers, "firstname", "first");
-              const iService = appointmentServiceCol(parsed.headers);
-              const { dateRaw } = appointmentWhenRaw(row, parsed.headers);
-              const client =
-                iClient !== -1
-                  ? row[iClient]
-                  : iFirst !== -1
-                    ? [row[iFirst], row[col(parsed.headers, "lastname", "last", "surname")] ?? ""]
-                        .filter(Boolean)
-                        .join(" ")
-                    : "";
-              const parts = [
-                client,
-                iService !== -1 ? row[iService] : "",
-                dateRaw,
-              ].filter(Boolean);
-              return parts.join(" · ");
-            })()
-          : (parsed.rows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "");
-      const detail = ok ? "" : describeMissing(kind, parsed.headers);
-      setState({ rows, ok, sample, detail, notes });
+      const csv = parseCsv(await file.text());
+      const acuity = isAcuityAppointmentCsv(csv.headers);
+      const calendars =
+        acuity && (kind === "appointments" || kind === "services")
+          ? acuityCalendarCounts(csv.headers, csv.rows)
+          : [];
+      setParsed({ headers: csv.headers, rows: csv.rows, acuity, calendars });
+      // Multi-staff Acuity: preselect nothing so we never silently merge diaries.
+      setSelectedCalendars([]);
     };
 
     input.addEventListener("change", onChange);
     return () => input.removeEventListener("change", onChange);
   }, [inputId, kind]);
 
-  if (!state) return null;
+  const needsCalendarPick = !!parsed && parsed.acuity && parsed.calendars.length > 1;
+
+  const filtered = useMemo(() => {
+    if (!parsed) return { rows: [] as string[][], excludedCount: 0 };
+    if (!needsCalendarPick) return { rows: parsed.rows, excludedCount: 0 };
+    return filterAcuityRowsByCalendars(parsed.headers, parsed.rows, selectedCalendars);
+  }, [parsed, needsCalendarPick, selectedCalendars]);
+
+  if (!parsed) return null;
+
+  const waitingForCalendars = needsCalendarPick && selectedCalendars.length === 0;
+  const workingRows = filtered.rows;
+  const excludedCount = filtered.excludedCount;
+  const notes: string[] = [];
+  let rows = workingRows.length;
+  let ok =
+    parsed.rows.length > 0 &&
+    (kind === "appointments"
+      ? appointmentColumnsOk(parsed.headers)
+      : REQUIRED[kind].every((group) => col(parsed.headers, ...group) !== -1));
+
+  // Acuity has no services export: the services step accepts the Acuity
+  // appointments file and derives services from the Type column (filtered
+  // calendars only, when the tech has picked).
+  if (kind === "services" && !ok && parsed.acuity && parsed.rows.length > 0) {
+    ok = true;
+    if (waitingForCalendars) {
+      rows = 0;
+    } else {
+      const services = acuityDerivedServices(parsed.headers, workingRows);
+      rows = services.length;
+      if (services.length === 0) {
+        ok = false;
+      } else {
+        const fromCalendars = needsCalendarPick
+          ? ` from the selected calendar${selectedCalendars.length === 1 ? "" : "s"}`
+          : "";
+        notes.push(
+          `Acuity export detected: services are read from the appointments file because Acuity does not export services separately. ${services.length} service${services.length === 1 ? "" : "s"} will be created${fromCalendars}, with Appointment Price when present. Check durations afterwards.`,
+        );
+        if (excludedCount > 0) {
+          notes.push(
+            `${formatCount(excludedCount)} appointment${excludedCount === 1 ? "" : "s"} excluded, other calendars.`,
+          );
+        }
+      }
+    }
+  }
+
+  if (kind === "appointments" && ok && parsed.acuity) {
+    notes.push(
+      "Acuity export detected: Start/End Time are read as long-form dates (for example December 2, 2020 9:00 am) using the Timezone column. Date Scheduled is when the booking was made and is ignored.",
+    );
+
+    if (waitingForCalendars) {
+      rows = 0;
+    } else {
+      const iTimezone = col(parsed.headers, "timezone", "tz");
+      const bad = workingRows.filter((row) => {
+        const { dateRaw, timeRaw } = appointmentWhenRaw(row, parsed.headers);
+        const timeZone = iTimezone !== -1 ? (row[iTimezone] ?? "").trim() : "";
+        return !parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
+      }).length;
+      if (bad > 0) {
+        notes.push(
+          `${bad} row${bad === 1 ? "" : "s"} have dates we cannot read, so they will be skipped.`,
+        );
+      }
+      if (excludedCount > 0) {
+        notes.push(
+          `${formatCount(excludedCount)} appointment${excludedCount === 1 ? "" : "s"} excluded, other calendars.`,
+        );
+      }
+    }
+
+    const extras = parsed.headers.filter((h) => h && !ACUITY_KNOWN_COLS.has(h)).length;
+    if (extras > 0) {
+      notes.push(
+        "Extra columns such as Certificate Code, Label, Scheduled By and Appointment ID are not imported.",
+      );
+    }
+  }
+
+  const sample =
+    kind === "appointments"
+      ? (() => {
+          const row = workingRows[0];
+          if (!row) return "";
+          const iClient = col(parsed.headers, ...IMPORT_COLS.appointmentClient);
+          const iFirst = col(parsed.headers, "firstname", "first");
+          const iService = appointmentServiceCol(parsed.headers);
+          const { dateRaw } = appointmentWhenRaw(row, parsed.headers);
+          const client =
+            iClient !== -1
+              ? row[iClient]
+              : iFirst !== -1
+                ? [row[iFirst], row[col(parsed.headers, "lastname", "last", "surname")] ?? ""]
+                    .filter(Boolean)
+                    .join(" ")
+                : "";
+          const parts = [client, iService !== -1 ? row[iService] : "", dateRaw].filter(Boolean);
+          return parts.join(" · ");
+        })()
+      : (workingRows[0]?.slice(0, 4).filter(Boolean).join(" · ") ?? "");
+
+  const detail = ok ? "" : describeMissing(kind, parsed.headers);
+
+  const toggleCalendar = (name: string, checked: boolean) => {
+    setSelectedCalendars((prev) => {
+      if (checked) return prev.includes(name) ? prev : [...prev, name];
+      return prev.filter((n) => n !== name);
+    });
+  };
 
   return (
-    <div
-      className={`mt-3 rounded-xl px-4 py-3 text-sm ${state.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}
-    >
-      <p className="flex items-center gap-2 font-medium">
-        {state.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-        {state.ok
-          ? `Looks ready: ${state.rows} ${label(kind)} found.`
-          : `Check this file: ${state.detail}`}
-      </p>
-      {state.notes.map((note) => (
-        <p key={note} className="mt-1 text-xs opacity-80">
-          {note}
+    <div className="mt-3 space-y-3">
+      {needsCalendarPick && (
+        <div className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm text-ink">
+          <p className="text-ink-soft">
+            This export contains appointments for more than one staff member. Glow is a single
+            diary, so pick whose appointments to import.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {parsed.calendars.map((cal) => (
+              <li key={cal.name}>
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    name="acuityCalendar"
+                    value={cal.name}
+                    checked={selectedCalendars.includes(cal.name)}
+                    onChange={(e) => toggleCalendar(cal.name, e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                  />
+                  <span>
+                    <span className="font-medium">{cal.name}</span>
+                    <span className="text-ink-soft">
+                      , {formatCount(cal.count)} appointment{cal.count === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div
+        className={`rounded-xl px-4 py-3 text-sm ${
+          ok && !waitingForCalendars
+            ? "bg-emerald-500/10 text-emerald-300"
+            : "bg-amber-500/10 text-amber-300"
+        }`}
+      >
+        <p className="flex items-center gap-2 font-medium">
+          {ok && !waitingForCalendars ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <AlertTriangle className="h-4 w-4" />
+          )}
+          {waitingForCalendars
+            ? "Pick at least one calendar above to preview the import."
+            : ok
+              ? `Looks ready: ${formatCount(rows)} ${label(kind)} found.`
+              : `Check this file: ${detail}`}
         </p>
-      ))}
-      {state.sample && <p className="mt-1 text-xs opacity-80">First row: {state.sample}</p>}
+        {!waitingForCalendars &&
+          notes.map((note) => (
+            <p key={note} className="mt-1 text-xs opacity-80">
+              {note}
+            </p>
+          ))}
+        {!waitingForCalendars && sample && (
+          <p className="mt-1 text-xs opacity-80">First row: {sample}</p>
+        )}
+      </div>
     </div>
   );
 }

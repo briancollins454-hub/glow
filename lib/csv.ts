@@ -241,6 +241,73 @@ export function acuityServiceNames(headers: string[], rows: string[][]): string[
   return acuityDerivedServices(headers, rows).map((s) => s.name);
 }
 
+export type AcuityCalendarCount = { name: string; count: number };
+
+const ACUITY_BLANK_CALENDAR = "(No calendar)";
+
+/** Distinct Calendar values with row counts (Acuity multi-staff exports). */
+export function acuityCalendarCounts(
+  headers: string[],
+  rows: string[][],
+): AcuityCalendarCount[] {
+  const i = col(headers, "calendar");
+  if (i === -1) return [];
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const name = (row[i] ?? "").trim() || ACUITY_BLANK_CALENDAR;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+/**
+ * Keep only rows whose Calendar is in `selected`. When there is no Calendar
+ * column, rows are unchanged. Empty `selected` excludes every row that has a
+ * Calendar column (caller should treat that as "nothing chosen" for multi-staff).
+ */
+export function filterAcuityRowsByCalendars(
+  headers: string[],
+  rows: string[][],
+  selected: readonly string[],
+): { rows: string[][]; excludedCount: number } {
+  const i = col(headers, "calendar");
+  if (i === -1) return { rows, excludedCount: 0 };
+  if (selected.length === 0) return { rows: [], excludedCount: rows.length };
+  const want = new Set(selected);
+  const kept: string[][] = [];
+  let excludedCount = 0;
+  for (const row of rows) {
+    const name = (row[i] ?? "").trim() || ACUITY_BLANK_CALENDAR;
+    if (want.has(name)) kept.push(row);
+    else excludedCount++;
+  }
+  return { rows: kept, excludedCount };
+}
+
+/**
+ * Resolve which Acuity rows to import from a form submission.
+ * Single-calendar (or no Calendar column): all rows, no exclusion.
+ * Multi-calendar: only ticked `acuityCalendar` values; null selected means the
+ * tech has not chosen anyone yet.
+ */
+export function resolveAcuityImportRows(
+  headers: string[],
+  rows: string[][],
+  selectedCalendars: readonly string[],
+): { rows: string[][]; excludedCount: number; needsCalendarPick: boolean } {
+  const calendars = acuityCalendarCounts(headers, rows);
+  if (calendars.length <= 1) {
+    return { rows, excludedCount: 0, needsCalendarPick: false };
+  }
+  if (selectedCalendars.length === 0) {
+    return { rows: [], excludedCount: rows.length, needsCalendarPick: true };
+  }
+  const filtered = filterAcuityRowsByCalendars(headers, rows, selectedCalendars);
+  return { ...filtered, needsCalendarPick: false };
+}
+
 /** Strip Excel/Acuity leading apostrophes from phone numbers ("'+447..."). */
 export function normalizeImportPhone(raw: string): string {
   return raw.trim().replace(/^'+/, "").trim();

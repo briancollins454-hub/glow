@@ -66,6 +66,11 @@ function ImportView() {
           looking at it. Please email the file to support@glow-uk.com and we will import it for you.
         </div>
       )}
+      {importStatus === "nocalendar" && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          That Acuity file has more than one staff calendar. Tick whose appointments to import, then try again.
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -76,15 +81,18 @@ function ImportView() {
             Deposits use your default percentage; fine-tune each service afterwards.
             Coming from Acuity? It does not export services separately, so upload your
             appointments export here instead: each appointment Type becomes a service, with
-            Appointment Price when present. Check durations afterwards.
+            Appointment Price when present. If the file has more than one Calendar, pick whose
+            appointments to use so you only create services for that diary. Check durations afterwards.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={importServicesAction} className="flex flex-wrap items-center gap-3">
-            <input id="servicesCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
-            <SubmitButton variant="secondary" pendingLabel="Importing…">Import services</SubmitButton>
+          <form action={importServicesAction} className="space-y-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <input id="servicesCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
+              <SubmitButton variant="secondary" pendingLabel="Importing…">Import services</SubmitButton>
+            </div>
+            <ImportPreview inputId="servicesCsv" kind="services" />
           </form>
-          <ImportPreview inputId="servicesCsv" kind="services" />
         </CardContent>
       </Card>
 
@@ -118,11 +126,13 @@ function ImportView() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={importBookingsAction} className="flex flex-wrap items-center gap-3">
-            <input id="appointmentsCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
-            <SubmitButton variant="secondary" pendingLabel="Importing…">Import appointments</SubmitButton>
+          <form action={importBookingsAction} className="space-y-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <input id="appointmentsCsv" type="file" name="csv" accept=".csv,text/csv" required className={fileInputClass} />
+              <SubmitButton variant="secondary" pendingLabel="Importing…">Import appointments</SubmitButton>
+            </div>
+            <ImportPreview inputId="appointmentsCsv" kind="appointments" />
           </form>
-          <ImportPreview inputId="appointmentsCsv" kind="appointments" />
         </CardContent>
       </Card>
 
@@ -135,7 +145,7 @@ function ImportView() {
           <p><strong className="text-ink">Fresha:</strong> Sales → Appointments → pick your date range → Export → CSV (needs Client, Services and Scheduled date/time columns). Privacy export works too.</p>
           <p><strong className="text-ink">Timely:</strong> Setup → Data export → Customers / Appointments.</p>
           <p><strong className="text-ink">Booksy:</strong> Clients → ⋯ menu → Export client list (email their support for appointment exports).</p>
-          <p><strong className="text-ink">Acuity:</strong> Clients → Import/export → Export client list (choose All clients); appointments via Reports → Import/export → pick your date range, choose whether to include cancelled appointments, then Export Appointments. Acuity has no services export, so use the appointments file for Step 1 too. Acuity dates are read as US month-first (MM/DD/YYYY) automatically.</p>
+          <p><strong className="text-ink">Acuity:</strong> Clients → Import/export → Export client list (choose All clients); appointments via Reports → Import/export → pick your date range, choose whether to include cancelled appointments, then Export Appointments. Acuity has no services export, so use the appointments file for Step 1 too. If the export has more than one Calendar (staff member), you will be asked whose appointments to import. Start/End Time are read as long-form dates with the Timezone column.</p>
           <p className="pt-1 text-xs text-ink-faint">
             Stuck with a weird file? Email it to support@glow-uk.com and we&apos;ll import it for you.
           </p>

@@ -1594,9 +1594,9 @@ async function importServicesInner(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName, isAcuityAppointmentCsv, acuityDerivedServices } = await import("@/lib/csv");
-  const { headers, rows } = parseCsv(await file!.text());
-  if (rows.length === 0) redirect("/dashboard/import?import=empty");
+  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName, isAcuityAppointmentCsv, acuityDerivedServices, resolveAcuityImportRows } = await import("@/lib/csv");
+  const { headers, rows: allRows } = parseCsv(await file!.text());
+  if (allRows.length === 0) redirect("/dashboard/import?import=empty");
 
   const iName = col(headers, ...IMPORT_SERVICE_COLS.name);
   const iPrice = col(headers, ...IMPORT_SERVICE_COLS.price);
@@ -1630,7 +1630,12 @@ async function importServicesInner(formData: FormData) {
   // Acuity has no services export, so the services step accepts the Acuity
   // appointments file instead: each unique appointment Type becomes a service.
   // Appointment Price is used when present; duration still needs filling in.
+  // Multi-calendar exports must pick whose diary to derive services from.
   if (iName === -1 && isAcuityAppointmentCsv(headers)) {
+    const selected = formData.getAll("acuityCalendar").map(String);
+    const resolved = resolveAcuityImportRows(headers, allRows, selected);
+    if (resolved.needsCalendarPick) redirect("/dashboard/import?import=nocalendar");
+    const rows = resolved.rows;
     const derived = acuityDerivedServices(headers, rows);
     if (derived.length === 0) redirect("/dashboard/import?import=badformat");
     for (const { name, pricePennies } of derived) {
@@ -1661,10 +1666,18 @@ async function importServicesInner(formData: FormData) {
       existingNames.add(name.toLowerCase());
       imported++;
     }
-    await audit(sb, tech.id, "services_imported", "import", "services", { imported, skipped, rows: rows.length, source: "acuity_appointments" });
+    await audit(sb, tech.id, "services_imported", "import", "services", {
+      imported,
+      skipped,
+      rows: rows.length,
+      excludedCalendars: resolved.excludedCount,
+      source: "acuity_appointments",
+    });
     revalidatePath("/dashboard/services");
     redirect(`/dashboard/import?import=done&what=services&n=${imported}&s=${skipped}`);
   }
+
+  const rows = allRows;
 
   if (iName === -1) redirect("/dashboard/import?import=badformat");
 
@@ -1718,9 +1731,9 @@ async function importBookingsInner(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, appointmentWhenRaw, appointmentClientName, appointmentServiceCol, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName, normalizeImportPhone, MAX_MINUTES } = await import("@/lib/csv");
-  const { headers, rows } = parseCsv(await file!.text());
-  if (rows.length === 0) redirect("/dashboard/import?import=empty");
+  const { parseCsv, col, appointmentWhenRaw, appointmentClientName, appointmentServiceCol, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName, normalizeImportPhone, resolveAcuityImportRows, isAcuityAppointmentCsv, MAX_MINUTES } = await import("@/lib/csv");
+  const { headers, rows: allRows } = parseCsv(await file!.text());
+  if (allRows.length === 0) redirect("/dashboard/import?import=empty");
 
   const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
   const iFirstName = col(headers, "firstname", "first");
@@ -1741,6 +1754,18 @@ async function importBookingsInner(formData: FormData) {
     col(headers, ...IMPORT_COLS.appointmentDate) !== -1 ||
     col(headers, ...IMPORT_COLS.appointmentTime) !== -1;
   if (!hasDate) redirect("/dashboard/import?import=badformat");
+
+  // Multi-calendar Acuity: only import ticked calendars. Excluded rows never
+  // create clients or bookings.
+  let rows = allRows;
+  let excludedCalendars = 0;
+  if (isAcuityAppointmentCsv(headers)) {
+    const selected = formData.getAll("acuityCalendar").map(String);
+    const resolved = resolveAcuityImportRows(headers, allRows, selected);
+    if (resolved.needsCalendarPick) redirect("/dashboard/import?import=nocalendar");
+    rows = resolved.rows;
+    excludedCalendars = resolved.excludedCount;
+  }
 
   const services = await listServices(sb, tech.id);
   const serviceByName = new Map(services.map((s) => [normalizeImportName(s.name), s]));
@@ -1845,7 +1870,12 @@ async function importBookingsInner(formData: FormData) {
     imported++;
   }
 
-  await audit(sb, tech.id, "appointments_imported", "import", "appointments", { imported, skipped, rows: rows.length });
+  await audit(sb, tech.id, "appointments_imported", "import", "appointments", {
+    imported,
+    skipped,
+    rows: rows.length,
+    excludedCalendars,
+  });
   revalidatePath("/dashboard/bookings");
   if (imported === 0 && skipped > 0) {
     redirect(`/dashboard/import?import=none&what=appointments&n=0&s=${skipped}`);
