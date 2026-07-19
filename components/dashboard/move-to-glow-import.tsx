@@ -1,0 +1,223 @@
+"use client";
+
+import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { ImportPreview } from "@/components/dashboard/import-preview";
+
+const fileInputClass =
+  "text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300";
+
+export type MoveToGlowImportActions = {
+  importClients: (formData: FormData) => Promise<void>;
+  importServices: (formData: FormData) => Promise<void>;
+  importBookings: (formData: FormData) => Promise<void>;
+};
+
+export function MoveToGlowImport({
+  actions,
+  returnTo,
+  hiddenFields,
+  title = "Move to Glow",
+  subtitle = "Coming from Square, Booksy, Timely, Fresha or Acuity? Bring everything across in three steps. Each step takes a CSV export from your old app.",
+  importStatus,
+  what,
+  n,
+  s,
+}: {
+  actions: MoveToGlowImportActions;
+  returnTo: string;
+  hiddenFields?: Record<string, string>;
+  title?: string;
+  subtitle?: string;
+  importStatus: string | null;
+  what: string | null;
+  n: string | null;
+  s: string | null;
+}) {
+  const hidden = Object.entries(hiddenFields ?? {});
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold">
+          <FolderInput className="h-6 w-6 text-brand-400" /> {title}
+        </h1>
+        <p className="text-sm text-ink-soft">{subtitle}</p>
+      </div>
+
+      {importStatus === "done" && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" /> Imported {n} {what}
+          {Number(s) > 0 && ` (${s} skipped: duplicates, unknown services, or missing details)`}.
+        </div>
+      )}
+      {importStatus === "badformat" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Couldn&apos;t recognise the columns in that file. Make sure it&apos;s the CSV export described below,
+          or email it to support@glow-uk.com and we&apos;ll sort it for you.
+        </div>
+      )}
+      {importStatus === "none" && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          No appointments were imported ({s} rows skipped). This usually means the dates couldn&apos;t be read,
+          or the service names in the file don&apos;t exactly match the Glow services list. Try re-importing
+          after the latest update, or email the file to support@glow-uk.com.
+        </div>
+      )}
+      {importStatus === "empty" && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
+      )}
+      {importStatus === "failed" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Something in that file tripped us up. It has been logged on our side, so we are already
+          looking at it. Please email the file to support@glow-uk.com and we will import it for you.
+        </div>
+      )}
+      {importStatus === "nocalendar" && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          That Acuity file has more than one staff calendar. Tick whose appointments to import, then try again.
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Scissors className="h-4 w-4 text-brand-400" /> Step 1 · Services &amp; price list
+          </CardTitle>
+          <CardDescription>
+            Creates services with prices, durations and categories. Needs columns like
+            &quot;Service name&quot;, &quot;Price&quot;, &quot;Duration&quot; (category and description picked up if present).
+            Deposits use the account default percentage; fine-tune each service afterwards.
+            Coming from Acuity? It does not export services separately, so upload the
+            appointments export here instead: each appointment Type becomes a service, with
+            Appointment Price when present. If the file has more than one Calendar, pick whose
+            appointments to use so you only create services for that diary. Check durations afterwards.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={actions.importServices} className="space-y-1">
+            {hidden.map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                id="servicesCsv"
+                type="file"
+                name="csv"
+                accept=".csv,text/csv"
+                required
+                className={fileInputClass}
+              />
+              <SubmitButton variant="secondary" pendingLabel="Importing…">
+                Import services
+              </SubmitButton>
+            </div>
+            <ImportPreview inputId="servicesCsv" kind="services" />
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-brand-400" /> Step 2 · Clients
+          </CardTitle>
+          <CardDescription>
+            Brings the client list across: names, emails, phone numbers and notes. Duplicates
+            (matching email) are skipped automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={actions.importClients} className="space-y-1">
+            {hidden.map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+            <input type="hidden" name="back" value={returnTo} />
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                id="clientsCsv"
+                type="file"
+                name="csv"
+                accept=".csv,text/csv"
+                required
+                className={fileInputClass}
+              />
+              <SubmitButton variant="secondary" pendingLabel="Importing…">
+                Import clients
+              </SubmitButton>
+            </div>
+            <ImportPreview inputId="clientsCsv" kind="clients" />
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-brand-400" /> Step 3 · Appointments
+          </CardTitle>
+          <CardDescription>
+            Import after services and clients. Needs columns like &quot;Client&quot;, &quot;Service&quot; (or
+            &quot;Services&quot; from Fresha) and &quot;Date&quot; / &quot;Scheduled date&quot; (Fresha also puts the
+            full time in &quot;Scheduled time&quot; or &quot;Start time&quot;). Past appointments load as history;
+            future ones are confirmed with quiet reminders — no emails are sent to clients during import.
+            Rows with services we can&apos;t match are skipped and counted.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={actions.importBookings} className="space-y-1">
+            {hidden.map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                id="appointmentsCsv"
+                type="file"
+                name="csv"
+                accept=".csv,text/csv"
+                required
+                className={fileInputClass}
+              />
+              <SubmitButton variant="secondary" pendingLabel="Importing…">
+                Import appointments
+              </SubmitButton>
+            </div>
+            <ImportPreview inputId="appointmentsCsv" kind="appointments" />
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Where to find exports</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-ink-soft">
+          <p>
+            <strong className="text-ink">Square:</strong> Dashboard → Customers → Import/Export → Export; Items
+            &amp; Services → Actions → Export library.
+          </p>
+          <p>
+            <strong className="text-ink">Fresha:</strong> Sales → Appointments → pick your date range → Export →
+            CSV (needs Client, Services and Scheduled date/time columns). Privacy export works too.
+          </p>
+          <p>
+            <strong className="text-ink">Timely:</strong> Setup → Data export → Customers / Appointments.
+          </p>
+          <p>
+            <strong className="text-ink">Booksy:</strong> Clients → ⋯ menu → Export client list (email their
+            support for appointment exports).
+          </p>
+          <p>
+            <strong className="text-ink">Acuity:</strong> Clients → Import/export → Export client list (choose
+            All clients); appointments via Reports → Import/export → pick your date range, choose whether to
+            include cancelled appointments, then Export Appointments. Acuity has no services export, so use
+            the appointments file for Step 1 too. If the export has more than one Calendar (staff member),
+            you will be asked whose appointments to import. Start/End Time are read as long-form dates with
+            the Timezone column.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

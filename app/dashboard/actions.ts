@@ -1524,363 +1524,45 @@ function isNextRedirect(e: unknown): boolean {
  * lands on a friendly import-page banner (and alerts ops with the stack)
  * instead of the generic crash screen.
  */
-async function runImport(work: () => Promise<void>, where: string): Promise<void> {
+async function runImport(
+  work: () => Promise<void>,
+  where: string,
+  failedReturnTo = "/dashboard/import",
+): Promise<void> {
   try {
     await work();
   } catch (e) {
     if (isNextRedirect(e)) throw e;
     const { reportError } = await import("@/lib/monitor");
     await reportError(e, { where });
-    redirect("/dashboard/import?import=failed");
+    const { importResultUrl } = await import("@/lib/import/import-url");
+    redirect(importResultUrl(failedReturnTo, { import: "failed" }));
   }
 }
 
 export async function importClientsAction(formData: FormData) {
-  return runImport(() => importClientsInner(formData), "importClientsAction");
-}
-
-async function importClientsInner(formData: FormData) {
-  const { sb, tech } = await ctx();
-  const back = String(formData.get("back") ?? "/dashboard/import");
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) redirect(`${back}?import=empty`);
-
-  const { parseCsv, col, normalizeImportPhone } = await import("@/lib/csv");
-  const { headers, rows } = parseCsv(await file!.text());
-  if (rows.length === 0) redirect(`${back}?import=empty`);
-
-  const iFirst = col(headers, "firstname", "first");
-  const iLast = col(headers, "lastname", "last", "surname");
-  const iName = col(headers, "name", "fullname", "clientname", "customername");
-  const iEmail = col(headers, "email", "emailaddress", "customeremail");
-  const iPhone = col(headers, "phone", "phonenumber", "mobile", "mobilenumber", "telephone", "cellphone");
-  const iNotes = col(headers, "notes", "note", "comments");
-
-  if (iName === -1 && iFirst === -1) redirect(`${back}?import=badformat`);
-
-  const { createClient: createClientRow, getClientByEmail: findByEmail } = await import("@/lib/db/queries");
-  let imported = 0;
-  let skipped = 0;
-
-  for (const cols of rows) {
-    const name =
-      iName !== -1
-        ? cols[iName]
-        : [cols[iFirst], iLast !== -1 ? cols[iLast] : ""].filter(Boolean).join(" ");
-    if (!name) { skipped++; continue; }
-    const email = iEmail !== -1 ? (cols[iEmail] ?? "") : "";
-    const phone = iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "";
-    const notes = iNotes !== -1 ? (cols[iNotes] ?? "") : "";
-
-    if (email) {
-      const existing = await findByEmail(sb, tech.id, email);
-      if (existing) { skipped++; continue; }
-    }
-    await createClientRow(sb, { techId: tech.id, name, email, phone, notes });
-    imported++;
-  }
-
-  await audit(sb, tech.id, "clients_imported", "import", "clients", { imported, skipped, rows: rows.length });
-  revalidatePath("/dashboard/clients");
-  redirect(`${back}?import=done&what=clients&n=${imported}&s=${skipped}`);
+  return runImport(async () => {
+    const { sb, tech } = await ctx();
+    const returnTo = String(formData.get("back") ?? "/dashboard/import");
+    const { importClientsForTech } = await import("@/lib/import/csv-import");
+    await importClientsForTech(formData, { sb, tech, returnTo });
+  }, "importClientsAction");
 }
 
 export async function importServicesAction(formData: FormData) {
-  return runImport(() => importServicesInner(formData), "importServicesAction");
-}
-
-async function importServicesInner(formData: FormData) {
-  const { sb, tech } = await ctx();
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
-
-  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName, isAcuityAppointmentCsv, acuityDerivedServices, resolveAcuityImportRows } = await import("@/lib/csv");
-  const { headers, rows: allRows } = parseCsv(await file!.text());
-  if (allRows.length === 0) redirect("/dashboard/import?import=empty");
-
-  const iName = col(headers, ...IMPORT_SERVICE_COLS.name);
-  const iPrice = col(headers, ...IMPORT_SERVICE_COLS.price);
-  const iDuration = col(headers, ...IMPORT_SERVICE_COLS.duration);
-  const iCategory = col(headers, ...IMPORT_SERVICE_COLS.category);
-  const iDesc = col(headers, ...IMPORT_SERVICE_COLS.description);
-
-  const existing = await listServices(sb, tech.id);
-  const existingNames = new Set(existing.map((s) => s.name.toLowerCase()));
-  const cats = await listCategories(sb, tech.id);
-  const catIdByName = new Map(cats.map((c) => [c.name.toLowerCase(), c.id]));
-
-  const ensureCategory = async (rawName: string): Promise<string> => {
-    const name = rawName.trim() || "Imported";
-    const key = name.toLowerCase();
-    if (catIdByName.has(key)) return catIdByName.get(key)!;
-    const created = await createCategory(sb, {
-      techId: tech.id,
-      name,
-      patchTestValidityDays: 180,
-      patchTestMinLeadHours: 24,
-    });
-    catIdByName.set(key, created.id);
-    return created.id;
-  };
-
-  let imported = 0;
-  let skipped = 0;
-  let sortOrder = existing.length;
-
-  // Acuity has no services export, so the services step accepts the Acuity
-  // appointments file instead: each unique appointment Type becomes a service.
-  // Appointment Price is used when present; duration still needs filling in.
-  // Multi-calendar exports must pick whose diary to derive services from.
-  if (iName === -1 && isAcuityAppointmentCsv(headers)) {
-    const selected = formData.getAll("acuityCalendar").map(String);
-    const resolved = resolveAcuityImportRows(headers, allRows, selected);
-    if (resolved.needsCalendarPick) redirect("/dashboard/import?import=nocalendar");
-    const rows = resolved.rows;
-    const derived = acuityDerivedServices(headers, rows);
-    if (derived.length === 0) redirect("/dashboard/import?import=badformat");
-    for (const { name, pricePennies } of derived) {
-      if (existingNames.has(name.toLowerCase())) { skipped++; continue; }
-      const categoryId = await ensureCategory("");
-      await createService(sb, {
-        techId: tech.id,
-        categoryId,
-        name,
-        description: "",
-        durationMin: 60,
-        pricePennies,
-        depositType: tech.defaultDepositType ?? "percent",
-        depositValue:
-          tech.defaultDepositType === "fixed"
-            ? tech.defaultDepositValue ?? 0
-            : tech.defaultDepositType === "none"
-              ? 0
-              : tech.defaultDepositValue ?? tech.defaultDepositPct,
-        requiresPatchTest: false,
-        isPatchTestService: false,
-        isInfill: false,
-        fullSetServiceId: null,
-        infillMaxGapDays: 21,
-        active: true,
-        sortOrder: sortOrder++,
-      });
-      existingNames.add(name.toLowerCase());
-      imported++;
-    }
-    await audit(sb, tech.id, "services_imported", "import", "services", {
-      imported,
-      skipped,
-      rows: rows.length,
-      excludedCalendars: resolved.excludedCount,
-      source: "acuity_appointments",
-    });
-    revalidatePath("/dashboard/services");
-    redirect(`/dashboard/import?import=done&what=services&n=${imported}&s=${skipped}`);
-  }
-
-  const rows = allRows;
-
-  if (iName === -1) redirect("/dashboard/import?import=badformat");
-
-  for (const cols of rows) {
-    const name = (cols[iName] ?? "").trim();
-    if (!name || !isPlausibleServiceName(name) || existingNames.has(name.toLowerCase())) {
-      skipped++;
-      continue;
-    }
-    const pricePennies = iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : 0;
-    const durationMin = safeMinutes(iDuration !== -1 ? toMinutes(cols[iDuration] ?? "") : 60);
-    const categoryId = await ensureCategory(iCategory !== -1 ? cols[iCategory] ?? "" : "");
-
-    await createService(sb, {
-      techId: tech.id,
-      categoryId,
-      name,
-      description: iDesc !== -1 ? (cols[iDesc] ?? "") : "",
-      durationMin: durationMin || 60,
-      pricePennies,
-      depositType: tech.defaultDepositType ?? "percent",
-      depositValue:
-        tech.defaultDepositType === "fixed"
-          ? tech.defaultDepositValue ?? 0
-          : tech.defaultDepositType === "none"
-            ? 0
-            : tech.defaultDepositValue ?? tech.defaultDepositPct,
-      requiresPatchTest: false,
-      isPatchTestService: false,
-      isInfill: false,
-      fullSetServiceId: null,
-      infillMaxGapDays: 21,
-      active: true,
-      sortOrder: sortOrder++,
-    });
-    existingNames.add(name.toLowerCase());
-    imported++;
-  }
-
-  await audit(sb, tech.id, "services_imported", "import", "services", { imported, skipped, rows: rows.length });
-  revalidatePath("/dashboard/services");
-  redirect(`/dashboard/import?import=done&what=services&n=${imported}&s=${skipped}`);
+  return runImport(async () => {
+    const { sb, tech } = await ctx();
+    const { importServicesForTech } = await import("@/lib/import/csv-import");
+    await importServicesForTech(formData, { sb, tech, returnTo: "/dashboard/import" });
+  }, "importServicesAction");
 }
 
 export async function importBookingsAction(formData: FormData) {
-  return runImport(() => importBookingsInner(formData), "importBookingsAction");
-}
-
-async function importBookingsInner(formData: FormData) {
-  const { sb, tech } = await ctx();
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
-
-  const { parseCsv, col, appointmentWhenRaw, appointmentClientName, appointmentServiceCol, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName, normalizeImportPhone, resolveAcuityImportRows, isAcuityAppointmentCsv, MAX_MINUTES } = await import("@/lib/csv");
-  const { headers, rows: allRows } = parseCsv(await file!.text());
-  if (allRows.length === 0) redirect("/dashboard/import?import=empty");
-
-  const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
-  const iFirstName = col(headers, "firstname", "first");
-  const iEmail = col(headers, ...IMPORT_COLS.appointmentEmail);
-  const iPhone = col(headers, "phone", "phonenumber", "mobile", "mobilenumber", "telephone");
-  const iService = appointmentServiceCol(headers);
-  const iStatus = col(headers, ...IMPORT_COLS.appointmentStatus);
-  const iCancelled = col(headers, "canceled", "cancelled");
-  const iPrice = col(headers, ...IMPORT_COLS.appointmentPrice);
-  const iDuration = col(headers, ...IMPORT_COLS.appointmentDuration);
-  const iEndTime = col(headers, "endtime", "end");
-  const iTimezone = col(headers, "timezone", "tz");
-
-  if ((iClient === -1 && iFirstName === -1) || iService === -1) {
-    redirect("/dashboard/import?import=badformat");
-  }
-  const hasDate =
-    col(headers, ...IMPORT_COLS.appointmentDate) !== -1 ||
-    col(headers, ...IMPORT_COLS.appointmentTime) !== -1;
-  if (!hasDate) redirect("/dashboard/import?import=badformat");
-
-  // Multi-calendar Acuity: only import ticked calendars. Excluded rows never
-  // create clients or bookings.
-  let rows = allRows;
-  let excludedCalendars = 0;
-  if (isAcuityAppointmentCsv(headers)) {
-    const selected = formData.getAll("acuityCalendar").map(String);
-    const resolved = resolveAcuityImportRows(headers, allRows, selected);
-    if (resolved.needsCalendarPick) redirect("/dashboard/import?import=nocalendar");
-    rows = resolved.rows;
-    excludedCalendars = resolved.excludedCount;
-  }
-
-  const services = await listServices(sb, tech.id);
-  const serviceByName = new Map(services.map((s) => [normalizeImportName(s.name), s]));
-  const existingBookings = await listBookings(sb, tech.id);
-  const { createBooking: createBookingRow } = await import("@/lib/db/queries");
-  const { rescheduleReminders } = await import("@/lib/bookings");
-  const { randomToken: newToken } = await import("@/lib/ids");
-
-  // Acuity: long-form Start/End Time + Timezone. Other UK exports: dd/mm/yyyy
-  // or Fresha "04 Jul 2026, 3:00pm". Times are naive local, not server UTC.
-
-  let imported = 0;
-  let skipped = 0;
-
-  for (const cols of rows) {
-    const clientName = appointmentClientName(cols, headers);
-    const serviceName = normalizeImportName(cols[iService] ?? "");
-    const { dateRaw, timeRaw } = appointmentWhenRaw(cols, headers);
-    const timeZone = iTimezone !== -1 ? (cols[iTimezone] ?? "").trim() : "";
-    const when = parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
-    const service = serviceByName.get(serviceName);
-    if (!clientName || !service || !when) { skipped++; continue; }
-
-    const rowPrice =
-      iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : safePennies(service.pricePennies);
-    const pricePennies = rowPrice > 0 ? rowPrice : safePennies(service.pricePennies);
-
-    // Duration: explicit column first, then Acuity's End Time, then the service default.
-    let endDurationMin = 0;
-    if (iEndTime !== -1) {
-      const endRaw = (cols[iEndTime] ?? "").trim();
-      if (endRaw) {
-        const end =
-          parseAppointmentWhen(endRaw, "", { timeZone }) ??
-          parseAppointmentWhen(dateRaw, endRaw, { timeZone });
-        if (end) {
-          const diff = Math.round((end.getTime() - when.getTime()) / 60000);
-          if (diff > 0 && diff <= MAX_MINUTES) endDurationMin = diff;
-        }
-      }
-    }
-    const durationMin =
-      iDuration !== -1
-        ? safeMinutes(toMinutes(cols[iDuration] ?? ""), service.durationMin)
-        : endDurationMin > 0
-          ? endDurationMin
-          : safeMinutes(service.durationMin);
-
-    const client = await findOrCreateClient(sb, tech.id, {
-      name: clientName,
-      email: iEmail !== -1 ? (cols[iEmail] ?? "").trim() : "",
-      phone: iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "",
-    });
-
-    // Skip exact duplicates (same client, same start).
-    const startMs = when.getTime();
-    if (existingBookings.some((b) => b.clientId === client.id && new Date(b.startIso).getTime() === startMs)) {
-      skipped++;
-      continue;
-    }
-
-    const isPast = startMs < Date.now();
-    const rawStatus = iStatus !== -1 ? (cols[iStatus] ?? "").toLowerCase() : "";
-    // Acuity marks cancellations in a separate Canceled column ("yes"/"true").
-    const rawCancelled = iCancelled !== -1 ? (cols[iCancelled] ?? "").trim().toLowerCase() : "";
-    const cancelledFlag = ["yes", "true", "1", "canceled", "cancelled"].includes(rawCancelled);
-    const status: BookingStatus = cancelledFlag || rawStatus.includes("cancel")
-      ? "cancelled"
-      : rawStatus.includes("no") && rawStatus.includes("show")
-        ? "no_show"
-        : isPast
-          ? "completed"
-          : "confirmed";
-
-    const booking = await createBookingRow(sb, {
-      techId: tech.id,
-      clientId: client.id,
-      serviceId: service.id,
-      startIso: when.toISOString(),
-      endIso: new Date(startMs + durationMin * 60 * 1000).toISOString(),
-      status,
-      pricePennies,
-      depositPennies: 0,
-      depositStatus: "none",
-      balancePennies: isPast ? 0 : pricePennies,
-      balanceStatus: isPast ? "paid" : "unpaid",
-      balanceToken: newToken(),
-      pairedBookingId: null,
-      riskTier: null,
-      autoApproved: false,
-      isPatchTest: false,
-      notes: "Imported",
-      lashMap: "",
-      lashCurl: "",
-      lashLength: "",
-      addons: [],
-      discountPennies: 0,
-    });
-    // Future imports get quiet reminders (24h etc.) but no confirmation email spam.
-    if (!isPast && status === "confirmed") await rescheduleReminders(sb, booking);
-    existingBookings.push(booking);
-    imported++;
-  }
-
-  await audit(sb, tech.id, "appointments_imported", "import", "appointments", {
-    imported,
-    skipped,
-    rows: rows.length,
-    excludedCalendars,
-  });
-  revalidatePath("/dashboard/bookings");
-  if (imported === 0 && skipped > 0) {
-    redirect(`/dashboard/import?import=none&what=appointments&n=0&s=${skipped}`);
-  }
-  redirect(`/dashboard/import?import=done&what=appointments&n=${imported}&s=${skipped}`);
+  return runImport(async () => {
+    const { sb, tech } = await ctx();
+    const { importBookingsForTech } = await import("@/lib/import/csv-import");
+    await importBookingsForTech(formData, { sb, tech, returnTo: "/dashboard/import" });
+  }, "importBookingsAction");
 }
 
 // ---------------- Client photos ----------------

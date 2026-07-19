@@ -37,6 +37,7 @@ import {
 import { batchSummaries } from "@/lib/product-batches";
 import { signedPhotoUrls } from "@/lib/storage";
 import { isAdminTech } from "@/lib/admin";
+import { canAccessSupportImport } from "@/lib/import/support-auth";
 import { getPlatformTraffic } from "@/lib/traffic-stats";
 import { buildBusinessInsights } from "@/lib/insights";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
@@ -64,6 +65,7 @@ export const DASHBOARD_DATA_KEYS = [
   "import",
   "feedback",
   "admin",
+  "admin-support-import",
 ] as const;
 
 export type DashboardDataKey = (typeof DASHBOARD_DATA_KEYS)[number];
@@ -323,6 +325,15 @@ export async function loadDashboardPageData(
         getPlatformTraffic(),
       ]);
       return { techs: techsData ?? [], closures: closuresData ?? [], traffic };
+    }
+    case "admin-support-import": {
+      if (!canAccessSupportImport(tech, role)) return { forbidden: true };
+      const adminSb = supabaseService();
+      const { data: techsData } = await adminSb
+        .from("techs")
+        .select("*")
+        .order("createdAt", { ascending: false });
+      return { techs: techsData ?? [] };
     }
     default:
       throw new Error(`Unknown dashboard page: ${key}`);
