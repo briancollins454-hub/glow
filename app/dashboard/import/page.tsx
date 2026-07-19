@@ -33,7 +33,7 @@ function ImportView() {
           <FolderInput className="h-6 w-6 text-brand-400" /> Move to Glow
         </h1>
         <p className="text-sm text-ink-soft">
-          Coming from Square, Booksy, Timely or Fresha? Bring everything across in three steps.
+          Coming from Square, Booksy, Timely, Fresha or Acuity? Bring everything across in three steps.
           Each step takes a CSV export from your old app.
         </p>
       </div>
@@ -68,6 +68,9 @@ function ImportView() {
             Creates your services with prices, durations and categories. Needs columns like
             &quot;Service name&quot;, &quot;Price&quot;, &quot;Duration&quot; (category and description picked up if present).
             Deposits use your default percentage; fine-tune each service afterwards.
+            Coming from Acuity? It does not export services separately, so upload your
+            appointments export here instead: each appointment type becomes a service with a
+            default price and duration for you to fill in afterwards.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -126,6 +129,7 @@ function ImportView() {
           <p><strong className="text-ink">Fresha:</strong> Sales → Appointments → pick your date range → Export → CSV (needs Client, Services and Scheduled date/time columns). Privacy export works too.</p>
           <p><strong className="text-ink">Timely:</strong> Setup → Data export → Customers / Appointments.</p>
           <p><strong className="text-ink">Booksy:</strong> Clients → ⋯ menu → Export client list (email their support for appointment exports).</p>
+          <p><strong className="text-ink">Acuity:</strong> Clients → Import/export → Export client list (choose All clients); appointments via Reports → Import/export → pick your date range, choose whether to include cancelled appointments, then Export Appointments. Acuity has no services export, so use the appointments file for Step 1 too. Acuity dates are read as US month-first (MM/DD/YYYY) automatically.</p>
           <p className="pt-1 text-xs text-ink-faint">
             Stuck with a weird file? Email it to support@glow-uk.com and we&apos;ll import it for you.
           </p>

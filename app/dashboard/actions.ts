@@ -1543,7 +1543,7 @@ export async function importServicesAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName } = await import("@/lib/csv");
+  const { parseCsv, col, moneyToPennies, toMinutes, safeMinutes, IMPORT_SERVICE_COLS, isPlausibleServiceName, isAcuityAppointmentCsv, acuityServiceNames } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
@@ -1552,8 +1552,6 @@ export async function importServicesAction(formData: FormData) {
   const iDuration = col(headers, ...IMPORT_SERVICE_COLS.duration);
   const iCategory = col(headers, ...IMPORT_SERVICE_COLS.category);
   const iDesc = col(headers, ...IMPORT_SERVICE_COLS.description);
-
-  if (iName === -1) redirect("/dashboard/import?import=badformat");
 
   const existing = await listServices(sb, tech.id);
   const existingNames = new Set(existing.map((s) => s.name.toLowerCase()));
@@ -1577,6 +1575,47 @@ export async function importServicesAction(formData: FormData) {
   let imported = 0;
   let skipped = 0;
   let sortOrder = existing.length;
+
+  // Acuity has no services export, so the services step accepts the Acuity
+  // appointments file instead: each unique appointment Type becomes a service
+  // with a default price and duration for the tech to fill in afterwards.
+  if (iName === -1 && isAcuityAppointmentCsv(headers)) {
+    const names = acuityServiceNames(headers, rows);
+    if (names.length === 0) redirect("/dashboard/import?import=badformat");
+    for (const name of names) {
+      if (existingNames.has(name.toLowerCase())) { skipped++; continue; }
+      const categoryId = await ensureCategory("");
+      await createService(sb, {
+        techId: tech.id,
+        categoryId,
+        name,
+        description: "",
+        durationMin: 60,
+        pricePennies: 0,
+        depositType: tech.defaultDepositType ?? "percent",
+        depositValue:
+          tech.defaultDepositType === "fixed"
+            ? tech.defaultDepositValue ?? 0
+            : tech.defaultDepositType === "none"
+              ? 0
+              : tech.defaultDepositValue ?? tech.defaultDepositPct,
+        requiresPatchTest: false,
+        isPatchTestService: false,
+        isInfill: false,
+        fullSetServiceId: null,
+        infillMaxGapDays: 21,
+        active: true,
+        sortOrder: sortOrder++,
+      });
+      existingNames.add(name.toLowerCase());
+      imported++;
+    }
+    await audit(sb, tech.id, "services_imported", "import", "services", { imported, skipped, rows: rows.length, source: "acuity_appointments" });
+    revalidatePath("/dashboard/services");
+    redirect(`/dashboard/import?import=done&what=services&n=${imported}&s=${skipped}`);
+  }
+
+  if (iName === -1) redirect("/dashboard/import?import=badformat");
 
   for (const cols of rows) {
     const name = (cols[iName] ?? "").trim();
@@ -1624,22 +1663,31 @@ export async function importBookingsAction(formData: FormData) {
   const file = formData.get("csv") as File | null;
   if (!file || file.size === 0) redirect("/dashboard/import?import=empty");
 
-  const { parseCsv, col, appointmentWhenRaw, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName } = await import("@/lib/csv");
+  const { parseCsv, col, appointmentWhenRaw, appointmentClientName, appointmentServiceCol, isAcuityAppointmentCsv, IMPORT_COLS, moneyToPennies, safePennies, safeMinutes, toMinutes, parseAppointmentWhen, normalizeImportName, MAX_MINUTES } = await import("@/lib/csv");
   const { headers, rows } = parseCsv(await file!.text());
   if (rows.length === 0) redirect("/dashboard/import?import=empty");
 
   const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
+  const iFirstName = col(headers, "firstname", "first");
   const iEmail = col(headers, ...IMPORT_COLS.appointmentEmail);
-  const iService = col(headers, ...IMPORT_COLS.appointmentService);
+  const iService = appointmentServiceCol(headers);
   const iStatus = col(headers, ...IMPORT_COLS.appointmentStatus);
+  const iCancelled = col(headers, "canceled", "cancelled");
   const iPrice = col(headers, ...IMPORT_COLS.appointmentPrice);
   const iDuration = col(headers, ...IMPORT_COLS.appointmentDuration);
+  const iEndTime = col(headers, "endtime", "end");
 
-  if (iClient === -1 || iService === -1) redirect("/dashboard/import?import=badformat");
+  if ((iClient === -1 && iFirstName === -1) || iService === -1) {
+    redirect("/dashboard/import?import=badformat");
+  }
   const hasDate =
     col(headers, ...IMPORT_COLS.appointmentDate) !== -1 ||
     col(headers, ...IMPORT_COLS.appointmentTime) !== -1;
   if (!hasDate) redirect("/dashboard/import?import=badformat");
+
+  // Acuity exports use US month-first dates (MM/DD/YYYY); never guess DD/MM
+  // for those files. Everything else stays day-first as before.
+  const monthFirst = isAcuityAppointmentCsv(headers);
 
   const services = await listServices(sb, tech.id);
   const serviceByName = new Map(services.map((s) => [normalizeImportName(s.name), s]));
@@ -1655,20 +1703,37 @@ export async function importBookingsAction(formData: FormData) {
   let skipped = 0;
 
   for (const cols of rows) {
-    const clientName = (cols[iClient] ?? "").trim();
+    const clientName = appointmentClientName(cols, headers);
     const serviceName = normalizeImportName(cols[iService] ?? "");
     const { dateRaw, timeRaw } = appointmentWhenRaw(cols, headers);
-    const when = parseAppointmentWhen(dateRaw, timeRaw);
+    const when = parseAppointmentWhen(dateRaw, timeRaw, { monthFirst });
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) { skipped++; continue; }
 
     const rowPrice =
       iPrice !== -1 ? moneyToPennies(cols[iPrice] ?? "") : safePennies(service.pricePennies);
     const pricePennies = rowPrice > 0 ? rowPrice : safePennies(service.pricePennies);
+
+    // Duration: explicit column first, then Acuity's End Time, then the service default.
+    let endDurationMin = 0;
+    if (iEndTime !== -1) {
+      const endRaw = (cols[iEndTime] ?? "").trim();
+      if (endRaw) {
+        const end =
+          parseAppointmentWhen(endRaw, "", { monthFirst }) ??
+          parseAppointmentWhen(dateRaw, endRaw, { monthFirst });
+        if (end) {
+          const diff = Math.round((end.getTime() - when.getTime()) / 60000);
+          if (diff > 0 && diff <= MAX_MINUTES) endDurationMin = diff;
+        }
+      }
+    }
     const durationMin =
       iDuration !== -1
         ? safeMinutes(toMinutes(cols[iDuration] ?? ""), service.durationMin)
-        : safeMinutes(service.durationMin);
+        : endDurationMin > 0
+          ? endDurationMin
+          : safeMinutes(service.durationMin);
 
     const client = await findOrCreateClient(sb, tech.id, {
       name: clientName,
@@ -1685,7 +1750,10 @@ export async function importBookingsAction(formData: FormData) {
 
     const isPast = startMs < Date.now();
     const rawStatus = iStatus !== -1 ? (cols[iStatus] ?? "").toLowerCase() : "";
-    const status: BookingStatus = rawStatus.includes("cancel")
+    // Acuity marks cancellations in a separate Canceled column ("yes"/"true").
+    const rawCancelled = iCancelled !== -1 ? (cols[iCancelled] ?? "").trim().toLowerCase() : "";
+    const cancelledFlag = ["yes", "true", "1", "canceled", "cancelled"].includes(rawCancelled);
+    const status: BookingStatus = cancelledFlag || rawStatus.includes("cancel")
       ? "cancelled"
       : rawStatus.includes("no") && rawStatus.includes("show")
         ? "no_show"

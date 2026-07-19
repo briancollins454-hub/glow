@@ -1,5 +1,5 @@
-// Tolerant CSV parsing for migration imports (Square / Booksy / Timely / Fresha
-// exports all differ; we normalise headers and match flexibly).
+// Tolerant CSV parsing for migration imports (Square / Booksy / Timely / Fresha /
+// Acuity exports all differ; we normalise headers and match flexibly).
 
 import { fromZonedTime } from "date-fns-tz";
 import { TZ } from "@/lib/format";
@@ -165,10 +165,64 @@ export const IMPORT_APPOINTMENT_GROUPS: {
   label: string;
   aliases: readonly string[];
 }[] = [
-  { key: "client", label: "Client", aliases: IMPORT_COLS.appointmentClient },
-  { key: "service", label: "Service", aliases: IMPORT_COLS.appointmentService },
+  // Acuity splits the client into First Name / Last Name and calls the service "Type".
+  { key: "client", label: "Client", aliases: [...IMPORT_COLS.appointmentClient, "firstname", "first"] },
+  { key: "service", label: "Service", aliases: [...IMPORT_COLS.appointmentService, "type"] },
   { key: "date", label: "Date", aliases: [...IMPORT_COLS.appointmentDate, ...IMPORT_COLS.appointmentTime] },
 ];
+
+/**
+ * Acuity appointment exports: the service lives in a "Type" column (no
+ * Service/Item column), and dates are US month-first (MM/DD/YYYY).
+ */
+export function isAcuityAppointmentCsv(headers: string[]): boolean {
+  const hasType = col(headers, "type") !== -1;
+  const hasStandardService = col(headers, ...IMPORT_COLS.appointmentService) !== -1;
+  const hasDate =
+    col(headers, ...IMPORT_COLS.appointmentDate) !== -1 ||
+    col(headers, ...IMPORT_COLS.appointmentTime) !== -1;
+  return hasType && !hasStandardService && hasDate;
+}
+
+/** Appointment service column, falling back to Acuity's "Type". */
+export function appointmentServiceCol(headers: string[]): number {
+  const i = col(headers, ...IMPORT_COLS.appointmentService);
+  if (i !== -1) return i;
+  return isAcuityAppointmentCsv(headers) ? col(headers, "type") : -1;
+}
+
+/**
+ * Client name from an appointments row. Acuity exports may use a single
+ * "Client Name" column or split First Name / Last Name, depending on version.
+ */
+export function appointmentClientName(cols: string[], headers: string[]): string {
+  const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
+  if (iClient !== -1) return (cols[iClient] ?? "").trim();
+  const iFirst = col(headers, "firstname", "first");
+  const iLast = col(headers, "lastname", "last", "surname");
+  return [iFirst !== -1 ? cols[iFirst] : "", iLast !== -1 ? cols[iLast] : ""]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * Unique service names from an Acuity appointments export (the "Type" column).
+ * Acuity has no separate services export, so the services step derives the
+ * list from here; the tech fills in price and duration afterwards.
+ */
+export function acuityServiceNames(headers: string[], rows: string[][]): string[] {
+  const iType = col(headers, "type");
+  if (iType === -1) return [];
+  const seen = new Map<string, string>();
+  for (const cols of rows) {
+    const raw = (cols[iType] ?? "").trim();
+    if (!raw || !isPlausibleServiceName(raw)) continue;
+    const key = normalizeImportName(raw);
+    if (!seen.has(key)) seen.set(key, raw);
+  }
+  return [...seen.values()];
+}
 
 export function missingAppointmentGroups(headers: string[]): ImportAppointmentGroup[] {
   return IMPORT_APPOINTMENT_GROUPS.filter((g) => col(headers, ...g.aliases) === -1).map((g) => g.key);
@@ -204,6 +258,8 @@ export function appointmentWhenRaw(
   if (scheduled && hasDatePart(scheduled)) return { dateRaw: scheduled, timeRaw: "" };
   if (start && hasDatePart(start) && hasClockTime(start)) return { dateRaw: start, timeRaw: "" };
   if (dateOnly && (scheduled || timeOnly)) return { dateRaw: dateOnly, timeRaw: scheduled || timeOnly };
+  // Acuity: separate Date column plus a time-only Start Time ("3:00pm").
+  if (dateOnly && start && !hasDatePart(start)) return { dateRaw: dateOnly, timeRaw: start };
   if (dateOnly) return { dateRaw: dateOnly, timeRaw: "" };
   if (scheduled) return { dateRaw: scheduled, timeRaw: "" };
   return { dateRaw: start, timeRaw: timeOnly };
@@ -232,8 +288,14 @@ export function normalizeImportName(value: string): string {
 /**
  * Parse appointment date/time strings from Fresha and other UK exports.
  * Fresha uses "04 Jul 2026, 3:00pm" in Scheduled date — not handled by Date.parse.
+ * Acuity exports are US month-first (MM/DD/YYYY): pass { monthFirst: true } —
+ * never guess DD/MM for those files.
  */
-export function parseAppointmentWhen(dateRaw: string, timeRaw = ""): Date | null {
+export function parseAppointmentWhen(
+  dateRaw: string,
+  timeRaw = "",
+  opts: { monthFirst?: boolean } = {},
+): Date | null {
   let s = `${dateRaw.trim()} ${timeRaw.trim()}`.trim();
   if (!s) return null;
 
@@ -257,18 +319,38 @@ export function parseAppointmentWhen(dateRaw: string, timeRaw = ""): Date | null
   }
 
   // Appt slot fallback: "15:00:00-16:10:00" paired with a separate date field.
-  const slot = timeRaw.match(/^(\d{1,2}):(\d{2})/);
+  // Keeps any am/pm marker ("3:00pm") so afternoon times stay afternoon.
+  const slot = timeRaw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?/i);
   if (slot && dateRaw && !timeRaw.includes(",")) {
-    const slotTime = `${slot[1]}:${slot[2]}`;
-    const withSlot = parseAppointmentWhen(`${dateRaw.trim()} ${slotTime}`, "");
+    const slotTime = `${slot[1]}:${slot[2]}${(slot[3] ?? "").toLowerCase()}`;
+    const withSlot = parseAppointmentWhen(`${dateRaw.trim()} ${slotTime}`, "", opts);
     if (withSlot) return withSlot;
   }
 
-  // UK numeric dates: 04/07/2026 or 04/07/2026 15:30
-  const uk = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(.*)$/);
-  if (uk) {
-    const yyyy = uk[3].length === 2 ? `20${uk[3]}` : uk[3];
-    s = `${yyyy}-${uk[2].padStart(2, "0")}-${uk[1].padStart(2, "0")}${uk[4]}`;
+  // Numeric slash dates: UK "04/07/2026 15:30" (day first) or, with
+  // monthFirst, Acuity's US "07/04/2026 3:30 PM". Out-of-range parts are
+  // rejected rather than rolled over into the wrong month.
+  const numeric = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*,?\s*(.*)$/);
+  if (numeric) {
+    const first = parseInt(numeric[1], 10);
+    const second = parseInt(numeric[2], 10);
+    const year = numeric[3].length === 2 ? 2000 + parseInt(numeric[3], 10) : parseInt(numeric[3], 10);
+    const day = opts.monthFirst ? second : first;
+    const month = opts.monthFirst ? first : second;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    let hour = 9;
+    let minute = 0;
+    const t = numeric[4].match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?/i);
+    if (t) {
+      hour = parseInt(t[1], 10);
+      minute = parseInt(t[2], 10);
+      const ap = (t[3] ?? "").toLowerCase();
+      if (ap === "pm" && hour < 12) hour += 12;
+      if (ap === "am" && hour === 12) hour = 0;
+    }
+    const local = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    const d = fromZonedTime(local, TZ);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 
   if (/z$|[+-]\d{2}:?\d{2}$/i.test(s)) {
