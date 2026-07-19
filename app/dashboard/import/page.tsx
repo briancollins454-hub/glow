@@ -60,6 +60,12 @@ function ImportView() {
       {importStatus === "empty" && (
         <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
       )}
+      {importStatus === "failed" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Something in that file tripped us up. It has been logged on our side, so we are already
+          looking at it. Please email the file to support@glow-uk.com and we will import it for you.
+        </div>
+      )}
 
       <Card>
         <CardHeader>
