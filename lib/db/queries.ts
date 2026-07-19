@@ -245,19 +245,44 @@ export async function updateService(sb: SB, id: string, patch: Partial<Service>)
   if (error) throw new Error(error.message);
 }
 export async function deleteService(sb: SB, id: string): Promise<void> {
-  const bookings = await bookingsForService(sb, id);
-  for (const booking of bookings) {
-    await deleteBooking(sb, booking.id);
+  await deleteServices(sb, [id]);
+}
+
+/** Delete many services (and their bookings / waitlist / staff links). */
+export async function deleteServices(sb: SB, ids: string[]): Promise<number> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (!unique.length) return 0;
+
+  for (const chunk of chunkIds(unique, 100)) {
+    const { error: infillErr } = await sb
+      .from("services")
+      .update({ fullSetServiceId: null })
+      .in("fullSetServiceId", chunk);
+    if (infillErr) throw new Error(infillErr.message);
+
+    const { error: waitlistErr } = await sb.from("waitlist_entries").delete().in("serviceId", chunk);
+    if (waitlistErr) throw new Error(waitlistErr.message);
+
+    const { error: staffLinkErr } = await sb.from("staff_services").delete().in("serviceId", chunk);
+    if (staffLinkErr && !/staff_services|schema cache/i.test(staffLinkErr.message)) {
+      throw new Error(staffLinkErr.message);
+    }
+
+    // Bookings restrict service deletes — remove them first (payments/reminders cascade).
+    const { error: bookingErr } = await sb.from("bookings").delete().in("serviceId", chunk);
+    if (bookingErr) throw new Error(bookingErr.message);
+
+    const { error } = await sb.from("services").delete().in("id", chunk);
+    if (error) throw new Error(error.message);
   }
-  const { error: infillErr } = await sb
-    .from("services")
-    .update({ fullSetServiceId: null })
-    .eq("fullSetServiceId", id);
-  if (infillErr) throw new Error(infillErr.message);
-  const { error: waitlistErr } = await sb.from("waitlist_entries").delete().eq("serviceId", id);
-  if (waitlistErr) throw new Error(waitlistErr.message);
-  const { error } = await sb.from("services").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+
+  return unique.length;
+}
+
+function chunkIds(ids: string[], size: number): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
 }
 
 // ---------------- Service add-ons ----------------

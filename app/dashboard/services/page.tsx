@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, ShieldCheck, RefreshCw, FolderPlus, ImagePlus, Sparkles, CheckCircle2 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
-import { ServiceSortableList } from "@/components/dashboard/service-sortable-list";
+import { ServicesBulkDelete } from "@/components/dashboard/services-bulk-delete";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -247,11 +247,15 @@ function ServicesView({
       <Card>
         <CardHeader>
           <CardTitle>Your services ({services.length})</CardTitle>
-          <CardDescription>Tap a service name to open it — only one open at a time. Drag the handle to reorder.</CardDescription>
+          <CardDescription>
+            Tap a service name to open it — only one open at a time. Drag the handle to reorder, or use
+            Select to delete for bulk removal.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ServiceSortableList
+          <ServicesBulkDelete
             services={services}
+            categories={categories}
             renderService={(s) => (
               <ServiceListItem
                 serviceId={s.id}
