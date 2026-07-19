@@ -13,6 +13,7 @@ import {
   resetStaffPasswordAction,
   saveStaffHoursAction,
   setStaffActiveAction,
+  setStaffLoginAction,
   updateStaffDetailsAction,
 } from "./actions";
 import { StaffRotaEditor } from "@/components/dashboard/staff-rota";
@@ -28,10 +29,11 @@ const DAYS = [
 ];
 
 const ERRORS: Record<string, string> = {
-  missing: "Please fill in a name.",
+  missing: "Please fill in the required fields.",
   email: "An account with that email already exists.",
   password: "Passwords need at least 8 characters.",
   owner: "The owner can't be deactivated.",
+  haslogin: "This person already has a login. Use Reset password instead.",
 };
 
 function minToHHMM(min: number): string {
@@ -313,6 +315,50 @@ function StaffCard({
             <Button type="submit" variant="secondary">Save hours</Button>
           </form>
         </details>
+
+        {!member.authUserId && member.role !== "owner" && (
+          <details className="rounded-xl border border-edge" open>
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-ink-soft transition hover:text-ink [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4" /> Add login
+              </span>
+            </summary>
+            <form action={setStaffLoginAction} className="space-y-3 border-t border-edge p-4">
+              <input type="hidden" name="id" value={member.id} />
+              <p className="text-sm text-ink-soft">
+                Imported staff start without a login. Set an email and password so they can sign in
+                and see the diary.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor={`login-email-${member.id}`}>Login email</Label>
+                  <Input
+                    id={`login-email-${member.id}`}
+                    name="email"
+                    type="email"
+                    required
+                    defaultValue={member.email || undefined}
+                    placeholder="amy@example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`login-pw-${member.id}`}>Password</Label>
+                  <Input
+                    id={`login-pw-${member.id}`}
+                    name="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+              </div>
+              <Button type="submit" variant="secondary">
+                <KeyRound className="h-4 w-4" /> Create login
+              </Button>
+            </form>
+          </details>
+        )}
 
         {member.authUserId && (
           <details className="rounded-xl border border-edge">
