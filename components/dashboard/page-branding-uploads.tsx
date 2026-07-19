@@ -156,8 +156,9 @@ function PhotoUpload({
       <div className="mt-4 overflow-hidden rounded-xl border border-edge bg-surface">
         {previewUrl ? (
           <div className={`relative ${aspectClass}`}>
+            {/* Contain matches the live page, which never crops the image. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+            <img src={previewUrl} alt="" className="h-full w-full object-contain" />
           </div>
         ) : (
           <div className={`flex ${aspectClass} flex-col items-center justify-center gap-2 text-ink-faint`}>

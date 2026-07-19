@@ -257,7 +257,9 @@ export function BookingHeader({
             style={{ background: `linear-gradient(135deg, ${heroBrand(brand)}, ${shade(heroBrand(brand), -24)})` }}
           >
             {profileUrl ? (
-              <RemoteImage src={profileUrl} alt={businessName} fill fit="cover" />
+              // Contain, not cover: logos with text must never be cut off, and
+              // the brand gradient behind fills any letterboxing.
+              <RemoteImage src={profileUrl} alt={businessName} fill fit="contain" />
             ) : (
               <span className="flex h-full w-full items-center justify-center font-display text-sm font-semibold text-white">
                 {initials(businessName)}
