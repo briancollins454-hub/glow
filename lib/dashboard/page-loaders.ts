@@ -150,8 +150,10 @@ export async function loadDashboardPageData(
       const now = Date.now();
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
-      const { listStaff } = await import("@/lib/db/queries");
-      const [bookings, services, categories, clients, waitlist, staff, offs, allHours, addons] =
+      const { listStaff, listRotaHours } = await import("@/lib/db/queries");
+      const fromWeek = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const toWeek = new Date(now + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const [bookings, services, categories, clients, waitlist, staff, offs, allHours, addons, rotaHours] =
         await Promise.all([
           listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
           listServices(sb, tech.id),
@@ -162,6 +164,7 @@ export async function loadDashboardPageData(
           listTimeOff(sb, tech.id).catch(() => []),
           listWorkingHours(sb, tech.id).catch(() => []),
           listAddons(sb, tech.id, { activeOnly: true }).catch(() => []),
+          listRotaHours(sb, tech.id, { fromWeek, toWeek }).catch(() => []),
         ]);
       const owner = staff.find((s) => s.role === "owner");
       const { workingHoursForStaff } = await import("@/lib/booking/staff");
@@ -179,6 +182,13 @@ export async function loadDashboardPageData(
         offs,
         hoursByStaff,
         addons,
+        rotaHours,
+        tech: {
+          flexibleHoursEnabled: tech.flexibleHoursEnabled,
+          flexibleStartMinutes: tech.flexibleStartMinutes,
+          flexibleEndMinutes: tech.flexibleEndMinutes,
+          flexibleLastStartMinutes: tech.flexibleLastStartMinutes,
+        },
         now,
       };
     }

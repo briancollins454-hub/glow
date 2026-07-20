@@ -1250,6 +1250,74 @@ export async function addManualBookingAction(formData: FormData) {
     }
   }
 
+  // Only allow times that fall in working hours and do not clash (same rules as online).
+  let slotOk = true;
+  try {
+    const {
+      listWorkingHours,
+      listTimeOff,
+      listBookingsInWindow,
+      listRotaHours,
+      listStaff,
+      getStaff,
+    } = await import("@/lib/db/queries");
+    const { workingHoursForStaff, rowsForStaff } = await import("@/lib/booking/staff");
+    const { timeOffAppliesToStaff } = await import("@/lib/booking/staff-day");
+    const {
+      basketDurationMin,
+      bufferMapFromServices,
+      dateStrInTz,
+      daySlotsForDuration,
+      flexibleHoursFromTech,
+    } = await import("@/lib/rules");
+
+    const duration = basketDurationMin(basketServices);
+    const dateStr = dateStrInTz(new Date(startIso));
+    const dayMs = 24 * 60 * 60 * 1000;
+    const windowStart = new Date(new Date(startIso).getTime() - dayMs).toISOString();
+    const windowEnd = new Date(new Date(startIso).getTime() + dayMs).toISOString();
+    const [allHours, offs, nearby, rotaHours, staffList, allServices] = await Promise.all([
+      listWorkingHours(sb, tech.id).catch(() => []),
+      listTimeOff(sb, tech.id).catch(() => []),
+      listBookingsInWindow(sb, tech.id, windowStart, windowEnd).catch(() => []),
+      listRotaHours(sb, tech.id).catch(() => []),
+      listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
+      listServices(sb, tech.id).catch(() => basketServices),
+    ]);
+    const owner = staffList.find((s) => s.role === "owner") ?? null;
+    const member =
+      (manualStaffId
+        ? staffList.find((s) => s.id === manualStaffId) ??
+          (await getStaff(sb, manualStaffId).catch(() => null))
+        : null) ??
+      owner ??
+      null;
+    const workingHours = member
+      ? workingHoursForStaff(allHours, member, owner?.id)
+      : allHours.filter((h) => h.staffId == null);
+    const scopedBookings = member ? rowsForStaff(nearby, member) : nearby;
+    const scopedOffs = member ? timeOffAppliesToStaff(offs, member.id) : offs;
+    const scopedRota = member ? rowsForStaff(rotaHours, member) : [];
+    const free = daySlotsForDuration(
+      duration,
+      dateStr,
+      {
+        workingHours,
+        timeOff: scopedOffs,
+        bookings: scopedBookings,
+        flexibleHours: flexibleHoursFromTech(tech),
+        rotaHours: scopedRota,
+        bufferByServiceId: bufferMapFromServices(allServices),
+      },
+      0,
+    );
+    slotOk = free.includes(startIso);
+  } catch {
+    // Soft-fail: do not block manual booking if hours/rota queries fail.
+    slotOk = true;
+  }
+  if (!slotOk) redirect("/dashboard/bookings?error=slot");
+
   let booking;
   try {
     if (basketServices.length >= 2) {

@@ -223,14 +223,14 @@ describe("daySlots", () => {
     expect(slots[slots.length - 1]).toBe("2030-07-10T09:00:00.000Z");
   });
 
-  it("offers slots every day when flexible hours are on, even if the weekday is closed", () => {
-    // 2030-07-07 is a Sunday (weekday 0); only Wednesday hours exist and are unused.
+  it("uses flexible hours when no weekly hours are configured", () => {
+    // 2030-07-07 is a Sunday (weekday 0); empty weekly template + flexible = open.
     const sunday = "2030-07-07";
     const slots = daySlots(
       service,
       sunday,
       {
-        workingHours: [makeWorkingHour({ weekday: 3, enabled: false })],
+        workingHours: [],
         timeOff: [],
         bookings: [],
         flexibleHours: { startMinutes: 10 * 60, endMinutes: 14 * 60, lastStartMinutes: null },
@@ -239,6 +239,48 @@ describe("daySlots", () => {
     );
     expect(slots.length).toBeGreaterThan(0);
     expect(slots[0]).toBe("2030-07-07T09:00:00.000Z"); // 10:00 BST
+  });
+
+  it("keeps closed weekdays closed even when flexible hours are on", () => {
+    // Weekly hours exist (Wed only). Flexible must not reopen Sunday.
+    const sunday = "2030-07-07";
+    const slots = daySlots(
+      service,
+      sunday,
+      {
+        workingHours: [makeWorkingHour({ weekday: 3, enabled: true })],
+        timeOff: [],
+        bookings: [],
+        flexibleHours: { startMinutes: 10 * 60, endMinutes: 14 * 60, lastStartMinutes: null },
+      },
+      now,
+    );
+    expect(slots).toEqual([]);
+  });
+
+  it("prefers weekly hours over flexible when both are set", () => {
+    // Wednesday has hours 09:00–12:00; flexible is 10:00–14:00 — weekly wins.
+    const slots = daySlots(
+      service,
+      dateStr,
+      {
+        workingHours: [
+          makeWorkingHour({
+            weekday: 3,
+            enabled: true,
+            startMinutes: 9 * 60,
+            endMinutes: 12 * 60,
+            lastStartMinutes: null,
+          }),
+        ],
+        timeOff: [],
+        bookings: [],
+        flexibleHours: { startMinutes: 10 * 60, endMinutes: 14 * 60, lastStartMinutes: null },
+      },
+      now,
+    );
+    expect(slots[0]).toBe("2030-07-10T08:00:00.000Z"); // 09:00 BST
+    expect(slots[slots.length - 1]).toBe("2030-07-10T10:00:00.000Z"); // 11:00 BST (60m service)
   });
 
   it("still respects time off under flexible hours", () => {

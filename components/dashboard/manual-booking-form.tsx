@@ -1,14 +1,33 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { groupServicesForDashboard } from "@/lib/booking/service-groups";
-import { gbp } from "@/lib/format";
+import { rowsForStaff } from "@/lib/booking/staff";
+import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
+import { gbp, fmtTime } from "@/lib/format";
+import {
+  basketDurationMin,
+  bufferMapFromServices,
+  daySlotsForDuration,
+  flexibleHoursFromTech,
+} from "@/lib/rules";
 import { cn } from "@/lib/utils";
 import { addManualBookingAction } from "@/app/dashboard/actions";
-import type { Client, Service, ServiceAddon, ServiceCategory, StaffMember } from "@/lib/db/types";
+import type {
+  Booking,
+  Client,
+  RotaHour,
+  Service,
+  ServiceAddon,
+  ServiceCategory,
+  StaffMember,
+  Tech,
+  TimeOff,
+  WorkingHour,
+} from "@/lib/db/types";
 
 export function ManualBookingForm({
   services,
@@ -16,12 +35,28 @@ export function ManualBookingForm({
   clients,
   staff = [],
   addons = [],
+  bookings = [],
+  offs = [],
+  hoursByStaff = {},
+  rotaHours = [],
+  tech,
 }: {
   services: Service[];
   categories: ServiceCategory[];
   clients: Client[];
   staff?: StaffMember[];
   addons?: ServiceAddon[];
+  bookings?: Booking[];
+  offs?: TimeOff[];
+  hoursByStaff?: Record<string, WorkingHour[]>;
+  rotaHours?: RotaHour[];
+  tech?: Pick<
+    Tech,
+    | "flexibleHoursEnabled"
+    | "flexibleStartMinutes"
+    | "flexibleEndMinutes"
+    | "flexibleLastStartMinutes"
+  > | null;
 }) {
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const groups = useMemo(
@@ -29,6 +64,8 @@ export function ManualBookingForm({
     [categories, activeServices],
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const defaultStaffId = staff[0]?.id ?? "";
+  const [staffId, setStaffId] = useState(defaultStaffId);
 
   const selectedServices = useMemo(
     () =>
@@ -47,6 +84,42 @@ export function ManualBookingForm({
 
   const totalMins = selectedServices.reduce((sum, s) => sum + s.durationMin, 0);
   const totalPennies = selectedServices.reduce((sum, s) => sum + s.pricePennies, 0);
+  const bufferByServiceId = useMemo(() => bufferMapFromServices(activeServices), [activeServices]);
+  const flexibleHours = useMemo(() => flexibleHoursFromTech(tech), [tech]);
+
+  const timesForDate = useCallback(
+    (dateStr: string) => {
+      if (selectedServices.length === 0) return [];
+      const duration = basketDurationMin(selectedServices);
+      const member = staff.find((s) => s.id === staffId) ?? staff[0] ?? null;
+      const workingHours = member ? (hoursByStaff[member.id] ?? []) : [];
+      const scopedBookings = member
+        ? rowsForStaff(bookings, member)
+        : bookings.filter((b) => !b.staffId);
+      const scopedOffs = member ? timeOffAppliesToStaff(offs, member.id) : offs;
+      const scopedRota = member ? rowsForStaff(rotaHours, member) : [];
+      const slots = daySlotsForDuration(duration, dateStr, {
+        workingHours,
+        timeOff: scopedOffs,
+        bookings: scopedBookings,
+        flexibleHours,
+        rotaHours: scopedRota,
+        bufferByServiceId,
+      }, 0);
+      return slots.map((iso) => fmtTime(iso));
+    },
+    [
+      selectedServices,
+      staff,
+      staffId,
+      hoursByStaff,
+      bookings,
+      offs,
+      rotaHours,
+      flexibleHours,
+      bufferByServiceId,
+    ],
+  );
 
   function toggleService(id: string) {
     setSelectedIds((prev) => {
@@ -158,7 +231,11 @@ export function ManualBookingForm({
       {staff.length > 1 && (
         <div>
           <Label>With</Label>
-          <Select name="staffId" defaultValue={staff[0]?.id ?? ""}>
+          <Select
+            name="staffId"
+            value={staffId}
+            onChange={(e) => setStaffId(e.target.value)}
+          >
             {staff.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -166,6 +243,9 @@ export function ManualBookingForm({
             ))}
           </Select>
         </div>
+      )}
+      {staff.length === 1 && staff[0] && (
+        <input type="hidden" name="staffId" value={staff[0].id} />
       )}
 
       <div>
@@ -186,7 +266,22 @@ export function ManualBookingForm({
       </p>
       <div className="sm:col-span-2">
         <Label>Date &amp; time</Label>
-        <LazyDateTimePicker name="startsAt" />
+        {selectedServices.length === 0 ? (
+          <p className="rounded-xl border border-edge bg-white/[0.03] px-3.5 py-3 text-sm text-ink-faint">
+            Choose a service first — times only show when that person is free and working.
+          </p>
+        ) : (
+          <>
+            <LazyDateTimePicker
+              name="startsAt"
+              timesForDate={timesForDate}
+              emptyTimesHint="No free times — they may be fully booked or not working that day"
+            />
+            <p className="mt-1.5 text-xs text-ink-faint">
+              Times match working hours and skip slots that already have an appointment.
+            </p>
+          </>
+        )}
       </div>
       <div>
         <Label>Deposit for this booking (£)</Label>

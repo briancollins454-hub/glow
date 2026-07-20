@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Service } from "@/lib/db/types";
+import { ExpandableText } from "@/components/booking/expandable-text";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
@@ -46,9 +47,7 @@ export function ServiceCard({
         </div>
 
         {service.description && (
-          <p className="mt-2 text-sm leading-relaxed text-ink-soft line-clamp-3">
-            {service.description}
-          </p>
+          <ExpandableText text={service.description} className="mt-2" clampClass="line-clamp-3" />
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
