@@ -37,7 +37,8 @@ export async function createDepositCheckout(
     },
     acct(tech),
   );
-  return session.url!;
+  if (!session.url) throw new Error("Stripe Checkout returned no URL");
+  return session.url;
 }
 
 /**
@@ -57,26 +58,39 @@ export async function createCardCaptureCheckout(
     { name: client.name, email: client.email, metadata: { bookingId: booking.id } },
     acct(tech),
   );
-  const session = await s.checkout.sessions.create(
-    {
-      mode: "setup",
-      customer: customer.id,
-      currency: "gbp",
-      payment_method_types: ["card"],
-      custom_text: {
-        submit: {
-          message:
-            "Nothing is charged today. Your card is saved securely to hold the booking; a no-show fee may be charged if you miss your appointment.",
+
+  const base = {
+    mode: "setup" as const,
+    customer: customer.id,
+    currency: "gbp",
+    payment_method_types: ["card" as const],
+    success_url: `${appUrl}/${tech.handle}/booked/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/${tech.handle}?service=${service.id}&err=payment_cancelled`,
+    metadata: { bookingId: booking.id, kind: "card_capture" },
+    setup_intent_data: { metadata: { bookingId: booking.id, kind: "card_capture" } },
+  };
+
+  try {
+    const session = await s.checkout.sessions.create(
+      {
+        ...base,
+        custom_text: {
+          submit: {
+            message:
+              "Nothing is charged today. Your card is saved securely to hold the booking; a no-show fee may be charged if you miss your appointment.",
+          },
         },
       },
-      success_url: `${appUrl}/${tech.handle}/booked/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/${tech.handle}?service=${service.id}&err=payment_cancelled`,
-      metadata: { bookingId: booking.id, kind: "card_capture" },
-      setup_intent_data: { metadata: { bookingId: booking.id, kind: "card_capture" } },
-    },
-    acct(tech),
-  );
-  return session.url!;
+      acct(tech),
+    );
+    if (!session.url) throw new Error("Stripe Checkout returned no URL");
+    return session.url;
+  } catch (e) {
+    // Some Connect accounts / API versions reject custom_text — retry plain.
+    const session = await s.checkout.sessions.create(base, acct(tech));
+    if (!session.url) throw e instanceof Error ? e : new Error("Stripe Checkout returned no URL");
+    return session.url;
+  }
 }
 
 export async function createBalanceCheckout(
