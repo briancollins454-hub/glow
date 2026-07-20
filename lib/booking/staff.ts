@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createStaff, listStaff } from "@/lib/db/queries";
-import type { StaffMember, Tech } from "@/lib/db/types";
+import type { StaffMember, Tech, WorkingHour } from "@/lib/db/types";
 
 export const ANY_STAFF = "any";
 
@@ -29,6 +29,34 @@ export async function getOrCreateOwnerStaff(
     active: true,
     sortOrder: 0,
   });
+}
+
+/** Rows belonging to one staff member (legacy null rows count as the owner's). */
+export function rowsForStaff<T extends { staffId?: string | null }>(
+  rows: T[],
+  staff: StaffMember,
+): T[] {
+  return rows.filter(
+    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
+  );
+}
+
+/**
+ * Working hours used for slot calculation and diary shading.
+ * Staff with no personal rows inherit the salon/owner opening hours so an
+ * unset diary does not look open all day.
+ */
+export function workingHoursForStaff(
+  allHours: WorkingHour[],
+  staff: StaffMember,
+  ownerId?: string | null,
+): WorkingHour[] {
+  const own = rowsForStaff(allHours, staff);
+  if (own.length > 0) return own;
+  const oid = ownerId ?? null;
+  return allHours.filter(
+    (h) => h.staffId == null || (oid != null && h.staffId === oid),
+  );
 }
 
 /**

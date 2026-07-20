@@ -151,16 +151,34 @@ export async function loadDashboardPageData(
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
       const { listStaff } = await import("@/lib/db/queries");
-      const [bookings, services, categories, clients, waitlist, staff, offs] = await Promise.all([
-        listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
-        listServices(sb, tech.id),
-        listCategories(sb, tech.id),
-        listClients(sb, tech.id),
-        listWaitlist(sb, tech.id).catch(() => []),
-        listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
-        listTimeOff(sb, tech.id).catch(() => []),
-      ]);
-      return { bookings, services, categories, clients, waitlist, staff, offs, now };
+      const [bookings, services, categories, clients, waitlist, staff, offs, allHours] =
+        await Promise.all([
+          listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
+          listServices(sb, tech.id),
+          listCategories(sb, tech.id),
+          listClients(sb, tech.id),
+          listWaitlist(sb, tech.id).catch(() => []),
+          listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
+          listTimeOff(sb, tech.id).catch(() => []),
+          listWorkingHours(sb, tech.id).catch(() => []),
+        ]);
+      const owner = staff.find((s) => s.role === "owner");
+      const { workingHoursForStaff } = await import("@/lib/booking/staff");
+      const hoursByStaff: Record<string, typeof allHours> = {};
+      for (const member of staff) {
+        hoursByStaff[member.id] = workingHoursForStaff(allHours, member, owner?.id);
+      }
+      return {
+        bookings,
+        services,
+        categories,
+        clients,
+        waitlist,
+        staff,
+        offs,
+        hoursByStaff,
+        now,
+      };
     }
     case "services": {
       const [categories, services, addons, retests, clients, bookings, products, batchSummary] =

@@ -33,8 +33,10 @@ import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket
 import {
   ANY_STAFF,
   capableStaff,
+  rowsForStaff,
   staffCanPerform,
   unionDayOptions,
+  workingHoursForStaff,
 } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
@@ -103,13 +105,6 @@ function buildOpeningHours(hours: Awaited<ReturnType<typeof listWorkingHours>>) 
     const end = Math.max(...rows.map((r) => r.endMinutes));
     return { label: dayNames[weekday], value: `${hhmm(start)} - ${hhmm(end)}` };
   });
-}
-
-/** Rows belonging to one staff member (legacy null rows count as the owner's). */
-function forStaff<T extends { staffId?: string | null }>(rows: T[], staff: StaffMember): T[] {
-  return rows.filter(
-    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
-  );
 }
 
 export default async function PublicBookingPage({
@@ -199,18 +194,23 @@ export default async function PublicBookingPage({
     const capable = capableStaff(staffList, restrictions, basketIds);
 
     const bufferByServiceId = bufferMapFromServices(services);
+    const owner = staffList.find((s) => s.role === "owner") ?? null;
     // Availability context per person (legacy rows with no staffId belong to
-    // the owner). No staff rows at all = pre-migration account: whole diary.
+    // the owner). Staff with no personal hours inherit salon/owner hours.
     const ctxFor = (staff: StaffMember) => ({
       ...withTechAvailability(
         {
-          workingHours: forStaff(workingHours as WorkingHour[], staff),
+          workingHours: workingHoursForStaff(
+            workingHours as WorkingHour[],
+            staff,
+            owner?.id,
+          ),
           timeOff: timeOffAppliesToStaff(timeOff, staff.id),
-          bookings: forStaff(bookings as Booking[], staff),
+          bookings: rowsForStaff(bookings as Booking[], staff),
         },
         tech,
       ),
-      rotaHours: forStaff(rotaHours, staff),
+      rotaHours: rowsForStaff(rotaHours, staff),
       bufferByServiceId,
     });
     const legacyCtx = {

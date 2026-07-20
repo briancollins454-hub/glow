@@ -21,7 +21,7 @@ import { ServicePicker } from "@/components/dashboard/service-picker";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { bufferMapFromServices } from "@/lib/rules";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
-import type { Booking, Client, Service, ServiceCategory, StaffMember, TimeOff, WaitlistEntry } from "@/lib/db/types";
+import type { Booking, Client, Service, ServiceCategory, StaffMember, TimeOff, WaitlistEntry, WorkingHour } from "@/lib/db/types";
 
 type BookingsData = {
   bookings: Booking[];
@@ -31,6 +31,7 @@ type BookingsData = {
   waitlist: WaitlistEntry[];
   staff?: StaffMember[];
   offs?: TimeOff[];
+  hoursByStaff?: Record<string, WorkingHour[]>;
   now: number;
 };
 
@@ -50,6 +51,7 @@ function BookingsView({
   waitlist,
   staff = [],
   offs = [],
+  hoursByStaff = {},
   now,
 }: BookingsData) {
   const searchParams = useSearchParams();
@@ -266,6 +268,7 @@ function BookingsView({
           serviceById={serviceById}
           bufferByServiceId={bufferByServiceId}
           offs={offs}
+          hoursByStaff={hoursByStaff}
         />
       ) : (
         <Card className="ring-1 ring-brand-500/30">

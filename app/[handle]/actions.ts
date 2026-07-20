@@ -53,7 +53,7 @@ import {
   loyaltyDiscountFor,
 } from "@/lib/bookings";
 import { resolveBasketExtras } from "@/lib/booking/basket";
-import { ANY_STAFF, capableStaff } from "@/lib/booking/staff";
+import { ANY_STAFF, capableStaff, rowsForStaff, workingHoursForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
@@ -118,13 +118,6 @@ async function loadAvailability(
   };
 }
 
-/** Rows belonging to one staff member (legacy null rows count as the owner's). */
-function rowsForStaff<T extends { staffId?: string | null }>(rows: T[], staff: StaffMember): T[] {
-  return rows.filter(
-    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
-  );
-}
-
 /**
  * Who takes this visit? Returns the chosen (or auto-assigned) staff member, or
  * null for pre-migration accounts with no staff rows, or "invalid" when the
@@ -151,10 +144,11 @@ async function resolveBookingStaff(
   const capable = capableStaff(staffList, restrictions, serviceIds);
   if (capable.length === 0) return "invalid";
 
+  const owner = staffList.find((s) => s.role === "owner") ?? null;
   const dateStr = dateStrInTz(new Date(slotIso));
   const freeFor = (staff: StaffMember) =>
     daySlotsForDuration(totalDurationMin, dateStr, {
-      workingHours: rowsForStaff(availability.workingHours, staff),
+      workingHours: workingHoursForStaff(availability.workingHours, staff, owner?.id),
       timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
       bookings: rowsForStaff(availability.bookings, staff),
       flexibleHours: availability.flexibleHours,
@@ -189,8 +183,9 @@ async function scopeCtxToStaff(
   );
   const staff = staffList.find((s) => s.id === staffId);
   if (!staff) return ctx;
+  const owner = staffList.find((s) => s.role === "owner") ?? null;
   return {
-    workingHours: rowsForStaff(ctx.workingHours, staff),
+    workingHours: workingHoursForStaff(ctx.workingHours, staff, owner?.id),
     timeOff: timeOffAppliesToStaff(ctx.timeOff, staff.id),
     bookings: rowsForStaff(ctx.bookings, staff),
     flexibleHours: ctx.flexibleHours,
