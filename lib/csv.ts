@@ -199,14 +199,27 @@ export function appointmentServiceCol(headers: string[]): number {
  * "Client Name" column or split First Name / Last Name, depending on version.
  */
 export function appointmentClientName(cols: string[], headers: string[]): string {
-  const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
-  if (iClient !== -1) return (cols[iClient] ?? "").trim();
   const iFirst = col(headers, "firstname", "first");
   const iLast = col(headers, "lastname", "last", "surname");
-  return [iFirst !== -1 ? cols[iFirst] : "", iLast !== -1 ? cols[iLast] : ""]
-    .map((s) => (s ?? "").trim())
-    .filter(Boolean)
-    .join(" ");
+  // Prefer split name columns when present (Acuity). A generic "name" alias
+  // can otherwise pick up an intake-form field and produce odd client names.
+  if (iFirst !== -1) {
+    let last = iLast !== -1 ? (cols[iLast] ?? "").trim() : "";
+    const iCal = col(headers, "calendar");
+    if (iCal !== -1 && last) {
+      const cal = (cols[iCal] ?? "").trim();
+      // Misaligned rows sometimes copy the Calendar value into Last Name
+      // (e.g. "Emma" + "Dog portrait" when Calendar is "Dog portrait").
+      if (cal && last.toLowerCase() === cal.toLowerCase()) last = "";
+    }
+    return [cols[iFirst] ?? "", last]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" ");
+  }
+  const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
+  if (iClient !== -1) return (cols[iClient] ?? "").trim();
+  return "";
 }
 
 export type AcuityDerivedService = { name: string; pricePennies: number };

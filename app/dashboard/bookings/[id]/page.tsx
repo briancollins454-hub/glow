@@ -87,14 +87,30 @@ export default async function EditBookingPage({
         <ArrowLeft className="h-4 w-4" /> Calendar
       </Link>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl font-semibold">{client?.name ?? "Booking"}</h1>
-        {statusBadge(booking.status)}
-        {bookingStaff && (
-          <span className="rounded-full border border-edge bg-cream px-3 py-1 text-xs font-medium text-ink-soft">
-            with {bookingStaff.name}
-          </span>
-        )}
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-3">
+          {client ? (
+            <Link
+              href={`/dashboard/clients/${client.id}`}
+              className="font-display text-2xl font-semibold hover:text-brand-text"
+            >
+              {client.name}
+            </Link>
+          ) : (
+            <h1 className="font-display text-2xl font-semibold">Booking</h1>
+          )}
+          {statusBadge(booking.status)}
+          {bookingStaff && (
+            <span className="rounded-full border border-edge bg-cream px-3 py-1 text-xs font-medium text-ink-soft">
+              with {bookingStaff.name}
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-ink-soft">
+          {service?.name ?? "Service"}
+          {" · "}
+          {fmtDateTime(booking.startIso)}
+        </p>
       </div>
 
       {saved && (
