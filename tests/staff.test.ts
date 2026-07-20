@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { capableStaff, staffCanPerform, unionDayOptions } from "@/lib/booking/staff";
+import { capableStaff, staffCanPerform, unionDayOptions, workingHoursForStaff } from "@/lib/booking/staff";
 import type { StaffMember } from "@/lib/db/types";
+import { daySlots } from "@/lib/rules";
+import { makeService, makeWorkingHour } from "./fixtures";
 
 function makeStaff(overrides: Partial<StaffMember> = {}): StaffMember {
   return {
@@ -46,6 +48,91 @@ describe("capableStaff", () => {
     expect(
       capableStaff([owner, lashTech, inactive], restrictions, ["svc_nail"]).map((s) => s.id),
     ).toEqual(["stf_owner"]);
+  });
+});
+
+describe("workingHoursForStaff", () => {
+  const owner = makeStaff({ id: "stf_owner", role: "owner", name: "Bella" });
+  const amy = makeStaff({ id: "stf_amy", name: "Amy" });
+  const ownerHours = makeWorkingHour({
+    id: "wh_owner",
+    staffId: "stf_owner",
+    weekday: 3,
+    startMinutes: 9 * 60,
+    endMinutes: 17 * 60,
+  });
+  const amyHours = makeWorkingHour({
+    id: "wh_amy",
+    staffId: "stf_amy",
+    weekday: 3,
+    startMinutes: 10 * 60,
+    endMinutes: 16 * 60,
+  });
+
+  it("returns a staff member's own hours when set", () => {
+    expect(workingHoursForStaff([ownerHours, amyHours], amy, owner.id)).toEqual([amyHours]);
+  });
+
+  it("falls back to owner hours when the staff member has none", () => {
+    expect(workingHoursForStaff([ownerHours], amy, owner.id)).toEqual([ownerHours]);
+  });
+
+  it("treats legacy null staffId rows as owner hours for fallback", () => {
+    const legacy = makeWorkingHour({ id: "wh_legacy", staffId: null });
+    expect(workingHoursForStaff([legacy], amy, owner.id)).toEqual([legacy]);
+  });
+});
+
+describe("slots respect staff working hours", () => {
+  // 2030-07-10 is a Wednesday (weekday 3). July = BST.
+  const dateStr = "2030-07-10";
+  const now = new Date("2030-07-01T00:00:00.000Z").getTime();
+  const service = makeService({ durationMin: 60 });
+  const owner = makeStaff({ id: "stf_owner", role: "owner" });
+  const amy = makeStaff({ id: "stf_amy" });
+
+  it("does not offer slots outside the staff member's hours", () => {
+    const hours = [
+      makeWorkingHour({
+        staffId: amy.id,
+        weekday: 3,
+        startMinutes: 10 * 60,
+        endMinutes: 14 * 60,
+      }),
+    ];
+    const slots = daySlots(
+      service,
+      dateStr,
+      { workingHours: workingHoursForStaff(hours, amy, owner.id), timeOff: [], bookings: [] },
+      now,
+    );
+    // 10:00 London = 09:00 UTC; last start for 60-min ending by 14:00 is 13:00 London.
+    expect(slots[0]).toBe("2030-07-10T09:00:00.000Z");
+    expect(slots).not.toContain("2030-07-10T08:00:00.000Z"); // 09:00 London - before open
+    expect(slots).not.toContain("2030-07-10T13:00:00.000Z"); // 14:00 London - would end after close
+  });
+
+  it("uses owner hours for slot bounds when staff has no rows", () => {
+    const ownerHours = [
+      makeWorkingHour({
+        staffId: owner.id,
+        weekday: 3,
+        startMinutes: 11 * 60,
+        endMinutes: 15 * 60,
+      }),
+    ];
+    const slots = daySlots(
+      service,
+      dateStr,
+      {
+        workingHours: workingHoursForStaff(ownerHours, amy, owner.id),
+        timeOff: [],
+        bookings: [],
+      },
+      now,
+    );
+    expect(slots[0]).toBe("2030-07-10T10:00:00.000Z"); // 11:00 London
+    expect(slots).not.toContain("2030-07-10T08:00:00.000Z");
   });
 });
 

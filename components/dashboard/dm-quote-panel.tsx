@@ -5,18 +5,21 @@ import { useSearchParams } from "next/navigation";
 import { Link2, MessageCircle, Sparkles, CheckCircle2 } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CopyButton } from "@/components/ui/copy-button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
+import { ServicePicker } from "@/components/dashboard/service-picker";
 import { createDmQuoteAction } from "@/app/dashboard/actions";
-import type { Service, ServiceAddon } from "@/lib/db/types";
+import type { Service, ServiceAddon, ServiceCategory } from "@/lib/db/types";
 
 export function DmQuotePanel({
   services,
+  categories,
   addons,
   clientId,
   clientName = "",
   returnTo = "/dashboard/messages",
 }: {
   services: Service[];
+  categories: ServiceCategory[];
   addons: ServiceAddon[];
   clientId?: string;
   clientName?: string;
@@ -84,7 +87,7 @@ export function DmQuotePanel({
         <div className="mt-4 space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-emerald-200">
             <CheckCircle2 className="h-4 w-4" />
-            Quote link ready — paste into your DM
+            Quote link ready - paste into your DM
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <code className="max-w-full truncate rounded-lg bg-white/[0.06] px-2 py-1 text-xs text-ink-soft">
@@ -110,21 +113,18 @@ export function DmQuotePanel({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Service</Label>
-              <Select
+              <ServicePicker
                 name="serviceId"
+                services={activeServices}
+                categories={categories}
                 value={serviceId}
-                onChange={(e) => {
-                  setServiceId(e.target.value);
+                onValueChange={(id) => {
+                  setServiceId(id);
                   setSelectedAddons(new Set());
                 }}
+                required
                 className="mt-2"
-              >
-                {activeServices.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
             <div>
               <Label htmlFor="dm-client-name">Client first name (optional)</Label>

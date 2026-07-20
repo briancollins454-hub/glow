@@ -482,6 +482,20 @@ export default function SettingsPage() {
                 </span>
               </span>
             </label>
+            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                name="bookingNotifyEmailEnabled"
+                defaultChecked={tech.bookingNotifyEmailEnabled !== false}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              />
+              <span>
+                <span className="font-medium">Email me when someone books online</span>
+                <span className="mt-0.5 block text-xs text-ink-faint">
+                  Sends to your salon email when a booking is confirmed instantly or after you approve. If the appointment is assigned to a team member with an email, they get a copy too.
+                </span>
+              </span>
+            </label>
             <div className="rounded-xl border border-edge bg-cream px-4 py-3 sm:col-span-2">
               <div className="flex items-start gap-2.5">
                 <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />

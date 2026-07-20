@@ -260,6 +260,7 @@ export async function updateSettingsAction(formData: FormData) {
     ...(formData.get("smsRemindersField") === "1"
       ? { smsRemindersEnabled: formData.get("smsRemindersEnabled") === "on" }
       : {}),
+    bookingNotifyEmailEnabled: formData.get("bookingNotifyEmailEnabled") === "on",
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),
@@ -546,30 +547,46 @@ export async function addTimeOffAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const start = String(formData.get("start") ?? "");
   const end = String(formData.get("end") ?? "");
-  const staffId = String(formData.get("staffId") ?? "").trim() || null;
+  // Multi-select: staffIds checkboxes, or legacy single staffId. Empty / "everyone" = salon-wide.
+  const rawIds = formData.getAll("staffIds").map((v) => String(v).trim());
+  const legacyId = String(formData.get("staffId") ?? "").trim();
+  const selected = [...new Set(rawIds.filter((id) => id && id !== "everyone"))];
+  const wantsEveryone =
+    rawIds.includes("everyone") || rawIds.includes("") || (rawIds.length === 0 && !legacyId);
+  const staffTargets: (string | null)[] = wantsEveryone
+    ? [null]
+    : selected.length > 0
+      ? selected
+      : legacyId
+        ? [legacyId]
+        : [null];
   const returnTo = safeDashboardReturn(formData, "/dashboard/availability");
   if (start && end) {
     const startIso = toIso(start);
     const endIso = toIso(end);
     if (new Date(endIso).getTime() > new Date(startIso).getTime()) {
-      try {
-        await createTimeOff(sb, {
-          techId: tech.id,
-          startIso,
-          endIso,
-          reason: String(formData.get("reason") ?? "").trim(),
-          staffId,
-        });
-      } catch (e) {
-        // Migration 0036 not applied — save without staff scoping.
-        const msg = e instanceof Error ? e.message : "";
-        if (!/staffId/i.test(msg)) throw e;
-        await createTimeOff(sb, {
-          techId: tech.id,
-          startIso,
-          endIso,
-          reason: String(formData.get("reason") ?? "").trim(),
-        });
+      const reason = String(formData.get("reason") ?? "").trim();
+      for (const staffId of staffTargets) {
+        try {
+          await createTimeOff(sb, {
+            techId: tech.id,
+            startIso,
+            endIso,
+            reason,
+            staffId,
+          });
+        } catch (e) {
+          // Migration 0036 not applied — save without staff scoping.
+          const msg = e instanceof Error ? e.message : "";
+          if (!/staffId/i.test(msg)) throw e;
+          await createTimeOff(sb, {
+            techId: tech.id,
+            startIso,
+            endIso,
+            reason,
+          });
+          break;
+        }
       }
     }
   }
@@ -692,6 +709,29 @@ export async function saveServiceAction(formData: FormData) {
       await updateService(sb, serviceId, { photoPath: path });
     } catch {
       // The service is saved either way; the photo can be added from the edit panel.
+    }
+  }
+
+  // Per-staff day rules (migration 0040).
+  if (serviceId && formData.get("staffDaySection") === "1") {
+    try {
+      const { listStaff, setStaffServiceDaysForService } = await import("@/lib/db/queries");
+      const team = await listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []);
+      if (team.length) {
+        const fullRules = team.map((member) => {
+          const raw = formData
+            .getAll(`staffDay_${member.id}`)
+            .map((v) => Number(v))
+            .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+          return {
+            staffId: member.id,
+            availableWeekdays: normalizeAvailableWeekdays(raw),
+          };
+        });
+        await setStaffServiceDaysForService(supabaseService(), serviceId, fullRules);
+      }
+    } catch {
+      // Migration may be pending.
     }
   }
 
@@ -1140,10 +1180,20 @@ export async function declineBookingRequestDashboardAction(formData: FormData) {
 
 export async function addManualBookingAction(formData: FormData) {
   const { sb, tech } = await ctx();
-  const serviceId = String(formData.get("serviceId") ?? "");
-  const service = await getService(sb, serviceId);
+  const serviceIds = formData
+    .getAll("serviceId")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  // Preserve tick order; drop duplicates.
+  const orderedIds = [...new Set(serviceIds)];
   const dateTime = String(formData.get("startsAt") ?? "");
-  if (!service || !dateTime) redirect("/dashboard/bookings?error=missing");
+  if (!orderedIds.length || !dateTime) redirect("/dashboard/bookings?error=missing");
+
+  const loaded = await Promise.all(orderedIds.map((id) => getService(sb, id)));
+  const basketServices = loaded.filter((s): s is NonNullable<typeof s> => !!s && s.techId === tech.id);
+  if (basketServices.length !== orderedIds.length) {
+    redirect("/dashboard/bookings?error=missing");
+  }
 
   const cid = String(formData.get("clientId") ?? "");
   let client = cid ? await getClient(sb, cid) : null;
@@ -1155,15 +1205,14 @@ export async function addManualBookingAction(formData: FormData) {
     });
   }
 
-  // Duplicate guard: identical client + service + start time already booked
-  // (protects against double-taps and repeated form submissions).
   const startIso = toIso(dateTime);
-  const { bookingsForClient } = await import("@/lib/db/queries");
+  const { bookingsForClient, addonsForService } = await import("@/lib/db/queries");
   const existing = await bookingsForClient(sb, tech.id, client.id);
   const startMs = new Date(startIso).getTime();
+  const primary = basketServices[0]!;
   const duplicate = existing.some(
     (b) =>
-      b.serviceId === serviceId &&
+      b.serviceId === primary.id &&
       b.status !== "cancelled" &&
       new Date(b.startIso).getTime() === startMs,
   );
@@ -1175,16 +1224,22 @@ export async function addManualBookingAction(formData: FormData) {
   const paymentTaken = String(formData.get("paymentTaken") ?? "none") as "none" | "deposit" | "full";
   const paymentMethod = String(formData.get("paymentMethod") ?? "cash");
 
-  // Optional per-booking deposit override: blank = service default, 0 = none.
   const depositRaw = String(formData.get("depositPounds") ?? "").trim();
   const depositOverridePennies = depositRaw === "" ? null : poundsToPennies(depositRaw);
 
-  // Loyalty reward applies to manual bookings too (VIPs always qualify).
-  const { loyaltyDiscountFor } = await import("@/lib/bookings");
-  const completedVisits = existing.filter((b) => b.status === "completed").length;
-  const discountPennies = loyaltyDiscountFor(tech, completedVisits, service!.pricePennies, client.isVip);
+  // Add-ons for the primary treatment (same as online).
+  const available = await addonsForService(sb, primary.id, { activeOnly: true }).catch(() => []);
+  const addons = available
+    .filter((a) => formData.get(`addon_${a.id}`) === "on")
+    .map((a) => ({ name: a.name, pricePennies: a.pricePennies }));
 
-  // Salon mode: manual bookings can name a staff member; default is the owner.
+  const { loyaltyDiscountFor, createBasketBookings } = await import("@/lib/bookings");
+  const completedVisits = existing.filter((b) => b.status === "completed").length;
+  const gross =
+    basketServices.reduce((s, svc) => s + svc.pricePennies, 0) +
+    addons.reduce((s, a) => s + a.pricePennies, 0);
+  const discountPennies = loyaltyDiscountFor(tech, completedVisits, gross, client.isVip);
+
   let manualStaffId = String(formData.get("staffId") ?? "").trim() || null;
   if (!manualStaffId) {
     try {
@@ -1197,19 +1252,38 @@ export async function addManualBookingAction(formData: FormData) {
 
   let booking;
   try {
-    booking = await createConfirmedBooking({
-      sb,
-      tech,
-      service: service!,
-      client,
-      startIso,
-      staffId: manualStaffId,
-      notes: String(formData.get("notes") ?? "").trim(),
-      paymentTaken,
-      paymentMethod,
-      depositOverridePennies,
-      discountPennies,
-    });
+    if (basketServices.length >= 2) {
+      const created = await createBasketBookings({
+        sb,
+        tech,
+        services: basketServices,
+        client,
+        startIso,
+        status: "confirmed",
+        staffId: manualStaffId,
+        addons,
+        discountPennies,
+        depositOverridePennies,
+        paymentTaken,
+        paymentMethod,
+      });
+      booking = created.primary;
+    } else {
+      booking = await createConfirmedBooking({
+        sb,
+        tech,
+        service: primary,
+        client,
+        startIso,
+        staffId: manualStaffId,
+        notes: String(formData.get("notes") ?? "").trim(),
+        paymentTaken,
+        paymentMethod,
+        depositOverridePennies,
+        discountPennies,
+        addons,
+      });
+    }
   } catch (e) {
     if (isUniqueViolation(e)) {
       revalidatePath("/dashboard/bookings");
@@ -1219,7 +1293,7 @@ export async function addManualBookingAction(formData: FormData) {
   }
   await audit(sb, tech.id, "manual_booking_created", "booking", booking.id, {
     clientId: client.id,
-    serviceId: service!.id,
+    serviceIds: basketServices.map((s) => s.id),
     startIso,
     paymentTaken,
   });

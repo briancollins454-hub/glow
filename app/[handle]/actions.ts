@@ -34,6 +34,7 @@ import {
   findPatchTestService,
   bufferMapFromServices,
   intersectWeekdays,
+  weekdaysForStaffBasket,
   needsManualApproval,
   scoreClientRisk,
   treatmentSlotsAfterPatchTest,
@@ -53,9 +54,9 @@ import {
   loyaltyDiscountFor,
 } from "@/lib/bookings";
 import { resolveBasketExtras } from "@/lib/booking/basket";
-import { ANY_STAFF, capableStaff } from "@/lib/booking/staff";
+import { ANY_STAFF, capableStaff, rowsForStaff, workingHoursForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { listStaff, staffServiceMap } from "@/lib/db/queries";
+import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
 
 /** Client asks to be told when a cancellation frees up a slot. */
@@ -118,13 +119,6 @@ async function loadAvailability(
   };
 }
 
-/** Rows belonging to one staff member (legacy null rows count as the owner's). */
-function rowsForStaff<T extends { staffId?: string | null }>(rows: T[], staff: StaffMember): T[] {
-  return rows.filter(
-    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
-  );
-}
-
 /**
  * Who takes this visit? Returns the chosen (or auto-assigned) staff member, or
  * null for pre-migration accounts with no staff rows, or "invalid" when the
@@ -133,13 +127,13 @@ function rowsForStaff<T extends { staffId?: string | null }>(rows: T[], staff: S
 async function resolveBookingStaff(
   sb: ReturnType<typeof supabaseService>,
   techId: string,
-  serviceIds: string[],
+  services: { id: string; availableWeekdays?: number[] | null }[],
   requested: string,
   slotIso: string,
   totalDurationMin: number,
   availability: AvailabilityCtx,
-  allowedWeekdays?: number[] | null,
 ): Promise<{ staff: StaffMember | null; legacy: boolean } | "invalid"> {
+  const serviceIds = services.map((s) => s.id);
   const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
     () => [] as StaffMember[],
   );
@@ -148,13 +142,18 @@ async function resolveBookingStaff(
   const restrictions = await staffServiceMap(sb, staffList.map((s) => s.id)).catch(
     () => ({}) as Record<string, string[]>,
   );
+  const dayRulesByStaff = await staffServiceDayMap(sb, staffList.map((s) => s.id)).catch(
+    () => ({}) as Record<string, Record<string, number[] | null>>,
+  );
   const capable = capableStaff(staffList, restrictions, serviceIds);
   if (capable.length === 0) return "invalid";
 
+  const owner = staffList.find((s) => s.role === "owner") ?? null;
   const dateStr = dateStrInTz(new Date(slotIso));
-  const freeFor = (staff: StaffMember) =>
-    daySlotsForDuration(totalDurationMin, dateStr, {
-      workingHours: rowsForStaff(availability.workingHours, staff),
+  const freeFor = (staff: StaffMember) => {
+    const allowedWeekdays = weekdaysForStaffBasket(services, dayRulesByStaff[staff.id]);
+    return daySlotsForDuration(totalDurationMin, dateStr, {
+      workingHours: workingHoursForStaff(availability.workingHours, staff, owner?.id),
       timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
       bookings: rowsForStaff(availability.bookings, staff),
       flexibleHours: availability.flexibleHours,
@@ -162,6 +161,7 @@ async function resolveBookingStaff(
       allowedWeekdays,
       bufferByServiceId: availability.bufferByServiceId,
     }).includes(slotIso);
+  };
 
   if (requested && requested !== ANY_STAFF) {
     const staff = capable.find((s) => s.id === requested);
@@ -189,8 +189,9 @@ async function scopeCtxToStaff(
   );
   const staff = staffList.find((s) => s.id === staffId);
   if (!staff) return ctx;
+  const owner = staffList.find((s) => s.role === "owner") ?? null;
   return {
-    workingHours: rowsForStaff(ctx.workingHours, staff),
+    workingHours: workingHoursForStaff(ctx.workingHours, staff, owner?.id),
     timeOff: timeOffAppliesToStaff(ctx.timeOff, staff.id),
     bookings: rowsForStaff(ctx.bookings, staff),
     flexibleHours: ctx.flexibleHours,
@@ -491,12 +492,11 @@ export async function createPublicBookingAction(formData: FormData) {
   const resolved = await resolveBookingStaff(
     sb,
     tech!.id,
-    basket.map((s) => s.id),
+    basket,
     requestedStaff,
     slotIso,
     totalDuration,
     availability,
-    allowedWeekdays,
   );
   if (resolved === "invalid") {
     redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
@@ -695,6 +695,12 @@ export async function createPublicBookingAction(formData: FormData) {
       throw e;
     }
     await saveAnswers(pending.id);
+    try {
+      const { notifySalonOfNewBooking } = await import("@/lib/notify");
+      await notifySalonOfNewBooking(sb, pending);
+    } catch {
+      // Notify is best-effort.
+    }
     const url = cardCapture
       ? await createCardCaptureCheckout(tech!, checkoutService, pending, client, APP_URL)
       : await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
@@ -737,5 +743,11 @@ export async function createPublicBookingAction(formData: FormData) {
     throw e;
   }
   await saveAnswers(booking.id);
+  try {
+    const { notifySalonOfNewBooking } = await import("@/lib/notify");
+    await notifySalonOfNewBooking(sb, booking);
+  } catch {
+    // Notify is best-effort.
+  }
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);
 }

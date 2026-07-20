@@ -29,7 +29,7 @@ import {
   addAddonAction,
   deleteAddonAction,
 } from "../actions";
-import type { Booking, Client, Product, ProductChangeRetest, ServiceAddon, ServiceCategory, Service, Tech } from "@/lib/db/types";
+import type { Booking, Client, Product, ProductChangeRetest, ServiceAddon, ServiceCategory, Service, StaffMember, Tech } from "@/lib/db/types";
 import type { batchSummaries } from "@/lib/product-batches";
 
 type ServicesData = {
@@ -43,6 +43,8 @@ type ServicesData = {
   products: Product[];
   batchSummaries: Awaited<ReturnType<typeof batchSummaries>>;
   tech: Tech;
+  staff?: StaffMember[];
+  staffDayRulesByService?: Record<string, Record<string, number[] | null>>;
 };
 
 export default function ServicesPage() {
@@ -64,6 +66,8 @@ function ServicesView({
   products,
   batchSummaries: batchSummary,
   tech,
+  staff = [],
+  staffDayRulesByService = {},
 }: ServicesData) {
   const searchParams = useSearchParams();
   const open = searchParams.get("open") ?? undefined;
@@ -238,7 +242,7 @@ function ServicesView({
           ) : (
             <>
               <p className="mb-3 text-sm text-ink-soft">New services appear on your booking page immediately.</p>
-              <ServiceForm categories={categories} />
+              <ServiceForm categories={categories} staff={staff} />
             </>
           )}
         </div>
@@ -290,7 +294,12 @@ function ServicesView({
                   </>
                 }
               >
-                <ServiceForm service={s} categories={categories} />
+                <ServiceForm
+                  service={s}
+                  categories={categories}
+                  staff={staff}
+                  staffDayRules={staffDayRulesByService[s.id] ?? {}}
+                />
 
                 <div className="mt-4 border-t border-edge pt-4">
                   <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><ImagePlus className="h-4 w-4 text-brand-400" /> Photo on your booking page</p>

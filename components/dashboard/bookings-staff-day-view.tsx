@@ -7,6 +7,7 @@ import { BookingActions } from "@/components/dashboard/booking-actions";
 import { statusBadge } from "@/components/dashboard/status";
 import { fmtDate, fmtTime } from "@/lib/format";
 import {
+  UNASSIGNED_STAFF_ID,
   activeBookingsOnDate,
   bookingsInColumn,
   dayWindowMinutes,
@@ -15,9 +16,10 @@ import {
   staffColumnsForDay,
   timeOffInColumn,
   timeOffOnDate,
+  unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
 import { addDaysToDateStr } from "@/lib/rota";
-import type { Booking, StaffMember, TimeOff } from "@/lib/db/types";
+import type { Booking, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 const PX_PER_MIN = 1.15;
 const COL_MIN_WIDTH = 160;
@@ -33,6 +35,8 @@ type Props = {
   /** serviceId → cleanup minutes after the appointment. */
   bufferByServiceId?: Record<string, number>;
   offs?: TimeOff[];
+  /** staffId → usual weekly hours (owner hours already applied as fallback). */
+  hoursByStaff?: Record<string, WorkingHour[]>;
 };
 
 function hourLabels(startMin: number, endMin: number): number[] {
@@ -56,6 +60,7 @@ export function BookingsStaffDayView({
   serviceById,
   bufferByServiceId = {},
   offs = [],
+  hoursByStaff = {},
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const dayOffs = timeOffOnDate(offs, dateStr);
@@ -76,8 +81,8 @@ export function BookingsStaffDayView({
           <div>
             <CardTitle>Team day view</CardTitle>
             <CardDescription>
-              One column per person. Grey blocks are one-off blocked time; hatched pink strips are
-              service cleanup buffers.
+              One column per person. Grey blocks are outside working hours or one-off blocked time;
+              hatched pink strips are service cleanup buffers.
             </CardDescription>
           </div>
           <div className="flex items-center gap-1">
@@ -162,6 +167,15 @@ export function BookingsStaffDayView({
               {columns.map((col) => {
                 const colBookings = bookingsInColumn(dayBookings, col.id, knownStaffIds);
                 const colOffs = timeOffInColumn(dayOffs, col.id);
+                const outsideHours =
+                  col.id === UNASSIGNED_STAFF_ID
+                    ? []
+                    : unavailableRangesForStaffDay(
+                        hoursByStaff[col.id] ?? [],
+                        dateStr,
+                        windowStart,
+                        windowEnd,
+                      );
                 const laidOut = packBookingLanes(colBookings, (b) => {
                   const bufferMin = Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
                   return minutesFromMidnightLondon(b.endIso) + bufferMin;
@@ -179,6 +193,22 @@ export function BookingsStaffDayView({
                         style={{ top: (m - windowStart) * PX_PER_MIN }}
                       />
                     ))}
+                    {outsideHours.map((range, i) => {
+                      const top = (range.startM - windowStart) * PX_PER_MIN;
+                      const blockHeight = Math.max(20, (range.endM - range.startM) * PX_PER_MIN - 2);
+                      return (
+                        <div
+                          key={`hours-${i}`}
+                          className="absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.04),rgba(255,255,255,0.04)_4px,transparent_4px,transparent_8px)] px-1.5 py-1"
+                          style={{ top, height: blockHeight }}
+                          title="Outside working hours"
+                        >
+                          <p className="truncate text-[10px] font-medium text-ink-soft">
+                            Unavailable
+                          </p>
+                        </div>
+                      );
+                    })}
                     {colOffs.map((o) => {
                       const startM = Math.max(
                         windowStart,
@@ -240,6 +270,7 @@ export function BookingsStaffDayView({
                                 </Link>
                                 <p className="truncate text-[10px] text-ink-faint">
                                   {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"}
+                                  {b.groupId ? " · multi" : ""}
                                 </p>
                                 <div className="mt-0.5 origin-left scale-90">
                                   {statusBadge(b.status)}

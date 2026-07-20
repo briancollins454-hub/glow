@@ -223,9 +223,16 @@ export function normalizeAvailableWeekdays(
 export function intersectWeekdays(
   services: Pick<Service, "availableWeekdays">[],
 ): number[] | null {
+  return intersectWeekdayLists(services.map((s) => s.availableWeekdays));
+}
+
+/** Intersection of raw weekday lists (null/empty = unrestricted). */
+export function intersectWeekdayLists(
+  lists: Array<number[] | null | undefined>,
+): number[] | null {
   let allowed: number[] | null = null;
-  for (const s of services) {
-    const days = normalizeAvailableWeekdays(s.availableWeekdays);
+  for (const raw of lists) {
+    const days = normalizeAvailableWeekdays(raw);
     if (!days) continue;
     if (allowed == null) {
       allowed = days;
@@ -236,6 +243,46 @@ export function intersectWeekdays(
   }
   if (!allowed) return null;
   return allowed;
+}
+
+/**
+ * Effective weekdays for one staff + one service.
+ * Prefers the staff-level rule when a row exists; intersects with the
+ * service-level rule when both restrict days.
+ *
+ * @param staffDays - staff rule when a staff_service_days row exists; omit/undefined if none
+ * @param hasStaffRule - true when a staff_service_days row exists for this pair
+ */
+export function weekdaysForStaffService(
+  service: Pick<Service, "availableWeekdays">,
+  staffDays: number[] | null | undefined,
+  hasStaffRule: boolean,
+): number[] | null {
+  const serviceDays = normalizeAvailableWeekdays(service.availableWeekdays);
+  if (!hasStaffRule) return serviceDays;
+  const staffNorm = normalizeAvailableWeekdays(staffDays);
+  return intersectWeekdayLists([serviceDays, staffNorm]);
+}
+
+/**
+ * Effective weekdays for a basket of services for one staff member.
+ * staffDayByService maps serviceId -> availableWeekdays when a row exists.
+ * Services with no staff row fall back to service-level only.
+ */
+export function weekdaysForStaffBasket(
+  services: Pick<Service, "id" | "availableWeekdays">[],
+  staffDayByService: Record<string, number[] | null> | null | undefined,
+): number[] | null {
+  return intersectWeekdayLists(
+    services.map((s) => {
+      const hasRule = !!staffDayByService && Object.prototype.hasOwnProperty.call(staffDayByService, s.id);
+      return weekdaysForStaffService(
+        s,
+        hasRule ? staffDayByService![s.id] : undefined,
+        hasRule,
+      );
+    }),
+  );
 }
 
 /** Resolve the open window for one calendar day (or null if closed). */
@@ -348,7 +395,10 @@ export function daySlotsForDuration(
   nowMs = Date.now(),
 ): string[] {
   const allowed = ctx.allowedWeekdays;
-  if (allowed?.length && !allowed.includes(weekdayOf(dateStr))) return [];
+  // null/undefined = any day; empty array = no days (rules conflict).
+  if (allowed != null && (!allowed.length || !allowed.includes(weekdayOf(dateStr)))) {
+    return [];
+  }
 
   const wh = dayWindowForDate(dateStr, ctx);
   if (!wh) return [];

@@ -319,6 +319,12 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
     await propagateGroupStatus(sb, booking, "pending");
     const updated = { ...booking, status: "pending" as const, approvalToken: null };
     await notifyClientBookingApproved(client, tech, service, updated);
+    try {
+      const { notifySalonOfNewBooking } = await import("@/lib/notify");
+      await notifySalonOfNewBooking(sb, updated);
+    } catch {
+      // Notify is best-effort.
+    }
     return updated;
   }
 
@@ -330,6 +336,12 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
     await syncBookingToGoogle(sb, tech, confirmed);
   } catch {
     // Calendar sync is best-effort.
+  }
+  try {
+    const { notifySalonOfNewBooking } = await import("@/lib/notify");
+    await notifySalonOfNewBooking(sb, confirmed);
+  } catch {
+    // Notify is best-effort.
   }
   return confirmed;
 }
@@ -581,6 +593,8 @@ export async function createBasketBookings({
   riskTier = null,
   autoApproved = false,
   depositOverridePennies = null,
+  paymentTaken = "none",
+  paymentMethod = "in_person",
 }: {
   sb: SupabaseClient;
   tech: Tech;
@@ -594,19 +608,41 @@ export async function createBasketBookings({
   riskTier?: RiskTier | null;
   autoApproved?: boolean;
   depositOverridePennies?: number | null;
+  /** Offline payment already taken (manual bookings). */
+  paymentTaken?: ManualPaymentTaken;
+  paymentMethod?: string;
 }): Promise<{ primary: Booking; all: Booking[] }> {
   if (services.length < 2) throw new Error("Basket needs at least two treatments");
 
   const groupId = randomId("grp");
-  const tier = riskTier ?? "medium";
-  const computed = basketAmounts(services, tech, tier, addons, discountPennies);
-  const money =
-    depositOverridePennies == null
-      ? computed
+
+  // Online baskets pass a risk tier. Manual bookings use plain service deposits.
+  let money =
+    riskTier != null
+      ? basketAmounts(services, tech, riskTier, addons, discountPennies)
       : (() => {
-          const deposit = Math.min(Math.max(0, depositOverridePennies), computed.price);
-          return { ...computed, deposit, balance: Math.max(0, computed.price - deposit) };
+          const extras = addons.reduce((s, a) => s + a.pricePennies, 0);
+          const price = Math.max(
+            0,
+            services.reduce((s, svc) => s + svc.pricePennies, 0) + extras - discountPennies,
+          );
+          const deposit = Math.min(
+            services.reduce((s, svc) => s + depositFor(svc), 0),
+            price,
+          );
+          return { price, deposit, balance: Math.max(0, price - deposit) };
         })();
+
+  if (depositOverridePennies != null) {
+    const deposit = Math.min(Math.max(0, depositOverridePennies), money.price);
+    money = { ...money, deposit, balance: Math.max(0, money.price - deposit) };
+  }
+
+  const depositPaid = status === "confirmed" && paymentTaken !== "none" && money.deposit > 0;
+  const fullyPaid = status === "confirmed" && paymentTaken === "full";
+  const primaryDepositStatus = depositPaid ? "paid" : "none";
+  const primaryBalanceStatus = fullyPaid || money.balance === 0 ? "paid" : "unpaid";
+
   const starts = basketStartTimes(services, startIso);
   const created: Booking[] = [];
 
@@ -626,9 +662,9 @@ export async function createBasketBookings({
         status,
         pricePennies: isPrimary ? money.price : 0,
         depositPennies: isPrimary ? money.deposit : 0,
-        depositStatus: "none",
+        depositStatus: isPrimary ? primaryDepositStatus : "none",
         balancePennies: isPrimary ? money.balance : 0,
-        balanceStatus: isPrimary && money.balance > 0 ? "unpaid" : "paid",
+        balanceStatus: isPrimary ? primaryBalanceStatus : "paid",
         balanceToken: randomToken(),
         approvalToken: isPrimary && status === "pending_approval" ? randomToken() : null,
         pairedBookingId: null,
@@ -660,6 +696,29 @@ export async function createBasketBookings({
   }
 
   const primary = created[0];
+
+  if (depositPaid) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: primary.id,
+      kind: "deposit",
+      amountPennies: money.deposit,
+      status: "succeeded",
+      provider: paymentMethod,
+      providerRef: "",
+    });
+  }
+  if (fullyPaid && money.balance > 0) {
+    await createPayment(sb, {
+      techId: tech.id,
+      bookingId: primary.id,
+      kind: "balance",
+      amountPennies: money.balance,
+      status: "succeeded",
+      provider: paymentMethod,
+      providerRef: "",
+    });
+  }
 
   if (status === "confirmed") {
     await scheduleReminders(sb, primary);

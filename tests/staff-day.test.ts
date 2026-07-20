@@ -10,9 +10,10 @@ import {
   timeOffAppliesToStaff,
   timeOffInColumn,
   timeOffOnDate,
+  unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
 import type { StaffMember, TimeOff } from "@/lib/db/types";
-import { makeBooking } from "./fixtures";
+import { makeBooking, makeWorkingHour } from "./fixtures";
 
 function off(partial: Partial<TimeOff> & Pick<TimeOff, "id" | "startIso" | "endIso">): TimeOff {
   return {
@@ -164,5 +165,51 @@ describe("staff day calendar helpers", () => {
     expect(byId.b!.laneCount).toBe(2);
     expect(byId.c!.lane).toBe(0);
     expect(byId.c!.laneCount).toBe(1);
+  });
+});
+
+describe("unavailableRangesForStaffDay", () => {
+  // 2030-07-10 is a Wednesday (weekday 3).
+  const dateStr = "2030-07-10";
+  const windowStart = 9 * 60;
+  const windowEnd = 17 * 60;
+
+  it("returns before-open and after-close ranges for an enabled weekday", () => {
+    const hours = [
+      makeWorkingHour({
+        weekday: 3,
+        startMinutes: 10 * 60,
+        endMinutes: 16 * 60,
+        enabled: true,
+      }),
+    ];
+    expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd)).toEqual([
+      { startM: 9 * 60, endM: 10 * 60 },
+      { startM: 16 * 60, endM: 17 * 60 },
+    ]);
+  });
+
+  it("covers the whole window when the weekday is closed or missing", () => {
+    expect(unavailableRangesForStaffDay([], dateStr, windowStart, windowEnd)).toEqual([
+      { startM: windowStart, endM: windowEnd },
+    ]);
+    const closed = [
+      makeWorkingHour({ weekday: 3, enabled: false, startMinutes: 10 * 60, endMinutes: 16 * 60 }),
+    ];
+    expect(unavailableRangesForStaffDay(closed, dateStr, windowStart, windowEnd)).toEqual([
+      { startM: windowStart, endM: windowEnd },
+    ]);
+  });
+
+  it("returns nothing when hours fill the visible window", () => {
+    const hours = [
+      makeWorkingHour({
+        weekday: 3,
+        startMinutes: 9 * 60,
+        endMinutes: 17 * 60,
+        enabled: true,
+      }),
+    ];
+    expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd)).toEqual([]);
   });
 });

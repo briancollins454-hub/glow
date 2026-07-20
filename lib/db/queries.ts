@@ -32,6 +32,7 @@ import type {
   ServiceAddon,
   ServiceCategory,
   StaffMember,
+  StaffServiceDay,
   Tech,
   TimeOff,
   WaitlistEntry,
@@ -59,6 +60,7 @@ async function listAllForTech<T>(
   table: string,
   techId: string,
   orderCol: string,
+  ascending = true,
 ): Promise<T[]> {
   const out: T[] = [];
   let from = 0;
@@ -67,7 +69,7 @@ async function listAllForTech<T>(
       .from(table)
       .select("*")
       .eq("techId", techId)
-      .order(orderCol)
+      .order(orderCol, { ascending })
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const chunk = (data as T[]) ?? [];
@@ -148,6 +150,7 @@ type ManagedTechField =
   | "infillNudgesEnabled"
   | "preCareConfirmationsEnabled"
   | "smsRemindersEnabled"
+  | "bookingNotifyEmailEnabled"
   | "requiresBookingApproval"
   | "approvalMode"
   | "depositTierMediumPct"
@@ -266,6 +269,11 @@ export async function deleteServices(sb: SB, ids: string[]): Promise<number> {
     const { error: staffLinkErr } = await sb.from("staff_services").delete().in("serviceId", chunk);
     if (staffLinkErr && !/staff_services|schema cache/i.test(staffLinkErr.message)) {
       throw new Error(staffLinkErr.message);
+    }
+
+    const { error: staffDaysErr } = await sb.from("staff_service_days").delete().in("serviceId", chunk);
+    if (staffDaysErr && !/staff_service_days|schema cache/i.test(staffDaysErr.message)) {
+      throw new Error(staffDaysErr.message);
     }
 
     // Bookings restrict service deletes — remove them first (payments/reminders cascade).
@@ -829,8 +837,14 @@ export async function getReportSummary(sb: SB, techId: string): Promise<ReportSu
 
 export async function getClientsByIds(sb: SB, ids: string[]): Promise<Client[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await sb.from("clients").select("*").in("id", ids);
-  return must(data as Client[], error) ?? [];
+  const unique = [...new Set(ids.filter(Boolean))];
+  const out: Client[] = [];
+  for (const chunk of chunkIds(unique, 100)) {
+    const { data, error } = await sb.from("clients").select("*").in("id", chunk);
+    if (error) throw new Error(error.message);
+    out.push(...((data as Client[]) ?? []));
+  }
+  return out;
 }
 
 export async function getClientNameMap(
@@ -1026,6 +1040,199 @@ export async function setStaffServices(sb: SB, staffId: string, serviceIds: stri
       .from("staff_services")
       .insert(serviceIds.map((serviceId) => ({ staffId, serviceId })));
     if (error) throw new Error(error.message);
+  }
+}
+
+// ---------------- Staff service day rules ----------------
+
+/** Day rules for one service: staffId -> availableWeekdays (null = all days). */
+export async function staffServiceDaysForService(
+  sb: SB,
+  serviceId: string,
+): Promise<Record<string, number[] | null>> {
+  const { data, error } = await sb
+    .from("staff_service_days")
+    .select("staffId, availableWeekdays")
+    .eq("serviceId", serviceId);
+  if (error) {
+    if (/staff_service_days|schema cache|relation/i.test(error.message)) return {};
+    throw new Error(error.message);
+  }
+  const map: Record<string, number[] | null> = {};
+  for (const row of (data ?? []) as { staffId: string; availableWeekdays: number[] | null }[]) {
+    map[row.staffId] = row.availableWeekdays;
+  }
+  return map;
+}
+
+/**
+ * Day rules keyed by staffId -> serviceId -> availableWeekdays.
+ * Missing service keys mean no staff-level row (fall back to service rule).
+ */
+export async function staffServiceDayMap(
+  sb: SB,
+  staffIds: string[],
+): Promise<Record<string, Record<string, number[] | null>>> {
+  const map: Record<string, Record<string, number[] | null>> = {};
+  for (const id of staffIds) map[id] = {};
+  if (!staffIds.length) return map;
+  const { data, error } = await sb
+    .from("staff_service_days")
+    .select("staffId, serviceId, availableWeekdays")
+    .in("staffId", staffIds);
+  if (error) {
+    if (/staff_service_days|schema cache|relation/i.test(error.message)) return map;
+    throw new Error(error.message);
+  }
+  for (const row of (data ?? []) as StaffServiceDay[]) {
+    (map[row.staffId] ??= {})[row.serviceId] = row.availableWeekdays;
+  }
+  return map;
+}
+
+/** Replace all day rules for one service across the given staff members. */
+export async function setStaffServiceDaysForService(
+  sb: SB,
+  serviceId: string,
+  rules: { staffId: string; availableWeekdays: number[] | null }[],
+): Promise<void> {
+  const del = await sb.from("staff_service_days").delete().eq("serviceId", serviceId);
+  if (del.error) {
+    if (/staff_service_days|schema cache|relation/i.test(del.error.message)) return;
+    throw new Error(del.error.message);
+  }
+  if (!rules.length) return;
+  const { error } = await sb.from("staff_service_days").insert(
+    rules.map((r) => ({
+      staffId: r.staffId,
+      serviceId,
+      availableWeekdays: r.availableWeekdays,
+    })),
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function countBookingsForStaff(sb: SB, staffId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .eq("staffId", staffId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function countTimeOffForStaff(sb: SB, staffId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("time_off")
+    .select("*", { count: "exact", head: true })
+    .eq("staffId", staffId);
+  if (error) {
+    // staffId column optional until migration 0036.
+    if (/staffId|schema cache|column/i.test(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
+/** Booking counts keyed by staffId for a salon (rows with no staffId are skipped). */
+export async function bookingCountsByStaff(
+  sb: SB,
+  techId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await sb.from("bookings").select("staffId").eq("techId", techId);
+  if (error) throw new Error(error.message);
+  const map: Record<string, number> = {};
+  for (const row of (data ?? []) as { staffId: string | null }[]) {
+    if (!row.staffId) continue;
+    map[row.staffId] = (map[row.staffId] ?? 0) + 1;
+  }
+  return map;
+}
+
+/** Per-staff time-off counts (salon-wide rows with null staffId are skipped). */
+export async function timeOffCountsByStaff(
+  sb: SB,
+  techId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await sb.from("time_off").select("staffId").eq("techId", techId);
+  if (error) {
+    if (/staffId|schema cache|column/i.test(error.message)) return {};
+    throw new Error(error.message);
+  }
+  const map: Record<string, number> = {};
+  for (const row of (data ?? []) as { staffId: string | null }[]) {
+    if (!row.staffId) continue;
+    map[row.staffId] = (map[row.staffId] ?? 0) + 1;
+  }
+  return map;
+}
+
+export async function reassignStaffBookings(
+  sb: SB,
+  fromStaffId: string,
+  toStaffId: string,
+): Promise<number> {
+  const { data, error } = await sb
+    .from("bookings")
+    .update({ staffId: toStaffId })
+    .eq("staffId", fromStaffId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
+}
+
+export async function reassignStaffTimeOff(
+  sb: SB,
+  fromStaffId: string,
+  toStaffId: string,
+): Promise<number> {
+  const { data, error } = await sb
+    .from("time_off")
+    .update({ staffId: toStaffId })
+    .eq("staffId", fromStaffId)
+    .select("id");
+  if (error) {
+    if (/staffId|schema cache|column/i.test(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return (data ?? []).length;
+}
+
+/**
+ * Hard-delete a staff member and related diary rows.
+ * Callers must reassign or clear bookings first. Deletes auth user when set.
+ */
+export async function deleteStaffMember(sb: SB, staff: StaffMember): Promise<void> {
+  const staffId = staff.id;
+
+  const wh = await sb.from("working_hours").delete().eq("staffId", staffId);
+  if (wh.error) throw new Error(wh.error.message);
+
+  const rota = await sb.from("rota_hours").delete().eq("staffId", staffId);
+  if (rota.error && !/rota_hours|schema cache/i.test(rota.error.message)) {
+    throw new Error(rota.error.message);
+  }
+
+  const services = await sb.from("staff_services").delete().eq("staffId", staffId);
+  if (services.error && !/staff_services|schema cache/i.test(services.error.message)) {
+    throw new Error(services.error.message);
+  }
+
+  const days = await sb.from("staff_service_days").delete().eq("staffId", staffId);
+  if (days.error && !/staff_service_days|schema cache/i.test(days.error.message)) {
+    throw new Error(days.error.message);
+  }
+
+  const offs = await sb.from("time_off").delete().eq("staffId", staffId);
+  if (offs.error && !/staffId|schema cache|column/i.test(offs.error.message)) {
+    throw new Error(offs.error.message);
+  }
+
+  const { error } = await sb.from("staff_members").delete().eq("id", staffId);
+  if (error) throw new Error(error.message);
+
+  if (staff.authUserId) {
+    await sb.auth.admin.deleteUser(staff.authUserId).catch(() => undefined);
   }
 }
 
@@ -1538,11 +1745,17 @@ export async function listFormResponsesForTech(sb: SB, techId: string): Promise<
 
 // ---------------- Messages ----------------
 export async function listMessagesForTech(sb: SB, techId: string): Promise<Message[]> {
-  const { data, error } = await sb.from("messages").select("*").eq("techId", techId).order("createdAt", { ascending: false });
-  return must(data as Message[], error) ?? [];
+  // Newest first so the dashboard thread list can take the first row per client.
+  return listAllForTech<Message>(sb, "messages", techId, "createdAt", false);
 }
-export async function threadMessages(sb: SB, clientId: string): Promise<Message[]> {
-  const { data, error } = await sb.from("messages").select("*").eq("clientId", clientId).order("createdAt", { ascending: true });
+export async function threadMessages(
+  sb: SB,
+  clientId: string,
+  techId?: string,
+): Promise<Message[]> {
+  let q = sb.from("messages").select("*").eq("clientId", clientId);
+  if (techId) q = q.eq("techId", techId);
+  const { data, error } = await q.order("createdAt", { ascending: true });
   return must(data as Message[], error) ?? [];
 }
 export async function createMessage(sb: SB, m: Omit<Message, "id" | "createdAt" | "readAt"> & Partial<Pick<Message, "readAt">>): Promise<Message> {

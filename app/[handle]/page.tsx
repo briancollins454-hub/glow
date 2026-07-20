@@ -19,25 +19,28 @@ import { addDaysToDateStr, currentWeekStartLondon } from "@/lib/rota";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
 import { signedPhotoUrls } from "@/lib/storage";
 import {
-  availableDays,
   availableDaysForDuration,
   basketDurationMin,
+  blockedDurationMin,
   canOfferPairedPatchTest,
   findPatchTestService,
   bufferMapFromServices,
   flexibleHoursFromTech,
   intersectWeekdays,
+  weekdaysForStaffBasket,
   withTechAvailability,
 } from "@/lib/rules";
 import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
 import {
   ANY_STAFF,
   capableStaff,
+  rowsForStaff,
   staffCanPerform,
   unionDayOptions,
+  workingHoursForStaff,
 } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { listStaff, staffServiceMap } from "@/lib/db/queries";
+import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
 import { acceptsOnlineBookings, usesCardCapture } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
@@ -103,13 +106,6 @@ function buildOpeningHours(hours: Awaited<ReturnType<typeof listWorkingHours>>) 
     const end = Math.max(...rows.map((r) => r.endMinutes));
     return { label: dayNames[weekday], value: `${hhmm(start)} - ${hhmm(end)}` };
   });
-}
-
-/** Rows belonging to one staff member (legacy null rows count as the owner's). */
-function forStaff<T extends { staffId?: string | null }>(rows: T[], staff: StaffMember): T[] {
-  return rows.filter(
-    (r) => r.staffId === staff.id || (r.staffId == null && staff.role === "owner"),
-  );
 }
 
 export default async function PublicBookingPage({
@@ -191,6 +187,11 @@ export default async function PublicBookingPage({
           () => ({}) as Record<string, string[]>,
         )
       : ({} as Record<string, string[]>);
+    const dayRulesByStaff = staffList.length
+      ? await staffServiceDayMap(sb, staffList.map((s) => s.id)).catch(
+          () => ({}) as Record<string, Record<string, number[] | null>>,
+        )
+      : ({} as Record<string, Record<string, number[] | null>>);
 
     const basketServices = usePairedFlow ? [selected] : [selected, ...basketExtras];
     const basketIds = usePairedFlow && patchTestService
@@ -199,18 +200,23 @@ export default async function PublicBookingPage({
     const capable = capableStaff(staffList, restrictions, basketIds);
 
     const bufferByServiceId = bufferMapFromServices(services);
+    const owner = staffList.find((s) => s.role === "owner") ?? null;
     // Availability context per person (legacy rows with no staffId belong to
-    // the owner). No staff rows at all = pre-migration account: whole diary.
+    // the owner). Staff with no personal hours inherit salon/owner hours.
     const ctxFor = (staff: StaffMember) => ({
       ...withTechAvailability(
         {
-          workingHours: forStaff(workingHours as WorkingHour[], staff),
+          workingHours: workingHoursForStaff(
+            workingHours as WorkingHour[],
+            staff,
+            owner?.id,
+          ),
           timeOff: timeOffAppliesToStaff(timeOff, staff.id),
-          bookings: forStaff(bookings as Booking[], staff),
+          bookings: rowsForStaff(bookings as Booking[], staff),
         },
         tech,
       ),
-      rotaHours: forStaff(rotaHours, staff),
+      rotaHours: rowsForStaff(rotaHours, staff),
       bufferByServiceId,
     });
     const legacyCtx = {
@@ -218,6 +224,8 @@ export default async function PublicBookingPage({
       rotaHours,
       bufferByServiceId,
     };
+    const daysForStaff = (staff: StaffMember, servicesForDays: typeof basketServices) =>
+      weekdaysForStaffBasket(servicesForDays, dayRulesByStaff[staff.id]);
 
     if (capable.length > 1) {
       staffOptions = capable.map((s) => ({ id: s.id, name: s.name }));
@@ -229,26 +237,46 @@ export default async function PublicBookingPage({
       const pairStaff =
         capable.find((s) => s.id === selectedStaff) ?? capable[0] ?? null;
       pairStaffId = pairStaff?.id ?? null;
-      patchTestDays = availableDays(
-        patchTestService,
-        pairStaff ? ctxFor(pairStaff) : legacyCtx,
+      const pairDays = pairStaff
+        ? daysForStaff(pairStaff, [patchTestService])
+        : intersectWeekdays([patchTestService]);
+      patchTestDays = availableDaysForDuration(
+        blockedDurationMin(patchTestService),
+        {
+          ...(pairStaff ? ctxFor(pairStaff) : legacyCtx),
+          allowedWeekdays: pairDays,
+        },
         14,
       );
     } else {
       const duration = basketDurationMin(basketServices);
-      const allowedWeekdays = intersectWeekdays(basketServices);
-      const withDays = (ctx: typeof legacyCtx) => ({ ...ctx, allowedWeekdays });
+      const withDays = (ctx: typeof legacyCtx, allowedWeekdays: number[] | null) => ({
+        ...ctx,
+        allowedWeekdays,
+      });
       if (capable.length === 0) {
         // Pre-migration or no active staff: book against the whole diary.
-        days = availableDaysForDuration(duration, withDays(legacyCtx), 14);
+        days = availableDaysForDuration(
+          duration,
+          withDays(legacyCtx, intersectWeekdays(basketServices)),
+          14,
+        );
       } else if (selectedStaff !== ANY_STAFF) {
         const staff = capable.find((s) => s.id === selectedStaff)!;
-        days = availableDaysForDuration(duration, withDays(ctxFor(staff)), 14);
+        days = availableDaysForDuration(
+          duration,
+          withDays(ctxFor(staff), daysForStaff(staff, basketServices)),
+          14,
+        );
       } else {
         // "Any available": union of everyone who can do the whole visit.
         days = unionDayOptions(
           capable.map((s) =>
-            availableDaysForDuration(duration, withDays(ctxFor(s)), 60),
+            availableDaysForDuration(
+              duration,
+              withDays(ctxFor(s), daysForStaff(s, basketServices)),
+              60,
+            ),
           ),
           14,
         );

@@ -3,7 +3,7 @@ import { DepositFields } from "@/components/dashboard/deposit-fields";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { ImageFileInput } from "@/components/ui/image-file-input";
 import { saveServiceAction } from "@/app/dashboard/actions";
-import type { Service, ServiceCategory } from "@/lib/db/types";
+import type { Service, ServiceCategory, StaffMember } from "@/lib/db/types";
 
 const WEEKDAYS = [
   { value: 1, label: "Mon" },
@@ -18,9 +18,15 @@ const WEEKDAYS = [
 export function ServiceForm({
   service,
   categories,
+  staff = [],
+  staffDayRules = {},
 }: {
   service?: Service;
   categories: ServiceCategory[];
+  /** Active team members for per-staff day rules. */
+  staff?: StaffMember[];
+  /** staffId -> availableWeekdays for this service (when a rule exists). */
+  staffDayRules?: Record<string, number[] | null>;
 }) {
   const s = service;
   const restrictedDays = s?.availableWeekdays?.length
@@ -35,6 +41,7 @@ export function ServiceForm({
   return (
     <form action={saveServiceAction} className="grid gap-4 sm:grid-cols-2">
       {s && <input type="hidden" name="id" value={s.id} />}
+      {staff.length > 0 && <input type="hidden" name="staffDaySection" value="1" />}
 
       {s && (
         <div className="flex items-center justify-between gap-3 sm:col-span-2">
@@ -125,10 +132,10 @@ export function ServiceForm({
       </label>
 
       <div className="sm:col-span-2 rounded-xl border border-edge bg-cream px-4 py-3">
-        <p className="text-sm font-medium text-ink">Available days</p>
+        <p className="text-sm font-medium text-ink">Available days (salon default)</p>
         <p className="mt-0.5 text-xs text-ink-faint">
           Tick the days clients can book this treatment. Leave all ticked for every day you&apos;re
-          open.
+          open. Per-person overrides are below when you have a team.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {WEEKDAYS.map(({ value, label }) => (
@@ -148,6 +155,46 @@ export function ServiceForm({
           ))}
         </div>
       </div>
+
+      {staff.length > 0 && (
+        <div className="sm:col-span-2 rounded-xl border border-edge bg-cream px-4 py-3">
+          <p className="text-sm font-medium text-ink">Day rules by team member</p>
+          <p className="mt-0.5 text-xs text-ink-faint">
+            Optional. When set, online booking uses this person&apos;s days for this treatment
+            (intersected with the salon default above). Leave all ticked for every open day.
+          </p>
+          <div className="mt-3 space-y-3">
+            {staff.map((member) => {
+              const hasRule = Object.prototype.hasOwnProperty.call(staffDayRules, member.id);
+              const rule = hasRule ? staffDayRules[member.id] : null;
+              const restricted =
+                hasRule && rule?.length ? new Set(rule) : hasRule ? null : restrictedDays;
+              return (
+                <div key={member.id} className="rounded-lg border border-edge bg-surface/40 px-3 py-2.5">
+                  <p className="text-sm font-medium text-ink">{member.name}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {WEEKDAYS.map(({ value, label }) => (
+                      <label
+                        key={value}
+                        className="flex items-center gap-2 rounded-lg border border-edge bg-surface/60 px-2.5 py-1.5 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          name={`staffDay_${member.id}`}
+                          value={value}
+                          defaultChecked={!restricted || restricted.has(value)}
+                          className="h-3.5 w-3.5 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <Label>Infills allowed up to (days since their last visit)</Label>

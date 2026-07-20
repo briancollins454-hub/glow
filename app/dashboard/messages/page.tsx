@@ -7,11 +7,19 @@ import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DmQuotePanel } from "@/components/dashboard/dm-quote-panel";
-import type { Client, Message, Service, ServiceAddon, Tech } from "@/lib/db/types";
+import type { Client, Message, Service, ServiceAddon, ServiceCategory, Tech } from "@/lib/db/types";
 
 type MessagesData =
   | { live: false }
-  | { live: true; clients: Client[]; messages: Message[]; services: Service[]; addons: ServiceAddon[]; tech: Tech };
+  | {
+      live: true;
+      clients: Client[];
+      messages: Message[];
+      services: Service[];
+      categories: ServiceCategory[];
+      addons: ServiceAddon[];
+      tech: Tech;
+    };
 
 export default function MessagesPage() {
   return (
@@ -34,7 +42,7 @@ function MessagesView(data: MessagesData) {
     );
   }
 
-  const { clients, messages, services, addons } = data;
+  const { clients, messages, services, categories, addons } = data;
   const clientById = Object.fromEntries(clients.map((cl) => [cl.id, cl]));
   const latest = new Map<string, Message>();
   const unread = new Map<string, number>();
@@ -43,8 +51,12 @@ function MessagesView(data: MessagesData) {
     if (m.sender === "client" && !m.readAt) unread.set(m.clientId, (unread.get(m.clientId) ?? 0) + 1);
   }
   const threads = [...latest.entries()]
-    .map(([clientId, last]) => ({ client: clientById[clientId], last, unread: unread.get(clientId) ?? 0 }))
-    .filter((t) => t.client)
+    .map(([clientId, last]) => ({
+      clientId,
+      client: clientById[clientId] ?? null,
+      last,
+      unread: unread.get(clientId) ?? 0,
+    }))
     .sort((a, b) => (a.last.createdAt < b.last.createdAt ? 1 : -1));
 
   return (
@@ -54,7 +66,7 @@ function MessagesView(data: MessagesData) {
         <p className="text-sm text-ink-soft">Chat with clients in one place - they reply from a private link, no app needed.</p>
       </div>
 
-      <DmQuotePanel services={services} addons={addons} />
+      <DmQuotePanel services={services} categories={categories} addons={addons} />
 
       <Card>
         <CardHeader>
@@ -71,13 +83,13 @@ function MessagesView(data: MessagesData) {
           )}
           {threads.map((t) => (
             <Link
-              key={t.client!.id}
-              href={`/dashboard/messages/${t.client!.id}`}
+              key={t.clientId}
+              href={`/dashboard/messages/${t.clientId}`}
               className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{t.client!.name}</span>
+                  <span className="font-medium">{t.client?.name ?? "Client"}</span>
                   {t.unread > 0 && <Badge tone="red">{t.unread} new</Badge>}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-ink-faint">

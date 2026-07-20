@@ -423,6 +423,84 @@ export async function sendReviewRequestEmail(sb: SupabaseClient, booking: Bookin
   });
 }
 
+/** Email the salon (and assigned staff) when an online booking is confirmed or approved. */
+export async function notifySalonOfNewBooking(
+  sb: SupabaseClient,
+  booking: Booking,
+): Promise<void> {
+  const { getStaff } = await import("@/lib/db/queries");
+  const [client, service, tech] = await Promise.all([
+    getClient(sb, booking.clientId),
+    getService(sb, booking.serviceId),
+    getTechById(sb, booking.techId),
+  ]);
+  if (!tech || !client || !service) return;
+  // Missing column / unset = on (pre-migration).
+  if (tech.bookingNotifyEmailEnabled === false) return;
+
+  let serviceLabel = service.name;
+  if (booking.groupId) {
+    const { listBookingsByGroup } = await import("@/lib/db/queries");
+    const group = await listBookingsByGroup(sb, booking.groupId);
+    if (group.length > 1) {
+      const names = (
+        await Promise.all(group.map((b) => getService(sb, b.serviceId)))
+      ).map((s) => s?.name ?? "Treatment");
+      serviceLabel = names.join(" + ");
+    }
+  }
+
+  const staff = booking.staffId ? await getStaff(sb, booking.staffId) : null;
+  const when = fmtDateTime(booking.startIso);
+  const brand = tech.brandColor || "#db2777";
+  const biz = tech.businessName || "Glow";
+  const dashUrl = `${APP_URL}/dashboard/bookings`;
+  const staffLine = staff?.name
+    ? `<br/>With: <strong>${staff.name}</strong>`
+    : "";
+  const statusLine =
+    booking.status === "confirmed"
+      ? "Confirmed"
+      : booking.status === "pending"
+        ? "Awaiting deposit / card"
+        : "Booked";
+
+  const bodyHtml =
+    `<strong>${client.name}</strong> booked <strong>${serviceLabel}</strong> on <strong>${when}</strong>.` +
+    `${staffLine}<br/>Status: <strong>${statusLine}</strong>` +
+    (client.email ? `<br/>Email: ${client.email}` : "") +
+    (client.phone ? `<br/>Phone: ${client.phone}` : "");
+
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: "New online booking",
+    bodyHtml,
+    buttonLabel: "Open diary",
+    buttonUrl: dashUrl,
+  });
+  const text =
+    `${client.name} booked ${serviceLabel} on ${when}.` +
+    (staff?.name ? ` With ${staff.name}.` : "") +
+    ` Status: ${statusLine}. Open diary: ${dashUrl}`;
+
+  const recipients = new Set<string>();
+  if (tech.email?.trim()) recipients.add(tech.email.trim().toLowerCase());
+  if (staff?.email?.trim()) recipients.add(staff.email.trim().toLowerCase());
+
+  await Promise.all(
+    [...recipients].map((to) =>
+      sendEmail({
+        to,
+        subject: `New booking: ${client.name} · ${serviceLabel}`,
+        html,
+        text,
+        idempotencyKey: `booking-notify/${booking.id}/${to}`,
+      }),
+    ),
+  );
+}
+
 /** Email the tech when a client submits a booking that needs approval. */
 export async function notifyTechOfBookingRequest(
   sb: SupabaseClient,

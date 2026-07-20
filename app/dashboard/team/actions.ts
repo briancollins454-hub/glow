@@ -6,10 +6,16 @@ import { getDashboardContext } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
 import {
   clearRotaWeek,
+  countBookingsForStaff,
+  countTimeOffForStaff,
+  createAuditEvent,
   createStaff,
+  deleteStaffMember,
   getStaff,
   listRotaHours,
   listStaff,
+  reassignStaffBookings,
+  reassignStaffTimeOff,
   replaceRotaWeek,
   replaceWorkingHours,
   setStaffServices,
@@ -26,6 +32,26 @@ async function teamCtx() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   return c!;
+}
+
+async function auditStaff(
+  techId: string,
+  action: string,
+  entityId: string,
+  metadata: Record<string, unknown> = {},
+) {
+  try {
+    await createAuditEvent(supabaseService(), {
+      techId,
+      actor: "tech",
+      action,
+      entityType: "staff",
+      entityId,
+      metadata,
+    });
+  } catch {
+    // Audit logging must never block the primary workflow if a migration is pending.
+  }
 }
 
 function hhmmToMin(v: string): number {
@@ -156,6 +182,76 @@ export async function setStaffActiveAction(formData: FormData) {
   // The owner can never be deactivated (there must always be one diary).
   if (staff.role === "owner" && !active) redirect(`${TEAM}?err=owner`);
   await updateStaff(svc, id, { active });
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
+}
+
+/**
+ * Permanently remove an inactive non-owner staff member with no bookings.
+ * Time off, hours, rota, service links, and auth login are cleaned up.
+ */
+export async function deleteStaffAction(formData: FormData) {
+  const { tech } = await teamCtx();
+  const id = String(formData.get("id") ?? "");
+  const svc = supabaseService();
+  const staff = await getStaff(svc, id);
+  if (!staff || staff.techId !== tech.id) redirect(TEAM);
+  if (staff.role === "owner") redirect(`${TEAM}?err=owner`);
+  if (staff.active) redirect(`${TEAM}?err=active`);
+
+  const bookingCount = await countBookingsForStaff(svc, id);
+  if (bookingCount > 0) redirect(`${TEAM}?err=hasbookings`);
+
+  const timeOffCount = await countTimeOffForStaff(svc, id);
+  await deleteStaffMember(svc, staff);
+  await auditStaff(tech.id, "staff_deleted", id, {
+    name: staff.name,
+    email: staff.email,
+    bookingCount,
+    timeOffCount,
+  });
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
+}
+
+/**
+ * Reassign bookings and time off from an inactive staff member onto another,
+ * then delete the source member.
+ */
+export async function mergeStaffAction(formData: FormData) {
+  const { tech } = await teamCtx();
+  const id = String(formData.get("id") ?? "");
+  const targetId = String(formData.get("targetId") ?? "");
+  const svc = supabaseService();
+
+  const staff = await getStaff(svc, id);
+  if (!staff || staff.techId !== tech.id) redirect(TEAM);
+  if (staff.role === "owner") redirect(`${TEAM}?err=owner`);
+  if (staff.active) redirect(`${TEAM}?err=active`);
+  if (!targetId || targetId === id) redirect(`${TEAM}?err=merge`);
+
+  const target = await getStaff(svc, targetId);
+  if (!target || target.techId !== tech.id || !target.active) {
+    redirect(`${TEAM}?err=merge`);
+  }
+
+  const bookingCount = await countBookingsForStaff(svc, id);
+  const timeOffCount = await countTimeOffForStaff(svc, id);
+  if (bookingCount === 0) redirect(`${TEAM}?err=merge`);
+
+  const bookingsMoved = await reassignStaffBookings(svc, id, targetId);
+  const timeOffMoved = await reassignStaffTimeOff(svc, id, targetId);
+  await deleteStaffMember(svc, staff);
+  await auditStaff(tech.id, "staff_merged", id, {
+    name: staff.name,
+    email: staff.email,
+    targetId,
+    targetName: target.name,
+    bookingCount: bookingsMoved,
+    timeOffCount: timeOffMoved,
+  });
+
   revalidatePath(TEAM);
   redirect(`${TEAM}?saved=1`);
 }

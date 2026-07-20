@@ -1,7 +1,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { TZ } from "@/lib/format";
 import { dateStrInTz } from "@/lib/rules";
-import type { Booking, StaffMember, TimeOff } from "@/lib/db/types";
+import type { Booking, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 export const UNASSIGNED_STAFF_ID = "__unassigned__";
 
@@ -77,6 +77,39 @@ export function bookingsInColumn(
     return dayBookings.filter((b) => !b.staffId || !knownStaffIds.has(b.staffId));
   }
   return dayBookings.filter((b) => b.staffId === columnId);
+}
+
+/**
+ * Minutes outside enabled working hours for one London calendar day, clipped
+ * to the visible diary window. Closed / missing weekdays cover the whole window.
+ */
+export function unavailableRangesForStaffDay(
+  hours: WorkingHour[],
+  dateStr: string,
+  windowStart: number,
+  windowEnd: number,
+): { startM: number; endM: number }[] {
+  if (windowEnd <= windowStart) return [];
+  const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+  const wh = hours.find((w) => w.weekday === weekday && w.enabled);
+  if (!wh || wh.endMinutes <= wh.startMinutes) {
+    return [{ startM: windowStart, endM: windowEnd }];
+  }
+
+  const ranges: { startM: number; endM: number }[] = [];
+  if (wh.startMinutes > windowStart) {
+    ranges.push({
+      startM: windowStart,
+      endM: Math.min(wh.startMinutes, windowEnd),
+    });
+  }
+  if (wh.endMinutes < windowEnd) {
+    ranges.push({
+      startM: Math.max(wh.endMinutes, windowStart),
+      endM: windowEnd,
+    });
+  }
+  return ranges.filter((r) => r.endM > r.startM);
 }
 
 /** Visible day window in minutes from midnight (padded around bookings / blocks). */

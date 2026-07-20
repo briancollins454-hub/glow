@@ -151,18 +151,40 @@ export async function loadDashboardPageData(
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
       const { listStaff } = await import("@/lib/db/queries");
-      const [bookings, services, clients, waitlist, staff, offs] = await Promise.all([
-        listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
-        listServices(sb, tech.id),
-        listClients(sb, tech.id),
-        listWaitlist(sb, tech.id).catch(() => []),
-        listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
-        listTimeOff(sb, tech.id).catch(() => []),
-      ]);
-      return { bookings, services, clients, waitlist, staff, offs, now };
+      const [bookings, services, categories, clients, waitlist, staff, offs, allHours, addons] =
+        await Promise.all([
+          listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
+          listServices(sb, tech.id),
+          listCategories(sb, tech.id),
+          listClients(sb, tech.id),
+          listWaitlist(sb, tech.id).catch(() => []),
+          listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
+          listTimeOff(sb, tech.id).catch(() => []),
+          listWorkingHours(sb, tech.id).catch(() => []),
+          listAddons(sb, tech.id, { activeOnly: true }).catch(() => []),
+        ]);
+      const owner = staff.find((s) => s.role === "owner");
+      const { workingHoursForStaff } = await import("@/lib/booking/staff");
+      const hoursByStaff: Record<string, typeof allHours> = {};
+      for (const member of staff) {
+        hoursByStaff[member.id] = workingHoursForStaff(allHours, member, owner?.id);
+      }
+      return {
+        bookings,
+        services,
+        categories,
+        clients,
+        waitlist,
+        staff,
+        offs,
+        hoursByStaff,
+        addons,
+        now,
+      };
     }
     case "services": {
-      const [categories, services, addons, retests, clients, bookings, products, batchSummary] =
+      const { listStaff, staffServiceDaysForService } = await import("@/lib/db/queries");
+      const [categories, services, addons, retests, clients, bookings, products, batchSummary, staff] =
         await Promise.all([
         listCategories(sb, tech.id),
         listServices(sb, tech.id),
@@ -172,6 +194,7 @@ export async function loadDashboardPageData(
         listBookings(sb, tech.id),
         listProducts(sb, tech.id),
         batchSummaries(sb, tech.id),
+        listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
       ]);
       const signed = await signedPhotoUrls(
         services.filter((s) => s.photoPath).map((s) => s.photoPath!),
@@ -183,7 +206,29 @@ export async function loadDashboardPageData(
           if (url) photoByService[s.id] = url;
         }
       }
-      return { categories, services, addons, photoByService, retests, clients, bookings, products, batchSummaries: batchSummary, tech };
+      const staffDayRulesByService: Record<string, Record<string, number[] | null>> = {};
+      await Promise.all(
+        services.map(async (s) => {
+          staffDayRulesByService[s.id] = await staffServiceDaysForService(
+            supabaseService(),
+            s.id,
+          ).catch(() => ({}));
+        }),
+      );
+      return {
+        categories,
+        services,
+        addons,
+        photoByService,
+        retests,
+        clients,
+        bookings,
+        products,
+        batchSummaries: batchSummary,
+        tech,
+        staff,
+        staffDayRulesByService,
+      };
     }
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([
@@ -216,12 +261,16 @@ export async function loadDashboardPageData(
         const svc = supabaseService();
         const { getOrCreateOwnerStaff } = await import("@/lib/booking/staff");
         await getOrCreateOwnerStaff(svc, tech);
-        const { listStaff, staffServiceMap } = await import("@/lib/db/queries");
-        const [staff, services, allHours] = await Promise.all([
-          listStaff(svc, tech.id),
-          listServices(sb, tech.id, { activeOnly: true }),
-          listWorkingHours(sb, tech.id),
-        ]);
+        const { listStaff, staffServiceMap, bookingCountsByStaff, timeOffCountsByStaff } =
+          await import("@/lib/db/queries");
+        const [staff, services, allHours, bookingCountByStaff, timeOffCountByStaff] =
+          await Promise.all([
+            listStaff(svc, tech.id),
+            listServices(sb, tech.id, { activeOnly: true }),
+            listWorkingHours(sb, tech.id),
+            bookingCountsByStaff(svc, tech.id).catch(() => ({}) as Record<string, number>),
+            timeOffCountsByStaff(svc, tech.id).catch(() => ({}) as Record<string, number>),
+          ]);
         const restrictions = await staffServiceMap(svc, staff.map((s) => s.id));
         const owner = staff.find((s) => s.role === "owner");
         const hoursByStaff: Record<string, typeof allHours> = {};
@@ -235,6 +284,8 @@ export async function loadDashboardPageData(
           services,
           restrictions,
           hoursByStaff,
+          bookingCountByStaff,
+          timeOffCountByStaff,
           flexibleHoursEnabled: tech.flexibleHoursEnabled === true,
         };
       } catch {
@@ -286,13 +337,19 @@ export async function loadDashboardPageData(
     }
     case "messages": {
       if (!isLive(tech)) return { live: false };
-      const [clients, messages, services, addons] = await Promise.all([
-        listClients(sb, tech.id),
-        listMessagesForTech(sb, tech.id),
+      // Service role: staff logins already use it; owners need it so a stale
+      // messages RLS policy can't hide threads the client token path can see.
+      // Only load clients that appear in threads (not the whole client book).
+      const svc = supabaseService();
+      const [messages, services, categories, addons] = await Promise.all([
+        listMessagesForTech(svc, tech.id),
         listServices(sb, tech.id, { activeOnly: true }),
+        listCategories(sb, tech.id),
         listAddons(sb, tech.id, { activeOnly: true }),
       ]);
-      return { clients, messages, services, addons, tech, live: true };
+      const clientIds = [...new Set(messages.map((m) => m.clientId))];
+      const clients = await getClientsByIds(svc, clientIds);
+      return { clients, messages, services, categories, addons, tech, live: true };
     }
     case "billing": {
       let referredCount = 0;
