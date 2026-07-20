@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarOff } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { addTimeOffAction, deleteTimeOffAction } from "@/app/dashboard/actions";
 import { timeOffOnDate } from "@/lib/booking/staff-day";
 import { fmtTime } from "@/lib/format";
@@ -26,6 +26,10 @@ export function BlockTimeForm({
   const showStaff = staff.length > 1;
   const [start, setStart] = useState(() => localDateTime(dateStr, 12));
   const [end, setEnd] = useState(() => localDateTime(dateStr, 13));
+  const [everyone, setEveryone] = useState(false);
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(() =>
+    staff[0]?.id ? [staff[0].id] : [],
+  );
 
   // Keep defaults on the selected calendar day when the user changes day.
   useEffect(() => {
@@ -35,6 +39,18 @@ export function BlockTimeForm({
 
   const staffName = (id: string | null | undefined) =>
     id ? staff.find((s) => s.id === id)?.name ?? "Team" : "Everyone";
+
+  const toggleStaff = (id: string) => {
+    setEveryone(false);
+    setSelectedStaffIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const selectEveryone = () => {
+    setEveryone(true);
+    setSelectedStaffIds([]);
+  };
 
   return (
     <div className="space-y-4">
@@ -49,14 +65,35 @@ export function BlockTimeForm({
         {showStaff && (
           <div className="sm:col-span-2">
             <Label>Whose diary?</Label>
-            <Select name="staffId" defaultValue={staff[0]?.id ?? ""}>
+            <div className="mt-1.5 flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  name="staffIds"
+                  value="everyone"
+                  checked={everyone}
+                  onChange={(e) => {
+                    if (e.target.checked) selectEveryone();
+                    else setEveryone(false);
+                  }}
+                  className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                Everyone (whole salon)
+              </label>
               {staff.map((s) => (
-                <option key={s.id} value={s.id}>
+                <label key={s.id} className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    name="staffIds"
+                    value={s.id}
+                    checked={!everyone && selectedStaffIds.includes(s.id)}
+                    onChange={() => toggleStaff(s.id)}
+                    className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                  />
                   {s.name}
-                </option>
+                </label>
               ))}
-              <option value="">Everyone (whole salon)</option>
-            </Select>
+            </div>
           </div>
         )}
         <div>

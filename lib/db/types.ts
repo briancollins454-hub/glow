@@ -112,6 +112,11 @@ export interface Tech {
   preCareConfirmationsEnabled: boolean;
   // Client SMS via Glow's Twilio (24h / 2h / balance, plus SMS fallbacks). Off = email only.
   smsRemindersEnabled: boolean;
+  /**
+   * Email the salon (and assigned staff) when a new online booking is confirmed
+   * or approved. Optional until migration 0039; missing = on.
+   */
+  bookingNotifyEmailEnabled?: boolean | null;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.

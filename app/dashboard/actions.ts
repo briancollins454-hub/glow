@@ -260,6 +260,7 @@ export async function updateSettingsAction(formData: FormData) {
     ...(formData.get("smsRemindersField") === "1"
       ? { smsRemindersEnabled: formData.get("smsRemindersEnabled") === "on" }
       : {}),
+    bookingNotifyEmailEnabled: formData.get("bookingNotifyEmailEnabled") === "on",
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),
@@ -546,30 +547,46 @@ export async function addTimeOffAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const start = String(formData.get("start") ?? "");
   const end = String(formData.get("end") ?? "");
-  const staffId = String(formData.get("staffId") ?? "").trim() || null;
+  // Multi-select: staffIds checkboxes, or legacy single staffId. Empty / "everyone" = salon-wide.
+  const rawIds = formData.getAll("staffIds").map((v) => String(v).trim());
+  const legacyId = String(formData.get("staffId") ?? "").trim();
+  const selected = [...new Set(rawIds.filter((id) => id && id !== "everyone"))];
+  const wantsEveryone =
+    rawIds.includes("everyone") || rawIds.includes("") || (rawIds.length === 0 && !legacyId);
+  const staffTargets: (string | null)[] = wantsEveryone
+    ? [null]
+    : selected.length > 0
+      ? selected
+      : legacyId
+        ? [legacyId]
+        : [null];
   const returnTo = safeDashboardReturn(formData, "/dashboard/availability");
   if (start && end) {
     const startIso = toIso(start);
     const endIso = toIso(end);
     if (new Date(endIso).getTime() > new Date(startIso).getTime()) {
-      try {
-        await createTimeOff(sb, {
-          techId: tech.id,
-          startIso,
-          endIso,
-          reason: String(formData.get("reason") ?? "").trim(),
-          staffId,
-        });
-      } catch (e) {
-        // Migration 0036 not applied — save without staff scoping.
-        const msg = e instanceof Error ? e.message : "";
-        if (!/staffId/i.test(msg)) throw e;
-        await createTimeOff(sb, {
-          techId: tech.id,
-          startIso,
-          endIso,
-          reason: String(formData.get("reason") ?? "").trim(),
-        });
+      const reason = String(formData.get("reason") ?? "").trim();
+      for (const staffId of staffTargets) {
+        try {
+          await createTimeOff(sb, {
+            techId: tech.id,
+            startIso,
+            endIso,
+            reason,
+            staffId,
+          });
+        } catch (e) {
+          // Migration 0036 not applied — save without staff scoping.
+          const msg = e instanceof Error ? e.message : "";
+          if (!/staffId/i.test(msg)) throw e;
+          await createTimeOff(sb, {
+            techId: tech.id,
+            startIso,
+            endIso,
+            reason,
+          });
+          break;
+        }
       }
     }
   }

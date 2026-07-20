@@ -319,6 +319,12 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
     await propagateGroupStatus(sb, booking, "pending");
     const updated = { ...booking, status: "pending" as const, approvalToken: null };
     await notifyClientBookingApproved(client, tech, service, updated);
+    try {
+      const { notifySalonOfNewBooking } = await import("@/lib/notify");
+      await notifySalonOfNewBooking(sb, updated);
+    } catch {
+      // Notify is best-effort.
+    }
     return updated;
   }
 
@@ -330,6 +336,12 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
     await syncBookingToGoogle(sb, tech, confirmed);
   } catch {
     // Calendar sync is best-effort.
+  }
+  try {
+    const { notifySalonOfNewBooking } = await import("@/lib/notify");
+    await notifySalonOfNewBooking(sb, confirmed);
+  } catch {
+    // Notify is best-effort.
   }
   return confirmed;
 }

@@ -695,6 +695,12 @@ export async function createPublicBookingAction(formData: FormData) {
       throw e;
     }
     await saveAnswers(pending.id);
+    try {
+      const { notifySalonOfNewBooking } = await import("@/lib/notify");
+      await notifySalonOfNewBooking(sb, pending);
+    } catch {
+      // Notify is best-effort.
+    }
     const url = cardCapture
       ? await createCardCaptureCheckout(tech!, checkoutService, pending, client, APP_URL)
       : await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
@@ -737,5 +743,11 @@ export async function createPublicBookingAction(formData: FormData) {
     throw e;
   }
   await saveAnswers(booking.id);
+  try {
+    const { notifySalonOfNewBooking } = await import("@/lib/notify");
+    await notifySalonOfNewBooking(sb, booking);
+  } catch {
+    // Notify is best-effort.
+  }
   redirect(`/${tech!.handle}/booked/${booking.balanceToken}`);
 }
