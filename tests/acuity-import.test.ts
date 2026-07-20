@@ -79,6 +79,20 @@ describe("appointmentClientName", () => {
     );
     expect(appointmentClientName(rows[0], headers)).toBe("Jane");
   });
+
+  it("prefers First/Last Name over a generic Name column", () => {
+    const { headers, rows } = parseCsv(
+      "First Name,Last Name,Name,Type,Start Time\nJane,Smith,Wrong Field,Gel Nails,December 2, 2020 9:00 am\n",
+    );
+    expect(appointmentClientName(rows[0], headers)).toBe("Jane Smith");
+  });
+
+  it("drops a Last Name that is just the Calendar value", () => {
+    const { headers, rows } = parseCsv(
+      "First Name,Last Name,Type,Calendar,Start Time\nEmma,Dog portrait,Builder Gel (BIAB),Dog portrait,July 21, 2026 3:10 pm\n",
+    );
+    expect(appointmentClientName(rows[0], headers)).toBe("Emma");
+  });
 });
 
 describe("normalizeImportPhone", () => {
