@@ -86,7 +86,7 @@ export async function joinWaitlistAction(formData: FormData) {
 }
 
 import { createCardCaptureCheckout, createDepositCheckout } from "@/lib/payments";
-import { isLive, isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
+import { isPaymentsReady, usesCardCapture, acceptsOnlineBookings } from "@/lib/subscriptions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -253,7 +253,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   if (!tech || !service || !patchSlotIso || !treatmentSlotIso || !name || !email) {
     redirect(`${base}&err=missing`);
   }
-  if (!isLive(tech)) redirect(`/${tech.handle}?service=${serviceId}&err=not_live`);
+  if (!acceptsOnlineBookings(tech)) redirect(`/${tech.handle}?service=${serviceId}&err=not_live`);
   if (!policyAccepted) redirect(`${base}&err=form`);
 
   const [category, services, fullCtx] = await Promise.all([
@@ -461,7 +461,7 @@ export async function createPublicBookingAction(formData: FormData) {
   }
 
   // Gating: the studio must have an active subscription to take online bookings.
-  if (!isLive(tech!)) {
+  if (!acceptsOnlineBookings(tech!)) {
     redirect(`/${tech!.handle}?service=${serviceId}&err=not_live`);
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, CheckCircle2, Copy, CreditCard, Download, KeyRound, MessageSquare, ShieldAlert } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, CreditCard, Download, Globe, KeyRound, MessageSquare, ShieldAlert } from "lucide-react";
 import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -10,13 +10,14 @@ import {
   changePasswordAction,
   ensureCalendarTokenAction,
   requestAccountClosureAction,
+  setBookingPageLiveAction,
   updateSettingsAction,
 } from "../actions";
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
 import { gbp } from "@/lib/format";
-import { isLive, planLabel } from "@/lib/subscriptions";
+import { acceptsOnlineBookings, isLive, planLabel } from "@/lib/subscriptions";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -57,6 +58,9 @@ export default function SettingsPage() {
   const photoerr = searchParams.get("photoerr");
   const coverSaved = searchParams.get("cover");
   const profileSaved = searchParams.get("profile");
+  const liveToggle = searchParams.get("live");
+  const bookingPageError = searchParams.get("error");
+  const pageLive = acceptsOnlineBookings(tech);
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
   const defaultDeposit = depositFieldDisplay(
     tech.defaultDepositType,
@@ -92,6 +96,21 @@ export default function SettingsPage() {
       </div>
 
       {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {liveToggle === "1" && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" /> Booking page is live. Clients can book online.
+        </div>
+      )}
+      {liveToggle === "0" && (
+        <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          <Globe className="h-4 w-4" /> Booking page paused. Clients can&apos;t book online until you switch it back on.
+        </div>
+      )}
+      {bookingPageError === "booking_page" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Couldn&apos;t update the booking page setting. Please try again in a moment.
+        </div>
+      )}
       {coverSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Banner image uploaded.</div>}
       {profileSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Profile photo uploaded.</div>}
       {photoerr && (
@@ -128,6 +147,52 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      <Card className={pageLive ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-brand-400" /> Online booking page
+          </CardTitle>
+          <CardDescription>
+            {isLive(tech)
+              ? pageLive
+                ? "Your page is live. Anyone with your link can book."
+                : "Your page is paused. Clients see your studio but can't book until you switch this on."
+              : "Start a plan first, then you can switch online booking on when you're ready to share your link."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLive(tech) ? (
+            <form action={setBookingPageLiveAction} className="space-y-4">
+              <label className="flex items-start gap-3 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="bookingPageLive"
+                  defaultChecked={pageLive}
+                  className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium text-ink">Accept online bookings</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    Leave this off until you&apos;re ready to share{" "}
+                    <span className="font-medium text-ink-soft">
+                      {APP_URL.replace(/^https?:\/\//, "")}/{tech.handle}
+                    </span>
+                    . You can still add bookings yourself from Calendar.
+                  </span>
+                </span>
+              </label>
+              <Button type="submit" variant="secondary">
+                Save booking page setting
+              </Button>
+            </form>
+          ) : (
+            <ButtonLink href="/dashboard/billing" variant="outline">
+              <CreditCard className="h-4 w-4" /> View plans
+            </ButtonLink>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-brand-500/30 bg-brand-500/10">
         <CardHeader>

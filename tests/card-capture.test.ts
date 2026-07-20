@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { noShowFeeFor } from "@/lib/rules";
-import { usesCardCapture } from "@/lib/subscriptions";
+import { acceptsOnlineBookings, isLive, usesCardCapture } from "@/lib/subscriptions";
 import { makeTech } from "./fixtures";
 
 describe("noShowFeeFor", () => {
@@ -52,5 +52,26 @@ describe("usesCardCapture", () => {
     expect(
       usesCardCapture({ connectChargesEnabled: true } as ReturnType<typeof makeTech>),
     ).toBe(false);
+  });
+});
+
+describe("acceptsOnlineBookings", () => {
+  it("needs an active plan and bookingPageLive", () => {
+    expect(acceptsOnlineBookings(makeTech({ subscriptionStatus: "active", bookingPageLive: true }))).toBe(
+      true,
+    );
+    expect(acceptsOnlineBookings(makeTech({ subscriptionStatus: "active", bookingPageLive: false }))).toBe(
+      false,
+    );
+    expect(acceptsOnlineBookings(makeTech({ subscriptionStatus: "none", bookingPageLive: true }))).toBe(
+      false,
+    );
+  });
+
+  it("treats missing bookingPageLive as on (pre-migration)", () => {
+    expect(
+      acceptsOnlineBookings(makeTech({ subscriptionStatus: "active", bookingPageLive: undefined })),
+    ).toBe(true);
+    expect(isLive(makeTech({ subscriptionStatus: "active", bookingPageLive: false }))).toBe(true);
   });
 });

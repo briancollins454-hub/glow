@@ -27,15 +27,20 @@ export default function HelpPage() {
           <Step n={1}>Tap <B>Services</B> in the menu. Add what you offer: the name, the price, and how long it takes.</Step>
           <Step n={2}>Tap <B>Opening hours</B>. Set the days and times you work (and any days off). If your roster changes each week, open <B>Team</B> → <B>Week rota</B> and set each person&apos;s real days for that week.</Step>
           <Step n={3}>Tap <B>Get paid</B> and connect your bank so you can take card deposits.</Step>
-          <Step n={4}>Tap <B>My plan</B> and start your plan. This switches your booking page on.</Step>
-          <Step n={5}>That&apos;s it. Your booking page is live at <B>{myLink}</B></Step>
+          <Step n={4}>Tap <B>My plan</B> and start your plan.</Step>
+          <Step n={5}>When you&apos;re ready for clients, open <B>Settings</B> → <B>Online booking page</B> and tick <B>Accept online bookings</B>. Your link is <B>{myLink}</B></Step>
         </Item>
 
         <Item title="How do clients find my booking page?">
           <P>You share one link: <B>{myLink}</B></P>
-          <Step n={1}>Copy the link (it&apos;s at the top of your Home page).</Step>
-          <Step n={2}>Paste it into your Instagram bio, TikTok bio, and WhatsApp.</Step>
-          <Step n={3}>Done. Anyone who taps it can book you. You never need to send it again.</Step>
+          <Step n={1}>Make sure online booking is on in <B>Settings</B> → <B>Online booking page</B>.</Step>
+          <Step n={2}>Copy the link (it&apos;s at the top of your Home page).</Step>
+          <Step n={3}>Paste it into your Instagram bio, TikTok bio, and WhatsApp.</Step>
+          <Step n={4}>Done. Anyone who taps it can book you.</Step>
+        </Item>
+
+        <Item title="Can I pause online bookings without cancelling my plan?">
+          <P>Yes. In <B>Settings</B> → <B>Online booking page</B>, untick <B>Accept online bookings</B> and save. Your link stays the same, but clients can&apos;t book until you switch it back on. You can still add appointments yourself from Calendar.</P>
         </Item>
 
         <Item title="How do I make my page look like my brand?">
