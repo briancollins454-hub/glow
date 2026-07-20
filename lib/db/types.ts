@@ -73,6 +73,11 @@ export interface Tech {
   subscriptionStatus: SubscriptionStatus;
   plan: string | null;
   currentPeriodEnd: string | null;
+  /**
+   * When false, the public booking page is paused (clients see "not accepting yet").
+   * Independent of subscription. Optional until migration 0037; missing = on.
+   */
+  bookingPageLive?: boolean | null;
   // Stripe Connect (client deposits pay out to the tech)
   stripeConnectAccountId: string | null;
   connectChargesEnabled: boolean;

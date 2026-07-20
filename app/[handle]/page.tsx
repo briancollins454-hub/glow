@@ -39,7 +39,7 @@ import {
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceMap } from "@/lib/db/queries";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
-import { isLive, usesCardCapture } from "@/lib/subscriptions";
+import { acceptsOnlineBookings, usesCardCapture } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
@@ -150,7 +150,7 @@ export default async function PublicBookingPage({
     !!patchTestService &&
     (sp.pair === "1" || (!!sp.retest && sp.retest === selected.categoryId));
 
-  const live = isLive(tech);
+  const live = acceptsOnlineBookings(tech);
   // Basket: extra treatments chained onto this booking (not in the paired flow).
   const basketExtras =
     selected && !usePairedFlow ? resolveBasketExtras(services, selected.id, sp.also) : [];

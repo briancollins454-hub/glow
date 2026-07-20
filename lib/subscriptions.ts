@@ -2,9 +2,21 @@ import type { SubscriptionStatus, Tech } from "@/lib/db/types";
 
 const LIVE_STATUSES: SubscriptionStatus[] = ["trialing", "active", "comped"];
 
-/** True when the tech may accept online bookings (subscribed / trialing / comped). */
+/** True when the tech has an active Glow plan (subscribed / trialing / comped). */
 export function isLive(tech: Pick<Tech, "subscriptionStatus">): boolean {
   return LIVE_STATUSES.includes(tech.subscriptionStatus);
+}
+
+/**
+ * True when the public booking page can take new appointments.
+ * Needs an active plan AND bookingPageLive (Settings toggle).
+ * Missing/null bookingPageLive is treated as on (pre-migration).
+ */
+export function acceptsOnlineBookings(
+  tech: Pick<Tech, "subscriptionStatus"> & { bookingPageLive?: boolean | null },
+): boolean {
+  if (!isLive(tech)) return false;
+  return tech.bookingPageLive !== false;
 }
 
 /** True when the tech can accept card payments from clients (Stripe Connect ready). */

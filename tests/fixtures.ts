@@ -176,6 +176,7 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     stripeCustomerId: null,
     stripeSubscriptionId: null,
     subscriptionStatus: "active",
+    bookingPageLive: true,
     plan: "monthly",
     currentPeriodEnd: null,
     stripeConnectAccountId: null,

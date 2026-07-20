@@ -18,9 +18,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
       const { data } = await supabaseService()
         .from("techs")
-        .select("handle, subscriptionStatus")
+        .select("handle, subscriptionStatus, bookingPageLive")
         .in("subscriptionStatus", LIVE);
       for (const t of data ?? []) {
+        if (t.bookingPageLive === false) continue;
         entries.push({
           url: `${APP_URL}/${t.handle}`,
           lastModified: now,

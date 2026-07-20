@@ -6,7 +6,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import { getDmQuoteLinkByToken, getService, getTechById, updateDmQuoteLink } from "@/lib/db/queries";
 import { bookUrl, parseQuoteAddons } from "@/lib/dm-quote";
 import { gbp, minutesToLabel } from "@/lib/format";
-import { isLive } from "@/lib/subscriptions";
+import { acceptsOnlineBookings } from "@/lib/subscriptions";
 import { rateLimit } from "@/lib/rate-limit";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
@@ -34,7 +34,7 @@ export default async function QuotePage({
     getTechById(sb, quote.techId),
     getService(sb, quote.serviceId),
   ]);
-  if (!tech || !service || !isLive(tech)) notFound();
+  if (!tech || !service || !acceptsOnlineBookings(tech)) notFound();
 
   if (!quote.viewedAtIso) {
     await updateDmQuoteLink(sb, quote.id, { viewedAtIso: new Date().toISOString() });

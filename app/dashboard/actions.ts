@@ -40,6 +40,7 @@ import {
   updateTech,
 } from "@/lib/db/queries";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { isLive } from "@/lib/subscriptions";
 import {
   createClientPhoto,
   createQuestion,
@@ -81,6 +82,26 @@ async function audit(
   } catch {
     // Audit logging must never block the primary workflow if a migration is pending.
   }
+}
+
+export async function setBookingPageLiveAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  if (!isLive(tech)) {
+    redirect("/dashboard/billing");
+  }
+  const live = formData.get("bookingPageLive") === "on";
+  try {
+    await updateTech(sb, tech.id, { bookingPageLive: live });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (!/bookingPageLive/i.test(msg)) throw e;
+    // Migration 0037 not applied yet.
+    redirect("/dashboard/settings?error=booking_page");
+  }
+  invalidateDashboardTech(tech.authUserId);
+  revalidatePath("/dashboard/settings");
+  revalidatePath(`/${tech.handle}`);
+  redirect(live ? "/dashboard/settings?live=1" : "/dashboard/settings?live=0");
 }
 
 export async function changePasswordAction(formData: FormData) {
