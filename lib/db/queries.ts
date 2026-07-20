@@ -1036,6 +1036,125 @@ export async function setStaffServices(sb: SB, staffId: string, serviceIds: stri
   }
 }
 
+export async function countBookingsForStaff(sb: SB, staffId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .eq("staffId", staffId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function countTimeOffForStaff(sb: SB, staffId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("time_off")
+    .select("*", { count: "exact", head: true })
+    .eq("staffId", staffId);
+  if (error) {
+    // staffId column optional until migration 0036.
+    if (/staffId|schema cache|column/i.test(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
+/** Booking counts keyed by staffId for a salon (rows with no staffId are skipped). */
+export async function bookingCountsByStaff(
+  sb: SB,
+  techId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await sb.from("bookings").select("staffId").eq("techId", techId);
+  if (error) throw new Error(error.message);
+  const map: Record<string, number> = {};
+  for (const row of (data ?? []) as { staffId: string | null }[]) {
+    if (!row.staffId) continue;
+    map[row.staffId] = (map[row.staffId] ?? 0) + 1;
+  }
+  return map;
+}
+
+/** Per-staff time-off counts (salon-wide rows with null staffId are skipped). */
+export async function timeOffCountsByStaff(
+  sb: SB,
+  techId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await sb.from("time_off").select("staffId").eq("techId", techId);
+  if (error) {
+    if (/staffId|schema cache|column/i.test(error.message)) return {};
+    throw new Error(error.message);
+  }
+  const map: Record<string, number> = {};
+  for (const row of (data ?? []) as { staffId: string | null }[]) {
+    if (!row.staffId) continue;
+    map[row.staffId] = (map[row.staffId] ?? 0) + 1;
+  }
+  return map;
+}
+
+export async function reassignStaffBookings(
+  sb: SB,
+  fromStaffId: string,
+  toStaffId: string,
+): Promise<number> {
+  const { data, error } = await sb
+    .from("bookings")
+    .update({ staffId: toStaffId })
+    .eq("staffId", fromStaffId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
+}
+
+export async function reassignStaffTimeOff(
+  sb: SB,
+  fromStaffId: string,
+  toStaffId: string,
+): Promise<number> {
+  const { data, error } = await sb
+    .from("time_off")
+    .update({ staffId: toStaffId })
+    .eq("staffId", fromStaffId)
+    .select("id");
+  if (error) {
+    if (/staffId|schema cache|column/i.test(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return (data ?? []).length;
+}
+
+/**
+ * Hard-delete a staff member and related diary rows.
+ * Callers must reassign or clear bookings first. Deletes auth user when set.
+ */
+export async function deleteStaffMember(sb: SB, staff: StaffMember): Promise<void> {
+  const staffId = staff.id;
+
+  const wh = await sb.from("working_hours").delete().eq("staffId", staffId);
+  if (wh.error) throw new Error(wh.error.message);
+
+  const rota = await sb.from("rota_hours").delete().eq("staffId", staffId);
+  if (rota.error && !/rota_hours|schema cache/i.test(rota.error.message)) {
+    throw new Error(rota.error.message);
+  }
+
+  const services = await sb.from("staff_services").delete().eq("staffId", staffId);
+  if (services.error && !/staff_services|schema cache/i.test(services.error.message)) {
+    throw new Error(services.error.message);
+  }
+
+  const offs = await sb.from("time_off").delete().eq("staffId", staffId);
+  if (offs.error && !/staffId|schema cache|column/i.test(offs.error.message)) {
+    throw new Error(offs.error.message);
+  }
+
+  const { error } = await sb.from("staff_members").delete().eq("id", staffId);
+  if (error) throw new Error(error.message);
+
+  if (staff.authUserId) {
+    await sb.auth.admin.deleteUser(staff.authUserId).catch(() => undefined);
+  }
+}
+
 /** All bookings sharing a basket group id, earliest first. */
 export async function listBookingsByGroup(sb: SB, groupId: string): Promise<Booking[]> {
   const { data, error } = await sb

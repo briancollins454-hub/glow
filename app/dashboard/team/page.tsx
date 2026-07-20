@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, KeyRound, UserPlus, UsersRound } from "lucide-react";
+import { CheckCircle2, KeyRound, Trash2, UserPlus, UsersRound } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Input, Label } from "@/components/ui/input";
 import type { Service, StaffMember, WorkingHour } from "@/lib/db/types";
 import {
   createStaffAction,
+  deleteStaffAction,
+  mergeStaffAction,
   resetStaffPasswordAction,
   saveStaffHoursAction,
   setStaffActiveAction,
@@ -32,8 +34,11 @@ const ERRORS: Record<string, string> = {
   missing: "Please fill in the required fields.",
   email: "An account with that email already exists.",
   password: "Passwords need at least 8 characters.",
-  owner: "The owner can't be deactivated.",
+  owner: "The owner can't be deactivated or removed.",
   haslogin: "This person already has a login. Use Reset password instead.",
+  active: "Deactivate this person before deleting or merging them.",
+  hasbookings: "This person still has bookings. Merge them into another staff member first.",
+  merge: "Choose an active staff member to merge into.",
 };
 
 function minToHHMM(min: number): string {
@@ -48,6 +53,8 @@ type TeamData =
       services: Service[];
       restrictions: Record<string, string[]>;
       hoursByStaff: Record<string, WorkingHour[]>;
+      bookingCountByStaff: Record<string, number>;
+      timeOffCountByStaff: Record<string, number>;
       flexibleHoursEnabled?: boolean;
     };
 
@@ -78,17 +85,22 @@ function TeamView({
   services,
   restrictions,
   hoursByStaff,
+  bookingCountByStaff,
+  timeOffCountByStaff,
   flexibleHoursEnabled,
 }: {
   staff: StaffMember[];
   services: Service[];
   restrictions: Record<string, string[]>;
   hoursByStaff: Record<string, WorkingHour[]>;
+  bookingCountByStaff: Record<string, number>;
+  timeOffCountByStaff: Record<string, number>;
   flexibleHoursEnabled?: boolean;
 }) {
   const searchParams = useSearchParams();
   const saved = searchParams.get("saved");
   const err = searchParams.get("err");
+  const mergeTargets = staff.filter((s) => s.active);
 
   return (
     <div className="space-y-6">
@@ -128,6 +140,9 @@ function TeamView({
           services={services}
           restricted={restrictions[member.id] ?? []}
           hours={hoursByStaff[member.id] ?? []}
+          bookingCount={bookingCountByStaff[member.id] ?? 0}
+          timeOffCount={timeOffCountByStaff[member.id] ?? 0}
+          mergeTargets={mergeTargets.filter((s) => s.id !== member.id)}
         />
       ))}
 
@@ -220,11 +235,17 @@ function StaffCard({
   services,
   restricted,
   hours,
+  bookingCount,
+  timeOffCount,
+  mergeTargets,
 }: {
   member: StaffMember;
   services: Service[];
   restricted: string[];
   hours: WorkingHour[];
+  bookingCount: number;
+  timeOffCount: number;
+  mergeTargets: StaffMember[];
 }) {
   return (
     <Card>
@@ -399,7 +420,126 @@ function StaffCard({
             </button>
           </form>
         )}
+
+        {!member.active && member.role !== "owner" && (
+          <InactiveStaffCleanup
+            member={member}
+            bookingCount={bookingCount}
+            timeOffCount={timeOffCount}
+            mergeTargets={mergeTargets}
+          />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function InactiveStaffCleanup({
+  member,
+  bookingCount,
+  timeOffCount,
+  mergeTargets,
+}: {
+  member: StaffMember;
+  bookingCount: number;
+  timeOffCount: number;
+  mergeTargets: StaffMember[];
+}) {
+  const bookingLabel = `${bookingCount} booking${bookingCount === 1 ? "" : "s"}`;
+  const timeOffLabel = `${timeOffCount} time-off block${timeOffCount === 1 ? "" : "s"}`;
+
+  if (bookingCount === 0) {
+    return (
+      <details className="rounded-xl border border-red-500/30 bg-red-500/5">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-red-300 transition hover:text-red-200 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4" /> Delete permanently
+          </span>
+        </summary>
+        <form
+          action={deleteStaffAction}
+          className="space-y-3 border-t border-red-500/20 p-4"
+          onSubmit={(e) => {
+            const ok = window.confirm(
+              `Delete ${member.name} permanently?\n\n` +
+                `This removes their login, hours, and rota.\n` +
+                `${bookingLabel} · ${timeOffLabel} will be cleared.\n\n` +
+                `This cannot be undone.`,
+            );
+            if (!ok) e.preventDefault();
+          }}
+        >
+          <input type="hidden" name="id" value={member.id} />
+          <p className="text-sm text-ink-soft">
+            No bookings are linked to {member.name}. Deleting removes their login (if any), usual
+            hours, week rota, and {timeOffLabel}.
+          </p>
+          <Button type="submit" variant="danger" size="sm">
+            <Trash2 className="h-4 w-4" /> Delete {member.name}
+          </Button>
+        </form>
+      </details>
+    );
+  }
+
+  return (
+    <details className="rounded-xl border border-red-500/30 bg-red-500/5">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-red-300 transition hover:text-red-200 [&::-webkit-details-marker]:hidden">
+        Merge into another staff member
+      </summary>
+      <form
+        action={mergeStaffAction}
+        className="space-y-3 border-t border-red-500/20 p-4"
+        onSubmit={(e) => {
+          const form = e.currentTarget;
+          const select = form.elements.namedItem("targetId") as HTMLSelectElement | null;
+          const targetName =
+            select?.selectedOptions[0]?.textContent?.trim() || "the chosen staff member";
+          const ok = window.confirm(
+            `Merge ${member.name} into ${targetName}?\n\n` +
+              `This moves ${bookingLabel} and ${timeOffLabel}, then deletes ${member.name}.\n\n` +
+              `This cannot be undone.`,
+          );
+          if (!ok) e.preventDefault();
+        }}
+      >
+        <input type="hidden" name="id" value={member.id} />
+        <p className="text-sm text-ink-soft">
+          {member.name} has {bookingLabel} and {timeOffLabel}. Move everything to another active
+          person, then remove this profile.
+        </p>
+        {mergeTargets.length === 0 ? (
+          <p className="text-sm text-red-300">
+            Add or reactivate another staff member before you can merge.
+          </p>
+        ) : (
+          <>
+            <div className="max-w-sm">
+              <Label htmlFor={`merge-target-${member.id}`}>Merge into</Label>
+              <select
+                id={`merge-target-${member.id}`}
+                name="targetId"
+                required
+                className="input h-10 w-full text-sm"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Choose staff member…
+                </option>
+                {mergeTargets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.role === "owner" ? " (Owner)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" variant="danger" size="sm">
+              Merge and delete
+            </Button>
+          </>
+        )}
+      </form>
+    </details>
   );
 }
