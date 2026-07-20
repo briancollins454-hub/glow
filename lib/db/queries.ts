@@ -433,9 +433,17 @@ export async function getClient(sb: SB, id: string): Promise<Client | null> {
 }
 export async function getClientByEmail(sb: SB, techId: string, email: string): Promise<Client | null> {
   if (!email) return null;
-  const { data, error } = await sb.from("clients").select("*").eq("techId", techId).ilike("email", email).maybeSingle();
+  // Imports (and manual re-adds) can leave more than one row with the same email.
+  // Prefer the oldest account rather than throwing on .maybeSingle().
+  const { data, error } = await sb
+    .from("clients")
+    .select("*")
+    .eq("techId", techId)
+    .ilike("email", email.trim())
+    .order("createdAt", { ascending: true })
+    .limit(1);
   if (error) throw new Error(error.message);
-  return data as Client | null;
+  return ((data as Client[]) ?? [])[0] ?? null;
 }
 export async function getClientByMessageToken(sb: SB, token: string): Promise<Client | null> {
   if (!token) return null;
