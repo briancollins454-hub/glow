@@ -89,6 +89,8 @@ export const THEME_TOKENS = {
     infoText: "#7dd3fc",
     pendingSoft: "#4c1d95",
     pendingText: "#c4b5fd",
+    // Approximate diary column under the soft white hatch (transparent fill).
+    calendarUnavailableFill: "#141019",
   },
   light: {
     bg: "#faf7fb",
@@ -111,5 +113,7 @@ export const THEME_TOKENS = {
     infoText: "#0369a1",
     pendingSoft: "#f5f3ff",
     pendingText: "#6d28d9",
+    // ~10% ink (#140a1e) over cream (#faf7fb).
+    calendarUnavailableFill: "#e3dfe5",
   },
 } as const;

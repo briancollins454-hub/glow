@@ -41,6 +41,11 @@ html[data-theme="dark"] {
   --fill-hover-alpha: 0.07;
   --overlay: rgb(0 0 0 / 0.6);
 
+  /* Calendar outside-hours / blocked hatching. Dark: keep the soft white hatch. */
+  --calendar-unavailable-fill: transparent;
+  --calendar-unavailable-stripe: rgb(255 255 255 / 0.04);
+  --calendar-unavailable-label: var(--ink-soft);
+
   --success: #10b981;
   --success-soft: rgb(16 185 129 / 0.15);
   --success-text: #6ee7b7;
@@ -103,6 +108,11 @@ html[data-theme="light"] {
   --fill-hover: rgb(20 10 30 / 0.07);
   --fill-hover-alpha: 0.07;
   --overlay: rgb(20 10 30 / 0.45);
+
+  /* ~10% ink over surface so unavailable blocks read clearly in light mode. */
+  --calendar-unavailable-fill: rgb(20 10 30 / 0.1);
+  --calendar-unavailable-stripe: rgb(20 10 30 / 0.16);
+  --calendar-unavailable-label: var(--ink-soft);
 
   --success: #059669;
   --success-soft: #ecfdf5;
@@ -229,6 +239,20 @@ html[data-theme="light"] {
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Team / diary outside-hours and blocked-time hatch (theme-token driven). */
+  .calendar-unavailable {
+    background-color: var(--calendar-unavailable-fill);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--calendar-unavailable-stripe),
+      var(--calendar-unavailable-stripe) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+  .calendar-unavailable-label {
+    color: var(--calendar-unavailable-label);
   }
 }
 

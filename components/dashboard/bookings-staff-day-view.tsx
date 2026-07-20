@@ -207,11 +207,11 @@ export function BookingsStaffDayView({
                       return (
                         <div
                           key={`hours-${i}`}
-                          className="absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.04),rgba(255,255,255,0.04)_4px,transparent_4px,transparent_8px)] px-1.5 py-1"
+                          className="calendar-unavailable absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge px-1.5 py-1"
                           style={{ top, height: blockHeight }}
                           title="Outside working hours"
                         >
-                          <p className="truncate text-[10px] font-medium text-ink-soft">
+                          <p className="calendar-unavailable-label truncate text-[10px] font-medium">
                             Unavailable
                           </p>
                         </div>
@@ -229,11 +229,11 @@ export function BookingsStaffDayView({
                       return (
                         <div
                           key={o.id}
-                          className="absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.04),rgba(255,255,255,0.04)_4px,transparent_4px,transparent_8px)] px-1.5 py-1"
+                          className="calendar-unavailable absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge px-1.5 py-1"
                           style={{ top, height: blockHeight }}
                           title={o.reason || "Blocked"}
                         >
-                          <p className="truncate text-[10px] font-medium text-ink-soft">
+                          <p className="calendar-unavailable-label truncate text-[10px] font-medium">
                             Unavailable
                           </p>
                           {o.reason && (
