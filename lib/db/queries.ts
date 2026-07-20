@@ -32,6 +32,7 @@ import type {
   ServiceAddon,
   ServiceCategory,
   StaffMember,
+  StaffServiceDay,
   Tech,
   TimeOff,
   WaitlistEntry,
@@ -268,6 +269,11 @@ export async function deleteServices(sb: SB, ids: string[]): Promise<number> {
     const { error: staffLinkErr } = await sb.from("staff_services").delete().in("serviceId", chunk);
     if (staffLinkErr && !/staff_services|schema cache/i.test(staffLinkErr.message)) {
       throw new Error(staffLinkErr.message);
+    }
+
+    const { error: staffDaysErr } = await sb.from("staff_service_days").delete().in("serviceId", chunk);
+    if (staffDaysErr && !/staff_service_days|schema cache/i.test(staffDaysErr.message)) {
+      throw new Error(staffDaysErr.message);
     }
 
     // Bookings restrict service deletes — remove them first (payments/reminders cascade).
@@ -1037,6 +1043,75 @@ export async function setStaffServices(sb: SB, staffId: string, serviceIds: stri
   }
 }
 
+// ---------------- Staff service day rules ----------------
+
+/** Day rules for one service: staffId -> availableWeekdays (null = all days). */
+export async function staffServiceDaysForService(
+  sb: SB,
+  serviceId: string,
+): Promise<Record<string, number[] | null>> {
+  const { data, error } = await sb
+    .from("staff_service_days")
+    .select("staffId, availableWeekdays")
+    .eq("serviceId", serviceId);
+  if (error) {
+    if (/staff_service_days|schema cache|relation/i.test(error.message)) return {};
+    throw new Error(error.message);
+  }
+  const map: Record<string, number[] | null> = {};
+  for (const row of (data ?? []) as { staffId: string; availableWeekdays: number[] | null }[]) {
+    map[row.staffId] = row.availableWeekdays;
+  }
+  return map;
+}
+
+/**
+ * Day rules keyed by staffId -> serviceId -> availableWeekdays.
+ * Missing service keys mean no staff-level row (fall back to service rule).
+ */
+export async function staffServiceDayMap(
+  sb: SB,
+  staffIds: string[],
+): Promise<Record<string, Record<string, number[] | null>>> {
+  const map: Record<string, Record<string, number[] | null>> = {};
+  for (const id of staffIds) map[id] = {};
+  if (!staffIds.length) return map;
+  const { data, error } = await sb
+    .from("staff_service_days")
+    .select("staffId, serviceId, availableWeekdays")
+    .in("staffId", staffIds);
+  if (error) {
+    if (/staff_service_days|schema cache|relation/i.test(error.message)) return map;
+    throw new Error(error.message);
+  }
+  for (const row of (data ?? []) as StaffServiceDay[]) {
+    (map[row.staffId] ??= {})[row.serviceId] = row.availableWeekdays;
+  }
+  return map;
+}
+
+/** Replace all day rules for one service across the given staff members. */
+export async function setStaffServiceDaysForService(
+  sb: SB,
+  serviceId: string,
+  rules: { staffId: string; availableWeekdays: number[] | null }[],
+): Promise<void> {
+  const del = await sb.from("staff_service_days").delete().eq("serviceId", serviceId);
+  if (del.error) {
+    if (/staff_service_days|schema cache|relation/i.test(del.error.message)) return;
+    throw new Error(del.error.message);
+  }
+  if (!rules.length) return;
+  const { error } = await sb.from("staff_service_days").insert(
+    rules.map((r) => ({
+      staffId: r.staffId,
+      serviceId,
+      availableWeekdays: r.availableWeekdays,
+    })),
+  );
+  if (error) throw new Error(error.message);
+}
+
 export async function countBookingsForStaff(sb: SB, staffId: string): Promise<number> {
   const { count, error } = await sb
     .from("bookings")
@@ -1141,6 +1216,11 @@ export async function deleteStaffMember(sb: SB, staff: StaffMember): Promise<voi
   const services = await sb.from("staff_services").delete().eq("staffId", staffId);
   if (services.error && !/staff_services|schema cache/i.test(services.error.message)) {
     throw new Error(services.error.message);
+  }
+
+  const days = await sb.from("staff_service_days").delete().eq("staffId", staffId);
+  if (days.error && !/staff_service_days|schema cache/i.test(days.error.message)) {
+    throw new Error(days.error.message);
   }
 
   const offs = await sb.from("time_off").delete().eq("staffId", staffId);

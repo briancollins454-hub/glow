@@ -162,6 +162,17 @@ export interface StaffMember {
   createdAt: string;
 }
 
+/**
+ * Per-staff weekday rule for a service.
+ * availableWeekdays null = all days for that staff+service.
+ * Optional until migration 0040 is applied.
+ */
+export interface StaffServiceDay {
+  staffId: string;
+  serviceId: string;
+  availableWeekdays: number[] | null;
+}
+
 export interface ServiceCategory {
   id: string;
   techId: string;

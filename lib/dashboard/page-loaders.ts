@@ -151,7 +151,7 @@ export async function loadDashboardPageData(
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
       const { listStaff } = await import("@/lib/db/queries");
-      const [bookings, services, categories, clients, waitlist, staff, offs, allHours] =
+      const [bookings, services, categories, clients, waitlist, staff, offs, allHours, addons] =
         await Promise.all([
           listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
           listServices(sb, tech.id),
@@ -161,6 +161,7 @@ export async function loadDashboardPageData(
           listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
           listTimeOff(sb, tech.id).catch(() => []),
           listWorkingHours(sb, tech.id).catch(() => []),
+          listAddons(sb, tech.id, { activeOnly: true }).catch(() => []),
         ]);
       const owner = staff.find((s) => s.role === "owner");
       const { workingHoursForStaff } = await import("@/lib/booking/staff");
@@ -177,11 +178,13 @@ export async function loadDashboardPageData(
         staff,
         offs,
         hoursByStaff,
+        addons,
         now,
       };
     }
     case "services": {
-      const [categories, services, addons, retests, clients, bookings, products, batchSummary] =
+      const { listStaff, staffServiceDaysForService } = await import("@/lib/db/queries");
+      const [categories, services, addons, retests, clients, bookings, products, batchSummary, staff] =
         await Promise.all([
         listCategories(sb, tech.id),
         listServices(sb, tech.id),
@@ -191,6 +194,7 @@ export async function loadDashboardPageData(
         listBookings(sb, tech.id),
         listProducts(sb, tech.id),
         batchSummaries(sb, tech.id),
+        listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
       ]);
       const signed = await signedPhotoUrls(
         services.filter((s) => s.photoPath).map((s) => s.photoPath!),
@@ -202,7 +206,29 @@ export async function loadDashboardPageData(
           if (url) photoByService[s.id] = url;
         }
       }
-      return { categories, services, addons, photoByService, retests, clients, bookings, products, batchSummaries: batchSummary, tech };
+      const staffDayRulesByService: Record<string, Record<string, number[] | null>> = {};
+      await Promise.all(
+        services.map(async (s) => {
+          staffDayRulesByService[s.id] = await staffServiceDaysForService(
+            supabaseService(),
+            s.id,
+          ).catch(() => ({}));
+        }),
+      );
+      return {
+        categories,
+        services,
+        addons,
+        photoByService,
+        retests,
+        clients,
+        bookings,
+        products,
+        batchSummaries: batchSummary,
+        tech,
+        staff,
+        staffDayRulesByService,
+      };
     }
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([

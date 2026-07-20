@@ -34,6 +34,7 @@ import {
   findPatchTestService,
   bufferMapFromServices,
   intersectWeekdays,
+  weekdaysForStaffBasket,
   needsManualApproval,
   scoreClientRisk,
   treatmentSlotsAfterPatchTest,
@@ -55,7 +56,7 @@ import {
 import { resolveBasketExtras } from "@/lib/booking/basket";
 import { ANY_STAFF, capableStaff, rowsForStaff, workingHoursForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { listStaff, staffServiceMap } from "@/lib/db/queries";
+import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
 
 /** Client asks to be told when a cancellation frees up a slot. */
@@ -126,13 +127,13 @@ async function loadAvailability(
 async function resolveBookingStaff(
   sb: ReturnType<typeof supabaseService>,
   techId: string,
-  serviceIds: string[],
+  services: { id: string; availableWeekdays?: number[] | null }[],
   requested: string,
   slotIso: string,
   totalDurationMin: number,
   availability: AvailabilityCtx,
-  allowedWeekdays?: number[] | null,
 ): Promise<{ staff: StaffMember | null; legacy: boolean } | "invalid"> {
+  const serviceIds = services.map((s) => s.id);
   const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
     () => [] as StaffMember[],
   );
@@ -141,13 +142,17 @@ async function resolveBookingStaff(
   const restrictions = await staffServiceMap(sb, staffList.map((s) => s.id)).catch(
     () => ({}) as Record<string, string[]>,
   );
+  const dayRulesByStaff = await staffServiceDayMap(sb, staffList.map((s) => s.id)).catch(
+    () => ({}) as Record<string, Record<string, number[] | null>>,
+  );
   const capable = capableStaff(staffList, restrictions, serviceIds);
   if (capable.length === 0) return "invalid";
 
   const owner = staffList.find((s) => s.role === "owner") ?? null;
   const dateStr = dateStrInTz(new Date(slotIso));
-  const freeFor = (staff: StaffMember) =>
-    daySlotsForDuration(totalDurationMin, dateStr, {
+  const freeFor = (staff: StaffMember) => {
+    const allowedWeekdays = weekdaysForStaffBasket(services, dayRulesByStaff[staff.id]);
+    return daySlotsForDuration(totalDurationMin, dateStr, {
       workingHours: workingHoursForStaff(availability.workingHours, staff, owner?.id),
       timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
       bookings: rowsForStaff(availability.bookings, staff),
@@ -156,6 +161,7 @@ async function resolveBookingStaff(
       allowedWeekdays,
       bufferByServiceId: availability.bufferByServiceId,
     }).includes(slotIso);
+  };
 
   if (requested && requested !== ANY_STAFF) {
     const staff = capable.find((s) => s.id === requested);
@@ -486,12 +492,11 @@ export async function createPublicBookingAction(formData: FormData) {
   const resolved = await resolveBookingStaff(
     sb,
     tech!.id,
-    basket.map((s) => s.id),
+    basket,
     requestedStaff,
     slotIso,
     totalDuration,
     availability,
-    allowedWeekdays,
   );
   if (resolved === "invalid") {
     redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
