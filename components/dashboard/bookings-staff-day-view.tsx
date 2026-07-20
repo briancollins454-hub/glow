@@ -19,7 +19,8 @@ import {
   unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
 import { addDaysToDateStr } from "@/lib/rota";
-import type { Booking, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
+import { rowsForStaff } from "@/lib/booking/staff";
+import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 const PX_PER_MIN = 1.15;
 const COL_MIN_WIDTH = 160;
@@ -37,6 +38,8 @@ type Props = {
   offs?: TimeOff[];
   /** staffId → usual weekly hours (owner hours already applied as fallback). */
   hoursByStaff?: Record<string, WorkingHour[]>;
+  /** Week rota rows (same source as online booking). */
+  rotaHours?: RotaHour[];
 };
 
 function hourLabels(startMin: number, endMin: number): number[] {
@@ -61,6 +64,7 @@ export function BookingsStaffDayView({
   bufferByServiceId = {},
   offs = [],
   hoursByStaff = {},
+  rotaHours = [],
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const dayOffs = timeOffOnDate(offs, dateStr);
@@ -81,8 +85,8 @@ export function BookingsStaffDayView({
           <div>
             <CardTitle>Team day view</CardTitle>
             <CardDescription>
-              One column per person. Grey blocks are outside working hours or one-off blocked time;
-              hatched pink strips are service cleanup buffers.
+              One column per person. Grey blocks are outside working hours (including this week&apos;s
+              rota) or one-off blocked time; hatched pink strips are service cleanup buffers.
             </CardDescription>
           </div>
           <div className="flex items-center gap-1">
@@ -167,6 +171,7 @@ export function BookingsStaffDayView({
               {columns.map((col) => {
                 const colBookings = bookingsInColumn(dayBookings, col.id, knownStaffIds);
                 const colOffs = timeOffInColumn(dayOffs, col.id);
+                const member = staff.find((s) => s.id === col.id);
                 const outsideHours =
                   col.id === UNASSIGNED_STAFF_ID
                     ? []
@@ -175,6 +180,9 @@ export function BookingsStaffDayView({
                         dateStr,
                         windowStart,
                         windowEnd,
+                        {
+                          rotaHours: member ? rowsForStaff(rotaHours, member) : [],
+                        },
                       );
                 const laidOut = packBookingLanes(colBookings, (b) => {
                   const bufferMin = Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
