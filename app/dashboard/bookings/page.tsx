@@ -17,14 +17,16 @@ import { BookingsStaffDayView } from "@/components/dashboard/bookings-staff-day-
 import { BlockTimeForm } from "@/components/dashboard/block-time-form";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
+import { ServicePicker } from "@/components/dashboard/service-picker";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { bufferMapFromServices } from "@/lib/rules";
 import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
-import type { Booking, Client, Service, StaffMember, TimeOff, WaitlistEntry } from "@/lib/db/types";
+import type { Booking, Client, Service, ServiceCategory, StaffMember, TimeOff, WaitlistEntry } from "@/lib/db/types";
 
 type BookingsData = {
   bookings: Booking[];
   services: Service[];
+  categories: ServiceCategory[];
   clients: Client[];
   waitlist: WaitlistEntry[];
   staff?: StaffMember[];
@@ -43,6 +45,7 @@ export default function BookingsPage() {
 function BookingsView({
   bookings,
   services,
+  categories,
   clients,
   waitlist,
   staff = [],
@@ -180,10 +183,13 @@ function BookingsView({
             </div>
             <div>
               <Label>Service</Label>
-              <Select name="serviceId" required defaultValue="">
-                <option value="" disabled>Choose a service</option>
-                {services.map((s) => <option key={s.id} value={s.id}>{s.name} · {gbp(s.pricePennies)}</option>)}
-              </Select>
+              <ServicePicker
+                name="serviceId"
+                services={services}
+                categories={categories}
+                required
+                defaultValue=""
+              />
             </div>
             {staff.length > 1 && (
               <div>

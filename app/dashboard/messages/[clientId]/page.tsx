@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, User } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { getClient, listAddons, listServices, markThreadRead, threadMessages } from "@/lib/db/queries";
+import { getClient, listAddons, listCategories, listServices, markThreadRead, threadMessages } from "@/lib/db/queries";
 import { isLive } from "@/lib/subscriptions";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Trash2 } from "lucide-react";
@@ -42,9 +42,10 @@ export default async function DashboardThreadPage({
   }
 
   await markThreadRead(readSb, clientId, "client");
-  const [messages, services, addons] = await Promise.all([
+  const [messages, services, categories, addons] = await Promise.all([
     threadMessages(readSb, clientId, tech.id),
     listServices(sb, tech.id, { activeOnly: true }),
+    listCategories(sb, tech.id),
     listAddons(sb, tech.id, { activeOnly: true }),
   ]);
   const send = sendMessageAction.bind(null, clientId);
@@ -79,6 +80,7 @@ export default async function DashboardThreadPage({
 
       <DmQuotePanel
         services={services}
+        categories={categories}
         addons={addons}
         clientId={client.id}
         clientName={client.name}

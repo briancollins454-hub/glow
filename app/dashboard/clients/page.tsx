@@ -1,8 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2 } from "lucide-react";
+import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2, Search } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,18 @@ function ClientsView({ clients, visitsByClient }: ClientsData) {
   const importStatus = searchParams.get("import");
   const n = searchParams.get("n");
   const s = searchParams.get("s");
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((c) => {
+      const name = c.name?.toLowerCase() ?? "";
+      const email = c.email?.toLowerCase() ?? "";
+      const phone = c.phone?.toLowerCase() ?? "";
+      return name.includes(q) || email.includes(q) || phone.includes(q);
+    });
+  }, [clients, query]);
 
   return (
     <div className="space-y-6">
@@ -79,9 +92,26 @@ function ClientsView({ clients, visitsByClient }: ClientsData) {
           <CardTitle>All clients ({clients.length})</CardTitle>
           <CardDescription>Tap a client to view their history and patch tests.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
+          {clients.length > 0 && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name, email or phone…"
+                className="pl-9"
+                aria-label="Search clients"
+                autoComplete="off"
+              />
+            </div>
+          )}
           {clients.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No clients yet.</p>}
-          {clients.map((c) => {
+          {clients.length > 0 && filtered.length === 0 && (
+            <p className="py-4 text-center text-sm text-ink-faint">No clients match that search.</p>
+          )}
+          {filtered.map((c) => {
             const visits = visitsByClient[c.id] ?? 0;
             return (
               <Link key={c.id} href={`/dashboard/clients/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card">

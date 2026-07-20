@@ -7,6 +7,7 @@ import {
   getBooking,
   getClient,
   getService,
+  listCategories,
   listProductBatches,
   listProducts,
   listServices,
@@ -19,6 +20,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/dashboard/date-time-picker";
+import { ServicePicker } from "@/components/dashboard/service-picker";
 import { statusBadge } from "@/components/dashboard/status";
 import { gbp, TZ, fmtDateTime } from "@/lib/format";
 import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
@@ -39,11 +41,12 @@ export default async function EditBookingPage({
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
-  const [client, service, services, products, batches, usages, preCare, bookingStaff] =
+  const [client, service, services, categories, products, batches, usages, preCare, bookingStaff] =
     await Promise.all([
       getClient(sb, booking.clientId),
       getService(sb, booking.serviceId),
       listServices(sb, tech.id, { activeOnly: true }),
+      listCategories(sb, tech.id),
       listProducts(sb, tech.id),
       listProductBatches(sb, tech.id),
       productUsagesForClient(sb, tech.id, booking.clientId),
@@ -122,14 +125,17 @@ export default async function EditBookingPage({
             <input type="hidden" name="id" value={booking.id} />
             <div>
               <Label>Service</Label>
-              <Select name="serviceId" defaultValue={booking.serviceId}>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} · {gbp(s.pricePennies)}</option>
-                ))}
-                {!services.some((s) => s.id === booking.serviceId) && service && (
-                  <option value={service.id}>{service.name} · {gbp(service.pricePennies)}</option>
-                )}
-              </Select>
+              <ServicePicker
+                name="serviceId"
+                services={
+                  !services.some((s) => s.id === booking.serviceId) && service
+                    ? [...services, service]
+                    : services
+                }
+                categories={categories}
+                defaultValue={booking.serviceId}
+                required
+              />
             </div>
             <div>
               <Label>Date &amp; time</Label>
