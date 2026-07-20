@@ -35,13 +35,13 @@ export function BookingAbout({
         {hasMeta && (
           <div className={`flex flex-wrap gap-2 ${bio?.trim() ? "mt-6" : ""}`}>
             {ratingCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/[0.04] px-3 py-1.5 text-sm text-ink-soft">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-fill px-3 py-1.5 text-sm text-ink-soft">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                 {ratingAvg.toFixed(1)} · {ratingCount} review{ratingCount > 1 ? "s" : ""}
               </span>
             )}
             {location && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/[0.04] px-3 py-1.5 text-sm text-ink-soft">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-fill px-3 py-1.5 text-sm text-ink-soft">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
                 {location}
               </span>
@@ -51,7 +51,7 @@ export function BookingAbout({
                 href={`https://instagram.com/${instagram}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/[0.04] px-3 py-1.5 text-sm text-ink-soft transition hover:border-white/20 hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-fill px-3 py-1.5 text-sm text-ink-soft transition hover:border-edge hover:text-ink"
               >
                 <Instagram className="h-3.5 w-3.5" />
                 @{instagram}
@@ -62,7 +62,7 @@ export function BookingAbout({
                 href={`https://tiktok.com/@${tiktok}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/[0.04] px-3 py-1.5 text-sm text-ink-soft transition hover:border-white/20 hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-fill px-3 py-1.5 text-sm text-ink-soft transition hover:border-edge hover:text-ink"
               >
                 @{tiktok} on TikTok
               </a>

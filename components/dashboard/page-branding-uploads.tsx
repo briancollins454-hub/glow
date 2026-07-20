@@ -171,7 +171,7 @@ function PhotoUpload({
       </div>
 
       {error && (
-        <p className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
+        <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger-text">{error}</p>
       )}
 
       <input

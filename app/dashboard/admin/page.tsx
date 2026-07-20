@@ -93,7 +93,7 @@ function AdminView({
               <p className="mb-2 text-sm font-medium">Daily breakdown (last 30 days)</p>
               <div className="overflow-x-auto rounded-xl border border-edge">
                 <table className="w-full min-w-[320px] text-left text-sm">
-                  <thead className="bg-white/[0.03] text-xs text-ink-faint">
+                  <thead className="bg-fill text-xs text-ink-faint">
                     <tr>
                       <th className="px-4 py-2 font-medium">Date</th>
                       <th className="px-4 py-2 font-medium">Views</th>
@@ -208,7 +208,7 @@ function AdminView({
                   <form action={setTesterOfferAction}>
                     <input type="hidden" name="id" value={t.id} />
                     <input type="hidden" name="tester" value={t.signupOffer === "tester" ? "0" : "1"} />
-                    <button type="submit" className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-white/[0.1]">
+                    <button type="submit" className="rounded-lg bg-fill-hover px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover">
                       {t.signupOffer === "tester" ? "Remove tester offer" : "Mark as tester (£1 month)"}
                     </button>
                   </form>
@@ -216,7 +216,7 @@ function AdminView({
                     <form action={setCompAction}>
                       <input type="hidden" name="id" value={t.id} />
                       <input type="hidden" name="comp" value={t.subscriptionStatus === "comped" ? "0" : "1"} />
-                      <button type="submit" className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-white/[0.1]">
+                      <button type="submit" className="rounded-lg bg-fill-hover px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover">
                         {t.subscriptionStatus === "comped" ? "Remove free access" : "Give free access"}
                       </button>
                     </form>
@@ -249,10 +249,10 @@ function TrafficStat({ label, views, visitors }: { label: string; views: number;
 
 function Stat({ icon: Icon, tone, label, value, hint }: { icon: React.ComponentType<{ className?: string }>; tone: "brand" | "green" | "amber" | "red"; label: string; value: string; hint: string; }) {
   const tones = {
-    brand: "bg-brand-500/15 text-brand-300",
-    green: "bg-emerald-500/15 text-emerald-300",
-    amber: "bg-amber-500/15 text-amber-300",
-    red: "bg-red-500/15 text-red-300",
+    brand: "bg-brand-500/15 text-brand-text",
+    green: "bg-emerald-500/15 text-success-text",
+    amber: "bg-amber-500/15 text-warning-text",
+    red: "bg-red-500/15 text-danger-text",
   };
   return (
     <Card className="p-5">

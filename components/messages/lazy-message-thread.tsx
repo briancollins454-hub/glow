@@ -8,7 +8,7 @@ const MessageThreadLazy = dynamic(
   () => import("@/components/messages/message-thread").then((m) => m.MessageThread),
   {
     ssr: false,
-    loading: () => <div className="flex-1 animate-pulse rounded-xl bg-white/[0.04]" />,
+    loading: () => <div className="flex-1 animate-pulse rounded-xl bg-fill" />,
   },
 );
 

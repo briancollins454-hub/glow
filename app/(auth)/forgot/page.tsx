@@ -26,7 +26,7 @@ export default async function ForgotPage({
           </p>
 
           {sent === "1" ? (
-            <div className="mt-6 flex items-start gap-3 rounded-xl bg-emerald-500/10 px-4 py-4 text-sm text-emerald-300">
+            <div className="mt-6 flex items-start gap-3 rounded-xl bg-success-soft px-4 py-4 text-sm text-success-text">
               <MailCheck className="mt-0.5 h-5 w-5 shrink-0" />
               <span>
                 If an account exists for that email, a reset link is on its way.

@@ -16,8 +16,10 @@ import {
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
+import { ThemePreferencePicker } from "@/components/theme/theme-preference-picker";
 import { gbp } from "@/lib/format";
 import { acceptsOnlineBookings, isLive, planLabel } from "@/lib/subscriptions";
+import { normalizeThemePreference } from "@/lib/theme";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -95,41 +97,41 @@ export default function SettingsPage() {
         <p className="text-sm text-ink-soft">Your branding, public link and protection policy.</p>
       </div>
 
-      {saved && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {saved && <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
       {liveToggle === "1" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Booking page is live. Clients can book online.
         </div>
       )}
       {liveToggle === "0" && (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="flex items-center gap-2 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
           <Globe className="h-4 w-4" /> Booking page paused. Clients can&apos;t book online until you switch it back on.
         </div>
       )}
       {bookingPageError === "booking_page" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Couldn&apos;t update the booking page setting. Please try again in a moment.
         </div>
       )}
-      {coverSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Banner image uploaded.</div>}
-      {profileSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Profile photo uploaded.</div>}
+      {coverSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text"><CheckCircle2 className="h-4 w-4" /> Banner image uploaded.</div>}
+      {profileSaved === "1" && <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text"><CheckCircle2 className="h-4 w-4" /> Profile photo uploaded.</div>}
       {photoerr && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           {photoerr === "size"
             ? "That photo is too large. Please choose an image under 8MB — most photos are resized automatically when you pick them."
             : "Photo upload failed. Use a JPG, PNG or WebP image and try again."}
         </div>
       )}
-      {calendar && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
-      {closure && <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
+      {calendar && <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text"><CheckCircle2 className="h-4 w-4" /> Calendar feed ready.</div>}
+      {closure && <div className="flex items-center gap-2 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text"><ShieldAlert className="h-4 w-4" /> Account closure request recorded. Support will follow up before deleting data.</div>}
       {google && (
         <div
           className={`flex flex-col gap-1 rounded-xl px-4 py-3 text-sm ${
             google === "connected" || google === "synced"
-              ? "bg-emerald-500/10 text-emerald-300"
+              ? "bg-success-soft text-success-text"
               : google === "sync_error"
-                ? "bg-red-500/10 text-red-300"
-                : "bg-amber-500/10 text-amber-300"
+                ? "bg-danger-soft text-danger-text"
+                : "bg-warning-soft text-warning-text"
           }`}
         >
           <div className="flex items-center gap-2">
@@ -169,7 +171,7 @@ export default function SettingsPage() {
                   type="checkbox"
                   name="bookingPageLive"
                   defaultChecked={pageLive}
-                  className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span>
                   <span className="font-medium text-ink">Accept online bookings</span>
@@ -211,6 +213,24 @@ export default function SettingsPage() {
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
           <CardHeader>
+            <CardTitle>Appearance</CardTitle>
+            <CardDescription>
+              Choose how Glow looks in your dashboard. Clients do not see this.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <ThemePreferencePicker
+              name="dashboardTheme"
+              label="Dashboard theme"
+              description="System follows your phone or computer. Saved to this device and your account."
+              defaultValue={normalizeThemePreference(tech.dashboardTheme)}
+              applyLive
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Brand &amp; profile</CardTitle>
             <CardDescription>This is what clients see on your page.</CardDescription>
           </CardHeader>
@@ -219,7 +239,7 @@ export default function SettingsPage() {
             <div><Label htmlFor="name">Your name</Label><Input id="name" name="name" defaultValue={tech.name} /></div>
             <div className="sm:col-span-2">
               <Label htmlFor="handle">Booking link</Label>
-              <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-white/[0.04] px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
+              <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-fill px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
                 <span className="text-sm text-ink-faint">glow.app/</span>
                 <input id="handle" name="handle" defaultValue={tech.handle} className="w-full bg-transparent py-2.5 text-base outline-none sm:text-sm" />
               </div>
@@ -240,10 +260,16 @@ export default function SettingsPage() {
             <div>
               <Label htmlFor="brandColor">Brand colour</Label>
               <div className="flex items-center gap-2">
-                <input id="brandColor" name="brandColor" type="color" defaultValue={tech.brandColor} className="h-11 w-16 cursor-pointer rounded-xl border border-edge bg-white/[0.04] p-1" />
+                <input id="brandColor" name="brandColor" type="color" defaultValue={tech.brandColor} className="h-11 w-16 cursor-pointer rounded-xl border border-edge bg-fill p-1" />
                 <span className="text-sm text-ink-faint">{tech.brandColor}</span>
               </div>
             </div>
+            <ThemePreferencePicker
+              name="bookingTheme"
+              label="Booking page theme"
+              description="Your public booking page and client links (pay, messages, quotes). Keep it fixed if you want the same look for every visitor."
+              defaultValue={normalizeThemePreference(tech.bookingTheme)}
+            />
             <div><Label htmlFor="instagram">Instagram handle</Label><Input id="instagram" name="instagram" defaultValue={tech.instagram} placeholder="bellarosebeauty" /></div>
             <div><Label htmlFor="tiktok">TikTok handle</Label><Input id="tiktok" name="tiktok" defaultValue={tech.tiktok} placeholder="bellarosebeauty" /></div>
           </CardContent>
@@ -276,7 +302,7 @@ export default function SettingsPage() {
                   name="noShowProtection"
                   value="deposit"
                   defaultChecked={(tech.noShowProtection ?? "deposit") === "deposit"}
-                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="mt-0.5 h-4 w-4 border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span>
                   <span className="font-medium">Deposit upfront</span>
@@ -291,7 +317,7 @@ export default function SettingsPage() {
                   name="noShowProtection"
                   value="card_capture"
                   defaultChecked={tech.noShowProtection === "card_capture"}
-                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="mt-0.5 h-4 w-4 border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span>
                   <span className="font-medium">Card on file — no deposit</span>
@@ -337,7 +363,7 @@ export default function SettingsPage() {
                   name="approvalMode"
                   value="off"
                   defaultChecked={(tech.approvalMode ?? (tech.requiresBookingApproval ? "manual" : "off")) === "off"}
-                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="mt-0.5 h-4 w-4 border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span>
                   <span className="font-medium">Instant booking</span>
@@ -352,7 +378,7 @@ export default function SettingsPage() {
                   name="approvalMode"
                   value="rules"
                   defaultChecked={(tech.approvalMode ?? "off") === "rules"}
-                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="mt-0.5 h-4 w-4 border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span>
                   <span className="font-medium">Smart rules (recommended)</span>
@@ -367,7 +393,7 @@ export default function SettingsPage() {
                   name="approvalMode"
                   value="manual"
                   defaultChecked={(tech.approvalMode ?? (tech.requiresBookingApproval ? "manual" : "off")) === "manual"}
-                  className="mt-0.5 h-4 w-4 border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="mt-0.5 h-4 w-4 border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span>
                   <span className="font-medium">Approve every booking</span>
@@ -445,7 +471,7 @@ export default function SettingsPage() {
                 type="checkbox"
                 name="rebookNudgesEnabled"
                 defaultChecked={tech.rebookNudgesEnabled}
-                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               <span>
                 <span className="font-medium">Automatic &ldquo;time to rebook&rdquo; emails</span>
@@ -459,7 +485,7 @@ export default function SettingsPage() {
                 type="checkbox"
                 name="infillNudgesEnabled"
                 defaultChecked={tech.infillNudgesEnabled !== false}
-                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               <span>
                 <span className="font-medium">Infill deadline reminders</span>
@@ -473,7 +499,7 @@ export default function SettingsPage() {
                 type="checkbox"
                 name="preCareConfirmationsEnabled"
                 defaultChecked={tech.preCareConfirmationsEnabled !== false}
-                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               <span>
                 <span className="font-medium">Pre-care confirmations</span>
@@ -487,7 +513,7 @@ export default function SettingsPage() {
                 type="checkbox"
                 name="bookingNotifyEmailEnabled"
                 defaultChecked={tech.bookingNotifyEmailEnabled !== false}
-                className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               <span>
                 <span className="font-medium">Email me when someone books online</span>
@@ -506,14 +532,14 @@ export default function SettingsPage() {
                       <span
                         className={`rounded-md px-2 py-0.5 text-xs font-medium ${
                           smsOnForBusiness
-                            ? "bg-emerald-500/15 text-emerald-300"
-                            : "bg-white/10 text-ink-faint"
+                            ? "bg-emerald-500/15 text-success-text"
+                            : "bg-fill-hover text-ink-faint"
                         }`}
                       >
                         {smsOnForBusiness ? "On" : "Off for your business"}
                       </span>
                     ) : (
-                      <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">
+                      <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-warning-text">
                         Not available yet
                       </span>
                     )}
@@ -531,7 +557,7 @@ export default function SettingsPage() {
                           type="checkbox"
                           name="smsRemindersEnabled"
                           defaultChecked={smsOnForBusiness}
-                          className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                          className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                         />
                         <span>
                           <span className="font-medium">Send SMS to my clients</span>
@@ -593,12 +619,12 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           {pw === "1" && (
-            <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            <div className="mb-4 flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
               <CheckCircle2 className="h-4 w-4" /> Password updated.
             </div>
           )}
           {pwerr && (
-            <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="mb-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
               {PW_ERRORS[pwerr] ?? PW_ERRORS.failed}
             </div>
           )}

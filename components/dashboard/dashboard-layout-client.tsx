@@ -3,15 +3,13 @@
 import { usePathname } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DashboardPaywall } from "@/components/dashboard/dashboard-paywall";
+import { DashboardTheme } from "@/components/theme/theme-providers";
 import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { isLive } from "@/lib/subscriptions";
 import { DASHBOARD_DATA_KEYS } from "@/lib/dashboard/page-loaders";
 import { prefetchDashboardData } from "@/lib/dashboard/client-cache";
 import { useEffect } from "react";
 
-// Routes a not-yet-paid tech can still reach: billing (to subscribe) and the
-// account settings page (so they can manage/close the account). Everything else
-// is gated behind an active plan.
 const PAYWALL_ALLOWED_PREFIXES = ["/dashboard/billing", "/dashboard/settings"];
 
 function DashboardAuthLoading() {
@@ -21,7 +19,7 @@ function DashboardAuthLoading() {
       <div className="container-page grid gap-6 py-6 lg:grid-cols-[220px_1fr]">
         <div className="card hidden h-96 lg:block" />
         <div className="space-y-4">
-          <div className="h-8 w-48 rounded-lg bg-white/[0.06]" />
+          <div className="h-8 w-48 rounded-lg bg-fill-hover" />
           <div className="card h-64" />
         </div>
       </div>
@@ -43,10 +41,6 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   if (loading) return <DashboardAuthLoading />;
   if (!tech) return null;
 
-  // Hard paywall: a tech that hasn't activated a plan can only reach billing
-  // and account settings. Exempt: the owner (support access must never break),
-  // live accounts (active/trialing/comped), and invited testers (the private
-  // £1-link crowd helping test Glow).
   const isTester = tech.signupOffer === "tester";
   const mustPay = !admin && !isLive(tech) && !isTester;
   const onAllowedRoute = PAYWALL_ALLOWED_PREFIXES.some(
@@ -54,8 +48,11 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   );
 
   return (
-    <DashboardShell tech={tech} admin={admin} role={role} staffName={staff?.name}>
-      {mustPay && !onAllowedRoute ? <DashboardPaywall tech={tech} /> : children}
-    </DashboardShell>
+    <>
+      <DashboardTheme preference={tech.dashboardTheme} />
+      <DashboardShell tech={tech} admin={admin} role={role} staffName={staff?.name}>
+        {mustPay && !onAllowedRoute ? <DashboardPaywall tech={tech} /> : children}
+      </DashboardShell>
+    </>
   );
 }

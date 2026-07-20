@@ -63,7 +63,7 @@ export function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
           <button
             type="button"
             onClick={() => setLightbox(null)}
-            className="absolute right-4 top-4 rounded-full border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
+            className="absolute right-4 top-4 rounded-full border border-edge bg-white/10 p-2 text-white transition hover:bg-white/20"
             aria-label="Close"
           >
             <X className="h-5 w-5" />

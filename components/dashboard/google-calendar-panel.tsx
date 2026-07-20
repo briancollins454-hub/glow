@@ -127,7 +127,7 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-emerald-300">
+      <p className="text-sm text-success-text">
         Connected{tech.googleCalendarEmail ? ` to ${tech.googleCalendarEmail}` : ""}.
       </p>
 
@@ -135,10 +135,10 @@ export function GoogleCalendarPanel({ tech }: { tech: Tech }) {
         <div
           className={`flex flex-col gap-2 rounded-xl px-4 py-3 text-sm ${
             feedback.tone === "ok"
-              ? "bg-emerald-500/10 text-emerald-300"
+              ? "bg-success-soft text-success-text"
               : feedback.tone === "error"
-                ? "bg-red-500/10 text-red-300"
-                : "bg-amber-500/10 text-amber-300"
+                ? "bg-danger-soft text-danger-text"
+                : "bg-warning-soft text-warning-text"
           }`}
         >
           <div className="flex items-start gap-2">

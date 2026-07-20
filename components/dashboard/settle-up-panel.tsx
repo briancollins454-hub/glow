@@ -56,7 +56,7 @@ export function SettleUpPanel({
     <Card className="ring-1 ring-amber-500/25">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-amber-300" />
+          <ClipboardList className="h-5 w-5 text-warning-text" />
           Settle up ({bookings.length})
         </CardTitle>
         <CardDescription>
@@ -91,7 +91,7 @@ export function SettleUpPanel({
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <Link
                       href={`/dashboard/bookings/${b.id}`}
-                      className="truncate font-medium hover:text-brand-300"
+                      className="truncate font-medium hover:text-brand-text"
                     >
                       {clientById[b.clientId]?.name ?? "Client"}
                     </Link>

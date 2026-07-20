@@ -261,6 +261,14 @@ export async function updateSettingsAction(formData: FormData) {
       ? { smsRemindersEnabled: formData.get("smsRemindersEnabled") === "on" }
       : {}),
     bookingNotifyEmailEnabled: formData.get("bookingNotifyEmailEnabled") === "on",
+    dashboardTheme: (() => {
+      const v = get("dashboardTheme");
+      return v === "dark" || v === "light" || v === "system" ? v : (tech.dashboardTheme ?? "system");
+    })(),
+    bookingTheme: (() => {
+      const v = get("bookingTheme");
+      return v === "dark" || v === "light" || v === "system" ? v : (tech.bookingTheme ?? "system");
+    })(),
     approvalMode,
     requiresBookingApproval: approvalMode === "manual",
     autoApproveMinVisits: clampInt(get("autoApproveMinVisits"), 1, 20, tech.autoApproveMinVisits ?? 2),

@@ -435,7 +435,7 @@ export default async function PublicBookingPage({
         <footer className="mx-auto max-w-3xl px-4 pb-8 text-center text-xs text-ink-faint">
           <p>
             Powered by{" "}
-            <Link href="/" className="font-medium text-brand-400 hover:text-brand-300">
+            <Link href="/" className="font-medium text-brand-400 hover:text-brand-text">
               Glow
             </Link>
           </p>
@@ -516,7 +516,7 @@ export default async function PublicBookingPage({
       <footer className="mx-auto max-w-5xl border-t border-edge px-4 py-8 text-center text-xs text-ink-faint sm:px-6">
         <p>
           Secure online booking · deposits shown upfront · powered by{" "}
-          <Link href="/" className="font-medium text-brand-400 hover:text-brand-300">
+          <Link href="/" className="font-medium text-brand-400 hover:text-brand-text">
             Glow
           </Link>
         </p>

@@ -112,12 +112,12 @@ export function ServiceForm({
       />
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
-        <input type="checkbox" name="requiresPatchTest" defaultChecked={s?.requiresPatchTest} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+        <input type="checkbox" name="requiresPatchTest" defaultChecked={s?.requiresPatchTest} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />
         Requires a valid patch test
       </label>
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
-        <input type="checkbox" name="isPatchTestService" defaultChecked={s?.isPatchTestService} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+        <input type="checkbox" name="isPatchTestService" defaultChecked={s?.isPatchTestService} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />
         <span>
           <span className="font-medium">This is the patch test appointment</span>
           <span className="mt-0.5 block text-xs text-ink-faint">
@@ -127,7 +127,7 @@ export function ServiceForm({
       </label>
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
-        <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+        <input type="checkbox" name="isInfill" defaultChecked={s?.isInfill} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />
         This is an infill / top-up (returning clients only)
       </label>
 
@@ -148,7 +148,7 @@ export function ServiceForm({
                 name="availableWeekday"
                 value={value}
                 defaultChecked={!restrictedDays || restrictedDays.has(value)}
-                className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               {label}
             </label>
@@ -183,7 +183,7 @@ export function ServiceForm({
                           name={`staffDay_${member.id}`}
                           value={value}
                           defaultChecked={!restricted || restricted.has(value)}
-                          className="h-3.5 w-3.5 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                          className="h-3.5 w-3.5 rounded border-edge text-brand-400 focus:ring-brand-300"
                         />
                         {label}
                       </label>
@@ -209,7 +209,7 @@ export function ServiceForm({
           <ImageFileInput
             name="photo"
             maxDimension={1600}
-            className="input h-auto py-2 text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-300"
+            className="input h-auto py-2 text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-text"
           />
           <p className="mt-1 text-xs text-ink-faint">Shows next to the service on your booking page. You can add or change it later too.</p>
         </div>
@@ -241,7 +241,7 @@ export function ServiceForm({
 
       <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-3 border-t border-edge bg-cream/95 px-4 py-3 backdrop-blur-sm sm:col-span-2 sm:-mx-0 sm:rounded-xl sm:border sm:px-4">
         <label className="flex items-center gap-2.5 text-sm">
-          <input type="checkbox" name="active" defaultChecked={s ? s.active : true} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+          <input type="checkbox" name="active" defaultChecked={s ? s.active : true} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />
           Active (visible on booking page)
         </label>
         {saveButton}

@@ -2,6 +2,8 @@ import { Instagram, MapPin, Star } from "lucide-react";
 import { HeroPhoto, AvatarPhoto } from "@/components/booking/service-photo";
 import { heroBrand, initials, shade, withAlpha } from "@/lib/booking/brand";
 
+const CANVAS = "var(--canvas-fallback)";
+
 export function BookingHero({
   businessName,
   bio,
@@ -38,7 +40,7 @@ export function BookingHero({
             <div
               className="absolute inset-0"
               style={{
-                background: `linear-gradient(180deg, ${withAlpha("#0b0910", 0.25)} 0%, ${withAlpha("#0b0910", 0.55)} 45%, #0b0910 100%)`,
+                background: `linear-gradient(180deg, color-mix(in srgb, ${CANVAS} 25%, transparent) 0%, color-mix(in srgb, ${CANVAS} 55%, transparent) 45%, ${CANVAS} 100%)`,
               }}
             />
             <div
@@ -52,7 +54,7 @@ export function BookingHero({
           <div
             className="h-full w-full"
             style={{
-              background: `linear-gradient(145deg, ${heroBase} 0%, ${darker} 55%, #0b0910 100%)`,
+              background: `linear-gradient(145deg, ${heroBase} 0%, ${darker} 55%, ${CANVAS} 100%)`,
             }}
           />
         )}
@@ -77,7 +79,7 @@ export function BookingHero({
                 <AvatarPhoto src={avatarUrl} alt={businessName} />
               ) : (
                 <div
-                  className="flex h-full w-full items-center justify-center font-display text-2xl font-semibold text-white sm:text-3xl"
+                  className="flex h-full w-full items-center justify-center font-display text-2xl font-semibold text-on-brand sm:text-3xl"
                   style={{ background: `linear-gradient(135deg, ${heroBase}, ${darker})` }}
                 >
                   {initials(businessName)}
@@ -100,8 +102,8 @@ export function BookingHero({
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
           {ratingCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
-              <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+              <Star className="h-3.5 w-3.5 fill-amber-300 text-warning-text" />
               {ratingAvg.toFixed(1)}
               <span className="text-white/70">
                 · {ratingCount} review{ratingCount > 1 ? "s" : ""}
@@ -109,7 +111,7 @@ export function BookingHero({
             </span>
           )}
           {location && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-white/90 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/10 px-3 py-1.5 text-sm text-white/90 backdrop-blur-sm">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               {location}
             </span>
@@ -119,7 +121,7 @@ export function BookingHero({
               href={`https://instagram.com/${instagram}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-white/90 backdrop-blur-sm transition hover:border-white/30 hover:bg-white/15 hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-white/10 px-3 py-1.5 text-sm text-white/90 backdrop-blur-sm transition hover:border-white/30 hover:bg-white/15 hover:text-white"
             >
               <Instagram className="h-3.5 w-3.5 shrink-0" />
               @{instagram}

@@ -102,15 +102,15 @@ export function DateTimePicker({
   const valueReady = Boolean(selected && time && (!timesForDate || times.includes(time)));
 
   return (
-    <div className="rounded-xl border border-edge bg-white/[0.03] p-3">
+    <div className="rounded-xl border border-edge bg-fill p-3">
       <input type="hidden" name={name} value={valueReady ? `${selected}T${time}` : ""} required />
 
       <div className="flex items-center justify-between">
-        <button type="button" onClick={prevMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]">
+        <button type="button" onClick={prevMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <p className="text-sm font-semibold">{MONTHS[viewMonth]} {viewYear}</p>
-        <button type="button" onClick={nextMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]">
+        <button type="button" onClick={nextMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -134,8 +134,8 @@ export function DateTimePicker({
                 isSelected
                   ? "bg-brand-600 font-semibold text-white"
                   : isToday
-                    ? "border border-brand-500/50 text-brand-300 hover:bg-white/[0.06]"
-                    : "text-ink hover:bg-white/[0.06]",
+                    ? "border border-brand-500/50 text-brand-text hover:bg-fill-hover"
+                    : "text-ink hover:bg-fill-hover",
               )}
             >
               {d.getDate()}
@@ -149,7 +149,7 @@ export function DateTimePicker({
         {timesForDate && !selected ? (
           <span className="text-sm text-ink-faint">Pick a date first</span>
         ) : timesForDate && times.length === 0 ? (
-          <span className="text-sm text-amber-200/90">{emptyTimesHint}</span>
+          <span className="text-sm text-warning-text">{emptyTimesHint}</span>
         ) : (
           <select
             value={time}
@@ -165,7 +165,7 @@ export function DateTimePicker({
           </select>
         )}
         {selected && time && (!timesForDate || times.includes(time)) ? (
-          <span className="ml-auto text-sm font-medium text-brand-300">
+          <span className="ml-auto text-sm font-medium text-brand-text">
             {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {time}
           </span>
         ) : (

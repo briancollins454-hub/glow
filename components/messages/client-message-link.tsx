@@ -21,7 +21,7 @@ export function ClientMessageLink({ url, compact }: { url: string; compact?: boo
       <button
         type="button"
         onClick={copy}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-300 hover:text-brand-200"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-text hover:text-brand-200"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         {copied ? "Copied" : "Copy client message link"}
@@ -39,11 +39,11 @@ export function ClientMessageLink({ url, compact }: { url: string; compact?: boo
         Clients without an email need this link to read your messages. They can bookmark it to reply anytime.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <code className="max-w-full truncate rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-ink-soft">{url}</code>
+        <code className="max-w-full truncate rounded-lg bg-fill px-2 py-1 text-xs text-ink-soft">{url}</code>
         <button
           type="button"
           onClick={copy}
-          className="inline-flex items-center gap-1 rounded-lg border border-edge px-2.5 py-1 text-xs font-medium text-ink-soft hover:bg-white/[0.06]"
+          className="inline-flex items-center gap-1 rounded-lg border border-edge px-2.5 py-1 text-xs font-medium text-ink-soft hover:bg-fill-hover"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? "Copied" : "Copy"}

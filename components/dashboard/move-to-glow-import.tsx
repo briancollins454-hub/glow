@@ -10,7 +10,7 @@ import { CSV_DIRECT_UPLOAD_MAX_BYTES } from "@/lib/import/csv-source";
 import { importResultUrl } from "@/lib/import/import-url";
 
 const fileInputClass =
-  "text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-300";
+  "text-sm text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-text";
 
 export type MoveToGlowImportActions = {
   importClients: (formData: FormData) => Promise<void>;
@@ -112,7 +112,7 @@ export function MoveToGlowImport({
       </div>
 
       {importStatus === "done" && (
-        <div className="rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <p className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" /> Imported {n} {what}
             {Number(s) > 0 &&
@@ -140,13 +140,13 @@ export function MoveToGlowImport({
         </div>
       )}
       {importStatus === "badformat" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Couldn&apos;t recognise the columns in that file. Make sure it&apos;s the CSV export described below,
           or email it to support@glow-uk.com and we&apos;ll sort it for you.
         </div>
       )}
       {importStatus === "none" && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
           No appointments were imported ({s} rows skipped
           {skipServicesN > 0 ? `, including ${skipServicesN} with no matching Glow service` : ""}
           ). Run Step 1 (services) with the Acuity appointments file first — tick every staff
@@ -154,16 +154,16 @@ export function MoveToGlowImport({
         </div>
       )}
       {importStatus === "empty" && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
+        <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">That file looks empty.</div>
       )}
       {importStatus === "failed" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Something in that file tripped us up. It has been logged on our side, so we are already
           looking at it. Please email the file to support@glow-uk.com and we will import it for you.
         </div>
       )}
       {importStatus === "nocalendar" && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
           That Acuity file has more than one staff calendar. Tick whose appointments to import, then try again.
         </div>
       )}

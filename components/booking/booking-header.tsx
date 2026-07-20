@@ -44,7 +44,7 @@ function ServicesList({
             <button
               type="button"
               onClick={() => onNavigate(categorySectionId(group.id))}
-              className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-ink transition hover:bg-white/[0.06]"
+              className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-ink transition hover:bg-fill-hover"
             >
               {group.title}
               <span className="ml-auto text-xs font-normal text-ink-faint">{group.services.length}</span>
@@ -56,7 +56,7 @@ function ServicesList({
                 <button
                   type="button"
                   onClick={() => onNavigate(serviceSectionId(service.id))}
-                  className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+                  className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-ink-soft transition hover:bg-fill-hover hover:text-ink"
                 >
                   {service.name}
                 </button>
@@ -68,7 +68,7 @@ function ServicesList({
       <button
         type="button"
         onClick={() => onNavigate("services")}
-        className="mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-ink-faint transition hover:bg-white/[0.06] hover:text-ink-soft"
+        className="mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-ink-faint transition hover:bg-fill-hover hover:text-ink-soft"
       >
         View all treatments
       </button>
@@ -117,7 +117,7 @@ function ServicesDropdown({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition",
-          open ? "bg-white/[0.08] text-ink" : "text-ink-soft hover:bg-white/[0.06] hover:text-ink",
+          open ? "bg-fill-hover text-ink" : "text-ink-soft hover:bg-fill-hover hover:text-ink",
         )}
       >
         Services
@@ -178,7 +178,7 @@ function MobileNav({
         <button
           type="button"
           onClick={() => go("services")}
-          className="rounded-xl px-4 py-3 text-left text-sm font-medium text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+          className="rounded-xl px-4 py-3 text-left text-sm font-medium text-ink-soft transition hover:bg-fill-hover hover:text-ink"
         >
           Services
         </button>
@@ -189,7 +189,7 @@ function MobileNav({
           key={item.id}
           type="button"
           onClick={() => go(item.id)}
-          className="rounded-xl px-4 py-3 text-left text-sm font-medium text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+          className="rounded-xl px-4 py-3 text-left text-sm font-medium text-ink-soft transition hover:bg-fill-hover hover:text-ink"
         >
           {item.label}
         </button>
@@ -278,7 +278,7 @@ export function BookingHeader({
             <button
               type="button"
               onClick={() => scrollTo("services")}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-fill-hover hover:text-ink"
             >
               Services
             </button>
@@ -288,7 +288,7 @@ export function BookingHeader({
               key={item.id}
               type="button"
               onClick={() => scrollTo(item.id)}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-white/[0.06] hover:text-ink"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-fill-hover hover:text-ink"
             >
               {item.label}
             </button>
@@ -340,7 +340,7 @@ export function BookingFlowHeader({
   return (
     <header className="border-b border-edge bg-cream/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-        <Link href={`/${handle}`} className="font-display text-base font-semibold text-ink hover:text-brand-300">
+        <Link href={`/${handle}`} className="font-display text-base font-semibold text-ink hover:text-brand-text">
           {businessName}
         </Link>
         <Link

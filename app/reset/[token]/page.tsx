@@ -31,7 +31,7 @@ export default async function ResetPage({
           {!tech ? (
             <>
               <div className="flex items-start gap-3">
-                <TimerOff className="mt-1 h-5 w-5 shrink-0 text-amber-300" />
+                <TimerOff className="mt-1 h-5 w-5 shrink-0 text-warning-text" />
                 <div>
                   <h1 className="font-display text-2xl font-semibold">This link has expired</h1>
                   <p className="mt-1 text-sm text-ink-soft">
@@ -49,17 +49,17 @@ export default async function ResetPage({
               <p className="mt-1 text-sm text-ink-soft">for {tech.email}</p>
 
               {error === "short" && (
-                <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
                   Password needs to be at least 8 characters.
                 </p>
               )}
               {error === "match" && (
-                <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
                   Those passwords don&apos;t match. Try again.
                 </p>
               )}
               {error === "failed" && (
-                <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
                   Something went wrong. Request a new link and try again.
                 </p>
               )}

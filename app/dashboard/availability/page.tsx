@@ -67,7 +67,7 @@ function AvailabilityView({
       </div>
 
       {saved && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Availability saved.
         </div>
       )}
@@ -89,7 +89,7 @@ function AvailabilityView({
                 name="flexibleHoursEnabled"
                 checked={flexible}
                 onChange={(e) => setFlexible(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                className="mt-1 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               <span>
                 <span className="block font-medium text-ink">My days change each week</span>
@@ -102,7 +102,7 @@ function AvailabilityView({
             </label>
 
             {flexible && !approvalOn && (
-              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              <p className="rounded-xl border border-amber-500/30 bg-warning-soft px-4 py-3 text-sm text-amber-100">
                 Tip: turn on <span className="font-medium">Booking approval</span> in Settings so
                 clients can request times, and you only confirm the days you are actually working.
               </p>
@@ -159,7 +159,7 @@ function AvailabilityView({
                         type="checkbox"
                         name={`enabled_${weekday}`}
                         defaultChecked={row?.enabled ?? false}
-                        className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                        className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                       />
                       <span className="font-medium">{label}</span>
                     </label>
@@ -228,7 +228,7 @@ function AvailabilityView({
                     <input type="hidden" name="id" value={o.id} />
                     <button
                       type="submit"
-                      className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

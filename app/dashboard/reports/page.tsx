@@ -119,7 +119,7 @@ function ReportsView({
                     <span className="text-ink-soft">{name}</span>
                     <span className="font-medium">{gbp(total)}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-2 overflow-hidden rounded-full bg-fill-hover">
                     <div className="h-full rounded-full bg-brand-500" style={{ width: `${(total / maxService) * 100}%` }} />
                   </div>
                 </div>

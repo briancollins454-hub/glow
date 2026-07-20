@@ -61,7 +61,7 @@ function MenuSubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-white/[0.06] disabled:opacity-60 ${
+      className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-fill-hover disabled:opacity-60 ${
         danger ? "text-red-400" : "text-ink"
       }`}
     >
@@ -139,19 +139,19 @@ export function BookingActions({ id, status }: { id: string; status: BookingStat
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={toggle}
-        className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]"
+        className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-1 w-64 overflow-hidden rounded-xl border border-white/10 bg-surface-raised py-1 shadow-card ring-1 ring-black/50"
+          className="absolute right-0 z-50 mt-1 w-64 overflow-hidden rounded-xl border border-edge bg-surface-raised py-1 shadow-card ring-1 ring-black/50"
         >
           <Link
             href={`/dashboard/bookings/${id}`}
             role="menuitem"
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink hover:bg-white/[0.06]"
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink hover:bg-fill-hover"
             onClick={() => setOpen(false)}
           >
             <Pencil className="h-3.5 w-3.5" /> Edit / reschedule

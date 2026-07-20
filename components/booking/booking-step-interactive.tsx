@@ -147,7 +147,7 @@ export function BookingStepInteractive({
                     <Link
                       href={basketUrl(basketExtras.filter((e) => e.id !== x.id))}
                       aria-label={`Remove ${x.name}`}
-                      className="grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-edge text-ink-faint transition hover:border-red-400/40 hover:text-red-300"
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-edge text-ink-faint transition hover:border-red-400/40 hover:text-danger-text"
                     >
                       <X className="h-3.5 w-3.5" />
                     </Link>
@@ -182,7 +182,7 @@ export function BookingStepInteractive({
                   <Link
                     key={x.id}
                     href={basketUrl([...basketExtras, x])}
-                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-white/[0.05]"
+                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-fill"
                   >
                     <span className="flex items-center gap-2">
                       <Plus className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
@@ -403,13 +403,13 @@ export function BookingStepInteractive({
                 {addons.map((a) => (
                   <label
                     key={a.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-3 text-sm transition hover:border-white/15"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-fill px-4 py-3 text-sm transition hover:border-edge"
                   >
                     <span className="flex items-center gap-2.5">
                       <input
                         type="checkbox"
                         name={`addon_${a.id}`}
-                        className="h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300"
+                        className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                       />
                       {a.name}
                     </span>
@@ -446,7 +446,7 @@ export function BookingStepInteractive({
                 name="policyAccepted"
                 type="checkbox"
                 required
-                className="mt-1 h-4 w-4 rounded border-white/20 text-brand-400 focus:ring-brand-300"
+                className="mt-1 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
               />
               <span>
                 I agree to the {tech.cancellationWindowHours}h cancellation policy and Glow&apos;s{" "}
@@ -550,9 +550,9 @@ function Notice({
   children: React.ReactNode;
 }) {
   const map = {
-    amber: "border-amber-500/20 bg-amber-500/10 text-amber-200",
-    violet: "border-violet-500/20 bg-violet-500/10 text-violet-200",
-    red: "border-red-500/20 bg-red-500/10 text-red-300",
+    amber: "border-edge bg-warning-soft text-amber-200",
+    violet: "border-edge bg-pending-soft text-violet-200",
+    red: "border-red-500/20 bg-danger-soft text-danger-text",
   };
   return (
     <div className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-sm ${map[tone]}`}>

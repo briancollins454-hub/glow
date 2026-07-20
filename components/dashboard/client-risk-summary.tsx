@@ -25,18 +25,18 @@ export function ClientRiskSummary({
       <ul className="mt-2 space-y-1 text-xs text-ink-soft">
         <li>{completedVisits} completed visit{completedVisits === 1 ? "" : "s"}</li>
         {client.noShowCount > 0 && (
-          <li className="text-amber-300">
+          <li className="text-warning-text">
             {client.noShowCount} no-show{client.noShowCount === 1 ? "" : "s"} on record
           </li>
         )}
         {client.warningNote?.trim() && (
-          <li className="flex items-start gap-1.5 text-red-300">
+          <li className="flex items-start gap-1.5 text-danger-text">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>{client.warningNote}</span>
           </li>
         )}
         {!client.warningNote?.trim() && client.noShowCount === 0 && completedVisits >= 2 && (
-          <li className="flex items-center gap-1.5 text-emerald-300">
+          <li className="flex items-center gap-1.5 text-success-text">
             <ShieldCheck className="h-3.5 w-3.5" />
             Regular client with a clean record
           </li>

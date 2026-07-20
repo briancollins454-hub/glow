@@ -100,7 +100,7 @@ export function ServicePicker({
       )}
 
       <div
-        className="max-h-56 overflow-y-auto rounded-xl border border-edge bg-white/[0.03]"
+        className="max-h-56 overflow-y-auto rounded-xl border border-edge bg-fill"
         role="listbox"
         aria-label="Services"
       >
@@ -111,7 +111,7 @@ export function ServicePicker({
         ) : (
           filteredGroups.map((group) => (
             <div key={group.id}>
-              <div className="sticky top-0 border-b border-edge/60 bg-[#141019]/95 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint backdrop-blur-sm">
+              <div className="sticky top-0 border-b border-edge bg-surface/95 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint backdrop-blur-sm">
                 {group.title}
               </div>
               <ul>
@@ -128,7 +128,7 @@ export function ServicePicker({
                           "flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition",
                           active
                             ? "bg-brand-500/15 text-ink"
-                            : "text-ink-soft hover:bg-white/[0.06]",
+                            : "text-ink-soft hover:bg-fill-hover",
                         )}
                       >
                         <span className="min-w-0 truncate font-medium">
@@ -139,7 +139,7 @@ export function ServicePicker({
                         </span>
                         <span className="flex shrink-0 items-center gap-2 text-xs text-ink-faint">
                           {gbp(s.pricePennies)}
-                          {active && <Check className="h-3.5 w-3.5 text-brand-300" />}
+                          {active && <Check className="h-3.5 w-3.5 text-brand-text" />}
                         </span>
                       </button>
                     </li>

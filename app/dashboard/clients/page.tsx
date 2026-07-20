@@ -51,29 +51,29 @@ function ClientsView({ clients, visitsByClient }: ClientsData) {
       </div>
 
       {importStatus === "done" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Imported {n} client{n === "1" ? "" : "s"}
           {Number(s) > 0 && ` (${s} skipped: duplicates or missing names)`}.
         </div>
       )}
       {importStatus === "badformat" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Couldn&apos;t find name columns in that file. Export your client list as CSV and try again.
         </div>
       )}
       {importStatus === "empty" && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">That file looks empty.</div>
+        <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">That file looks empty.</div>
       )}
 
       <Link href="/dashboard/import" className="card flex items-center justify-between gap-3 p-4 transition hover:shadow-card">
-        <span className="flex items-center gap-2 font-medium text-brand-300">
+        <span className="flex items-center gap-2 font-medium text-brand-text">
           <Upload className="h-4 w-4" /> Moving from Square, Booksy, Timely or Fresha?
         </span>
         <span className="text-sm text-ink-faint">Import services, clients &amp; appointments →</span>
       </Link>
 
       <details className="card">
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-text">
           <Plus className="h-4 w-4" /> Add a client
         </summary>
         <div className="border-t border-edge p-5">

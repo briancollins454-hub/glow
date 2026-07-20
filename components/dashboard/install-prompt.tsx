@@ -161,23 +161,23 @@ export function InstallPrompt() {
             type="button"
             onClick={dismiss}
             aria-label="Dismiss"
-            className="-mr-1 -mt-1 rounded-lg p-1 text-ink-faint transition hover:bg-white/[0.06] hover:text-ink"
+            className="-mr-1 -mt-1 rounded-lg p-1 text-ink-faint transition hover:bg-fill-hover hover:text-ink"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
         <ol className="mt-3 space-y-2 text-sm text-ink-soft">
           <li className="flex items-center gap-2">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-ink">1</span>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-fill-hover text-xs font-semibold text-ink">1</span>
             <span className="flex flex-wrap items-center gap-1">
-              Tap the <Share className="h-4 w-4 text-brand-300" aria-label="Share" /> Share button in Safari
+              Tap the <Share className="h-4 w-4 text-brand-text" aria-label="Share" /> Share button in Safari
             </span>
           </li>
           <li className="flex items-center gap-2">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-ink">2</span>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-fill-hover text-xs font-semibold text-ink">2</span>
             <span className="flex flex-wrap items-center gap-1">
               Choose <span className="font-medium text-ink">Add to Home Screen</span>
-              <Plus className="h-4 w-4 text-brand-300" aria-hidden="true" />
+              <Plus className="h-4 w-4 text-brand-text" aria-hidden="true" />
             </span>
           </li>
         </ol>

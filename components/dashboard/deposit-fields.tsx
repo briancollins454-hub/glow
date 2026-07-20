@@ -48,7 +48,7 @@ export function DepositFields({
       </div>
       {type === "none" ? (
         <div className="flex items-end">
-          <p className="w-full rounded-xl border border-edge bg-white/[0.03] px-3.5 py-2.5 text-sm text-ink-faint">
+          <p className="w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm text-ink-faint">
             No deposit - clients book without paying anything upfront.
           </p>
           <input type="hidden" name={nameValue} value="0" />
@@ -56,8 +56,8 @@ export function DepositFields({
       ) : (
         <div>
           <Label>{type === "fixed" ? "Amount (£)" : "Percentage (%)"}</Label>
-          <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-white/[0.04] px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
-            {type === "fixed" && <span className="text-base font-semibold text-brand-300">£</span>}
+          <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-fill px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
+            {type === "fixed" && <span className="text-base font-semibold text-brand-text">£</span>}
             <input
               key={type}
               name={nameValue}
@@ -67,7 +67,7 @@ export function DepositFields({
               placeholder={type === "fixed" ? "15.00" : "30"}
               className="w-full bg-transparent py-2.5 text-base outline-none placeholder:text-ink-faint sm:text-sm"
             />
-            {type === "percent" && <span className="text-base font-semibold text-brand-300">%</span>}
+            {type === "percent" && <span className="text-base font-semibold text-brand-text">%</span>}
           </div>
           <p className="mt-1 text-xs text-ink-faint">
             {type === "fixed"

@@ -42,7 +42,7 @@ export function DashboardShell({
             <Link
               href="/dashboard/feedback"
               prefetch
-              className="flex items-center gap-1.5 rounded-xl border border-brand-500/40 bg-brand-500/10 px-3 py-2 text-sm font-medium text-brand-300 hover:bg-brand-500/20"
+              className="flex items-center gap-1.5 rounded-xl border border-brand-500/40 bg-brand-500/10 px-3 py-2 text-sm font-medium text-brand-text hover:bg-brand-500/20"
             >
               <Lightbulb className="h-4 w-4" />
               <span className="hidden sm:inline">Share an idea</span>
@@ -50,7 +50,7 @@ export function DashboardShell({
             <Link
               href="/dashboard/help"
               prefetch
-              className="flex items-center gap-1.5 rounded-xl border border-edge px-3 py-2 text-sm font-medium text-ink-soft hover:bg-white/[0.06]"
+              className="flex items-center gap-1.5 rounded-xl border border-edge px-3 py-2 text-sm font-medium text-ink-soft hover:bg-fill-hover"
             >
               <LifeBuoy className="h-4 w-4 text-brand-400" />
               <span className="hidden sm:inline">Help</span>
@@ -58,7 +58,7 @@ export function DashboardShell({
             <Link
               href={`/${tech.handle}`}
               target="_blank"
-              className="hidden items-center gap-1.5 rounded-xl border border-edge px-3 py-2 text-sm text-ink-soft hover:bg-white/[0.06] sm:flex"
+              className="hidden items-center gap-1.5 rounded-xl border border-edge px-3 py-2 text-sm text-ink-soft hover:bg-fill-hover sm:flex"
             >
               <ExternalLink className="h-4 w-4" /> View booking page
             </Link>
@@ -80,7 +80,7 @@ export function DashboardShell({
             >
               <button
                 type="submit"
-                className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-white/[0.06]"
+                className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-fill-hover"
                 title="Log out"
               >
                 <LogOut className="h-4.5 w-4.5 h-[18px] w-[18px]" />

@@ -35,7 +35,7 @@ export function ExpandableText({
             e.stopPropagation();
             setOpen((v) => !v);
           }}
-          className="mt-1 text-sm font-medium text-brand-300 underline-offset-2 hover:underline"
+          className="mt-1 text-sm font-medium text-brand-text underline-offset-2 hover:underline"
         >
           {open ? lessLabel : moreLabel}
         </button>

@@ -32,7 +32,7 @@ export function ClientReactionsCard({
   return (
     <div className="card p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-500/15 text-red-300">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-500/15 text-danger-text">
           <AlertTriangle className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -75,7 +75,7 @@ export function ClientReactionsCard({
                   <input type="hidden" name="clientId" value={clientId} />
                   <button
                     type="submit"
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"
                     title="Delete reaction"
                   >
                     <Trash2 className="h-3.5 w-3.5" />

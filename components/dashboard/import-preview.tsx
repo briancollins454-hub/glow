@@ -267,7 +267,7 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
 
   if (parseError) {
     return (
-      <div className="mt-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+      <div className="mt-3 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
         <p className="flex items-center gap-2 font-medium">
           <AlertTriangle className="h-4 w-4" />
           {parseError}
@@ -320,7 +320,7 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
                     value={cal.name}
                     checked={selectedCalendars.includes(cal.name)}
                     onChange={(e) => toggleCalendar(cal.name, e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                    className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                   />
                   <span>
                     <span className="font-medium">{cal.name}</span>
@@ -338,8 +338,8 @@ export function ImportPreview({ inputId, kind }: { inputId: string; kind: Kind }
       <div
         className={`rounded-xl px-4 py-3 text-sm ${
           preview.ok && !preview.waitingForCalendars
-            ? "bg-emerald-500/10 text-emerald-300"
-            : "bg-amber-500/10 text-amber-300"
+            ? "bg-success-soft text-success-text"
+            : "bg-warning-soft text-warning-text"
         }`}
       >
         <p className="flex items-center gap-2 font-medium">

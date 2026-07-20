@@ -45,7 +45,7 @@ export function ProductChangePanel({
   return (
     <div className="card border-amber-500/25 bg-amber-500/5 p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-300">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-warning-text">
           <FlaskConical className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -64,8 +64,8 @@ export function ProductChangePanel({
           className={
             "rounded-lg px-3 py-1.5 text-sm font-medium transition " +
             (mode === "category"
-              ? "bg-brand-500/20 text-brand-300"
-              : "bg-white/[0.04] text-ink-soft hover:text-ink")
+              ? "bg-brand-500/20 text-brand-text"
+              : "bg-fill text-ink-soft hover:text-ink")
           }
         >
           Whole category
@@ -76,8 +76,8 @@ export function ProductChangePanel({
           className={
             "rounded-lg px-3 py-1.5 text-sm font-medium transition " +
             (mode === "services"
-              ? "bg-brand-500/20 text-brand-300"
-              : "bg-white/[0.04] text-ink-soft hover:text-ink")
+              ? "bg-brand-500/20 text-brand-text"
+              : "bg-fill text-ink-soft hover:text-ink")
           }
         >
           Specific services
@@ -102,7 +102,7 @@ export function ProductChangePanel({
                     value={c.id}
                     checked={selectedCategories.has(c.id)}
                     onChange={() => toggleCategory(c.id)}
-                    className="h-4 w-4 rounded border-black/20 text-brand-400"
+                    className="h-4 w-4 rounded border-edge text-brand-400"
                   />
                   <span>
                     {c.name}
@@ -129,7 +129,7 @@ export function ProductChangePanel({
                   value={s.id}
                   checked={selectedServices.has(s.id)}
                   onChange={() => toggleService(s.id)}
-                  className="h-4 w-4 rounded border-black/20 text-brand-400"
+                  className="h-4 w-4 rounded border-edge text-brand-400"
                 />
                 <span>
                   {s.name}
@@ -189,12 +189,12 @@ export function ProductChangePanel({
             type="button"
             disabled={!canSubmit}
             onClick={() => setConfirmOpen(true)}
-            className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/15 disabled:opacity-50"
+            className="w-full rounded-xl border border-amber-500/30 bg-warning-soft px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/15 disabled:opacity-50"
           >
             I&apos;ve changed products
           </button>
         ) : (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="rounded-xl border border-amber-500/30 bg-warning-soft p-4">
             <p className="flex items-start gap-2 text-sm text-amber-100">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               This will expire valid patch tests for the selected scope and email every affected client.

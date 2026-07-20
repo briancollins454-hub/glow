@@ -57,7 +57,7 @@ function FormsView({ questions }: FormsData) {
               </Select>
             </div>
             <label className="flex items-center gap-2 pb-2.5 text-sm">
-              <input type="checkbox" name="required" className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" /> Required
+              <input type="checkbox" name="required" className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" /> Required
             </label>
             <Button type="submit" variant="secondary">Add</Button>
           </form>
@@ -83,7 +83,7 @@ function FormsView({ questions }: FormsData) {
               </div>
               <form action={deleteQuestionAction}>
                 <input type="hidden" name="id" value={q.id} />
-                <button type="submit" className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
+                <button type="submit" className="grid h-9 w-9 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
               </form>
             </div>
           ))}

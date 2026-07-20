@@ -137,7 +137,7 @@ export function ServicesBulkDelete({
               variant="secondary"
               size="sm"
               disabled={pending || selected.size === 0}
-              className="text-red-300 hover:bg-red-500/10"
+              className="text-danger-text hover:bg-danger-soft"
               onClick={deleteSelected}
             >
               <Trash2 className="h-4 w-4" />
@@ -150,8 +150,8 @@ export function ServicesBulkDelete({
         )}
       </div>
 
-      {message && <p className="text-sm text-emerald-300">{message}</p>}
-      {error && <p className="text-sm text-red-300">{error}</p>}
+      {message && <p className="text-sm text-success-text">{message}</p>}
+      {error && <p className="text-sm text-danger-text">{error}</p>}
       {selecting && (
         <p className="text-xs text-ink-faint">
           Tick services to delete. Linked appointments are removed with them.
@@ -165,7 +165,7 @@ export function ServicesBulkDelete({
           {groups.map((group) => (
             <details
               key={group.id}
-              className="rounded-xl border border-edge bg-white/[0.02]"
+              className="rounded-xl border border-edge bg-fill"
               open={openGroupId === group.id || groups.length === 1}
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 [&::-webkit-details-marker]:hidden">

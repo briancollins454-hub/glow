@@ -148,13 +148,13 @@ export function ManualBookingForm({
           Tick one or more. Multiple treatments book back-to-back in one visit (first is the
           primary for extras and payment).
         </p>
-        <div className="max-h-56 overflow-y-auto rounded-xl border border-edge bg-white/[0.03]">
+        <div className="max-h-56 overflow-y-auto rounded-xl border border-edge bg-fill">
           {groups.length === 0 ? (
             <p className="px-3.5 py-3 text-sm text-ink-faint">No active services yet.</p>
           ) : (
             groups.map((group) => (
               <div key={group.id}>
-                <div className="sticky top-0 border-b border-edge/60 bg-[#141019]/95 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint backdrop-blur-sm">
+                <div className="sticky top-0 border-b border-edge bg-surface/95 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint backdrop-blur-sm">
                   {group.title}
                 </div>
                 <ul>
@@ -165,7 +165,7 @@ export function ManualBookingForm({
                         <label
                           className={cn(
                             "flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-sm transition",
-                            checked ? "bg-brand-500/15 text-ink" : "text-ink-soft hover:bg-white/[0.06]",
+                            checked ? "bg-brand-500/15 text-ink" : "text-ink-soft hover:bg-fill-hover",
                           )}
                         >
                           <span className="flex min-w-0 items-center gap-2.5">
@@ -175,7 +175,7 @@ export function ManualBookingForm({
                               value={s.id}
                               checked={checked}
                               onChange={() => toggleService(s.id)}
-                              className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                              className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                             />
                             <span className="truncate font-medium">{s.name}</span>
                           </span>
@@ -218,7 +218,7 @@ export function ManualBookingForm({
                 <input
                   type="checkbox"
                   name={`addon_${a.id}`}
-                  className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                 />
                 {a.name}
                 <span className="text-ink-faint">+{gbp(a.pricePennies)}</span>
@@ -267,7 +267,7 @@ export function ManualBookingForm({
       <div className="sm:col-span-2">
         <Label>Date &amp; time</Label>
         {selectedServices.length === 0 ? (
-          <p className="rounded-xl border border-edge bg-white/[0.03] px-3.5 py-3 text-sm text-ink-faint">
+          <p className="rounded-xl border border-edge bg-fill px-3.5 py-3 text-sm text-ink-faint">
             Choose a service first — times only show when that person is free and working.
           </p>
         ) : (

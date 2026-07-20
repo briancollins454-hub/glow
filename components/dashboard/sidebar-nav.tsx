@@ -71,7 +71,7 @@ export function SidebarNav({
               "flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition lg:shrink",
               active
                 ? "bg-brand-600 text-white shadow-sm"
-                : "text-ink-soft hover:bg-white/[0.06] hover:text-ink",
+                : "text-ink-soft hover:bg-fill-hover hover:text-ink",
             )}
           >
             <item.icon className="h-4.5 w-4.5 h-[18px] w-[18px]" />

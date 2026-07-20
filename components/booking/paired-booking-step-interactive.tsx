@@ -267,7 +267,7 @@ export function PairedBookingStepInteractive({
                 {addons.map((a) => (
                   <label
                     key={a.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-3 text-sm"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-fill px-4 py-3 text-sm"
                   >
                     <span className="flex items-center gap-2.5">
                       <input type="checkbox" name={`addon_${a.id}`} className="h-4 w-4 rounded" />
@@ -389,8 +389,8 @@ function Notice({
   children: React.ReactNode;
 }) {
   const map = {
-    amber: "border-amber-500/20 bg-amber-500/10 text-amber-200",
-    red: "border-red-500/20 bg-red-500/10 text-red-300",
+    amber: "border-edge bg-warning-soft text-amber-200",
+    red: "border-red-500/20 bg-danger-soft text-danger-text",
   };
   return (
     <div className={`mt-4 flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-sm ${map[tone]}`}>

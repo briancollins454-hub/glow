@@ -15,7 +15,7 @@ export function AsyncDashboardPage<T>({
   if (isLoading && !data) return <DashboardLoading />;
   if (error && !data) {
     return (
-      <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+      <div className="rounded-xl border border-red-500/30 bg-danger-soft px-4 py-3 text-sm text-danger-text">
         {error}
       </div>
     );

@@ -94,7 +94,7 @@ export function BookingsStaffDayView({
               type="button"
               aria-label="Previous day"
               onClick={() => onDateChange(addDaysToDateStr(dateStr, -1))}
-              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -105,7 +105,7 @@ export function BookingsStaffDayView({
               type="button"
               aria-label="Next day"
               onClick={() => onDateChange(addDaysToDateStr(dateStr, 1))}
-              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -121,7 +121,7 @@ export function BookingsStaffDayView({
                   }).format(new Date()),
                 )
               }
-              className="ml-1 rounded-lg border border-edge px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-white/[0.06]"
+              className="ml-1 rounded-lg border border-edge px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover"
             >
               Today
             </button>
@@ -197,7 +197,7 @@ export function BookingsStaffDayView({
                     {hours.map((m) => (
                       <div
                         key={m}
-                        className="pointer-events-none absolute inset-x-0 border-t border-edge/60"
+                        className="pointer-events-none absolute inset-x-0 border-t border-edge"
                         style={{ top: (m - windowStart) * PX_PER_MIN }}
                       />
                     ))}
@@ -272,7 +272,7 @@ export function BookingsStaffDayView({
                               <div className="min-w-0 flex-1">
                                 <Link
                                   href={`/dashboard/bookings/${b.id}`}
-                                  className="block truncate text-xs font-semibold text-ink hover:text-brand-300"
+                                  className="block truncate text-xs font-semibold text-ink hover:text-brand-text"
                                 >
                                   {clientById[b.clientId] ?? "Client"}
                                 </Link>

@@ -76,7 +76,7 @@ export function BlockTimeForm({
                     if (e.target.checked) selectEveryone();
                     else setEveryone(false);
                   }}
-                  className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                 />
                 Everyone (whole salon)
               </label>
@@ -88,7 +88,7 @@ export function BlockTimeForm({
                     value={s.id}
                     checked={!everyone && selectedStaffIds.includes(s.id)}
                     onChange={() => toggleStaff(s.id)}
-                    className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                    className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                   />
                   {s.name}
                 </label>
@@ -125,7 +125,7 @@ export function BlockTimeForm({
         <div className="flex flex-wrap gap-2 sm:col-span-2">
           <button
             type="button"
-            className="rounded-lg border border-edge px-2.5 py-1.5 text-xs text-ink-soft hover:bg-white/[0.06]"
+            className="rounded-lg border border-edge px-2.5 py-1.5 text-xs text-ink-soft hover:bg-fill-hover"
             onClick={() => {
               setStart(localDateTime(dateStr, 12));
               setEnd(localDateTime(dateStr, 12, 30));
@@ -135,7 +135,7 @@ export function BlockTimeForm({
           </button>
           <button
             type="button"
-            className="rounded-lg border border-edge px-2.5 py-1.5 text-xs text-ink-soft hover:bg-white/[0.06]"
+            className="rounded-lg border border-edge px-2.5 py-1.5 text-xs text-ink-soft hover:bg-fill-hover"
             onClick={() => {
               setStart(localDateTime(dateStr, 12));
               setEnd(localDateTime(dateStr, 13));
@@ -158,7 +158,7 @@ export function BlockTimeForm({
             {dayOffs.map((o) => (
               <li
                 key={o.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-fill px-3 py-2 text-sm"
               >
                 <div className="min-w-0">
                   <p className="font-medium text-ink">
@@ -174,7 +174,7 @@ export function BlockTimeForm({
                   <input type="hidden" name="returnTo" value="/dashboard/bookings" />
                   <button
                     type="submit"
-                    className="rounded-lg px-2 py-1 text-xs text-red-300 hover:bg-red-500/10"
+                    className="rounded-lg px-2 py-1 text-xs text-danger-text hover:bg-danger-soft"
                   >
                     Remove
                   </button>

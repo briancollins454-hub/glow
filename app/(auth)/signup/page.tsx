@@ -78,7 +78,7 @@ export default async function SignupPage({
           </p>
 
           {error && (
-            <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
               {errors[error] ?? "Something went wrong. Please try again."}
             </p>
           )}
@@ -100,7 +100,7 @@ export default async function SignupPage({
             </div>
             <div>
               <Label htmlFor="handle">Booking link</Label>
-              <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-white/[0.04] px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
+              <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-fill px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
                 <span className="text-sm text-ink-faint">glow.app/</span>
                 <input
                   id="handle"

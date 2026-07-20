@@ -28,7 +28,7 @@ export function CategorySection({
         aria-expanded={open}
         aria-controls={`category-panel-${id}`}
         onClick={() => onToggle(id)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.03] sm:px-5"
+        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-fill sm:px-5"
       >
         <div className="min-w-0">
           <h3 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">

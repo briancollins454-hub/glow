@@ -202,6 +202,8 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     preCareConfirmationsEnabled: true,
     smsRemindersEnabled: true,
     bookingNotifyEmailEnabled: true,
+    dashboardTheme: "system",
+    bookingTheme: "system",
     requiresBookingApproval: false,
     approvalMode: "off",
     depositTierMediumPct: 50,

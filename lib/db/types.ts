@@ -117,6 +117,16 @@ export interface Tech {
    * or approved. Optional until migration 0039; missing = on.
    */
   bookingNotifyEmailEnabled?: boolean | null;
+  /**
+   * Dashboard appearance: system | dark | light.
+   * Optional until migration 0041; missing = system.
+   */
+  dashboardTheme?: string | null;
+  /**
+   * Public booking page + client token pages appearance.
+   * Optional until migration 0041; missing = system.
+   */
+  bookingTheme?: string | null;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.
