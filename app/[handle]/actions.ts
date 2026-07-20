@@ -10,6 +10,7 @@ import {
   getService,
   getTechByHandle,
   listBlockingBookingsInRange,
+  listBookingsByGroup,
   listQuestions,
   listServices,
   listTimeOff,
@@ -18,9 +19,10 @@ import {
   patchTestsForClient,
   createFormResponse,
   addonsForService,
+  updateBooking,
 } from "@/lib/db/queries";
 import { isUniqueViolation } from "@/lib/db/errors";
-import type { BookingAddon, FormAnswer } from "@/lib/db/types";
+import type { Booking, BookingAddon, FormAnswer } from "@/lib/db/types";
 import {
   basketAmounts,
   basketDurationMin,
@@ -90,6 +92,38 @@ import { createCardCaptureCheckout, createDepositCheckout } from "@/lib/payments
 import { isPaymentsReady, usesCardCapture, acceptsOnlineBookings } from "@/lib/subscriptions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+/** redirect() works by throwing; callers must rethrow it, not treat it as failure. */
+function isNextRedirect(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "digest" in e &&
+    String((e as { digest?: unknown }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+/** Drop a pending booking (and basket/pair siblings) after Stripe checkout fails to start. */
+async function releaseFailedCheckoutBooking(
+  sb: ReturnType<typeof supabaseService>,
+  booking: Booking,
+): Promise<void> {
+  try {
+    if (booking.groupId) {
+      const group = await listBookingsByGroup(sb, booking.groupId);
+      for (const b of group) {
+        await updateBooking(sb, b.id, { status: "cancelled" }).catch(() => undefined);
+      }
+      return;
+    }
+    await updateBooking(sb, booking.id, { status: "cancelled" }).catch(() => undefined);
+    if (booking.pairedBookingId) {
+      await updateBooking(sb, booking.pairedBookingId, { status: "cancelled" }).catch(() => undefined);
+    }
+  } catch {
+    // Best-effort — never block the friendly payment error redirect.
+  }
+}
 
 async function loadAvailability(
   sb: ReturnType<typeof supabaseService>,
@@ -408,10 +442,19 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     }
     await linkPairedBookings(sb, patchBooking.id, pending.id);
     await saveAnswers(pending.id);
-    const url = cardCapture
-      ? await createCardCaptureCheckout(tech, service, pending, client, APP_URL)
-      : await createDepositCheckout(tech, service, pending, APP_URL);
-    redirect(url);
+    try {
+      const url = cardCapture
+        ? await createCardCaptureCheckout(tech, service, pending, client, APP_URL)
+        : await createDepositCheckout(tech, service, pending, APP_URL);
+      redirect(url);
+    } catch (e) {
+      if (isNextRedirect(e)) throw e;
+      console.error("[createPairedPublicBookingAction] payment setup failed", e);
+      await releaseFailedCheckoutBooking(sb, pending);
+      // Patch test was already confirmed — cancel it too so the diary stays clean.
+      await updateBooking(sb, patchBooking.id, { status: "cancelled" }).catch(() => undefined);
+      redirect(`${base}&err=payment`);
+    }
   }
 
   let treatmentBooking;
@@ -701,10 +744,17 @@ export async function createPublicBookingAction(formData: FormData) {
     } catch {
       // Notify is best-effort.
     }
-    const url = cardCapture
-      ? await createCardCaptureCheckout(tech!, checkoutService, pending, client, APP_URL)
-      : await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
-    redirect(url);
+    try {
+      const url = cardCapture
+        ? await createCardCaptureCheckout(tech!, checkoutService, pending, client, APP_URL)
+        : await createDepositCheckout(tech!, checkoutService, pending, APP_URL);
+      redirect(url);
+    } catch (e) {
+      if (isNextRedirect(e)) throw e;
+      console.error("[createPublicBookingAction] payment setup failed", e);
+      await releaseFailedCheckoutBooking(sb, pending);
+      redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=payment`);
+    }
   }
 
   let booking;

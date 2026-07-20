@@ -39,6 +39,9 @@ const ERR: Record<string, string> = {
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
   form: "Please complete the required questions and agree to the booking policy.",
   rate: "Too many attempts, try again shortly.",
+  payment:
+    "We couldn't start card checkout. Please try again, or contact the studio if it keeps happening.",
+  payment_cancelled: "Checkout was cancelled. Your booking isn't held - pick a time and try again.",
 };
 
 export function BookingStepInteractive({
