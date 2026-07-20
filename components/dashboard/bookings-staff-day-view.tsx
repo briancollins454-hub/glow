@@ -270,6 +270,7 @@ export function BookingsStaffDayView({
                                 </Link>
                                 <p className="truncate text-[10px] text-ink-faint">
                                   {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"}
+                                  {b.groupId ? " · multi" : ""}
                                 </p>
                                 <div className="mt-0.5 origin-left scale-90">
                                   {statusBadge(b.status)}

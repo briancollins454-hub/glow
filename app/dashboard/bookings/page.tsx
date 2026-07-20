@@ -5,8 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { Plus, BellRing, Trash2, CheckCircle2, CalendarOff } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
@@ -15,13 +13,22 @@ import { BookingActions } from "@/components/dashboard/booking-actions";
 import { BookingsMonthCalendar } from "@/components/dashboard/bookings-month-calendar";
 import { BookingsStaffDayView } from "@/components/dashboard/bookings-staff-day-view";
 import { BlockTimeForm } from "@/components/dashboard/block-time-form";
-import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
-import { ServicePicker } from "@/components/dashboard/service-picker";
+import { ManualBookingForm } from "@/components/dashboard/manual-booking-form";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { bufferMapFromServices } from "@/lib/rules";
-import { addManualBookingAction, deleteWaitlistEntryAction } from "../actions";
-import type { Booking, Client, Service, ServiceCategory, StaffMember, TimeOff, WaitlistEntry, WorkingHour } from "@/lib/db/types";
+import { deleteWaitlistEntryAction } from "../actions";
+import type {
+  Booking,
+  Client,
+  Service,
+  ServiceAddon,
+  ServiceCategory,
+  StaffMember,
+  TimeOff,
+  WaitlistEntry,
+  WorkingHour,
+} from "@/lib/db/types";
 
 type BookingsData = {
   bookings: Booking[];
@@ -32,6 +39,7 @@ type BookingsData = {
   staff?: StaffMember[];
   offs?: TimeOff[];
   hoursByStaff?: Record<string, WorkingHour[]>;
+  addons?: ServiceAddon[];
   now: number;
 };
 
@@ -52,6 +60,7 @@ function BookingsView({
   staff = [],
   offs = [],
   hoursByStaff = {},
+  addons = [],
   now,
 }: BookingsData) {
   const searchParams = useSearchParams();
@@ -102,6 +111,7 @@ function BookingsView({
             {clientById[b.clientId] ?? "Client"}
           </p>
           {statusBadge(b.status)}
+          {b.groupId && <Badge tone="neutral">Multi</Badge>}
           {b.riskTier && b.status === "pending_approval" && (
             <Badge tone={riskTierTone(b.riskTier)}>{riskTierLabel(b.riskTier)}</Badge>
           )}
@@ -175,68 +185,13 @@ function BookingsView({
           <Plus className="h-4 w-4" /> Add a booking manually
         </summary>
         <div className="border-t border-edge p-5">
-          <form action={addManualBookingAction} className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Existing client</Label>
-              <Select name="clientId" defaultValue="">
-                <option value="">- new client -</option>
-                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </div>
-            <div>
-              <Label>Service</Label>
-              <ServicePicker
-                name="serviceId"
-                services={services}
-                categories={categories}
-                required
-                defaultValue=""
-              />
-            </div>
-            {staff.length > 1 && (
-              <div>
-                <Label>With</Label>
-                <Select name="staffId" defaultValue={staff[0]?.id ?? ""}>
-                  {staff.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </Select>
-              </div>
-            )}
-            <div><Label>New client name</Label><Input name="clientName" placeholder="(if new)" /></div>
-            <div><Label>Email</Label><Input name="clientEmail" type="email" placeholder="(optional)" /></div>
-            <div><Label>Phone</Label><Input name="clientPhone" placeholder="(optional)" /></div>
-            <p className="text-xs text-ink-faint sm:col-span-2">
-              Add an email or mobile if you want them to get confirmations and reminders — without one, those are skipped.
-            </p>
-            <div className="sm:col-span-2">
-              <Label>Date &amp; time</Label>
-              <LazyDateTimePicker name="startsAt" />
-            </div>
-            <div>
-              <Label>Deposit for this booking (£)</Label>
-              <Input name="depositPounds" type="number" min={0} step="0.01" placeholder="Blank = service default, 0 = none" />
-            </div>
-            <div>
-              <Label>Payment taken?</Label>
-              <Select name="paymentTaken" defaultValue="none">
-                <option value="none">Nothing yet</option>
-                <option value="deposit">Deposit taken</option>
-                <option value="full">Paid in full</option>
-              </Select>
-            </div>
-            <div>
-              <Label>How was it paid?</Label>
-              <Select name="paymentMethod" defaultValue="cash">
-                <option value="cash">Cash</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="paypal">PayPal</option>
-                <option value="card_machine">Card machine</option>
-                <option value="other">Other</option>
-              </Select>
-            </div>
-            <div className="sm:col-span-2"><SubmitButton variant="secondary" pendingLabel="Adding…">Add booking</SubmitButton></div>
-          </form>
+          <ManualBookingForm
+            services={services}
+            categories={categories}
+            clients={clients}
+            staff={staff}
+            addons={addons}
+          />
         </div>
       </details>
 
