@@ -11,6 +11,7 @@ import {
   serviceSectionId,
 } from "@/lib/booking/service-groups";
 import { CategorySection } from "@/components/booking/category-section";
+import { ExpandableText } from "@/components/booking/expandable-text";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
 import { onBrand, withAlpha } from "@/lib/booking/brand";
@@ -61,7 +62,7 @@ function ServiceCard({
         </div>
 
         {service.description && (
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-soft">{service.description}</p>
+          <ExpandableText text={service.description} className="mt-2" clampClass="line-clamp-2" />
         )}
 
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-faint">

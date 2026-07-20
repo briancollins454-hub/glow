@@ -172,7 +172,11 @@ export interface AvailabilityCtx {
   workingHours: WorkingHour[];
   timeOff: TimeOff[];
   bookings: Booking[];
-  /** When set, every day uses this window instead of weekday-specific hours. */
+  /**
+   * Salon-level flexible daily window. Used only when this ctx has no recurring
+   * workingHours rows (and no rota for the week). Per-staff weekly hours always
+   * win so closed days stay closed.
+   */
   flexibleHours?: FlexibleHoursWindow | null;
   /**
    * Week-by-week rota rows for the staff member in this ctx.
@@ -306,6 +310,19 @@ export function dayWindowForDate(
     }
   }
 
+  // Recurring weekly hours beat the salon flexible window. If this person has
+  // any hours configured, a missing/disabled weekday stays closed — flexible
+  // must not reopen days they are not rostered to work.
+  if (ctx.workingHours.length > 0) {
+    const wh = ctx.workingHours.find((w) => w.weekday === weekday && w.enabled);
+    if (!wh) return null;
+    return {
+      startMinutes: wh.startMinutes,
+      endMinutes: wh.endMinutes,
+      lastStartMinutes: wh.lastStartMinutes,
+    };
+  }
+
   if (ctx.flexibleHours) {
     return {
       startMinutes: ctx.flexibleHours.startMinutes,
@@ -314,13 +331,7 @@ export function dayWindowForDate(
     };
   }
 
-  const wh = ctx.workingHours.find((w) => w.weekday === weekday && w.enabled);
-  if (!wh) return null;
-  return {
-    startMinutes: wh.startMinutes,
-    endMinutes: wh.endMinutes,
-    lastStartMinutes: wh.lastStartMinutes,
-  };
+  return null;
 }
 
 const DEFAULT_FLEXIBLE_START = 9 * 60;

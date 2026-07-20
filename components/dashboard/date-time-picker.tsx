@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,17 +17,32 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+const ALL_DAY_TIMES: string[] = (() => {
+  const out: string[] = [];
+  for (let h = 0; h < 24; h++)
+    for (const m of [0, 15, 30, 45]) out.push(`${pad(h)}:${pad(m)}`);
+  return out;
+})();
+
 /**
  * Month-grid calendar + time picker. Submits as a hidden input in
  * datetime-local format (YYYY-MM-DDTHH:mm) under `name`.
+ *
+ * Pass `timesForDate` to restrict times to free slots within working hours
+ * (manual booking). Without it, every 15 minutes is offered (reschedule).
  */
 export function DateTimePicker({
   name,
   defaultValue,
+  timesForDate,
+  emptyTimesHint = "No free times on this day",
 }: {
   name: string;
   /** datetime-local format, e.g. 2026-07-03T12:30 */
   defaultValue?: string;
+  /** When set, only these HH:mm values are offered for the selected date. */
+  timesForDate?: (dateStr: string) => string[];
+  emptyTimesHint?: string;
 }) {
   const now = new Date();
   const initialDate = defaultValue ? defaultValue.slice(0, 10) : "";
@@ -69,15 +84,26 @@ export function DateTimePicker({
   }
 
   const times = useMemo(() => {
-    const out: string[] = [];
-    for (let h = 0; h < 24; h++)
-      for (const m of [0, 15, 30, 45]) out.push(`${pad(h)}:${pad(m)}`);
-    return out;
-  }, []);
+    if (!timesForDate) return ALL_DAY_TIMES;
+    if (!selected) return [];
+    return timesForDate(selected);
+  }, [timesForDate, selected]);
+
+  // Keep the selected time inside the allowed list for the chosen day.
+  useEffect(() => {
+    if (!timesForDate || !selected) return;
+    if (times.length === 0) {
+      if (time) setTime("");
+      return;
+    }
+    if (!times.includes(time)) setTime(times[0]!);
+  }, [timesForDate, selected, times, time]);
+
+  const valueReady = Boolean(selected && time && (!timesForDate || times.includes(time)));
 
   return (
     <div className="rounded-xl border border-edge bg-white/[0.03] p-3">
-      <input type="hidden" name={name} value={selected ? `${selected}T${time}` : ""} required />
+      <input type="hidden" name={name} value={valueReady ? `${selected}T${time}` : ""} required />
 
       <div className="flex items-center justify-between">
         <button type="button" onClick={prevMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]">
@@ -118,16 +144,27 @@ export function DateTimePicker({
         })}
       </div>
 
-      <div className="mt-3 flex items-center gap-2 border-t border-edge pt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge pt-3">
         <span className="text-sm text-ink-soft">Time</span>
-        <select
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          className="input h-10 w-28 cursor-pointer"
-        >
-          {times.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        {selected ? (
+        {timesForDate && !selected ? (
+          <span className="text-sm text-ink-faint">Pick a date first</span>
+        ) : timesForDate && times.length === 0 ? (
+          <span className="text-sm text-amber-200/90">{emptyTimesHint}</span>
+        ) : (
+          <select
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            className="input h-10 w-28 cursor-pointer"
+            disabled={times.length === 0}
+          >
+            {times.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        )}
+        {selected && time && (!timesForDate || times.includes(time)) ? (
           <span className="ml-auto text-sm font-medium text-brand-300">
             {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {time}
           </span>

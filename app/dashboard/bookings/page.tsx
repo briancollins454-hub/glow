@@ -40,6 +40,14 @@ type BookingsData = {
   offs?: TimeOff[];
   hoursByStaff?: Record<string, WorkingHour[]>;
   addons?: ServiceAddon[];
+  rotaHours?: import("@/lib/db/types").RotaHour[];
+  tech?: Pick<
+    import("@/lib/db/types").Tech,
+    | "flexibleHoursEnabled"
+    | "flexibleStartMinutes"
+    | "flexibleEndMinutes"
+    | "flexibleLastStartMinutes"
+  > | null;
   now: number;
 };
 
@@ -61,6 +69,8 @@ function BookingsView({
   offs = [],
   hoursByStaff = {},
   addons = [],
+  rotaHours = [],
+  tech = null,
   now,
 }: BookingsData) {
   const searchParams = useSearchParams();
@@ -71,6 +81,7 @@ function BookingsView({
   const minutes = searchParams.get("minutes");
   const noShowFee = searchParams.get("noshowfee");
   const noShowAmt = Number(searchParams.get("noshowamt") ?? "0");
+  const bookingError = searchParams.get("error");
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
@@ -152,6 +163,17 @@ function BookingsView({
           <span>Time blocked. Clients can book around it.</span>
         </div>
       )}
+      {bookingError === "slot" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          That time is not free — they may already have a booking, be off, or outside working hours.
+          Pick another slot.
+        </div>
+      )}
+      {bookingError === "missing" && (
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Choose a service and a date &amp; time to add the booking.
+        </div>
+      )}
       {lateDone && (
         <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -191,6 +213,11 @@ function BookingsView({
             clients={clients}
             staff={staff}
             addons={addons}
+            bookings={bookings}
+            offs={offs}
+            hoursByStaff={hoursByStaff}
+            rotaHours={rotaHours}
+            tech={tech}
           />
         </div>
       </details>
