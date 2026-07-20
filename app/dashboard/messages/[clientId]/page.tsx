@@ -22,8 +22,13 @@ export default async function DashboardThreadPage({
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
-  const client = await getClient(sb, clientId);
-  if (!client) notFound();
+  // Staff sessions already use the service client; owners use an authenticated
+  // client. Thread reads go through the service client so RLS quirks can't
+  // hide messages the client token path can see.
+  const { supabaseService } = await import("@/lib/supabase/service");
+  const readSb = supabaseService();
+  const client = await getClient(readSb, clientId);
+  if (!client || client.techId !== tech.id) notFound();
 
   if (!isLive(tech)) {
     return (
@@ -36,9 +41,9 @@ export default async function DashboardThreadPage({
     );
   }
 
-  await markThreadRead(sb, clientId, "client");
+  await markThreadRead(readSb, clientId, "client");
   const [messages, services, addons] = await Promise.all([
-    threadMessages(sb, clientId),
+    threadMessages(readSb, clientId, tech.id),
     listServices(sb, tech.id, { activeOnly: true }),
     listAddons(sb, tech.id, { activeOnly: true }),
   ]);

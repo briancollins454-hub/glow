@@ -286,12 +286,17 @@ export async function loadDashboardPageData(
     }
     case "messages": {
       if (!isLive(tech)) return { live: false };
-      const [clients, messages, services, addons] = await Promise.all([
-        listClients(sb, tech.id),
-        listMessagesForTech(sb, tech.id),
+      // Service role: staff logins already use it; owners need it so a stale
+      // messages RLS policy can't hide threads the client token path can see.
+      // Only load clients that appear in threads (not the whole client book).
+      const svc = supabaseService();
+      const [messages, services, addons] = await Promise.all([
+        listMessagesForTech(svc, tech.id),
         listServices(sb, tech.id, { activeOnly: true }),
         listAddons(sb, tech.id, { activeOnly: true }),
       ]);
+      const clientIds = [...new Set(messages.map((m) => m.clientId))];
+      const clients = await getClientsByIds(svc, clientIds);
       return { clients, messages, services, addons, tech, live: true };
     }
     case "billing": {

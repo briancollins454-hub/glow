@@ -59,6 +59,7 @@ async function listAllForTech<T>(
   table: string,
   techId: string,
   orderCol: string,
+  ascending = true,
 ): Promise<T[]> {
   const out: T[] = [];
   let from = 0;
@@ -67,7 +68,7 @@ async function listAllForTech<T>(
       .from(table)
       .select("*")
       .eq("techId", techId)
-      .order(orderCol)
+      .order(orderCol, { ascending })
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const chunk = (data as T[]) ?? [];
@@ -829,8 +830,14 @@ export async function getReportSummary(sb: SB, techId: string): Promise<ReportSu
 
 export async function getClientsByIds(sb: SB, ids: string[]): Promise<Client[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await sb.from("clients").select("*").in("id", ids);
-  return must(data as Client[], error) ?? [];
+  const unique = [...new Set(ids.filter(Boolean))];
+  const out: Client[] = [];
+  for (const chunk of chunkIds(unique, 100)) {
+    const { data, error } = await sb.from("clients").select("*").in("id", chunk);
+    if (error) throw new Error(error.message);
+    out.push(...((data as Client[]) ?? []));
+  }
+  return out;
 }
 
 export async function getClientNameMap(
@@ -1538,11 +1545,17 @@ export async function listFormResponsesForTech(sb: SB, techId: string): Promise<
 
 // ---------------- Messages ----------------
 export async function listMessagesForTech(sb: SB, techId: string): Promise<Message[]> {
-  const { data, error } = await sb.from("messages").select("*").eq("techId", techId).order("createdAt", { ascending: false });
-  return must(data as Message[], error) ?? [];
+  // Newest first so the dashboard thread list can take the first row per client.
+  return listAllForTech<Message>(sb, "messages", techId, "createdAt", false);
 }
-export async function threadMessages(sb: SB, clientId: string): Promise<Message[]> {
-  const { data, error } = await sb.from("messages").select("*").eq("clientId", clientId).order("createdAt", { ascending: true });
+export async function threadMessages(
+  sb: SB,
+  clientId: string,
+  techId?: string,
+): Promise<Message[]> {
+  let q = sb.from("messages").select("*").eq("clientId", clientId);
+  if (techId) q = q.eq("techId", techId);
+  const { data, error } = await q.order("createdAt", { ascending: true });
   return must(data as Message[], error) ?? [];
 }
 export async function createMessage(sb: SB, m: Omit<Message, "id" | "createdAt" | "readAt"> & Partial<Pick<Message, "readAt">>): Promise<Message> {
