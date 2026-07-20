@@ -212,4 +212,62 @@ describe("unavailableRangesForStaffDay", () => {
     ];
     expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd)).toEqual([]);
   });
+
+  it("prefers a saved rota week over usual weekly hours", () => {
+    // Usual hours say Wednesday is open all day; rota closes Wednesday.
+    const hours = [
+      makeWorkingHour({
+        weekday: 3,
+        startMinutes: 9 * 60,
+        endMinutes: 17 * 60,
+        enabled: true,
+      }),
+    ];
+    const rotaHours = [
+      {
+        id: "rota_1",
+        techId: "tech_1",
+        staffId: "stf_1",
+        weekStart: "2030-07-08",
+        weekday: 3,
+        startMinutes: 9 * 60,
+        endMinutes: 17 * 60,
+        lastStartMinutes: null,
+        enabled: false,
+      },
+    ];
+    expect(
+      unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, { rotaHours }),
+    ).toEqual([{ startM: windowStart, endM: windowEnd }]);
+  });
+
+  it("uses rota open window when usual hours would look closed", () => {
+    const hours = [
+      makeWorkingHour({
+        weekday: 3,
+        startMinutes: 9 * 60,
+        endMinutes: 17 * 60,
+        enabled: false,
+      }),
+    ];
+    const rotaHours = [
+      {
+        id: "rota_1",
+        techId: "tech_1",
+        staffId: "stf_1",
+        weekStart: "2030-07-08",
+        weekday: 3,
+        startMinutes: 11 * 60,
+        endMinutes: 15 * 60,
+        lastStartMinutes: null,
+        enabled: true,
+      },
+    ];
+    expect(
+      unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, { rotaHours }),
+    ).toEqual([
+      { startM: 9 * 60, endM: 11 * 60 },
+      { startM: 15 * 60, endM: 17 * 60 },
+    ]);
+  });
 });

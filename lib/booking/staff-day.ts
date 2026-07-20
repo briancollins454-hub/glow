@@ -1,7 +1,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { TZ } from "@/lib/format";
-import { dateStrInTz } from "@/lib/rules";
-import type { Booking, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
+import { dateStrInTz, dayWindowForDate, type FlexibleHoursWindow } from "@/lib/rules";
+import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 export const UNASSIGNED_STAFF_ID = "__unassigned__";
 
@@ -80,32 +80,43 @@ export function bookingsInColumn(
 }
 
 /**
- * Minutes outside enabled working hours for one London calendar day, clipped
- * to the visible diary window. Closed / missing weekdays cover the whole window.
+ * Minutes outside this person's working window for one London calendar day,
+ * clipped to the visible diary window. Uses the same priority as online booking:
+ * week rota (if saved) → weekly hours → flexible window.
+ * Closed / missing days cover the whole window.
  */
 export function unavailableRangesForStaffDay(
   hours: WorkingHour[],
   dateStr: string,
   windowStart: number,
   windowEnd: number,
+  opts?: {
+    rotaHours?: RotaHour[];
+    flexibleHours?: FlexibleHoursWindow | null;
+  },
 ): { startM: number; endM: number }[] {
   if (windowEnd <= windowStart) return [];
-  const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
-  const wh = hours.find((w) => w.weekday === weekday && w.enabled);
-  if (!wh || wh.endMinutes <= wh.startMinutes) {
+  const win = dayWindowForDate(dateStr, {
+    workingHours: hours,
+    timeOff: [],
+    bookings: [],
+    flexibleHours: opts?.flexibleHours ?? null,
+    rotaHours: opts?.rotaHours,
+  });
+  if (!win || win.endMinutes <= win.startMinutes) {
     return [{ startM: windowStart, endM: windowEnd }];
   }
 
   const ranges: { startM: number; endM: number }[] = [];
-  if (wh.startMinutes > windowStart) {
+  if (win.startMinutes > windowStart) {
     ranges.push({
       startM: windowStart,
-      endM: Math.min(wh.startMinutes, windowEnd),
+      endM: Math.min(win.startMinutes, windowEnd),
     });
   }
-  if (wh.endMinutes < windowEnd) {
+  if (win.endMinutes < windowEnd) {
     ranges.push({
-      startM: Math.max(wh.endMinutes, windowStart),
+      startM: Math.max(win.endMinutes, windowStart),
       endM: windowEnd,
     });
   }

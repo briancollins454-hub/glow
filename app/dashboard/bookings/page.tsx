@@ -251,6 +251,7 @@ function BookingsView({
           bufferByServiceId={bufferByServiceId}
           offs={offs}
           hoursByStaff={hoursByStaff}
+          rotaHours={rotaHours}
         />
       ) : (
         <Card className="ring-1 ring-brand-500/30">
