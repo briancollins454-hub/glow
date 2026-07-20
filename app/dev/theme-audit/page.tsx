@@ -129,11 +129,14 @@ export default async function ThemeAuditPage() {
 
       <section className="space-y-3">
         <h2 className="font-display text-xl font-semibold">Calendar unavailable hatch</h2>
-        <div
-          className="relative h-24 overflow-hidden rounded-xl border border-edge bg-cream"
-        >
-          <div className="absolute inset-x-1 top-2 h-16 overflow-hidden rounded-lg border border-edge bg-[repeating-linear-gradient(-45deg,var(--fill),var(--fill)_4px,transparent_4px,transparent_8px)] px-1.5 py-1">
-            <p className="text-[10px] font-medium text-ink-soft">Unavailable</p>
+        <p className="text-sm text-ink-soft">
+          Outside working hours and blocked time on the team diary. Light mode uses a stronger
+          neutral fill so the hatch reads clearly against the open background.
+        </p>
+        <div className="relative h-28 overflow-hidden rounded-xl border border-edge bg-cream">
+          <div className="calendar-unavailable absolute inset-x-1 top-2 h-20 overflow-hidden rounded-lg border border-edge px-1.5 py-1">
+            <p className="calendar-unavailable-label text-[10px] font-medium">Unavailable</p>
+            <p className="mt-0.5 text-[10px] text-ink-faint">Blocked / outside hours</p>
           </div>
         </div>
       </section>

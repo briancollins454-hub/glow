@@ -91,6 +91,9 @@ describe("WCAG contrast for semantic tokens", () => {
     it(`${mode}: on-brand on brand >= 4.5`, () => {
       expect(contrastRatio(t.onBrand, t.brand)).toBeGreaterThanOrEqual(4.5);
     });
+    it(`${mode}: calendar unavailable label on fill >= 4.5`, () => {
+      expect(contrastRatio(t.inkSoft, t.calendarUnavailableFill)).toBeGreaterThanOrEqual(4.5);
+    });
     it(`${mode}: status text on soft badge >= 3`, () => {
       expect(contrastRatio(t.successText, t.successSoft)).toBeGreaterThanOrEqual(3);
       expect(contrastRatio(t.warningText, t.warningSoft)).toBeGreaterThanOrEqual(3);

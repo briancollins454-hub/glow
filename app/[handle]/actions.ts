@@ -555,6 +555,29 @@ export async function createPublicBookingAction(formData: FormData) {
     if (!stillFree) {
       redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
     }
+  } else {
+    // Re-check the chosen person's diary immediately before insert (same scope
+    // as resolveBookingStaff / the public slot picker).
+    const owner =
+      (await listStaff(sb, tech!.id, { activeOnly: true }).catch(() => [] as StaffMember[])).find(
+        (s) => s.role === "owner",
+      ) ?? null;
+    const dateStr = dateStrInTz(new Date(slotIso));
+    const dayRulesByStaff = await staffServiceDayMap(sb, [bookingStaff.id]).catch(
+      () => ({}) as Record<string, Record<string, number[] | null>>,
+    );
+    const stillFree = daySlotsForDuration(totalDuration, dateStr, {
+      workingHours: workingHoursForStaff(availability.workingHours, bookingStaff, owner?.id),
+      timeOff: timeOffAppliesToStaff(availability.timeOff, bookingStaff.id),
+      bookings: rowsForStaff(availability.bookings, bookingStaff),
+      flexibleHours: availability.flexibleHours,
+      rotaHours: rowsForStaff(availability.rotaHours ?? [], bookingStaff),
+      allowedWeekdays: weekdaysForStaffBasket(basket, dayRulesByStaff[bookingStaff.id]),
+      bufferByServiceId: availability.bufferByServiceId,
+    }).includes(slotIso);
+    if (!stillFree) {
+      redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
+    }
   }
 
   const categoryByServiceId: Record<string, string> = {};
