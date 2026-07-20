@@ -52,7 +52,7 @@ export function RetestQueue({
               <div className="min-w-0">
                 <Link
                   href={`/dashboard/clients/${r.clientId}`}
-                  className="font-medium text-ink hover:text-brand-300"
+                  className="font-medium text-ink hover:text-brand-text"
                 >
                   {client?.name ?? "Client"}
                 </Link>

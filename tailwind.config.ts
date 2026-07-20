@@ -9,6 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Fixed pink scale (same in both themes). brand-600 === --brand.
         brand: {
           50: "#fdf2f8",
           100: "#fce7f3",
@@ -21,28 +22,48 @@ const config: Config = {
           800: "#9d174d",
           900: "#831843",
         },
-        // Dark luxe theme tokens. Names kept from the light theme so existing
-        // markup restyles globally: ink = text on dark, cream = page background.
+        // Semantic tokens — values come from data-theme CSS variables.
+        // cream keeps historical class names (page background).
         ink: {
-          DEFAULT: "#f2eef6",
-          soft: "#b3a9bf",
-          faint: "#7d7389",
+          DEFAULT: "rgb(var(--ink-rgb) / <alpha-value>)",
+          soft: "rgb(var(--ink-soft-rgb) / <alpha-value>)",
+          faint: "rgb(var(--ink-faint-rgb) / <alpha-value>)",
         },
-        cream: "#0b0910",
+        cream: "rgb(var(--bg-rgb) / <alpha-value>)",
         surface: {
-          DEFAULT: "#141019",
-          raised: "#1b1523",
+          DEFAULT: "rgb(var(--surface-rgb) / <alpha-value>)",
+          raised: "rgb(var(--surface-raised-rgb) / <alpha-value>)",
         },
-        edge: "rgba(255,255,255,0.08)",
+        // Themed border colour (alpha baked into --edge per theme).
+        edge: "var(--edge)",
+        fill: {
+          DEFAULT: "var(--fill)",
+          hover: "var(--fill-hover)",
+        },
+        overlay: "var(--overlay)",
+        "on-brand": "var(--on-brand)",
+        canvas: "var(--canvas-fallback)",
+        "brand-soft": "var(--brand-soft)",
+        "brand-text": "var(--brand-text)",
+        "success-soft": "var(--success-soft)",
+        "success-text": "var(--success-text)",
+        "warning-soft": "var(--warning-soft)",
+        "warning-text": "var(--warning-text)",
+        "danger-soft": "var(--danger-soft)",
+        "danger-text": "var(--danger-text)",
+        "info-soft": "var(--info-soft)",
+        "info-text": "var(--info-text)",
+        "pending-soft": "var(--pending-soft)",
+        "pending-text": "var(--pending-text)",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        soft: "0 10px 40px -12px rgba(236, 72, 153, 0.35)",
-        card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 32px -16px rgba(0,0,0,0.6)",
-        glow: "0 0 40px -8px rgba(236, 72, 153, 0.45)",
+        soft: "var(--shadow-soft)",
+        card: "var(--shadow-card)",
+        glow: "var(--shadow-glow)",
       },
       borderRadius: {
         xl: "1rem",
@@ -50,7 +71,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
 };
 
 export default config;

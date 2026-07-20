@@ -234,7 +234,7 @@ function Item({ title, open, children }: { title: string; open?: boolean; childr
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <p className="flex gap-3 text-sm text-ink-soft">
-      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500/15 text-xs font-semibold text-brand-300">{n}</span>
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500/15 text-xs font-semibold text-brand-text">{n}</span>
       <span className="pt-0.5">{children}</span>
     </p>
   );

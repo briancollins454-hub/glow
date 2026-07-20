@@ -11,6 +11,7 @@ import {
 import { fmtDateTime } from "@/lib/format";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { submitPrecareAction } from "./actions";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { title: "Pre-care instructions", robots: { index: false, follow: false } };
 
@@ -42,6 +43,7 @@ export default async function PrecarePage({
   const inactive = row.status === "skipped";
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -101,5 +103,6 @@ export default async function PrecarePage({
         </p>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }

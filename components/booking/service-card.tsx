@@ -23,7 +23,7 @@ export function ServiceCard({
   return (
     <Link
       href={`/${handle}?service=${service.id}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition duration-300 hover:-translate-y-0.5 hover:border-white/15 hover:shadow-soft"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition duration-300 hover:-translate-y-0.5 hover:border-edge hover:shadow-soft"
     >
       {photoUrl ? (
         <ServicePhoto src={photoUrl} alt={service.name} />
@@ -51,23 +51,23 @@ export function ServiceCard({
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
-          <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-white/[0.03] px-2.5 py-1">
+          <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-fill px-2.5 py-1">
             <Clock className="h-3 w-3" />
             {minutesToLabel(service.durationMin)}
           </span>
           {deposit > 0 && (
-            <span className="rounded-full border border-edge bg-white/[0.03] px-2.5 py-1">
+            <span className="rounded-full border border-edge bg-fill px-2.5 py-1">
               {gbp(deposit)} deposit
             </span>
           )}
           {service.requiresPatchTest && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-200/90">
+            <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-warning-soft px-2.5 py-1 text-warning-text">
               <ShieldCheck className="h-3 w-3" />
               Patch test
             </span>
           )}
           {service.isInfill && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-200/90">
+            <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-pending-soft px-2.5 py-1 text-pending-text">
               <RefreshCw className="h-3 w-3" />
               Returning clients
             </span>

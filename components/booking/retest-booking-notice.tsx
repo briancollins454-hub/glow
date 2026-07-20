@@ -11,7 +11,7 @@ export function RetestBookingNotice({
   bookUrl?: string;
 }) {
   return (
-    <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+    <div className="mb-6 rounded-xl border border-amber-500/30 bg-warning-soft px-4 py-3 text-sm text-amber-100">
       <div className="flex items-start justify-between gap-3">
         <p>
           <strong className="font-semibold text-amber-50">Patch test needed.</strong>{" "}

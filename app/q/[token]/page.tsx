@@ -8,6 +8,7 @@ import { bookUrl, parseQuoteAddons } from "@/lib/dm-quote";
 import { gbp, minutesToLabel } from "@/lib/format";
 import { acceptsOnlineBookings } from "@/lib/subscriptions";
 import { rateLimit } from "@/lib/rate-limit";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
@@ -48,6 +49,7 @@ export default async function QuotePage({
     : "Your quote";
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -109,5 +111,6 @@ export default async function QuotePage({
         </p>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }

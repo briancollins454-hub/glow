@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
+import { PublicBookingTheme } from "@/components/theme/theme-providers";
 
 /**
  * Validate the handle before the page streams.
@@ -16,5 +17,10 @@ export default async function PublicHandleLayout({
   const { handle } = await params;
   const tech = await loadPublicTechByHandle(handle);
   if (!tech) notFound();
-  return children;
+  return (
+    <>
+      <PublicBookingTheme preference={tech.bookingTheme} />
+      {children}
+    </>
+  );
 }

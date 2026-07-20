@@ -32,7 +32,7 @@ function ServiceAccordionItem({
   const deposit = depositFor(service);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition hover:border-white/15">
+    <article className="overflow-hidden rounded-2xl border border-edge bg-surface/90 shadow-card transition hover:border-edge">
       <button
         type="button"
         id={`service-${service.id}`}
@@ -96,23 +96,23 @@ function ServiceAccordionItem({
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
-            <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-white/[0.03] px-2.5 py-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-fill px-2.5 py-1">
               <Clock className="h-3 w-3" />
               {minutesToLabel(service.durationMin)}
             </span>
             {deposit > 0 && (
-              <span className="rounded-full border border-edge bg-white/[0.03] px-2.5 py-1">
+              <span className="rounded-full border border-edge bg-fill px-2.5 py-1">
                 {gbp(deposit)} deposit
               </span>
             )}
             {service.requiresPatchTest && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-200/90">
+              <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-warning-soft px-2.5 py-1 text-warning-text">
                 <ShieldCheck className="h-3 w-3" />
                 Patch test
               </span>
             )}
             {service.isInfill && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-200/90">
+              <span className="inline-flex items-center gap-1 rounded-full border border-edge bg-pending-soft px-2.5 py-1 text-pending-text">
                 <RefreshCw className="h-3 w-3" />
                 Returning clients
               </span>
@@ -155,7 +155,7 @@ function CategorySection({
         aria-expanded={open}
         aria-controls={`category-panel-${id}`}
         onClick={() => onToggle(id)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.03] sm:px-5"
+        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-fill sm:px-5"
       >
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">

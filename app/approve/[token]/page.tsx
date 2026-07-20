@@ -11,6 +11,7 @@ import { approveBookingFromEmailAction, declineBookingFromEmailAction } from "./
 import { ApproveDoneRedirect } from "@/components/booking/approve-done-redirect";
 import { ClientRiskSummary } from "@/components/dashboard/client-risk-summary";
 import { Badge } from "@/components/ui/badge";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -63,6 +64,7 @@ export default async function ApproveBookingPage({
   const resolved = done === "approved" || done === "declined" || booking.status !== "pending_approval";
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -135,7 +137,7 @@ export default async function ApproveBookingPage({
             )}
             <Link
               href={`/dashboard/bookings/${booking.id}`}
-              className="flex w-full items-center justify-center rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]"
+              className="flex w-full items-center justify-center rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-fill-hover"
             >
               Open in dashboard
             </Link>
@@ -147,7 +149,8 @@ export default async function ApproveBookingPage({
         </div>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }
 
 function Row({ label, value }: { label: string; value: string }) {

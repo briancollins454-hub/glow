@@ -78,7 +78,7 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
         </div>
         <span className="text-xs text-ink-faint">{done ? "Sent" : "Sends"} {fmtDateTime(done && r.sentAtIso ? r.sentAtIso : r.sendAtIso)}</span>
       </div>
-      <p className="mt-2 rounded-lg bg-white/[0.06] px-3 py-2 text-sm text-ink-soft">{preview(r)}</p>
+      <p className="mt-2 rounded-lg bg-fill-hover px-3 py-2 text-sm text-ink-soft">{preview(r)}</p>
     </div>
   );
 
@@ -92,7 +92,7 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
         <form action={runRemindersAction}><Button type="submit" variant="secondary"><Play className="h-4 w-4" /> Run due now</Button></form>
       </div>
 
-      {ran && <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Processed any due reminders.</div>}
+      {ran && <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text"><CheckCircle2 className="h-4 w-4" /> Processed any due reminders.</div>}
 
       <Card>
         <CardHeader>

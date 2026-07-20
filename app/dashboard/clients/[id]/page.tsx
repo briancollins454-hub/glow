@@ -105,7 +105,7 @@ export default async function ClientDetailPage({
         {isLive(tech) && (
           <Link
             href={`/dashboard/messages/${client.id}`}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-on-brand transition hover:bg-brand-700"
           >
             <MessageSquare className="h-4 w-4" /> Message
           </Link>
@@ -133,11 +133,11 @@ export default async function ClientDetailPage({
               <div><Label>Notes</Label><Textarea name="notes" defaultValue={client.notes} placeholder="Preferences, allergies, etc." /></div>
               <div><Label>Warning note (shown to you when booking)</Label><Textarea name="warningNote" defaultValue={client.warningNote} placeholder="e.g. Late twice - confirm by text." /></div>
               <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
-                <input type="checkbox" name="isVip" defaultChecked={client.isVip} className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" />
+                <input type="checkbox" name="isVip" defaultChecked={client.isVip} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />
                 VIP - always gets your loyalty discount, from their very next booking
               </label>
               <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
-                <input type="checkbox" name="isBlacklisted" defaultChecked={client.isBlacklisted} className="h-4 w-4 rounded border-black/20 text-red-400 focus:ring-red-300" />
+                <input type="checkbox" name="isBlacklisted" defaultChecked={client.isBlacklisted} className="h-4 w-4 rounded border-edge text-red-400 focus:ring-red-300" />
                 Block this client from booking online
               </label>
               <div className="flex justify-end"><Button type="submit">Save client</Button></div>
@@ -168,7 +168,7 @@ export default async function ClientDetailPage({
                         <form action={deletePatchTestAction}>
                           <input type="hidden" name="id" value={t.id} />
                           <input type="hidden" name="clientId" value={client.id} />
-                          <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400" title="Delete patch test"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400" title="Delete patch test"><Trash2 className="h-3.5 w-3.5" /></button>
                         </form>
                       </div>
                     </li>
@@ -231,7 +231,7 @@ export default async function ClientDetailPage({
             <form action={deleteFormResponseAction}>
               <input type="hidden" name="id" value={latestResponse.id} />
               <input type="hidden" name="clientId" value={client.id} />
-              <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400" title="Delete these answers">
+              <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400" title="Delete these answers">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </form>
@@ -254,7 +254,7 @@ export default async function ClientDetailPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {photoerr && (
-            <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
               {photoerr === "size"
                 ? "That photo is too large. Please choose an image under 8MB."
                 : "Photo upload failed. Use a JPG, PNG or WebP image and try again."}
@@ -271,11 +271,11 @@ export default async function ClientDetailPage({
                   ) : (
                     <div className="grid aspect-square w-full place-items-center text-xs text-ink-faint">Unavailable</div>
                   )}
-                  <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium capitalize text-white">{p.kind}</span>
+                  <span className="absolute left-1.5 top-1.5 rounded-md bg-overlay px-1.5 py-0.5 text-[10px] font-medium capitalize text-on-brand">{p.kind}</span>
                   <form action={deletePhotoAction} className="absolute right-1.5 top-1.5">
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="clientId" value={client.id} />
-                    <button type="submit" className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white opacity-0 transition group-hover:opacity-100" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button type="submit" className="grid h-7 w-7 place-items-center rounded-md bg-overlay text-on-brand opacity-0 transition group-hover:opacity-100" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                   </form>
                 </div>
               ))}
@@ -296,7 +296,7 @@ export default async function ClientDetailPage({
               </Select>
             </div>
             <label className="flex items-center gap-2 pb-2.5 text-sm">
-              <input type="checkbox" name="consent" className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300" /> Consent
+              <input type="checkbox" name="consent" className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" /> Consent
             </label>
             <Button type="submit" variant="secondary" size="sm"><ImagePlus className="h-4 w-4" /> Upload</Button>
           </form>
@@ -337,7 +337,7 @@ export default async function ClientDetailPage({
                 <div className="min-w-0">
                   <p className="font-medium">{serviceById.get(b.serviceId) ?? "Service"}{extras && <span className="text-ink-faint"> + {extras}</span>}</p>
                   <p className="text-xs text-ink-faint">{fmtDate(b.startIso)}</p>
-                  {lash && <p className="mt-0.5 text-xs text-brand-300">{lash}</p>}
+                  {lash && <p className="mt-0.5 text-xs text-brand-text">{lash}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <span className="text-sm font-medium">{gbp(b.pricePennies)}</span>

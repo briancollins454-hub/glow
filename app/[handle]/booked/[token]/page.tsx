@@ -16,6 +16,7 @@ import { cancelClientBookingAction, payDepositAction, saveCardAction } from "./a
 import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
 import { noShowFeeFor } from "@/lib/rules";
 import type { Booking } from "@/lib/db/types";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -92,6 +93,7 @@ export default async function BookedPage({
     new Date(booking.startIso).getTime() > Date.now();
 
   return (
+    <BookingThemedPage preference={tech.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -194,7 +196,7 @@ export default async function BookedPage({
                 <CreditCard className="h-4 w-4" /> Pay balance now (optional)
               </Link>
             )}
-            <Link href={`/api/bookings/${booking.balanceToken}/calendar`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]">
+            <Link href={`/api/bookings/${booking.balanceToken}/calendar`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-fill-hover">
               <CalendarPlus className="h-4 w-4" /> Add to calendar
             </Link>
             {canSelfCancel && (
@@ -211,12 +213,13 @@ export default async function BookedPage({
                 </p>
               </form>
             )}
-            <Link href={`/${tech.handle}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]">Back to {tech.businessName}</Link>
+            <Link href={`/${tech.handle}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-fill-hover">Back to {tech.businessName}</Link>
           </div>
         </div>
         <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-ink-faint"><CalendarHeart className="h-3.5 w-3.5" /> Powered by Glow</p>
       </div>
     </div>
+    </BookingThemedPage>
   );
 }
 

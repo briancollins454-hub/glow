@@ -98,17 +98,17 @@ export default async function EditBookingPage({
       </div>
 
       {saved && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Booking updated.
         </div>
       )}
       {err && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Please pick a service, date and time.
         </div>
       )}
       {usage && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Product batch logged for this appointment.
         </div>
       )}
@@ -144,7 +144,7 @@ export default async function EditBookingPage({
             <div>
               <Label>Deposit for this booking (£)</Label>
               {booking.depositStatus === "paid" ? (
-                <p className="rounded-xl border border-edge bg-white/[0.03] px-3.5 py-2.5 text-sm text-ink-soft">
+                <p className="rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm text-ink-soft">
                   {gbp(booking.depositPennies)} - already paid, so the amount is locked.
                 </p>
               ) : (

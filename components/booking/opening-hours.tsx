@@ -30,7 +30,7 @@ export function OpeningHours({ hours }: { hours: { label: string; value: string 
                 <dt className={isToday ? "font-medium text-ink" : "text-ink-soft"}>
                   {d.label}
                   {isToday && (
-                    <span className="ml-2 text-xs font-medium text-brand-300">Today</span>
+                    <span className="ml-2 text-xs font-medium text-brand-text">Today</span>
                   )}
                 </dt>
                 <dd

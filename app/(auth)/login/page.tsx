@@ -28,17 +28,17 @@ export default async function LoginPage({
           </p>
 
           {reset === "1" && (
-            <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            <p className="mt-4 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
               Password updated. Log in with your new password.
             </p>
           )}
           {signedup === "1" && (
-            <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            <p className="mt-4 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
               Your account is ready. Log in with the password you just chose.
             </p>
           )}
           {error && (
-            <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
               That email and password don&apos;t match. Try again.
             </p>
           )}
@@ -57,7 +57,7 @@ export default async function LoginPage({
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <Label htmlFor="password" className="mb-0">Password</Label>
-                <Link href="/forgot" className="text-xs font-medium text-brand-400 hover:text-brand-300">
+                <Link href="/forgot" className="text-xs font-medium text-brand-400 hover:text-brand-text">
                   Forgot password?
                 </Link>
               </div>

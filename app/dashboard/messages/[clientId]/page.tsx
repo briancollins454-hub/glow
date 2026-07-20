@@ -55,7 +55,7 @@ export default async function DashboardThreadPage({
   return (
     <div className="flex h-[calc(100dvh-16rem)] flex-col space-y-4 lg:h-[calc(100dvh-8rem)]">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/messages" className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-white/[0.06] lg:hidden">
+        <Link href="/dashboard/messages" className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft hover:bg-fill-hover lg:hidden">
           <ArrowLeft className="h-4.5 w-4.5 h-[18px] w-[18px]" />
         </Link>
         <div className="min-w-0">
@@ -68,7 +68,7 @@ export default async function DashboardThreadPage({
           <input type="hidden" name="clientId" value={client.id} />
           <button
             type="submit"
-            className="grid h-9 w-9 place-items-center rounded-xl text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+            className="grid h-9 w-9 place-items-center rounded-xl text-ink-faint hover:bg-danger-soft hover:text-red-400"
             title="Delete this conversation"
           >
             <Trash2 className="h-4 w-4" />

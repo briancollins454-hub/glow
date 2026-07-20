@@ -72,7 +72,7 @@ export function DmQuotePanel({
   return (
     <div className="card border-brand-500/25 bg-brand-500/5 p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/15 text-brand-300">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/15 text-brand-text">
           <MessageCircle className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -84,20 +84,20 @@ export function DmQuotePanel({
       </div>
 
       {created ? (
-        <div className="mt-4 space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+        <div className="mt-4 space-y-3 rounded-xl border border-emerald-500/30 bg-success-soft p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-emerald-200">
             <CheckCircle2 className="h-4 w-4" />
             Quote link ready - paste into your DM
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <code className="max-w-full truncate rounded-lg bg-white/[0.06] px-2 py-1 text-xs text-ink-soft">
+            <code className="max-w-full truncate rounded-lg bg-fill-hover px-2 py-1 text-xs text-ink-soft">
               {created.url}
             </code>
             <CopyButton text={created.url} label="Copy link" />
           </div>
           <div>
             <p className="text-xs font-medium text-ink-faint">DM message</p>
-            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-white/[0.06] p-3 text-xs text-ink-soft">
+            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-fill-hover p-3 text-xs text-ink-soft">
               {created.copy.instagram}
             </pre>
             <div className="mt-2">
@@ -159,9 +159,9 @@ export function DmQuotePanel({
                       value={a.id}
                       checked={selectedAddons.has(a.id)}
                       onChange={() => toggleAddon(a.id)}
-                      className="h-4 w-4 rounded border-black/20 text-brand-400"
+                      className="h-4 w-4 rounded border-edge text-brand-400"
                     />
-                    <Sparkles className="h-3.5 w-3.5 text-brand-300" />
+                    <Sparkles className="h-3.5 w-3.5 text-brand-text" />
                     {a.name}
                   </label>
                 ))}

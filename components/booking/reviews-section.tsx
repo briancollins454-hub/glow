@@ -52,7 +52,7 @@ export function ReviewsSection({
           >
             <div className="flex items-center gap-2">
               <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/15 font-display text-sm font-semibold text-brand-300"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/15 font-display text-sm font-semibold text-brand-text"
                 aria-hidden
               >
                 {clientLabel.charAt(0).toUpperCase()}

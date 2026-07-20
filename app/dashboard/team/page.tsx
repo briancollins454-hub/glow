@@ -115,12 +115,12 @@ function TeamView({
       </div>
 
       {saved && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Saved.
         </div>
       )}
       {err && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           {ERRORS[err] ?? "Something went wrong. Please try again."}
         </div>
       )}
@@ -202,7 +202,7 @@ function ServicesPicker({
           type="checkbox"
           name="allServices"
           defaultChecked={doesAll}
-          className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+          className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
         />
         All treatments (including ones added later)
       </label>
@@ -216,7 +216,7 @@ function ServicesPicker({
               type="checkbox"
               name={`svc_${s.id}`}
               defaultChecked={!doesAll && restricted.includes(s.id)}
-              className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+              className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
             />
             {s.name}
           </label>
@@ -311,7 +311,7 @@ function StaffCard({
                       type="checkbox"
                       name={`enabled_${weekday}`}
                       defaultChecked={row?.enabled ?? false}
-                      className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                      className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                     />
                     <span className="font-medium">{label}</span>
                   </label>
@@ -414,7 +414,7 @@ function StaffCard({
             <input type="hidden" name="active" value={member.active ? "0" : "1"} />
             <button
               type="submit"
-              className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-white/[0.1]"
+              className="rounded-lg bg-fill-hover px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover"
             >
               {member.active ? "Deactivate (hide from booking page)" : "Reactivate"}
             </button>
@@ -451,7 +451,7 @@ function InactiveStaffCleanup({
   if (bookingCount === 0) {
     return (
       <details className="rounded-xl border border-red-500/30 bg-red-500/5">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-red-300 transition hover:text-red-200 [&::-webkit-details-marker]:hidden">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-danger-text transition hover:text-red-200 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <Trash2 className="h-4 w-4" /> Delete permanently
           </span>
@@ -484,7 +484,7 @@ function InactiveStaffCleanup({
 
   return (
     <details className="rounded-xl border border-red-500/30 bg-red-500/5">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-red-300 transition hover:text-red-200 [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-danger-text transition hover:text-red-200 [&::-webkit-details-marker]:hidden">
         Merge into another staff member
       </summary>
       <form
@@ -509,7 +509,7 @@ function InactiveStaffCleanup({
           person, then remove this profile.
         </p>
         {mergeTargets.length === 0 ? (
-          <p className="text-sm text-red-300">
+          <p className="text-sm text-danger-text">
             Add or reactivate another staff member before you can merge.
           </p>
         ) : (

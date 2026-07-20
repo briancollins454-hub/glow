@@ -6,6 +6,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle, listBookingsByGroup } from "@/lib/db/queries";
 import { fmtDateTime } from "@/lib/format";
 import { usesCardCapture } from "@/lib/subscriptions";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -37,6 +38,7 @@ export default async function RequestedBookingPage({
   const brand = heroBrand(tech.brandColor || "#db2777");
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -58,7 +60,7 @@ export default async function RequestedBookingPage({
             </p>
             <Link
               href={`/${tech.handle}`}
-              className="flex w-full items-center justify-center rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-white/[0.06]"
+              className="flex w-full items-center justify-center rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-fill-hover"
             >
               Back to {tech.businessName}
             </Link>
@@ -69,7 +71,8 @@ export default async function RequestedBookingPage({
         </p>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }
 
 function Row({ label, value }: { label: string; value: string }) {

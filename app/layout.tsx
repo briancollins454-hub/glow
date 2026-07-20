@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
+import { ThemeBootScript } from "@/components/theme/theme-boot-script";
+import { DASHBOARD_THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -11,7 +13,11 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0b0910",
+  // Boot script updates this to match the active theme.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf7fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0910" },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -50,7 +56,6 @@ export const metadata: Metadata = {
       "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
   },
   robots: { index: true, follow: true },
-  // iPhone "Add to Home Screen": full-screen app experience with dark status bar.
   appleWebApp: {
     capable: true,
     title: "Glow",
@@ -64,7 +69,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-GB" className={`${inter.variable} ${grotesk.variable}`}>
+    <html lang="en-GB" className={`${inter.variable} ${grotesk.variable}`} suppressHydrationWarning>
+      <head>
+        <ThemeBootScript storageKey={DASHBOARD_THEME_STORAGE_KEY} preference="system" />
+      </head>
       <body>{children}</body>
     </html>
   );

@@ -101,7 +101,7 @@ const COLS = [
 function CellValue({ value }: { value: Cell }) {
   if (value === "yes") {
     return (
-      <span className="inline-flex items-center gap-1 font-medium text-emerald-300">
+      <span className="inline-flex items-center gap-1 font-medium text-success-text">
         <Check className="h-4 w-4 shrink-0" aria-hidden />
         <span className="sr-only">Yes</span>
       </span>
@@ -132,7 +132,7 @@ export function ComparisonTable() {
               {COLS.map((col) => (
                 <th
                   key={col.key}
-                  className={`p-4 font-semibold ${col.highlight ? "text-brand-300" : "font-medium"}`}
+                  className={`p-4 font-semibold ${col.highlight ? "text-brand-text" : "font-medium"}`}
                 >
                   {col.label}
                 </th>
@@ -167,7 +167,7 @@ export function ComparisonTable() {
             <dl className="mt-3 space-y-2 text-sm">
               {COLS.map((col) => (
                 <div key={col.key} className="flex items-start justify-between gap-3">
-                  <dt className={col.highlight ? "font-semibold text-brand-300" : "text-ink-faint"}>
+                  <dt className={col.highlight ? "font-semibold text-brand-text" : "text-ink-faint"}>
                     {col.label}
                   </dt>
                   <dd className="max-w-[58%] text-right">

@@ -7,6 +7,7 @@ import { isLive } from "@/lib/subscriptions";
 import { rateLimit } from "@/lib/rate-limit";
 import { MessageThread } from "@/components/messages/message-thread";
 import { sendClientMessageAction } from "./actions";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -34,6 +35,7 @@ export default async function ClientThreadPage({
 
   if (!live) {
     return (
+      <BookingThemedPage preference={tech?.bookingTheme}>
       <div className="grid min-h-screen place-items-center bg-cream px-4 py-8">
         <div className="w-full max-w-md">
           <div className="card overflow-hidden p-0">
@@ -50,10 +52,12 @@ export default async function ClientThreadPage({
           </p>
         </div>
       </div>
-    );
+    
+    </BookingThemedPage>);
   }
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-8">
       <div className="flex h-[88dvh] max-h-[720px] w-full max-w-md flex-col">
         <div className="card flex min-h-0 flex-1 flex-col overflow-hidden p-0">
@@ -80,5 +84,6 @@ export default async function ClientThreadPage({
         </p>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }

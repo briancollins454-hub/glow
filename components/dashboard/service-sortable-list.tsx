@@ -57,7 +57,7 @@ function SortableServiceRow({
             type="checkbox"
             checked={selected ?? false}
             onChange={onToggleSelect}
-            className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+            className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
             aria-label="Select service"
           />
         </label>
@@ -65,7 +65,7 @@ function SortableServiceRow({
         <button
           ref={setActivatorNodeRef}
           type="button"
-          className="mt-3 flex h-11 w-10 shrink-0 touch-none cursor-grab flex-col items-center justify-center rounded-xl border border-edge text-ink-faint transition hover:bg-white/[0.06] active:cursor-grabbing"
+          className="mt-3 flex h-11 w-10 shrink-0 touch-none cursor-grab flex-col items-center justify-center rounded-xl border border-edge text-ink-faint transition hover:bg-fill-hover active:cursor-grabbing"
           aria-label="Drag to reorder"
           {...attributes}
           {...listeners}

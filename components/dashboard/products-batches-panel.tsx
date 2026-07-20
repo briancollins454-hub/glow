@@ -38,7 +38,7 @@ export function ProductsBatchesPanel({
   return (
     <div className="card p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/15 text-brand-300">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/15 text-brand-text">
           <Package className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -69,7 +69,7 @@ export function ProductsBatchesPanel({
                 <input type="hidden" name="id" value={p.id} />
                 <button
                   type="submit"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"
                   title="Delete product"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -131,7 +131,7 @@ export function ProductsBatchesPanel({
               {activeBatches.map(({ batch, product, usageCount, reactionCount }) => (
                 <li
                   key={batch.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-edge bg-white/[0.03] px-4 py-2.5 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-edge bg-fill px-4 py-2.5 text-sm"
                 >
                   <div className="min-w-0">
                     <span className="font-medium">{product?.name ?? "Product"}</span>

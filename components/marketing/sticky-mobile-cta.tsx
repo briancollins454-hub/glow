@@ -11,7 +11,7 @@ export function StickyMobileCta() {
         </ButtonLink>
         <Link
           href="/bellarose"
-          className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-edge bg-white/[0.04] px-4 text-sm font-semibold text-ink transition hover:bg-white/[0.08]"
+          className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-edge bg-fill px-4 text-sm font-semibold text-ink transition hover:bg-fill-hover"
         >
           Live demo
         </Link>

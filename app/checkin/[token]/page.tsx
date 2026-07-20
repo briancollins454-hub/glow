@@ -6,6 +6,7 @@ import { getCategory, getReactionCheckinByToken, getTechById } from "@/lib/db/qu
 import { SubmitButton } from "@/components/ui/submit-button";
 import { rateLimit } from "@/lib/rate-limit";
 import { submitCheckinAction } from "./actions";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { title: "Reaction check-in", robots: { index: false, follow: false } };
 
@@ -40,6 +41,7 @@ export default async function CheckinPage({
   const catName = category?.name?.toLowerCase() ?? "your treatment";
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -118,5 +120,6 @@ export default async function CheckinPage({
         </p>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }

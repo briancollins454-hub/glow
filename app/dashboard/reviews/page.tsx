@@ -37,7 +37,7 @@ function ReviewsView({ reviews, clientById }: ReviewsData) {
       </div>
 
       {avg && (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="flex items-center gap-2 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
           <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
           Showing on your page: {avg} average from {approved.length} review{approved.length > 1 ? "s" : ""}.
         </div>
@@ -74,7 +74,7 @@ function ReviewsView({ reviews, clientById }: ReviewsData) {
                   <form action={setReviewStatusAction}>
                     <input type="hidden" name="id" value={r.id} />
                     <input type="hidden" name="status" value="approved" />
-                    <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25">
+                    <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-success-text hover:bg-emerald-500/25">
                       <Eye className="h-3.5 w-3.5" /> Show on my page
                     </button>
                   </form>
@@ -83,14 +83,14 @@ function ReviewsView({ reviews, clientById }: ReviewsData) {
                   <form action={setReviewStatusAction}>
                     <input type="hidden" name="id" value={r.id} />
                     <input type="hidden" name="status" value="hidden" />
-                    <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-white/[0.1]">
+                    <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-fill-hover px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover">
                       <EyeOff className="h-3.5 w-3.5" /> Hide
                     </button>
                   </form>
                 )}
                 <form action={deleteReviewAction}>
                   <input type="hidden" name="id" value={r.id} />
-                  <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink-faint hover:bg-red-500/10 hover:text-red-400">
+                  <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink-faint hover:bg-danger-soft hover:text-red-400">
                     <Trash2 className="h-3.5 w-3.5" /> Delete
                   </button>
                 </form>

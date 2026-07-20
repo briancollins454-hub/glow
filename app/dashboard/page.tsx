@@ -144,7 +144,7 @@ function HomeView({
       </div>
 
       {lateDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Notified {notified ?? "0"} client{(notified === "1" ? "" : "s")} you&apos;re ~{minutes ?? "?"} min late.
@@ -232,7 +232,7 @@ function HomeView({
 }
 
 function StatCard({ icon: Icon, label, value, hint, tone, href }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint: string; tone: "brand" | "blue" | "green" | "amber"; href: string; }) {
-  const tones = { brand: "bg-brand-500/15 text-brand-300", blue: "bg-sky-500/15 text-sky-300", green: "bg-emerald-500/15 text-emerald-300", amber: "bg-amber-500/15 text-amber-300" };
+  const tones = { brand: "bg-brand-500/15 text-brand-text", blue: "bg-sky-500/15 text-info-text", green: "bg-emerald-500/15 text-success-text", amber: "bg-amber-500/15 text-warning-text" };
   return (
     <Link href={href} className="card block p-5 transition hover:shadow-card hover:ring-1 hover:ring-brand-500/40">
       <span className={`grid h-10 w-10 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-5 w-5" /></span>
@@ -245,7 +245,7 @@ function StatCard({ icon: Icon, label, value, hint, tone, href }: { icon: React.
 
 function AlertRow({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: number; href: string }) {
   return (
-    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1 hover:bg-white/[0.06]">
+    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1 hover:bg-fill-hover">
       <span className="flex items-center gap-2">{icon} {label}</span>
       <Badge tone={value > 0 ? "red" : "neutral"}>{value}</Badge>
     </Link>
@@ -254,7 +254,7 @@ function AlertRow({ icon, label, value, href }: { icon: React.ReactNode; label: 
 
 function QuickLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1.5 text-ink-soft hover:bg-white/[0.06] hover:text-ink">
+    <Link href={href} className="flex items-center justify-between rounded-lg px-1 py-1.5 text-ink-soft hover:bg-fill-hover hover:text-ink">
       {label} <ArrowRight className="h-4 w-4" />
     </Link>
   );
@@ -262,10 +262,10 @@ function QuickLink({ href, label }: { href: string; label: string }) {
 
 function InsightCard({ insight }: { insight: BusinessInsight }) {
   const tones = {
-    brand: "border-brand-500/30 bg-brand-500/10 text-brand-300",
-    amber: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-    green: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-    red: "border-red-500/30 bg-red-500/10 text-red-300",
+    brand: "border-brand-500/30 bg-brand-500/10 text-brand-text",
+    amber: "border-amber-500/30 bg-warning-soft text-warning-text",
+    green: "border-emerald-500/30 bg-success-soft text-success-text",
+    red: "border-red-500/30 bg-danger-soft text-danger-text",
   };
   return (
     <Link href={insight.href} className={`rounded-xl border p-4 transition hover:shadow-card ${tones[insight.tone]}`}>

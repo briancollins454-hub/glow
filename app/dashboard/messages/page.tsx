@@ -78,7 +78,7 @@ function MessagesView(data: MessagesData) {
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <MessageSquare className="h-6 w-6 text-ink-faint" />
               <p className="text-sm text-ink-faint">No conversations yet.</p>
-              <Link href="/dashboard/clients" className="text-sm font-medium text-brand-300">Message a client →</Link>
+              <Link href="/dashboard/clients" className="text-sm font-medium text-brand-text">Message a client →</Link>
             </div>
           )}
           {threads.map((t) => (

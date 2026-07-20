@@ -28,11 +28,11 @@ export function RunningLatePanel({
       className={
         compact
           ? "rounded-xl border border-amber-500/25 bg-amber-500/5 p-4"
-          : "rounded-xl border border-amber-500/30 bg-amber-500/10 p-4"
+          : "rounded-xl border border-amber-500/30 bg-warning-soft p-4"
       }
     >
       <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-500/15 text-amber-300">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-500/15 text-warning-text">
           <Clock className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
@@ -58,7 +58,7 @@ export function RunningLatePanel({
                   "rounded-lg px-3 py-1.5 text-sm font-medium transition " +
                   (minutes === m
                     ? "bg-amber-600 text-white"
-                    : "bg-white/[0.06] text-ink-soft hover:text-ink")
+                    : "bg-fill-hover text-ink-soft hover:text-ink")
                 }
               >
                 {m} min
@@ -94,7 +94,7 @@ export function RunningLatePanel({
             Notify today&apos;s clients
           </button>
         ) : (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+          <div className="rounded-xl border border-amber-500/30 bg-warning-soft p-3">
             <p className="flex items-start gap-2 text-sm text-amber-100">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               This emails and texts every client with an appointment still to come today (~{minutes} min late).

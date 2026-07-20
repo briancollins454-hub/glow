@@ -106,7 +106,7 @@ function SupportImportView({ techs }: { techs: Tech[] }) {
                     className={`flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left text-sm transition ${
                       active
                         ? "bg-brand-500/15 text-ink"
-                        : "hover:bg-white/[0.04] text-ink-soft hover:text-ink"
+                        : "hover:bg-fill text-ink-soft hover:text-ink"
                     }`}
                   >
                     <span className="font-medium text-ink">

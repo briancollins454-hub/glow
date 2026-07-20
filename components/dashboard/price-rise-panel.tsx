@@ -78,7 +78,7 @@ export function PriceRisePanel({
   return (
     <div className="card border-emerald-500/25 bg-emerald-500/5 p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-success-text">
           <TrendingUp className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -103,7 +103,7 @@ export function PriceRisePanel({
                   "rounded-lg px-3 py-1.5 text-sm font-medium transition " +
                   (mode === m
                     ? "bg-emerald-600 text-white"
-                    : "bg-white/[0.06] text-ink-soft hover:text-ink")
+                    : "bg-fill-hover text-ink-soft hover:text-ink")
                 }
               >
                 {m === "percent" ? "%" : "£ fixed"}
@@ -150,11 +150,11 @@ export function PriceRisePanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Label>Services to update</Label>
           <div className="flex gap-2 text-xs">
-            <button type="button" onClick={selectAll} className="text-brand-300 hover:underline">
+            <button type="button" onClick={selectAll} className="text-brand-text hover:underline">
               All
             </button>
             <span className="text-ink-faint">·</span>
-            <button type="button" onClick={selectNone} className="text-brand-300 hover:underline">
+            <button type="button" onClick={selectNone} className="text-brand-text hover:underline">
               None
             </button>
           </div>
@@ -166,7 +166,7 @@ export function PriceRisePanel({
               className={
                 "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition " +
                 (selected.has(s.id)
-                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  ? "border-emerald-500/40 bg-success-soft"
                   : "border-edge bg-cream")
               }
             >
@@ -174,7 +174,7 @@ export function PriceRisePanel({
                 type="checkbox"
                 checked={selected.has(s.id)}
                 onChange={() => toggle(s.id)}
-                className="h-4 w-4 rounded border-black/20 text-emerald-500"
+                className="h-4 w-4 rounded border-edge text-emerald-500"
               />
               {s.name}
             </label>
@@ -186,7 +186,7 @@ export function PriceRisePanel({
         <div className="mt-4 overflow-x-auto rounded-xl border border-edge">
           <table className="w-full min-w-[320px] text-sm">
             <thead>
-              <tr className="border-b border-edge bg-white/[0.03] text-left text-xs text-ink-faint">
+              <tr className="border-b border-edge bg-fill text-left text-xs text-ink-faint">
                 <th className="px-3 py-2 font-medium">Service</th>
                 <th className="px-3 py-2 font-medium">Current</th>
                 <th className="px-3 py-2 font-medium">New</th>
@@ -199,7 +199,7 @@ export function PriceRisePanel({
                   <td className="px-3 py-2 font-medium">{row.name}</td>
                   <td className="px-3 py-2 text-ink-soft">{gbp(row.currentPennies)}</td>
                   <td className="px-3 py-2">{gbp(row.newPennies)}</td>
-                  <td className="px-3 py-2 text-right text-emerald-300">+{gbp(row.deltaPennies)}</td>
+                  <td className="px-3 py-2 text-right text-success-text">+{gbp(row.deltaPennies)}</td>
                 </tr>
               ))}
             </tbody>
@@ -224,7 +224,7 @@ export function PriceRisePanel({
             </div>
             <div>
               <p className="text-xs font-medium text-ink-faint">Email / message body</p>
-              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-white/[0.06] p-3 text-xs text-ink-soft">
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-fill-hover p-3 text-xs text-ink-soft">
                 {announcement.email}
               </pre>
               <div className="mt-2">
@@ -233,7 +233,7 @@ export function PriceRisePanel({
             </div>
             <div>
               <p className="text-xs font-medium text-ink-faint">SMS</p>
-              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-white/[0.06] p-3 text-xs text-ink-soft">
+              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-fill-hover p-3 text-xs text-ink-soft">
                 {announcement.sms}
               </pre>
               <div className="mt-2">
@@ -242,7 +242,7 @@ export function PriceRisePanel({
             </div>
             <div>
               <p className="text-xs font-medium text-ink-faint">Instagram / social</p>
-              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-white/[0.06] p-3 text-xs text-ink-soft">
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-fill-hover p-3 text-xs text-ink-soft">
                 {announcement.social}
               </pre>
               <div className="mt-2">
@@ -275,7 +275,7 @@ export function PriceRisePanel({
               Apply new prices to {preview.length} service{preview.length === 1 ? "" : "s"}
             </button>
           ) : (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+            <div className="rounded-xl border border-emerald-500/30 bg-success-soft p-3">
               <p className="flex items-start gap-2 text-sm text-emerald-100">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 This updates your public booking page immediately. Existing appointments are unchanged.

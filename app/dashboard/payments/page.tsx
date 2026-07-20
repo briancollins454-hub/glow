@@ -62,17 +62,17 @@ export default async function PaymentsPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {!stripeConfigured() && (
-            <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
               Payments aren&apos;t configured on this environment yet.
             </div>
           )}
 
           {connected ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-emerald-300">
+              <div className="flex items-center gap-2 text-sm text-success-text">
                 <CheckCircle2 className="h-4 w-4" /> Clients can pay you by card
               </div>
-              <div className="flex items-center gap-2 text-sm text-emerald-300">
+              <div className="flex items-center gap-2 text-sm text-success-text">
                 <Banknote className="h-4 w-4" /> Money goes straight to your bank
               </div>
               <form action={connectStartAction}>
@@ -82,7 +82,7 @@ export default async function PaymentsPage({
           ) : (
             <div className="space-y-3">
               {started && !detailsSubmitted && (
-                <p className="flex items-center gap-2 text-sm text-amber-300">
+                <p className="flex items-center gap-2 text-sm text-warning-text">
                   <AlertTriangle className="h-4 w-4" /> You&apos;re part-way through - just pick up where you left off.
                 </p>
               )}

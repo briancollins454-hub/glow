@@ -113,7 +113,7 @@ function BookingsView({
     <div
       key={b.id}
       className={`flex items-center justify-between gap-2 rounded-xl border border-edge px-4 py-3 ${
-        muted ? "border-edge/60 bg-white/[0.02]" : "bg-cream"
+        muted ? "border-edge bg-fill" : "bg-cream"
       }`}
     >
       <div className={`min-w-0 flex-1 ${muted ? "text-ink-soft" : ""}`}>
@@ -158,24 +158,24 @@ function BookingsView({
       </div>
 
       {blockedDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Time blocked. Clients can book around it.</span>
         </div>
       )}
       {bookingError === "slot" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           That time is not free — they may already have a booking, be off, or outside working hours.
           Pick another slot.
         </div>
       )}
       {bookingError === "missing" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Choose a service and a date &amp; time to add the booking.
         </div>
       )}
       {lateDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Notified {notified ?? "0"} client{(notified === "1" ? "" : "s")} (~{minutes ?? "?"} min late).
@@ -183,16 +183,16 @@ function BookingsView({
         </div>
       )}
       {lateErr && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{lateErr}</div>
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">{lateErr}</div>
       )}
       {noShowFee === "charged" && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{gbp(noShowAmt)} charged to the client&apos;s saved card.</span>
         </div>
       )}
       {noShowFee === "declined" && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           We couldn&apos;t charge {gbp(noShowAmt)} to the saved card — the client&apos;s bank declined it.
           The booking update is still recorded; you can request payment from the client directly.
         </div>
@@ -203,7 +203,7 @@ function BookingsView({
       )}
 
       <details className="card">
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-text">
           <Plus className="h-4 w-4" /> Add a booking manually
         </summary>
         <div className="border-t border-edge p-5">
@@ -232,7 +232,7 @@ function BookingsView({
       />
 
       <details className="card">
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-300">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-text">
           <CalendarOff className="h-4 w-4" /> Block time out
         </summary>
         <div className="border-t border-edge p-5">
@@ -304,7 +304,7 @@ function BookingsView({
                 </div>
                 <form action={deleteWaitlistEntryAction}>
                   <input type="hidden" name="id" value={w.id} />
-                  <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400" title="Remove from list">
+                  <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400" title="Remove from list">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </form>

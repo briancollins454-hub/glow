@@ -135,7 +135,7 @@ export default function LandingPage() {
       {/* 1. Hero */}
       <section className="container-page grid items-center gap-10 py-10 lg:grid-cols-2 lg:gap-12 lg:py-16">
         <div className="animate-fade-in">
-          <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-medium text-brand-300">
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-medium text-brand-text">
             <Sparkles className="h-4 w-4" /> Lash, nail and brow techs
           </span>
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-5xl lg:text-[3.25rem]">
@@ -285,7 +285,7 @@ export default function LandingPage() {
             },
           ].map((item) => (
             <div key={item.title} className="card p-6">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/15 text-brand-300">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/15 text-brand-text">
                 <item.icon className="h-5 w-5" />
               </span>
               <h3 className="mt-4 text-lg font-semibold">{item.title}</h3>
@@ -412,7 +412,7 @@ export default function LandingPage() {
         </div>
         <div className="mx-auto mt-10 grid max-w-3xl gap-5 sm:grid-cols-2">
           <div className="card border-brand-500/40 p-6 sm:p-8">
-            <p className="text-sm font-medium uppercase tracking-wider text-brand-300">Monthly</p>
+            <p className="text-sm font-medium uppercase tracking-wider text-brand-text">Monthly</p>
             <p className="mt-2 font-display text-4xl font-semibold text-ink">
               £9.50 <span className="text-lg font-normal text-ink-faint">first month</span>
             </p>

@@ -98,7 +98,7 @@ function ServicesView({
       </div>
 
       {retestDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Product change recorded. {affected ?? "0"} client{(affected === "1" ? "" : "s")} affected,{" "}
@@ -107,22 +107,22 @@ function ServicesView({
         </div>
       )}
       {retestErr && (
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{retestErr}</div>
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">{retestErr}</div>
       )}
       {productDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Product added to your catalog.</span>
         </div>
       )}
       {batchDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>New batch opened. You can link it when recording patch tests or completing appointments.</span>
         </div>
       )}
       {priceRiseDone && (
-        <div className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Menu prices updated. Share the announcement copy with your clients when you&apos;re ready.</span>
         </div>
@@ -210,13 +210,13 @@ function ServicesView({
               {categories.map((c) => {
                 const count = services.filter((s) => s.categoryId === c.id).length;
                 return (
-                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-white/[0.03] px-3 py-2 text-sm">
+                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-fill px-3 py-2 text-sm">
                     <span>{c.name} <span className="text-ink-faint">· patch test {c.patchTestValidityDays}d · {count} service{count === 1 ? "" : "s"}</span></span>
                     <form action={deleteCategoryAction}>
                       <input type="hidden" name="id" value={c.id} />
                       <button
                         type="submit"
-                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"
                         title={count > 0 ? `Deletes the category AND its ${count} service(s)` : "Delete category"}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -310,13 +310,13 @@ function ServicesView({
                     )}
                     <form action={setServicePhotoAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="serviceId" value={s.id} />
-                      <ImageFileInput name="photo" maxDimension={1600} required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-300" />
+                      <ImageFileInput name="photo" maxDimension={1600} required className="text-xs text-ink-soft file:mr-2 file:rounded-lg file:border-0 file:bg-brand-500/15 file:px-3 file:py-2 file:text-xs file:font-medium file:text-brand-text" />
                       <SubmitButton size="sm" pendingLabel="Uploading…">{photoByService[s.id] ? "Replace" : "Upload"}</SubmitButton>
                     </form>
                     {photoByService[s.id] && (
                       <form action={removeServicePhotoAction}>
                         <input type="hidden" name="serviceId" value={s.id} />
-                        <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10">Remove</Button>
+                        <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-danger-soft">Remove</Button>
                       </form>
                     )}
                   </div>
@@ -326,12 +326,12 @@ function ServicesView({
                   <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><Sparkles className="h-4 w-4 text-brand-400" /> Extras clients can add</p>
                   <div className="space-y-2">
                     {addons.filter((a) => a.serviceId === s.id).map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-white/[0.03] px-4 py-2.5 text-sm">
+                      <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-fill px-4 py-2.5 text-sm">
                         <span>{a.name} <span className="text-ink-faint">+{gbp(a.pricePennies)}</span></span>
                         <form action={deleteAddonAction}>
                           <input type="hidden" name="id" value={a.id} />
                           <input type="hidden" name="serviceId" value={s.id} />
-                          <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button type="submit" className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /></button>
                         </form>
                       </div>
                     ))}
@@ -348,7 +348,7 @@ function ServicesView({
 
                 <form action={deleteServiceAction} className="mt-4 border-t border-edge pt-3">
                   <input type="hidden" name="id" value={s.id} />
-                  <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10">
+                  <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:bg-danger-soft">
                     <Trash2 className="h-4 w-4" /> Delete service
                   </Button>
                   <p className="mt-1 text-xs text-ink-faint">

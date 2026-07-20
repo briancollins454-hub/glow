@@ -36,9 +36,9 @@ export function OnboardingChecklist({
               "Let's get you taking bookings"
             )}
           </p>
-          <span className="text-sm font-medium text-brand-300">{doneCount} of {steps.length} done</span>
+          <span className="text-sm font-medium text-brand-text">{doneCount} of {steps.length} done</span>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-fill-hover">
           <div
             className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all"
             style={{ width: `${Math.max(6, (doneCount / steps.length) * 100)}%` }}
@@ -64,7 +64,7 @@ export function OnboardingChecklist({
                 className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium transition ${
                   step === next
                     ? "bg-brand-600 text-white hover:bg-brand-700"
-                    : "text-brand-400 hover:bg-white/[0.06]"
+                    : "text-brand-400 hover:bg-fill-hover"
                 }`}
               >
                 {step.cta} <ArrowRight className="h-3.5 w-3.5" />

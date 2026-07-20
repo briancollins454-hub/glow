@@ -9,6 +9,7 @@ import { applyBalancePaid } from "@/lib/bookings";
 import { gbp, fmtDateTime } from "@/lib/format";
 import { rateLimit } from "@/lib/rate-limit";
 import { payBalanceAction } from "../actions";
+import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -48,13 +49,16 @@ export default async function PayPage({
 
   if (sp.err === "rate") {
     return (
+      <BookingThemedPage preference={tech?.bookingTheme}>
       <div className="grid min-h-screen place-items-center bg-cream px-4 py-10 text-center text-sm text-ink-soft">
         Too many attempts, try again shortly.
       </div>
-    );
+    
+    </BookingThemedPage>);
   }
 
   return (
+    <BookingThemedPage preference={tech?.bookingTheme}>
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <div className="card overflow-hidden">
@@ -87,7 +91,8 @@ export default async function PayPage({
         <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-ink-faint"><CalendarHeart className="h-3.5 w-3.5" /> Powered by Glow</p>
       </div>
     </div>
-  );
+  
+    </BookingThemedPage>);
 }
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {

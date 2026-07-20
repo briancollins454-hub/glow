@@ -59,12 +59,12 @@ function BillingView({
       </div>
 
       {welcome && !live && (
-        <div className="flex items-center gap-2 rounded-xl bg-brand-500/10 px-4 py-3 text-sm text-brand-300">
+        <div className="flex items-center gap-2 rounded-xl bg-brand-500/10 px-4 py-3 text-sm text-brand-text">
           <Sparkles className="h-4 w-4" /> Account created! Activate your plan below to unlock your tools and switch on bookings.
         </div>
       )}
       {status === "started" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Card saved - your subscription is being activated. This can take a few seconds.
         </div>
       )}
@@ -78,7 +78,7 @@ function BillingView({
         </div>
       )}
       {status === "cancelled" && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">Checkout cancelled - no charge was made.</div>
+        <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">Checkout cancelled - no charge was made.</div>
       )}
 
       <Card>
@@ -105,7 +105,7 @@ function BillingView({
       {!live && (
         <>
           {!configured && (
-            <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
               Payments aren&apos;t configured on this environment yet.
             </div>
           )}
@@ -146,7 +146,7 @@ function BillingView({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <code className="rounded-xl border border-edge bg-white/[0.04] px-3 py-2 text-sm">
+            <code className="rounded-xl border border-edge bg-fill px-3 py-2 text-sm">
               {APP_HOST}/signup?ref={tech.handle}
             </code>
             <Badge tone="brand">{referredCount} signed up via your link</Badge>

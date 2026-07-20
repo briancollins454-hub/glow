@@ -103,7 +103,7 @@ export function BookingsMonthCalendar({
               type="button"
               aria-label="Previous month"
               onClick={() => setCursor((c) => startOfMonth(addMonths(c, -1)))}
-              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -112,7 +112,7 @@ export function BookingsMonthCalendar({
               type="button"
               aria-label="Next month"
               onClick={() => setCursor((c) => startOfMonth(addMonths(c, 1)))}
-              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-white/[0.07]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -146,7 +146,7 @@ export function BookingsMonthCalendar({
                   "flex min-h-14 flex-col items-center justify-start gap-1 rounded-lg px-1 py-1.5 text-sm transition sm:min-h-16",
                   isSelected
                     ? "bg-brand-500/20 ring-1 ring-brand-400/50"
-                    : "hover:bg-white/[0.06]",
+                    : "hover:bg-fill-hover",
                   isToday && !isSelected ? "ring-1 ring-edge" : "",
                 ].join(" ")}
               >
@@ -159,7 +159,7 @@ export function BookingsMonthCalendar({
                   {dayNum}
                 </span>
                 {count > 0 ? (
-                  <span className="rounded-md bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-brand-300">
+                  <span className="rounded-md bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-brand-text">
                     {count}
                   </span>
                 ) : (
@@ -191,7 +191,7 @@ export function BookingsMonthCalendar({
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <Link
                           href={`/dashboard/bookings/${b.id}`}
-                          className="truncate font-medium hover:text-brand-300"
+                          className="truncate font-medium hover:text-brand-text"
                         >
                           {clientById[b.clientId] ?? "Client"}
                         </Link>

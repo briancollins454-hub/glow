@@ -33,7 +33,7 @@ function FeedbackView() {
       </div>
 
       {sent && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Sent - thank you! If we build it, you&apos;ll be the first to know.
         </div>
       )}

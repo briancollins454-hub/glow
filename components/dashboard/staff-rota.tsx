@@ -179,11 +179,11 @@ export function StaffRotaEditor({
           This week
         </Button>
         {hasSavedWeek ? (
-          <span className="rounded-lg bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">
+          <span className="rounded-lg bg-success-soft px-2 py-1 text-xs text-success-text">
             Rota saved
           </span>
         ) : (
-          <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-xs text-ink-faint">
+          <span className="rounded-lg bg-fill-hover px-2 py-1 text-xs text-ink-faint">
             Using usual hours
           </span>
         )}
@@ -202,7 +202,7 @@ export function StaffRotaEditor({
                   type="checkbox"
                   checked={day.enabled}
                   onChange={(e) => updateDay(i, { enabled: e.target.checked })}
-                  className="h-4 w-4 rounded border-black/20 text-brand-400 focus:ring-brand-300"
+                  className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                 />
                 <span className="font-medium">{label}</span>
               </label>
