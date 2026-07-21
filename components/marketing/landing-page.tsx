@@ -16,7 +16,7 @@ import {
 import { ButtonLink } from "@/components/ui/button";
 import { ComparisonTable } from "@/components/marketing/comparison-table";
 import { StickyMobileCta } from "@/components/marketing/sticky-mobile-cta";
-import { trackPageView } from "@/lib/page-views";
+import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 
 export const revalidate = 3600;
 
@@ -107,10 +107,9 @@ const jsonLd = {
 };
 
 export default function LandingPage() {
-  trackPageView({ path: "/" });
-
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
+      <PageViewBeacon path="/" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

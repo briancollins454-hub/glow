@@ -6,6 +6,7 @@ import { notFound, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, FolderInput, Search } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { MoveToGlowImport } from "@/components/dashboard/move-to-glow-import";
+import { OwnerNav } from "@/components/owner/owner-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fmtDate } from "@/lib/format";
@@ -69,6 +70,8 @@ function SupportImportView({ techs }: { techs: Tech[] }) {
           not notified automatically.
         </p>
       </div>
+
+      <OwnerNav />
 
       <Card>
         <CardHeader>

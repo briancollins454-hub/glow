@@ -36,6 +36,28 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
   const sid = process.env.TWILIO_ACCOUNT_SID!;
   const auth = Buffer.from(`${sid}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64");
 
+  const log = async (ok: boolean, error?: string) => {
+    try {
+      const { randomId } = await import("@/lib/ids");
+      const { supabaseService } = await import("@/lib/supabase/service");
+      await supabaseService()
+        .from("outbound_sends")
+        .insert({
+          id: randomId("out"),
+          channel: "sms",
+          destination: phone.slice(0, 32),
+          subject: null,
+          kind: "sms",
+          ok,
+          error: error ?? null,
+          techId: null,
+          idempotencyKey: null,
+        });
+    } catch {
+      // Migration may be pending.
+    }
+  };
+
   try {
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
@@ -50,12 +72,16 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
       }),
     });
     if (!res.ok) {
-      console.error("[twilio] send failed:", res.status, await res.text());
+      const text = await res.text();
+      console.error("[twilio] send failed:", res.status, text);
+      await log(false, `HTTP ${res.status}`);
       return false;
     }
+    await log(true);
     return true;
   } catch (err) {
     console.error("[twilio] send threw:", (err as Error).message);
+    await log(false, (err as Error).message);
     return false;
   }
 }

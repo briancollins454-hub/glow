@@ -58,7 +58,7 @@ import { TrustStrip } from "@/components/booking/trust-strip";
 import { BookingFooterCta } from "@/components/booking/booking-footer-cta";
 import { StickyBookCta } from "@/components/booking/sticky-book-cta";
 import { RetestBookingNotice } from "@/components/booking/retest-booking-notice";
-import { trackPageView } from "@/lib/page-views";
+import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { groupServicesForMenu } from "@/lib/booking/service-groups";
 import type { ServiceNavGroup } from "@/components/booking/booking-header";
 
@@ -122,8 +122,6 @@ export default async function PublicBookingPage({
   // handles return a real HTTP 404 instead of a streamed soft-404.
   const tech = await loadPublicTechByHandle(handle);
   if (!tech) notFound();
-
-  trackPageView({ techId: tech.id, path: `/${handle}` });
 
   const [categories, allServices] = await Promise.all([
     listCategories(sb, tech.id),
@@ -388,6 +386,7 @@ export default async function PublicBookingPage({
   if (selected) {
     return (
       <div className="min-h-screen bg-cream">
+        <PageViewBeacon path={`/${handle}`} techId={tech.id} />
         <BookingFlowHeader businessName={tech.businessName} handle={tech.handle} />
         <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
           {usePairedFlow && patchTestService ? (
@@ -446,6 +445,7 @@ export default async function PublicBookingPage({
 
   return (
     <div className="min-h-screen bg-cream pb-24 lg:pb-16">
+      <PageViewBeacon path={`/${handle}`} techId={tech.id} />
       <BookingHeader
         businessName={tech.businessName}
         brand={brand}
