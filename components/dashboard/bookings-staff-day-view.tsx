@@ -4,6 +4,10 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingActions } from "@/components/dashboard/booking-actions";
+import {
+  CalendarManualBlock,
+  CalendarRotaUnavailable,
+} from "@/components/dashboard/calendar-time-block";
 import { statusBadge } from "@/components/dashboard/status";
 import { fmtDate, fmtTime } from "@/lib/format";
 import {
@@ -97,10 +101,12 @@ export function BookingsStaffDayView({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle>Team day view</CardTitle>
+            <CardTitle>{columns.length === 1 ? "Day view" : "Team day view"}</CardTitle>
             <CardDescription>
-              One column per person. Grey blocks are outside working hours (including this week&apos;s
-              rota) or one-off blocked time; hatched pink strips are service cleanup buffers.
+              Pink-edged <span className="font-medium text-brand-text">Blocked</span> slots are
+              one-off blocks you added (tap to remove). Grey <span className="font-medium">Unavailable</span>{" "}
+              shading is outside working hours (edit in Opening hours or Team rota). Hatched pink strips
+              under bookings are service cleanup buffers.
             </CardDescription>
           </div>
           <div className="flex items-center gap-1">
@@ -253,16 +259,11 @@ export function BookingsStaffDayView({
                       const top = (range.startM - windowStart) * PX_PER_MIN;
                       const blockHeight = Math.max(20, (range.endM - range.startM) * PX_PER_MIN - 2);
                       return (
-                        <div
+                        <CalendarRotaUnavailable
                           key={`hours-${i}`}
-                          className="calendar-unavailable absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge px-1.5 py-1"
+                          staffName={col.name}
                           style={{ top, height: blockHeight }}
-                          title="Outside working hours"
-                        >
-                          <p className="calendar-unavailable-label truncate text-[10px] font-medium">
-                            Unavailable
-                          </p>
-                        </div>
+                        />
                       );
                     })}
                     {colOffs.map((o) => {
@@ -275,19 +276,12 @@ export function BookingsStaffDayView({
                       const top = (startM - windowStart) * PX_PER_MIN;
                       const blockHeight = Math.max(20, (endM - startM) * PX_PER_MIN - 2);
                       return (
-                        <div
+                        <CalendarManualBlock
                           key={o.id}
-                          className="calendar-unavailable absolute inset-x-1 z-[1] overflow-hidden rounded-lg border border-edge px-1.5 py-1"
+                          block={o}
+                          staffName={col.name}
                           style={{ top, height: blockHeight }}
-                          title={o.reason || "Blocked"}
-                        >
-                          <p className="calendar-unavailable-label truncate text-[10px] font-medium">
-                            Unavailable
-                          </p>
-                          {o.reason && (
-                            <p className="truncate text-[10px] text-ink-faint">{o.reason}</p>
-                          )}
-                        </div>
+                        />
                       );
                     })}
                     {laidOut.map(({ booking: b, lane, laneCount, startM, endM }) => {

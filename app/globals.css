@@ -45,6 +45,11 @@ html[data-theme="dark"] {
   --calendar-unavailable-fill: transparent;
   --calendar-unavailable-stripe: rgb(255 255 255 / 0.04);
   --calendar-unavailable-label: var(--ink-soft);
+  /* Manual "Block time out" rows: brand-tinted edge so they read as deletable. */
+  --calendar-block-fill: rgb(236 72 153 / 0.08);
+  --calendar-block-stripe: rgb(236 72 153 / 0.18);
+  --calendar-block-label: var(--brand-text);
+  --calendar-block-edge: rgb(236 72 153 / 0.45);
 
   --success: #10b981;
   --success-soft: rgb(16 185 129 / 0.15);
@@ -113,6 +118,10 @@ html[data-theme="light"] {
   --calendar-unavailable-fill: rgb(20 10 30 / 0.1);
   --calendar-unavailable-stripe: rgb(20 10 30 / 0.16);
   --calendar-unavailable-label: var(--ink-soft);
+  --calendar-block-fill: rgb(219 39 119 / 0.08);
+  --calendar-block-stripe: rgb(219 39 119 / 0.16);
+  --calendar-block-label: var(--brand-text);
+  --calendar-block-edge: rgb(219 39 119 / 0.4);
 
   --success: #059669;
   --success-soft: #ecfdf5;
@@ -267,6 +276,25 @@ html[data-theme="light"] {
   }
   .calendar-unavailable-label {
     color: var(--calendar-unavailable-label);
+  }
+  /* Manual Block time out rows (deletable) vs rota outside-hours shading. */
+  .calendar-manual-block {
+    background-color: var(--calendar-block-fill);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--calendar-block-stripe),
+      var(--calendar-block-stripe) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+    border-color: var(--calendar-block-edge);
+    cursor: pointer;
+  }
+  .calendar-manual-block-label {
+    color: var(--calendar-block-label);
+  }
+  .calendar-rota-unavailable {
+    cursor: default;
   }
 }
 

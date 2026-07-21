@@ -20,7 +20,7 @@ import {
   createTimeOff,
   deleteService,
   deleteServices,
-  deleteTimeOff,
+  deleteTimeOffForTech,
   findOrCreateClient,
   getBooking,
   getCategory,
@@ -622,11 +622,29 @@ export async function addTimeOffAction(formData: FormData) {
 }
 
 export async function deleteTimeOffAction(formData: FormData) {
-  const { sb } = await ctx();
-  await deleteTimeOff(sb, String(formData.get("id") ?? ""));
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "").trim();
   const returnTo = safeDashboardReturn(formData, "/dashboard/availability");
+  if (!id) {
+    revalidatePath("/dashboard/availability");
+    revalidatePath("/dashboard/bookings");
+    redirect(returnTo);
+  }
+  const result = await deleteTimeOffForTech(sb, id, tech.id);
+  if (result.ok) {
+    await audit(sb, tech.id, "time_off_deleted", "time_off", id, {
+      startIso: result.deleted.startIso,
+      endIso: result.deleted.endIso,
+      reason: result.deleted.reason,
+      staffId: result.deleted.staffId ?? null,
+    });
+  }
+  // Forbidden / missing: no-op redirect (do not leak other accounts).
   revalidatePath("/dashboard/availability");
   revalidatePath("/dashboard/bookings");
+  if (returnTo.startsWith("/dashboard/bookings")) {
+    redirect(result.ok ? "/dashboard/bookings?unblocked=1" : "/dashboard/bookings");
+  }
   redirect(returnTo);
 }
 
