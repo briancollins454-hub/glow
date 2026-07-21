@@ -118,6 +118,12 @@ export interface Tech {
    */
   bookingNotifyEmailEnabled?: boolean | null;
   /**
+   * "Pay your balance" emails/SMS to clients (48h balance request + the
+   * pay-early button on confirmations). Off = balance settled in person.
+   * Optional until migration 0043; missing = on.
+   */
+  balanceEmailsEnabled?: boolean | null;
+  /**
    * Dashboard appearance: system | dark | light.
    * Optional until migration 0041; missing = system.
    */

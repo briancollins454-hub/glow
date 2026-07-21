@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dueReminders, getBooking, markReminder } from "@/lib/db/queries";
+import { dueReminders, getBooking, getTechById, markReminder } from "@/lib/db/queries";
 import { sendReminder } from "@/lib/notify";
+import { sendsBalanceEmails } from "@/lib/subscriptions";
 
 // Processes reminders whose send time has passed. Called by the Vercel Cron
 // route and the "run now" dashboard button. Uses the service-role client.
@@ -37,6 +38,15 @@ export async function processDueReminders(
       await markReminder(sb, reminder.id, { status: "skipped" });
       skipped++;
       continue;
+    }
+    // Salon settles balances in person: skip already-queued balance requests.
+    if (reminder.kind === "balance_request") {
+      const tech = await getTechById(sb, reminder.techId).catch(() => null);
+      if (!sendsBalanceEmails(tech)) {
+        await markReminder(sb, reminder.id, { status: "skipped" });
+        skipped++;
+        continue;
+      }
     }
     const delivered = await sendReminder(sb, reminder);
     if (delivered) sent++;
