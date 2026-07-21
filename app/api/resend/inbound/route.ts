@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { randomId } from "@/lib/ids";
+import { supabaseService } from "@/lib/supabase/service";
 
 // Inbound support email: Resend receives mail for glow-uk.com (MX record),
 // fires email.received, and we forward the message to the support inbox.
@@ -11,6 +13,29 @@ const FROM = "Glow Support <support@glow-uk.com>";
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function logForward(opts: {
+  resendEmailId?: string;
+  fromAddress?: string;
+  subject?: string;
+  ok: boolean;
+  error?: string;
+}) {
+  try {
+    await supabaseService()
+      .from("inbound_forwards")
+      .insert({
+        id: randomId("inf"),
+        resendEmailId: opts.resendEmailId ?? null,
+        fromAddress: opts.fromAddress ?? null,
+        subject: opts.subject ?? null,
+        ok: opts.ok,
+        error: opts.error ?? null,
+      });
+  } catch {
+    // Migration may be pending.
+  }
 }
 
 export async function POST(req: Request) {
@@ -41,16 +66,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, skipped: event.type });
   }
 
-  // Fetch the full message (webhooks only carry metadata).
   const { data: email, error: getError } = await resend.emails.receiving.get(
     event.data.email_id,
   );
   if (getError || !email) {
     console.error("[inbound] fetch failed:", getError?.message);
+    await logForward({
+      resendEmailId: event.data.email_id,
+      ok: false,
+      error: getError?.message ?? "fetch failed",
+    });
     return NextResponse.json({ error: "fetch failed" }, { status: 500 });
   }
 
-  // Attachments ride along via their hosted URLs (no manual downloading).
   const { data: attachmentsData } = await resend.emails.receiving.attachments.list({
     emailId: event.data.email_id,
   });
@@ -80,9 +108,22 @@ export async function POST(req: Request) {
   });
   if (sendError) {
     console.error("[inbound] forward failed:", sendError.message);
-    // Non-200 so Resend retries later.
+    await logForward({
+      resendEmailId: event.data.email_id,
+      fromAddress: sender,
+      subject,
+      ok: false,
+      error: sendError.message,
+    });
     return NextResponse.json({ error: "forward failed" }, { status: 500 });
   }
+
+  await logForward({
+    resendEmailId: event.data.email_id,
+    fromAddress: sender,
+    subject,
+    ok: true,
+  });
 
   return NextResponse.json({ ok: true });
 }

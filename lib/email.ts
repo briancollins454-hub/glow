@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { randomId } from "@/lib/ids";
+import { supabaseService } from "@/lib/supabase/service";
 
 // Email sending via Resend. No-ops gracefully if RESEND_API_KEY isn't set, so
 // the app (and reminder scheduler) keep working without email configured.
@@ -15,6 +17,34 @@ function getResend(): Resend {
   return client;
 }
 
+async function logOutbound(opts: {
+  ok: boolean;
+  destination: string;
+  subject: string;
+  kind?: string;
+  error?: string | null;
+  techId?: string | null;
+  idempotencyKey?: string;
+}): Promise<void> {
+  try {
+    await supabaseService()
+      .from("outbound_sends")
+      .insert({
+        id: randomId("out"),
+        channel: "email",
+        destination: opts.destination.slice(0, 320),
+        subject: opts.subject.slice(0, 500),
+        kind: opts.kind ?? null,
+        ok: opts.ok,
+        error: opts.error ?? null,
+        techId: opts.techId ?? null,
+        idempotencyKey: opts.idempotencyKey ?? null,
+      });
+  } catch {
+    // Migration may be pending.
+  }
+}
+
 export async function sendEmail(params: {
   to: string;
   subject: string;
@@ -22,6 +52,8 @@ export async function sendEmail(params: {
   text: string;
   idempotencyKey?: string;
   replyTo?: string;
+  kind?: string;
+  techId?: string | null;
 }): Promise<boolean> {
   if (!emailConfigured() || !params.to) return false;
   try {
@@ -39,11 +71,37 @@ export async function sendEmail(params: {
     );
     if (error) {
       console.error("[resend] send failed:", error.message);
+      await logOutbound({
+        ok: false,
+        destination: params.to,
+        subject: params.subject,
+        kind: params.kind,
+        error: error.message,
+        techId: params.techId,
+        idempotencyKey: params.idempotencyKey,
+      });
       return false;
     }
+    await logOutbound({
+      ok: true,
+      destination: params.to,
+      subject: params.subject,
+      kind: params.kind,
+      techId: params.techId,
+      idempotencyKey: params.idempotencyKey,
+    });
     return true;
   } catch (err) {
     console.error("[resend] send threw:", (err as Error).message);
+    await logOutbound({
+      ok: false,
+      destination: params.to,
+      subject: params.subject,
+      kind: params.kind,
+      error: (err as Error).message,
+      techId: params.techId,
+      idempotencyKey: params.idempotencyKey,
+    });
     return false;
   }
 }

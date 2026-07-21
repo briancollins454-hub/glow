@@ -407,6 +407,18 @@ export async function submitFeedbackAction(formData: FormData) {
   const label = TOPIC_LABEL[topic] ?? "Feedback";
   const to = process.env.FEEDBACK_EMAIL ?? process.env.OPS_ALERT_EMAIL ?? "support@glow-uk.com";
   const { sendEmail } = await import("@/lib/email");
+  const { randomId } = await import("@/lib/ids");
+  try {
+    await sb.from("feedback_submissions").insert({
+      id: randomId("fb"),
+      techId: tech.id,
+      topic,
+      message,
+      status: "new",
+    });
+  } catch {
+    // Migration 0044 may be pending; email still goes out.
+  }
   await sendEmail({
     to,
     replyTo: tech.email,
@@ -416,6 +428,8 @@ export async function submitFeedbackAction(formData: FormData) {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")}</p>`,
     text: `${label} from ${tech.businessName} (${tech.name} · ${tech.email} · glow.app/${tech.handle})\n\n${message}`,
+    kind: "feedback",
+    techId: tech.id,
   });
   await audit(sb, tech.id, "feedback_submitted", "tech", tech.id, { topic });
   redirect("/dashboard/feedback?sent=1");

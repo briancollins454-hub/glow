@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Search, UserRoundX, Wand2 } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
+import { OwnerNav } from "@/components/owner/owner-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -115,6 +116,8 @@ function CleanupView({ techs }: { techs: Tech[] }) {
           listed for manual renaming only.
         </p>
       </div>
+
+      <OwnerNav />
 
       <Card>
         <CardHeader>

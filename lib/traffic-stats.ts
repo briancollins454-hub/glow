@@ -13,6 +13,8 @@ export type TrafficTech = {
   views: number;
   visitors: number;
 };
+export type TrafficRef = { referrer: string; views: number; visitors: number };
+export type TrafficSource = { source: string; views: number; visitors: number };
 
 export type PlatformTraffic = {
   today: TrafficPeriod;
@@ -22,6 +24,10 @@ export type PlatformTraffic = {
   daily: TrafficDaily[];
   topPaths: TrafficPath[];
   topTechs: TrafficTech[];
+  topReferrers: TrafficRef[];
+  topSources: TrafficSource[];
+  /** Signups in the same windows (for conversion tiles). */
+  signups: { last7Days: number; last30Days: number };
 };
 
 function periodFromRow(row: { views: number | string; visitors: number | string } | null): TrafficPeriod {
@@ -40,6 +46,9 @@ export async function getPlatformTraffic(): Promise<PlatformTraffic> {
     daily: [],
     topPaths: [],
     topTechs: [],
+    topReferrers: [],
+    topSources: [],
+    signups: { last7Days: 0, last30Days: 0 },
   };
 
   try {
@@ -59,6 +68,10 @@ export async function getPlatformTraffic(): Promise<PlatformTraffic> {
       pathsRes,
       techsRes,
       techRowsRes,
+      refRes,
+      srcRes,
+      signups7,
+      signups30,
     ] = await Promise.all([
       sb.rpc("traffic_period_stats"),
       sb.rpc("traffic_period_stats", { since: todaySince }),
@@ -68,6 +81,10 @@ export async function getPlatformTraffic(): Promise<PlatformTraffic> {
       sb.rpc("traffic_top_paths", { limit_n: 12, since: since30 }),
       sb.rpc("traffic_top_techs", { limit_n: 12, since: since30 }),
       sb.from("techs").select("id, handle, businessName"),
+      sb.rpc("traffic_top_referrers", { limit_n: 12, since: since30 }),
+      sb.rpc("traffic_top_sources", { limit_n: 12, since: since30 }),
+      sb.from("techs").select("id", { count: "exact", head: true }).gte("createdAt", since7),
+      sb.from("techs").select("id", { count: "exact", head: true }).gte("createdAt", since30),
     ]);
 
     const techById = Object.fromEntries(
@@ -106,8 +123,37 @@ export async function getPlatformTraffic(): Promise<PlatformTraffic> {
         visitors: Number(row.visitors),
       })),
       topTechs,
+      topReferrers: (refRes.data ?? []).map(
+        (row: { referrer: string; views: number; visitors: number }) => ({
+          referrer: row.referrer,
+          views: Number(row.views),
+          visitors: Number(row.visitors),
+        }),
+      ),
+      topSources: (srcRes.data ?? []).map(
+        (row: { source: string; views: number; visitors: number }) => ({
+          source: row.source,
+          views: Number(row.views),
+          visitors: Number(row.visitors),
+        }),
+      ),
+      signups: {
+        last7Days: signups7.count ?? 0,
+        last30Days: signups30.count ?? 0,
+      },
     };
   } catch {
     return empty;
   }
+}
+
+export async function getTechTraffic(techId: string, days = 30) {
+  const sb = supabaseService();
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { count } = await sb
+    .from("page_views")
+    .select("id", { count: "exact", head: true })
+    .eq("techId", techId)
+    .gte("viewedAt", since);
+  return { views: count ?? 0, since };
 }

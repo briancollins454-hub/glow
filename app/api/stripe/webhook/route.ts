@@ -139,6 +139,12 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     console.error("[stripe webhook]", (err as Error).message);
+    try {
+      const { reportError } = await import("@/lib/monitor");
+      await reportError(err, { where: "stripe_webhook", type: event.type });
+    } catch {
+      // ignore
+    }
     return NextResponse.json({ error: "handler failed" }, { status: 500 });
   }
 

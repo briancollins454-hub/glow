@@ -1,21 +1,43 @@
 import { sendEmail } from "@/lib/email";
+import { randomId } from "@/lib/ids";
+import { supabaseService } from "@/lib/supabase/service";
 
-// Lightweight error monitoring: logs everything, and emails the ops inbox for
+// Lightweight error monitoring: logs everything, emails the ops inbox for
 // server errors (rate-limited per error signature so a hot loop can't flood
-// the inbox). Uses Resend, so it needs no extra provider or SDK.
+// the inbox), and persists rows for the owner console.
 
 const OPS_EMAIL = process.env.OPS_ALERT_EMAIL ?? "support@glow-uk.com";
 const WINDOW_MS = 15 * 60 * 1000;
 
-// Per-instance rate limit. Serverless instances each keep their own map, which
-// still caps the flood to one email per signature per instance per window.
 const lastSent = new Map<string, number>();
+
+async function persistError(
+  err: Error,
+  signature: string,
+  context: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await supabaseService()
+      .from("platform_errors")
+      .insert({
+        id: randomId("err"),
+        signature,
+        message: err.message.slice(0, 2000),
+        stack: (err.stack ?? "").slice(0, 8000) || null,
+        context,
+        where: typeof context.where === "string" ? context.where : null,
+      });
+  } catch {
+    // Table may not exist until migration 0044.
+  }
+}
 
 export async function reportError(error: unknown, context: Record<string, unknown> = {}): Promise<void> {
   const err = error instanceof Error ? error : new Error(String(error));
   const signature = `${err.name}:${err.message}`.slice(0, 200);
 
   console.error("[glow-error]", signature, JSON.stringify(context), err.stack ?? "");
+  await persistError(err, signature, context);
 
   const now = Date.now();
   const last = lastSent.get(signature) ?? 0;
@@ -33,6 +55,7 @@ export async function reportError(error: unknown, context: Record<string, unknow
         `${signature}\n\n${contextText}\n\n${err.stack ?? "(no stack)"}`,
       )}</pre>`,
       text: `${signature}\n\n${contextText}\n\n${err.stack ?? "(no stack)"}`,
+      kind: "ops_error",
     });
   } catch {
     // Monitoring must never throw into the request path.

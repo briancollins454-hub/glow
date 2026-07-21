@@ -8,7 +8,7 @@ import { Input, Label } from "@/components/ui/input";
 import { ClearSessionCache } from "@/components/auth/clear-session-cache";
 import { OnceSubmitForm } from "@/components/auth/once-submit-form";
 import { signupAction } from "../actions";
-import { trackPageView } from "@/lib/page-views";
+import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 
 const errors: Record<string, ReactNode> = {
   email: (
@@ -42,10 +42,10 @@ export default async function SignupPage({
 }) {
   const { error, ref } = await searchParams;
   const isTester = (await cookies()).get("glow_offer")?.value === "tester";
-  trackPageView({ path: "/signup" });
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
+      <PageViewBeacon path="/signup" />
       <ClearSessionCache />
       <div className="w-full max-w-md animate-fade-in">
         <Link href="/" className="mb-6 flex items-center justify-center gap-2">

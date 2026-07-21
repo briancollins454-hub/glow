@@ -1,3 +1,15 @@
+/**
+ * Server-side page-view helpers.
+ *
+ * IMPORTANT: Do not call trackPageView from ISR-cached public pages
+ * (landing revalidate=3600, booking revalidate=60). Those only re-run on
+ * cache regeneration, so traffic looked like 0. Real visits are recorded by
+ * PageViewBeacon -> POST /api/t.
+ *
+ * Keep this module for any fully-dynamic server routes that still want
+ * after()-based tracking.
+ */
+
 import { createHash } from "crypto";
 import { after } from "next/server";
 import { headers } from "next/headers";
@@ -24,10 +36,16 @@ async function visitorHash(ip: string, userAgent: string | null): Promise<string
     .slice(0, 32);
 }
 
-async function recordPageView(opts: {
+export type PageViewInput = {
   techId?: string | null;
   path: string;
-}): Promise<void> {
+  referrer?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+};
+
+async function recordPageView(opts: PageViewInput): Promise<void> {
   try {
     const h = await headers();
     const userAgent = h.get("user-agent");
@@ -35,7 +53,7 @@ async function recordPageView(opts: {
 
     const ip = await callerIp();
     const hash = await visitorHash(ip, userAgent);
-    const referrer = h.get("referer")?.slice(0, 500) ?? null;
+    const referrer = opts.referrer ?? h.get("referer")?.slice(0, 500) ?? null;
 
     const sb = supabaseService();
     await sb.from("page_views").insert({
@@ -44,13 +62,16 @@ async function recordPageView(opts: {
       path: opts.path,
       visitorHash: hash,
       referrer,
+      utmSource: opts.utmSource ?? null,
+      utmMedium: opts.utmMedium ?? null,
+      utmCampaign: opts.utmCampaign ?? null,
     });
   } catch {
     // Analytics must never break page loads.
   }
 }
 
-/** Fire-and-forget page view after the response is sent. */
-export function trackPageView(opts: { techId?: string | null; path: string }): void {
+/** Fire-and-forget page view after the response is sent (dynamic routes only). */
+export function trackPageView(opts: PageViewInput): void {
   after(() => recordPageView(opts));
 }
