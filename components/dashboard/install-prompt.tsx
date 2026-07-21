@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { Download, WifiOff, Share, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  clearInstallEvent,
   ensureInstallCapture,
   getInstallEvent,
   isIosSafari,
   isStandalone,
+  promptInstall,
   subscribeInstall,
   type BeforeInstallPromptEvent,
 } from "@/lib/pwa-install";
@@ -111,9 +111,7 @@ export function InstallPrompt() {
             type="button"
             size="sm"
             onClick={async () => {
-              await installEvent.prompt();
-              await installEvent.userChoice;
-              clearInstallEvent();
+              await promptInstall();
               dismiss();
             }}
           >
