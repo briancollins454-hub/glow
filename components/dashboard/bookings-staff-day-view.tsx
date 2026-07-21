@@ -18,13 +18,20 @@ import {
   timeOffOnDate,
   unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
-import { addDaysToDateStr } from "@/lib/rota";
+import { addDaysToDateStr, weekDatesContaining } from "@/lib/rota";
 import { rowsForStaff } from "@/lib/booking/staff";
 import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 const PX_PER_MIN = 1.15;
 const COL_MIN_WIDTH = 160;
+const TIME_AXIS_REM = 3;
 const LANE_GAP_PX = 2;
+
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+function weekdayLabel(dateStr: string): string {
+  return WEEKDAY_SHORT[new Date(`${dateStr}T12:00:00Z`).getUTCDay()] ?? "";
+}
 
 type Props = {
   dateStr: string;
@@ -68,6 +75,13 @@ export function BookingsStaffDayView({
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const dayOffs = timeOffOnDate(offs, dateStr);
+  const weekDates = weekDatesContaining(dateStr);
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   const columns = staffColumnsForDay(staff, dayBookings);
   const knownStaffIds = new Set(staff.map((s) => s.id));
   const { start: windowStart, end: windowEnd } = dayWindowMinutes(
@@ -129,18 +143,50 @@ export function BookingsStaffDayView({
         </div>
       </CardHeader>
       <CardContent>
+        {/* Quick day switcher: every day of the selected week, weekends included. */}
+        <div className="calendar-scroll-x mb-3 flex gap-1.5 pb-1">
+          {weekDates.map((d) => {
+            const isSelected = d === dateStr;
+            const isToday = d === todayStr;
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onDateChange(d)}
+                className={[
+                  "flex min-w-[3.25rem] shrink-0 flex-col items-center rounded-xl border px-2 py-1.5 text-xs transition",
+                  isSelected
+                    ? "border-brand-400/60 bg-brand-500/20 font-semibold text-ink"
+                    : "border-edge bg-cream text-ink-soft hover:bg-fill-hover",
+                ].join(" ")}
+              >
+                <span>{weekdayLabel(d)}</span>
+                <span
+                  className={[
+                    "mt-0.5 grid h-6 w-6 place-items-center rounded-full text-sm tabular-nums",
+                    isToday ? "bg-brand-500 text-white" : "",
+                  ].join(" ")}
+                >
+                  {Number(d.slice(8, 10))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {columns.length === 0 ? (
           <p className="py-6 text-center text-sm text-ink-faint">No team members yet.</p>
         ) : (
-          <div className="overflow-x-auto pb-2">
+          <div className="calendar-scroll-x pb-2">
             <div
               className="grid"
               style={{
-                gridTemplateColumns: `3rem repeat(${columns.length}, minmax(${COL_MIN_WIDTH}px, 1fr))`,
-                minWidth: 3 * 16 + columns.length * COL_MIN_WIDTH,
+                gridTemplateColumns: `${TIME_AXIS_REM}rem repeat(${columns.length}, minmax(${COL_MIN_WIDTH}px, 1fr))`,
+                minWidth: TIME_AXIS_REM * 16 + columns.length * COL_MIN_WIDTH,
               }}
             >
-              <div className="sticky left-0 z-10 bg-surface/95" />
+              {/* Sticky corner + time axis stay put while columns scroll. */}
+              <div className="sticky left-0 z-10 bg-surface" />
               {columns.map((col) => {
                 const count = bookingsInColumn(dayBookings, col.id, knownStaffIds).length;
                 return (
@@ -156,16 +202,18 @@ export function BookingsStaffDayView({
                 );
               })}
 
-              <div className="relative sticky left-0 z-10 bg-surface/95" style={{ height }}>
-                {hours.map((m) => (
-                  <div
-                    key={m}
-                    className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-ink-faint"
-                    style={{ top: (m - windowStart) * PX_PER_MIN }}
-                  >
-                    {formatHour(m)}
-                  </div>
-                ))}
+              <div className="sticky left-0 z-10 bg-surface" style={{ height }}>
+                <div className="relative h-full">
+                  {hours.map((m) => (
+                    <div
+                      key={m}
+                      className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-ink-faint"
+                      style={{ top: (m - windowStart) * PX_PER_MIN }}
+                    >
+                      {formatHour(m)}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {columns.map((col) => {

@@ -180,12 +180,16 @@ export async function importClientsForTech(
   const pending: Pending[] = [];
   let skipped = 0;
 
+  const { isPhoneLikeName } = await import("@/lib/import/name-cleanup");
   for (const cols of rows) {
-    const name = (
+    let name = (
       iName !== -1
         ? cols[iName]
         : [cols[iFirst], iLast !== -1 ? cols[iLast] : ""].filter(Boolean).join(" ")
     ).trim();
+    // Occasional bad rows put the phone number in the name field. When the
+    // file has a real phone column, treat that name as missing.
+    if (name && iPhone !== -1 && isPhoneLikeName(name)) name = "";
     if (!name) {
       skipped++;
       continue;

@@ -240,6 +240,18 @@ html[data-theme="light"] {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /*
+    Horizontal scroller for the team diary columns. Explicit touch-action and
+    momentum scrolling so swiping works inside the installed PWA, and
+    overscroll containment so the swipe never turns into a browser gesture.
+  */
+  .calendar-scroll-x {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+  }
   /* Team / diary outside-hours and blocked-time hatch (theme-token driven). */
   .calendar-unavailable {
     background-color: var(--calendar-unavailable-fill);

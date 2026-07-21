@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { addClientAction } from "../actions";
+import { filterClients } from "@/lib/clients/search";
 import type { Client } from "@/lib/db/types";
 
 type ClientsData = {
@@ -32,16 +33,7 @@ function ClientsView({ clients, visitsByClient }: ClientsData) {
   const s = searchParams.get("s");
   const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c) => {
-      const name = c.name?.toLowerCase() ?? "";
-      const email = c.email?.toLowerCase() ?? "";
-      const phone = c.phone?.toLowerCase() ?? "";
-      return name.includes(q) || email.includes(q) || phone.includes(q);
-    });
-  }, [clients, query]);
+  const filtered = useMemo(() => filterClients(clients, query), [clients, query]);
 
   return (
     <div className="space-y-6">

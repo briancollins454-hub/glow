@@ -56,12 +56,20 @@ function AdminView({
           <Crown className="h-6 w-6 text-brand-400" /> Owner
         </h1>
         <p className="text-sm text-ink-soft">Only you can see this page.</p>
-        <Link
-          href="/dashboard/admin/support-import"
-          className="mt-3 inline-flex items-center gap-2 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm font-medium text-ink transition hover:border-brand-400/40"
-        >
-          <FolderInput className="h-4 w-4 text-brand-400" /> Support import
-        </Link>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/admin/support-import"
+            className="inline-flex items-center gap-2 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm font-medium text-ink transition hover:border-brand-400/40"
+          >
+            <FolderInput className="h-4 w-4 text-brand-400" /> Support import
+          </Link>
+          <Link
+            href="/dashboard/admin/client-name-cleanup"
+            className="inline-flex items-center gap-2 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm font-medium text-ink transition hover:border-brand-400/40"
+          >
+            <UserCheck className="h-4 w-4 text-brand-400" /> Client name cleanup
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
