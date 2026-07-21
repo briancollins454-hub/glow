@@ -417,9 +417,30 @@ export async function createTimeOff(sb: SB, t: Omit<TimeOff, "id">): Promise<voi
   const { error } = await sb.from("time_off").insert(row);
   if (error) throw new Error(error.message);
 }
+export async function getTimeOff(sb: SB, id: string): Promise<TimeOff | null> {
+  const { data, error } = await sb.from("time_off").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as TimeOff | null;
+}
 export async function deleteTimeOff(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("time_off").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Delete a time-off row only when it belongs to this tech account.
+ * Returns false when missing or on another account (tenancy guard).
+ */
+export async function deleteTimeOffForTech(
+  sb: SB,
+  id: string,
+  techId: string,
+): Promise<{ ok: true; deleted: TimeOff } | { ok: false; reason: "not_found" | "forbidden" }> {
+  const row = await getTimeOff(sb, id);
+  if (!row) return { ok: false, reason: "not_found" };
+  if (row.techId !== techId) return { ok: false, reason: "forbidden" };
+  await deleteTimeOff(sb, id);
+  return { ok: true, deleted: row };
 }
 
 // ---------------- Clients ----------------

@@ -77,6 +77,7 @@ function BookingsView({
   const lateDone = searchParams.get("late");
   const lateErr = searchParams.get("lateerr");
   const blockedDone = searchParams.get("blocked");
+  const unblockedDone = searchParams.get("unblocked");
   const notified = searchParams.get("notified");
   const minutes = searchParams.get("minutes");
   const noShowFee = searchParams.get("noshowfee");
@@ -88,7 +89,8 @@ function BookingsView({
   const bufferByServiceId = bufferMapFromServices(services);
 
   const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
-  const showStaff = staff.length > 1;
+  // Day diary (with tappable blocks) for one or more staff; list-only when no staff rows.
+  const showStaff = staff.length >= 1;
   const [selectedDate, setSelectedDate] = useState(() => dateStrInTz(new Date()));
 
   const todayStr = fmtDate(new Date().toISOString());
@@ -152,7 +154,7 @@ function BookingsView({
         <h1 className="font-display text-2xl font-semibold">Calendar</h1>
         <p className="text-sm text-ink-soft">
           {showStaff
-            ? "Month overview plus a team day view with a column for each person."
+            ? "Month overview plus a day view with a column for each person. Tap a pink-edged Blocked slot to remove it."
             : "All your appointments in one place."}
         </p>
       </div>
@@ -161,6 +163,12 @@ function BookingsView({
         <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Time blocked. Clients can book around it.</span>
+        </div>
+      )}
+      {unblockedDone && (
+        <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Block removed. That slot is bookable again.</span>
         </div>
       )}
       {bookingError === "slot" && (

@@ -128,15 +128,19 @@ export default async function ThemeAuditPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display text-xl font-semibold">Calendar unavailable hatch</h2>
+        <h2 className="font-display text-xl font-semibold">Calendar unavailable vs manual block</h2>
         <p className="text-sm text-ink-soft">
-          Outside working hours and blocked time on the team diary. Light mode uses a stronger
-          neutral fill so the hatch reads clearly against the open background.
+          Grey hatching is outside working hours (not deletable). Pink-edged Blocked rows are
+          one-off blocks from Block time out (tappable to delete).
         </p>
-        <div className="relative h-28 overflow-hidden rounded-xl border border-edge bg-cream">
-          <div className="calendar-unavailable absolute inset-x-1 top-2 h-20 overflow-hidden rounded-lg border border-edge px-1.5 py-1">
+        <div className="relative h-44 overflow-hidden rounded-xl border border-edge bg-cream">
+          <div className="calendar-unavailable absolute inset-x-1 top-2 h-16 overflow-hidden rounded-lg border border-edge px-1.5 py-1">
             <p className="calendar-unavailable-label text-[10px] font-medium">Unavailable</p>
-            <p className="mt-0.5 text-[10px] text-ink-faint">Blocked / outside hours</p>
+            <p className="mt-0.5 text-[10px] text-ink-faint">Outside hours</p>
+          </div>
+          <div className="calendar-manual-block absolute inset-x-1 top-20 h-16 overflow-hidden rounded-lg border px-1.5 py-1">
+            <p className="calendar-manual-block-label text-[10px] font-semibold">Blocked</p>
+            <p className="mt-0.5 text-[10px] text-ink-faint">Lunch</p>
           </div>
         </div>
       </section>
