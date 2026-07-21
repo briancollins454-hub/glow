@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { ClientPicker } from "@/components/dashboard/client-picker";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
 import { groupServicesForDashboard } from "@/lib/booking/service-groups";
 import { rowsForStaff } from "@/lib/booking/staff";
@@ -130,16 +131,9 @@ export function ManualBookingForm({
 
   return (
     <form action={addManualBookingAction} className="grid gap-3 sm:grid-cols-2">
-      <div>
+      <div className="sm:col-span-2">
         <Label>Existing client</Label>
-        <Select name="clientId" defaultValue="">
-          <option value="">- new client -</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+        <ClientPicker clients={clients} name="clientId" />
       </div>
 
       <div className="sm:col-span-2">

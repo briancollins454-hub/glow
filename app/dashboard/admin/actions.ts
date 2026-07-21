@@ -157,6 +157,91 @@ export async function supportImportBookingsAction(formData: FormData) {
   });
 }
 
+export type ClientNameCleanupRow = {
+  clientId: string;
+  currentName: string;
+  currentPhone: string;
+  issue: "digits" | "blank";
+  proposedName: string;
+  proposedPhone: string;
+  movedDigitsToPhone: boolean;
+};
+
+/**
+ * Preview malformed imported client names for one account: phone-number
+ * runs (6+ digits) in the name, or fully blank names. Read-only; nothing is
+ * written until applyClientNameCleanupAction confirms specific clients.
+ */
+export async function previewClientNameCleanupAction(
+  techId: string,
+): Promise<{ ok: true; rows: ClientNameCleanupRow[] } | { ok: false; error: string }> {
+  await adminCtx();
+  const id = techId.trim();
+  if (!id) return { ok: false, error: "Choose an account first." };
+
+  const sb = supabaseService();
+  const target = await getTechById(sb, id);
+  if (!target) return { ok: false, error: "Account not found." };
+
+  const { findMalformedClients } = await import("@/lib/import/name-cleanup");
+  const { listClients } = await import("@/lib/db/queries");
+  const clients = await listClients(sb, target.id);
+
+  const rows = findMalformedClients(clients).map(({ client, proposal }) => ({
+    clientId: client.id,
+    currentName: client.name,
+    currentPhone: client.phone,
+    issue: proposal.issue,
+    proposedName: proposal.name,
+    proposedPhone: proposal.phone,
+    movedDigitsToPhone: proposal.movedDigitsToPhone,
+  }));
+  return { ok: true, rows };
+}
+
+/**
+ * Apply the digits-in-name fixes previewed above for the ticked clients.
+ * Blank-name clients are never written here (they need manual naming).
+ * Strictly scoped: every client must belong to the given tech account.
+ */
+export async function applyClientNameCleanupAction(
+  techId: string,
+  clientIds: string[],
+): Promise<{ ok: true; fixed: number; skipped: number } | { ok: false; error: string }> {
+  const { tech: admin } = await adminCtx();
+  const id = techId.trim();
+  if (!id) return { ok: false, error: "Choose an account first." };
+  if (clientIds.length === 0) return { ok: false, error: "Tick at least one client to fix." };
+
+  const sb = supabaseService();
+  const target = await getTechById(sb, id);
+  if (!target) return { ok: false, error: "Account not found." };
+
+  const { proposeNameFix } = await import("@/lib/import/name-cleanup");
+  const { getClient, updateClient } = await import("@/lib/db/queries");
+
+  let fixed = 0;
+  let skipped = 0;
+  for (const clientId of clientIds) {
+    const client = await getClient(sb, clientId);
+    // Scope guard: never touch a client on another account.
+    if (!client || client.techId !== target.id) {
+      skipped++;
+      continue;
+    }
+    const proposal = proposeNameFix(client);
+    if (!proposal || proposal.issue !== "digits" || !proposal.name) {
+      skipped++;
+      continue;
+    }
+    await updateClient(sb, client.id, { name: proposal.name, phone: proposal.phone });
+    fixed++;
+  }
+
+  await adminAudit(admin.id, "admin_client_name_cleanup", target.id);
+  return { ok: true, fixed, skipped };
+}
+
 /** Toggle the £1 tester offer on an account (fixes pre-fix signups too). */
 export async function setTesterOfferAction(formData: FormData) {
   const { tech: admin } = await adminCtx();

@@ -194,13 +194,29 @@ export function appointmentServiceCol(headers: string[]): number {
   return isAcuityAppointmentCsv(headers) ? col(headers, "type") : -1;
 }
 
+/** Purely phone-like text (digits, +, spaces, dashes) with 7+ digits. */
+function isPhoneLikeValue(value: string): boolean {
+  const v = value.trim();
+  if (!v) return false;
+  if (!/^[+()\d\s./-]+$/.test(v)) return false;
+  return v.replace(/\D/g, "").length >= 7;
+}
+
 /**
  * Client name from an appointments row. Acuity exports may use a single
  * "Client Name" column or split First Name / Last Name, depending on version.
+ * A name field that is purely a phone number (occasional bad export rows) is
+ * treated as missing when the file has a separate phone column, so numbers
+ * never become client names.
  */
 export function appointmentClientName(cols: string[], headers: string[]): string {
   const iFirst = col(headers, "firstname", "first");
   const iLast = col(headers, "lastname", "last", "surname");
+  const hasPhoneCol =
+    col(headers, "phone", "phonenumber", "mobile", "mobilenumber", "telephone") !== -1;
+  const dropPhoneLike = (value: string) =>
+    hasPhoneCol && isPhoneLikeValue(value) ? "" : value.trim();
+
   // Prefer split name columns when present (Acuity). A generic "name" alias
   // can otherwise pick up an intake-form field and produce odd client names.
   if (iFirst !== -1) {
@@ -212,13 +228,12 @@ export function appointmentClientName(cols: string[], headers: string[]): string
       // (e.g. "Emma" + "Dog portrait" when Calendar is "Dog portrait").
       if (cal && last.toLowerCase() === cal.toLowerCase()) last = "";
     }
-    return [cols[iFirst] ?? "", last]
-      .map((s) => s.trim())
+    return [dropPhoneLike(cols[iFirst] ?? ""), dropPhoneLike(last)]
       .filter(Boolean)
       .join(" ");
   }
   const iClient = col(headers, ...IMPORT_COLS.appointmentClient);
-  if (iClient !== -1) return (cols[iClient] ?? "").trim();
+  if (iClient !== -1) return dropPhoneLike(cols[iClient] ?? "");
   return "";
 }
 

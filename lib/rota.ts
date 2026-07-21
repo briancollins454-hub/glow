@@ -33,6 +33,12 @@ export function currentWeekStartLondon(now = new Date()): string {
   return mondayOfWeekContaining(dateStr);
 }
 
+/** All 7 dates (Mon..Sun, YYYY-MM-DD) of the week containing dateStr. */
+export function weekDatesContaining(dateStr: string): string[] {
+  const monday = mondayOfWeekContaining(dateStr);
+  return Array.from({ length: 7 }, (_, i) => addDaysToDateStr(monday, i));
+}
+
 /** e.g. "21 Jul 2026" for a weekStart Monday. */
 export function formatWeekLabel(weekStart: string): string {
   const d = new Date(`${weekStart}T12:00:00Z`);
