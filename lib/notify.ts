@@ -5,6 +5,7 @@ import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsConfigured, techAllowsSms } from "@/lib/sms";
+import { sendsBalanceEmails } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 import { renderReminderText } from "@/lib/reminder-copy";
 
@@ -55,7 +56,8 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
     case "confirmation":
       heading = "You're booked in!";
       bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Deposit paid: ${gbp(booking.depositPennies)}<br/>Balance due on the day: <strong>${gbp(booking.balancePennies)}</strong>`;
-      if (booking.balancePennies > 0) {
+      // Salons that settle in person hide the pay-early button (Settings toggle).
+      if (booking.balancePennies > 0 && sendsBalanceEmails(tech)) {
         buttonLabel = "Pay balance early";
         buttonUrl = payUrl;
       }

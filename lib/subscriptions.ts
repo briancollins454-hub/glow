@@ -35,6 +35,17 @@ export function usesCardCapture(
   return tech.noShowProtection === "card_capture" && isPaymentsReady(tech);
 }
 
+/**
+ * True when clients should get "pay your balance" emails/SMS (the 48h balance
+ * request and the pay-early button on confirmations). Salons that settle in
+ * person turn this off in Settings. Missing = on (pre-0043 migration).
+ */
+export function sendsBalanceEmails(
+  tech: { balanceEmailsEnabled?: boolean | null } | null | undefined,
+): boolean {
+  return tech?.balanceEmailsEnabled !== false;
+}
+
 export function planLabel(tech: Pick<Tech, "plan" | "subscriptionStatus">): string {
   if (tech.subscriptionStatus === "comped") return "Complimentary";
   if (tech.plan === "annual") return "Annual (£180/yr)";

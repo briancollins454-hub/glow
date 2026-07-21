@@ -527,6 +527,22 @@ export default function SettingsPage() {
             <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
               <input
                 type="checkbox"
+                name="balanceEmailsEnabled"
+                defaultChecked={tech.balanceEmailsEnabled !== false}
+                className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
+              />
+              <span>
+                <span className="font-medium">&ldquo;Pay your balance&rdquo; emails</span>
+                <span className="mt-0.5 block text-xs text-ink-faint">
+                  Emails clients a secure pay link 48 hours before their appointment. Turn this off
+                  if you take the remaining balance in store — confirmations and appointment
+                  reminders still send as normal.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
                 name="bookingNotifyEmailEnabled"
                 defaultChecked={tech.bookingNotifyEmailEnabled !== false}
                 className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"

@@ -496,24 +496,37 @@ export async function rescheduleReminders(sb: SupabaseClient, booking: Booking):
     });
   }
   if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
-    const balanceAt = startMs - 48 * HOUR;
-    await createReminder(sb, {
-      techId: booking.techId,
-      bookingId: booking.id,
-      clientId: null,
-      channel: "email",
-      kind: "balance_request",
-      sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
-      status: "scheduled",
-      preview: "",
-      sentAtIso: null,
-    });
+    if (await balanceEmailsOnFor(sb, booking.techId)) {
+      const balanceAt = startMs - 48 * HOUR;
+      await createReminder(sb, {
+        techId: booking.techId,
+        bookingId: booking.id,
+        clientId: null,
+        channel: "email",
+        kind: "balance_request",
+        sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
+        status: "scheduled",
+        preview: "",
+        sentAtIso: null,
+      });
+    }
   }
   try {
     const { getTechById } = await import("@/lib/db/queries");
     await syncBookingToGoogle(sb, await getTechById(sb, booking.techId), booking);
   } catch {
     // Calendar sync is best-effort.
+  }
+}
+
+/** Whether this account wants "pay your balance" emails (Settings toggle). */
+async function balanceEmailsOnFor(sb: SupabaseClient, techId: string): Promise<boolean> {
+  try {
+    const { sendsBalanceEmails } = await import("@/lib/subscriptions");
+    const { getTechById } = await import("@/lib/db/queries");
+    return sendsBalanceEmails(await getTechById(sb, techId));
+  } catch {
+    return true;
   }
 }
 
@@ -549,18 +562,20 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
   }
 
   if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
-    const balanceAt = startMs - 48 * HOUR;
-    await createReminder(sb, {
-      techId: booking.techId,
-      bookingId: booking.id,
-      clientId: null,
-      channel: "email",
-      kind: "balance_request",
-      sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
-      status: "scheduled",
-      preview: "",
-      sentAtIso: null,
-    });
+    if (await balanceEmailsOnFor(sb, booking.techId)) {
+      const balanceAt = startMs - 48 * HOUR;
+      await createReminder(sb, {
+        techId: booking.techId,
+        bookingId: booking.id,
+        clientId: null,
+        channel: "email",
+        kind: "balance_request",
+        sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
+        status: "scheduled",
+        preview: "",
+        sentAtIso: null,
+      });
+    }
   }
   try {
     const { schedulePreCareConfirmation } = await import("@/lib/pre-care");
