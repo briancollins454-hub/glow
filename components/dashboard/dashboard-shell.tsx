@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { CalendarHeart, ExternalLink, LifeBuoy, Lightbulb, LogOut } from "lucide-react";
 import type { Tech } from "@/lib/db/types";
@@ -11,6 +12,7 @@ import { useUnreadMessages } from "@/components/dashboard/unread-messages-badge"
 import { logoutAction } from "@/app/(auth)/actions";
 import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { clearDashboardCache } from "@/lib/dashboard/client-cache";
+import { ensureInstallCapture } from "@/lib/pwa-install";
 
 export function DashboardShell({
   tech,
@@ -26,6 +28,12 @@ export function DashboardShell({
   children: React.ReactNode;
 }) {
   const unread = useUnreadMessages();
+
+  // Capture beforeinstallprompt as early as the shell mounts so Settings
+  // can offer a real one-click Install even if the bottom banner was dismissed.
+  useEffect(() => {
+    ensureInstallCapture();
+  }, []);
 
   return (
     <div className="min-h-screen bg-cream">

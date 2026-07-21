@@ -48,6 +48,20 @@ export function subscribeInstall(fn: () => void): () => void {
   return () => subscribers.delete(fn);
 }
 
+/**
+ * Trigger the browser install UI from a user gesture.
+ * Returns "unavailable" when the browser never gave us beforeinstallprompt
+ * (iOS Safari, Firefox, or Chrome criteria not met yet).
+ */
+export async function promptInstall(): Promise<"accepted" | "dismissed" | "unavailable"> {
+  const event = deferred;
+  if (!event) return "unavailable";
+  await event.prompt();
+  const { outcome } = await event.userChoice;
+  clearInstallEvent();
+  return outcome;
+}
+
 /** Already running as an installed PWA (Android/desktop display-mode, or iOS standalone). */
 export function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
