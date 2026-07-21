@@ -15,6 +15,7 @@ import {
 } from "../actions";
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
+import { InstallAppCard } from "@/components/dashboard/install-app-card";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
 import { ThemePreferencePicker } from "@/components/theme/theme-preference-picker";
 import { gbp } from "@/lib/format";
@@ -207,6 +208,21 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <GoogleCalendarPanel tech={tech} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Install the app
+          </CardTitle>
+          <CardDescription>
+            Put Glow on your home screen so it opens full screen like an app. This option always
+            lives here if you dismissed the pop-up.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InstallAppCard />
         </CardContent>
       </Card>
 

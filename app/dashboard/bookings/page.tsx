@@ -166,7 +166,9 @@ function BookingsView({
       {bookingError === "slot" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           That time is not free — they may already have a booking, be off, or outside working hours.
-          Pick another slot.
+          Pick another slot, or tick Custom time to book it anyway. Two bookings can&apos;t share the
+          exact same start minute for one person, so stagger them by a minute if you&apos;re
+          double-booking.
         </div>
       )}
       {bookingError === "missing" && (

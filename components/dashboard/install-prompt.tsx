@@ -3,13 +3,18 @@
 import { useEffect, useState } from "react";
 import { Download, WifiOff, Share, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
-};
+import {
+  clearInstallEvent,
+  ensureInstallCapture,
+  getInstallEvent,
+  isIosSafari,
+  isStandalone,
+  subscribeInstall,
+  type BeforeInstallPromptEvent,
+} from "@/lib/pwa-install";
 
 // Snooze a dismissed prompt so we don't nag on every dashboard load.
+// (Settings > Install the app stays available permanently.)
 const DISMISS_KEY = "glow_install_dismissed_at";
 const DISMISS_DAYS = 14;
 
@@ -32,33 +37,6 @@ function markDismissed(): void {
   }
 }
 
-/** Already running as an installed PWA (Android/desktop display-mode, or iOS standalone). */
-function isStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  const displayStandalone = window.matchMedia?.("(display-mode: standalone)").matches ?? false;
-  const iosStandalone =
-    (navigator as unknown as { standalone?: boolean }).standalone === true;
-  return displayStandalone || iosStandalone;
-}
-
-/**
- * iOS Safari never fires `beforeinstallprompt`, so there's no automatic install
- * button — the user must use Share → Add to Home Screen. Detect that case so we
- * can show manual instructions. iPadOS 13+ reports as "MacIntel" with touch, so
- * we check maxTouchPoints too. Chrome/Firefox on iOS (CriOS/FxiOS) are excluded
- * because the Add to Home Screen steps differ from Safari's.
- */
-function isIosSafari(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  const iDevice =
-    /iphone|ipod|ipad/i.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (!iDevice) return false;
-  if (/crios|fxios|edgios/i.test(ua)) return false;
-  return true;
-}
-
 export function InstallPrompt() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIos, setShowIos] = useState(false);
@@ -74,32 +52,32 @@ export function InstallPrompt() {
       });
     }
 
+    // Shared capture: the same deferred event also powers Settings > Install.
+    ensureInstallCapture();
+
     // Only offer an install path when we're not already installed and haven't
-    // been snoozed. Android/desktop Chrome/Edge fire beforeinstallprompt below;
+    // been snoozed. Android/desktop Chrome/Edge fire beforeinstallprompt;
     // iOS Safari needs the manual card.
     if (!isStandalone() && !recentlyDismissed() && isIosSafari()) {
       setShowIos(true);
     }
 
-    const onBeforeInstall = (event: Event) => {
-      event.preventDefault();
-      if (isStandalone() || recentlyDismissed()) return;
-      setInstallEvent(event as BeforeInstallPromptEvent);
+    const sync = () => {
+      if (isStandalone() || recentlyDismissed()) {
+        setInstallEvent(null);
+        return;
+      }
+      setInstallEvent(getInstallEvent());
     };
-    const onInstalled = () => {
-      setInstallEvent(null);
-      setShowIos(false);
-    };
+    sync();
+    const unsubscribe = subscribeInstall(sync);
+
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    window.addEventListener("appinstalled", onInstalled);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
-      window.removeEventListener("appinstalled", onInstalled);
+      unsubscribe();
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
@@ -135,6 +113,7 @@ export function InstallPrompt() {
             onClick={async () => {
               await installEvent.prompt();
               await installEvent.userChoice;
+              clearInstallEvent();
               dismiss();
             }}
           >

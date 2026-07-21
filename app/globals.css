@@ -218,7 +218,9 @@ html[data-theme="light"] {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
   }
   .card {
-    @apply rounded-2xl border border-edge bg-surface/80 shadow-card backdrop-blur-sm max-lg:backdrop-blur-none;
+    @apply max-w-full rounded-2xl border border-edge bg-surface/80 shadow-card backdrop-blur-sm max-lg:backdrop-blur-none;
+    /* A card must never force the page wider than the phone screen. */
+    min-width: 0;
   }
   html[data-theme="light"] .card {
     @apply bg-surface shadow-card;

@@ -130,7 +130,7 @@ export function ManualBookingForm({
   }
 
   return (
-    <form action={addManualBookingAction} className="grid gap-3 sm:grid-cols-2">
+    <form action={addManualBookingAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <Label>Existing client</Label>
         <ClientPicker clients={clients} name="clientId" />
@@ -270,9 +270,12 @@ export function ManualBookingForm({
               name="startsAt"
               timesForDate={timesForDate}
               emptyTimesHint="No free times — they may be fully booked or not working that day"
+              allowCustomTime
+              customTimeHint="Any time you like, even over an existing booking. Online clients never see this."
             />
             <p className="mt-1.5 text-xs text-ink-faint">
-              Times match working hours and skip slots that already have an appointment.
+              Times match working hours and skip slots that already have an appointment. Tick
+              Custom time to deliberately double-book or book outside hours.
             </p>
           </>
         )}

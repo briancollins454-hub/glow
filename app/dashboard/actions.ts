@@ -1258,9 +1258,15 @@ export async function addManualBookingAction(formData: FormData) {
     }
   }
 
-  // Only allow times that fall in working hours and do not clash (same rules as online).
+  // Custom time: the tech deliberately overbooks or books outside hours.
+  // Online clients never get this path; it only exists on the manual form.
+  const customTime = String(formData.get("customTime") ?? "") === "1";
+
+  // Only allow times that fall in working hours and do not clash (same rules as
+  // online) - unless a custom time was explicitly chosen.
   let slotOk = true;
-  try {
+  if (!customTime) {
+    try {
     const {
       listWorkingHours,
       listTimeOff,
@@ -1319,10 +1325,11 @@ export async function addManualBookingAction(formData: FormData) {
       },
       0,
     );
-    slotOk = free.includes(startIso);
-  } catch {
-    // Soft-fail: do not block manual booking if hours/rota queries fail.
-    slotOk = true;
+      slotOk = free.includes(startIso);
+    } catch {
+      // Soft-fail: do not block manual booking if hours/rota queries fail.
+      slotOk = true;
+    }
   }
   if (!slotOk) redirect("/dashboard/bookings?error=slot");
 

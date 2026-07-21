@@ -36,6 +36,8 @@ export function DateTimePicker({
   defaultValue,
   timesForDate,
   emptyTimesHint = "No free times on this day",
+  allowCustomTime = false,
+  customTimeHint = "Any time, even over an existing booking.",
 }: {
   name: string;
   /** datetime-local format, e.g. 2026-07-03T12:30 */
@@ -43,6 +45,9 @@ export function DateTimePicker({
   /** When set, only these HH:mm values are offered for the selected date. */
   timesForDate?: (dateStr: string) => string[];
   emptyTimesHint?: string;
+  /** Offer a free-typed time that skips the free-slot list (deliberate overbooking). */
+  allowCustomTime?: boolean;
+  customTimeHint?: string;
 }) {
   const now = new Date();
   const initialDate = defaultValue ? defaultValue.slice(0, 10) : "";
@@ -50,6 +55,8 @@ export function DateTimePicker({
 
   const [selected, setSelected] = useState<string>(initialDate);
   const [time, setTime] = useState<string>(initialTime);
+  const [customMode, setCustomMode] = useState(false);
+  const [customTime, setCustomTime] = useState("10:00");
   const [viewYear, setViewYear] = useState<number>(
     initialDate ? parseInt(initialDate.slice(0, 4), 10) : now.getFullYear(),
   );
@@ -99,11 +106,21 @@ export function DateTimePicker({
     if (!times.includes(time)) setTime(times[0]!);
   }, [timesForDate, selected, times, time]);
 
-  const valueReady = Boolean(selected && time && (!timesForDate || times.includes(time)));
+  const usingCustom = allowCustomTime && customMode;
+  const effectiveTime = usingCustom ? customTime : time;
+  const valueReady = Boolean(
+    selected && effectiveTime && (usingCustom || !timesForDate || times.includes(time)),
+  );
 
   return (
     <div className="rounded-xl border border-edge bg-fill p-3">
-      <input type="hidden" name={name} value={valueReady ? `${selected}T${time}` : ""} required />
+      <input
+        type="hidden"
+        name={name}
+        value={valueReady ? `${selected}T${effectiveTime}` : ""}
+        required
+      />
+      {usingCustom && <input type="hidden" name="customTime" value="1" />}
 
       <div className="flex items-center justify-between">
         <button type="button" onClick={prevMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover">
@@ -146,7 +163,15 @@ export function DateTimePicker({
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge pt-3">
         <span className="text-sm text-ink-soft">Time</span>
-        {timesForDate && !selected ? (
+        {usingCustom ? (
+          <input
+            type="time"
+            value={customTime}
+            onChange={(e) => setCustomTime(e.target.value)}
+            className="input h-10 w-28"
+            aria-label="Custom time"
+          />
+        ) : timesForDate && !selected ? (
           <span className="text-sm text-ink-faint">Pick a date first</span>
         ) : timesForDate && times.length === 0 ? (
           <span className="text-sm text-warning-text">{emptyTimesHint}</span>
@@ -164,14 +189,28 @@ export function DateTimePicker({
             ))}
           </select>
         )}
-        {selected && time && (!timesForDate || times.includes(time)) ? (
+        {valueReady ? (
           <span className="ml-auto text-sm font-medium text-brand-text">
-            {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {time}
+            {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {effectiveTime}
           </span>
         ) : (
           <span className="ml-auto text-sm text-ink-faint">Pick a date</span>
         )}
       </div>
+      {allowCustomTime && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-ink-soft">
+            <input
+              type="checkbox"
+              checked={customMode}
+              onChange={(e) => setCustomMode(e.target.checked)}
+              className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
+            />
+            Custom time
+          </label>
+          {customMode && <span className="text-xs text-ink-faint">{customTimeHint}</span>}
+        </div>
+      )}
     </div>
   );
 }
