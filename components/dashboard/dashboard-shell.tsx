@@ -90,7 +90,7 @@ export function DashboardShell({
         </div>
       </header>
 
-      <div className="container-page grid gap-6 py-6 pb-28 lg:grid-cols-[220px_1fr] lg:pb-6">
+      <div className="container-page grid grid-cols-1 gap-6 py-6 pb-28 lg:grid-cols-[220px_1fr] lg:pb-6">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
           <div className="card max-w-full lg:py-1">
             <SidebarNav unread={unread} admin={admin} role={role} />

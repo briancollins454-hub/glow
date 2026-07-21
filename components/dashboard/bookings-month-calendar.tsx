@@ -93,12 +93,12 @@ export function BookingsMonthCalendar({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <CardTitle>Month view</CardTitle>
             <CardDescription>Tap a day to see what&apos;s booked.</CardDescription>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               aria-label="Previous month"
@@ -119,15 +119,15 @@ export function BookingsMonthCalendar({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-ink-faint sm:text-xs">
+      <CardContent className="min-w-0 space-y-4">
+        <div className="grid min-w-0 grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-ink-faint sm:text-xs">
           {WEEKDAYS.map((d) => (
             <div key={d} className="py-1">
               {d}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid min-w-0 grid-cols-7 gap-1">
           {cells.map((cell, i) => {
             if (!cell.inMonth || !cell.dateStr) {
               return <div key={`pad-${i}`} className="min-h-14 rounded-lg sm:min-h-16" />;
