@@ -48,6 +48,14 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        // Connect booking checkouts (deposit / card capture) — confirm + notify once.
+        if (session.metadata?.bookingId && (session.metadata.kind === "deposit" || session.metadata.kind === "card_capture")) {
+          const {
+            completeBookingCheckoutFromSession,
+          } = await import("@/lib/bookings");
+          await completeBookingCheckoutFromSession(sb, session);
+          break;
+        }
         if (session.mode !== "setup") break;
         const techId = session.metadata?.techId;
         const plan = session.metadata?.plan === "annual" ? "annual" : "monthly";
@@ -101,6 +109,18 @@ export async function POST(request: Request) {
           plan,
           stripeSubscriptionId: subscription.id,
         });
+        break;
+      }
+
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (
+          session.metadata?.bookingId &&
+          (session.metadata.kind === "deposit" || session.metadata.kind === "card_capture")
+        ) {
+          const { expireBookingCheckoutFromSession } = await import("@/lib/bookings");
+          await expireBookingCheckoutFromSession(sb, session);
+        }
         break;
       }
 

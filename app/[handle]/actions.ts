@@ -9,7 +9,6 @@ import {
   getClientByEmail,
   getService,
   getTechByHandle,
-  listBookingsByGroup,
   listQuestions,
   listServices,
   patchTestsForClient,
@@ -103,17 +102,8 @@ async function releaseFailedCheckoutBooking(
   booking: Booking,
 ): Promise<void> {
   try {
-    if (booking.groupId) {
-      const group = await listBookingsByGroup(sb, booking.groupId);
-      for (const b of group) {
-        await updateBooking(sb, b.id, { status: "cancelled" }).catch(() => undefined);
-      }
-      return;
-    }
-    await updateBooking(sb, booking.id, { status: "cancelled" }).catch(() => undefined);
-    if (booking.pairedBookingId) {
-      await updateBooking(sb, booking.pairedBookingId, { status: "cancelled" }).catch(() => undefined);
-    }
+    const { releaseAbandonedCheckoutBooking } = await import("@/lib/bookings");
+    await releaseAbandonedCheckoutBooking(sb, booking);
   } catch {
     // Best-effort — never block the friendly payment error redirect.
   }
@@ -764,12 +754,8 @@ export async function createPublicBookingAction(formData: FormData) {
     }
     await saveAnswers(pending.id);
     revalidatePublicAvailability(tech!.id);
-    try {
-      const { notifySalonOfNewBooking } = await import("@/lib/notify");
-      await notifySalonOfNewBooking(sb, pending);
-    } catch {
-      // Notify is best-effort.
-    }
+    // Do not notify the salon yet — wait for checkout.session.completed so
+    // abandoned Checkout tabs never look like real bookings.
     try {
       const url = cardCapture
         ? await createCardCaptureCheckout(tech!, checkoutService, pending, client, APP_URL)

@@ -319,12 +319,7 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
     await propagateGroupStatus(sb, booking, "pending");
     const updated = { ...booking, status: "pending" as const, approvalToken: null };
     await notifyClientBookingApproved(client, tech, service, updated);
-    try {
-      const { notifySalonOfNewBooking } = await import("@/lib/notify");
-      await notifySalonOfNewBooking(sb, updated);
-    } catch {
-      // Notify is best-effort.
-    }
+    // Salon notify waits until checkout.session.completed confirms the booking.
     return updated;
   }
 
@@ -373,7 +368,10 @@ export async function applyDepositPaid(
   booking: Booking,
   paymentIntentId: string,
 ): Promise<void> {
+  // Never resurrect a cancelled booking if cancel_url raced the webhook.
+  if (booking.status === "cancelled" || booking.status === "no_show") return;
   if (booking.depositStatus === "paid") return;
+  const priorStatus = booking.status;
   try {
     await createPayment(sb, {
       techId: booking.techId,
@@ -405,6 +403,21 @@ export async function applyDepositPaid(
   } catch {
     // Calendar sync is best-effort.
   }
+  // Notify only when checkout succeeds (pending → confirmed), never on abandoned holds.
+  if (priorStatus === "pending" || priorStatus === "pending_approval") {
+    try {
+      const { notifySalonOfNewBooking } = await import("@/lib/notify");
+      await notifySalonOfNewBooking(sb, confirmed);
+    } catch {
+      // Notify is best-effort.
+    }
+  }
+  try {
+    const { revalidatePublicAvailability } = await import("@/lib/booking/public-availability-cache");
+    revalidatePublicAvailability(booking.techId);
+  } catch {
+    // Cache bust is best-effort.
+  }
 }
 
 /** Card saved for no-show cover (idempotent): confirm the booking + schedule reminders. */
@@ -414,7 +427,9 @@ export async function applyCardCaptured(
   customerId: string,
   paymentMethodId: string,
 ): Promise<void> {
+  if (booking.status === "cancelled" || booking.status === "no_show") return;
   if (booking.cardPaymentMethodId) return;
+  const priorStatus = booking.status;
   await updateBooking(sb, booking.id, {
     status: "confirmed",
     cardCustomerId: customerId,
@@ -440,6 +455,144 @@ export async function applyCardCaptured(
   } catch {
     // Calendar sync is best-effort.
   }
+  if (priorStatus === "pending" || priorStatus === "pending_approval") {
+    try {
+      const { notifySalonOfNewBooking } = await import("@/lib/notify");
+      await notifySalonOfNewBooking(sb, confirmed);
+    } catch {
+      // Notify is best-effort.
+    }
+  }
+  try {
+    const { revalidatePublicAvailability } = await import("@/lib/booking/public-availability-cache");
+    revalidatePublicAvailability(booking.techId);
+  } catch {
+    // Cache bust is best-effort.
+  }
+}
+
+/**
+ * Cancel a pending checkout hold when the client abandons Stripe (cancel_url or
+ * session expired). Idempotent and safe if the webhook already confirmed.
+ * Returns true when the booking was cancelled.
+ */
+export async function releaseAbandonedCheckoutBooking(
+  sb: SupabaseClient,
+  booking: Booking,
+): Promise<boolean> {
+  const { getBooking, paymentsForBooking } = await import("@/lib/db/queries");
+  const fresh = await getBooking(sb, booking.id);
+  if (!fresh) return false;
+  if (fresh.status !== "pending") return false;
+  if (fresh.cardPaymentMethodId) return false;
+  if (fresh.depositStatus === "paid") return false;
+
+  const payments = await paymentsForBooking(sb, fresh.id);
+  if (
+    payments.some(
+      (p) => p.status === "succeeded" && (p.kind === "deposit" || p.kind === "balance"),
+    )
+  ) {
+    return false;
+  }
+
+  if (fresh.groupId) {
+    const group = await listBookingsByGroup(sb, fresh.groupId);
+    for (const b of group) {
+      if (b.status === "cancelled" || b.status === "completed" || b.status === "no_show") continue;
+      await updateBooking(sb, b.id, { status: "cancelled" });
+    }
+  } else {
+    await updateBooking(sb, fresh.id, { status: "cancelled" });
+    if (fresh.pairedBookingId) {
+      await updateBooking(sb, fresh.pairedBookingId, { status: "cancelled" }).catch(() => undefined);
+    }
+  }
+
+  try {
+    const { revalidatePublicAvailability } = await import("@/lib/booking/public-availability-cache");
+    revalidatePublicAvailability(fresh.techId);
+  } catch {
+    // Cache bust is best-effort.
+  }
+  return true;
+}
+
+/** True when a Checkout session is a public booking deposit or card-capture hold. */
+export function isBookingCheckoutSession(session: {
+  metadata?: Record<string, string> | null;
+}): boolean {
+  const kind = session.metadata?.kind;
+  return !!session.metadata?.bookingId && (kind === "deposit" || kind === "card_capture");
+}
+
+/**
+ * Confirm a booking from checkout.session.completed (Connect deposit payment or
+ * card-capture setup). Idempotent with the success-page return path.
+ */
+export async function completeBookingCheckoutFromSession(
+  sb: SupabaseClient,
+  session: {
+    metadata?: Record<string, string> | null;
+    mode?: string | null;
+    status?: string | null;
+    payment_status?: string | null;
+    payment_intent?: string | { id?: string } | null;
+    setup_intent?: string | { id?: string } | null;
+    customer?: string | { id?: string } | null;
+  },
+): Promise<void> {
+  if (!isBookingCheckoutSession(session)) return;
+  const bookingId = session.metadata!.bookingId!;
+  const kind = session.metadata!.kind!;
+
+  const { getBooking, getTechById } = await import("@/lib/db/queries");
+  const booking = await getBooking(sb, bookingId);
+  if (!booking) return;
+  if (booking.status === "cancelled" || booking.status === "no_show") return;
+
+  if (kind === "deposit") {
+    if (session.payment_status !== "paid") return;
+    const pi =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id ?? "";
+    if (!pi) return;
+    await applyDepositPaid(sb, booking, pi);
+    return;
+  }
+
+  // card_capture setup mode
+  if (session.mode !== "setup" || session.status !== "complete") return;
+  const tech = await getTechById(sb, booking.techId);
+  if (!tech?.stripeConnectAccountId) return;
+  const setupIntentId =
+    typeof session.setup_intent === "string" ? session.setup_intent : session.setup_intent?.id;
+  if (!setupIntentId) return;
+
+  const { stripe } = await import("@/lib/stripe");
+  const s = stripe();
+  const si = await s.setupIntents.retrieve(setupIntentId, undefined, {
+    stripeAccount: tech.stripeConnectAccountId,
+  });
+  const paymentMethodId =
+    typeof si.payment_method === "string" ? si.payment_method : si.payment_method?.id ?? "";
+  const customerId =
+    typeof session.customer === "string" ? session.customer : session.customer?.id ?? "";
+  if (!paymentMethodId || !customerId) return;
+  await applyCardCaptured(sb, booking, customerId, paymentMethodId);
+}
+
+/** Release a pending hold when checkout.session.expired fires. */
+export async function expireBookingCheckoutFromSession(
+  sb: SupabaseClient,
+  session: { metadata?: Record<string, string> | null },
+): Promise<void> {
+  if (!isBookingCheckoutSession(session)) return;
+  const { getBooking } = await import("@/lib/db/queries");
+  const booking = await getBooking(sb, session.metadata!.bookingId!);
+  if (!booking) return;
+  await releaseAbandonedCheckoutBooking(sb, booking);
 }
 
 /** Mark a balance paid (idempotent). */
