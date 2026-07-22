@@ -5,9 +5,20 @@ import type { Booking, Service, Tech } from "@/lib/db/types";
 // Client payments via Stripe Connect: deposits/balances are charged as DIRECT
 // charges on the tech's connected account, so funds go straight to the tech.
 
+/** Checkout holds auto-expire so abandoned tabs free the diary. */
+export const BOOKING_CHECKOUT_EXPIRES_SECONDS = 30 * 60;
+
 function acct(tech: Tech): { stripeAccount: string } {
   if (!tech.stripeConnectAccountId) throw new Error("Tech has no connected account");
   return { stripeAccount: tech.stripeConnectAccountId };
+}
+
+function bookingCheckoutCancelUrl(appUrl: string, tech: Tech, booking: Booking): string {
+  return `${appUrl}/${tech.handle}/checkout-cancel/${booking.balanceToken}`;
+}
+
+function bookingCheckoutExpiresAt(): number {
+  return Math.floor(Date.now() / 1000) + BOOKING_CHECKOUT_EXPIRES_SECONDS;
 }
 
 export async function createDepositCheckout(
@@ -31,7 +42,8 @@ export async function createDepositCheckout(
         },
       ],
       success_url: `${appUrl}/${tech.handle}/booked/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/${tech.handle}?service=${service.id}&err=payment_cancelled`,
+      cancel_url: bookingCheckoutCancelUrl(appUrl, tech, booking),
+      expires_at: bookingCheckoutExpiresAt(),
       metadata: { bookingId: booking.id, kind: "deposit" },
       payment_intent_data: { metadata: { bookingId: booking.id, kind: "deposit" } },
     },
@@ -65,7 +77,8 @@ export async function createCardCaptureCheckout(
     currency: "gbp",
     payment_method_types: ["card" as const],
     success_url: `${appUrl}/${tech.handle}/booked/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/${tech.handle}?service=${service.id}&err=payment_cancelled`,
+    cancel_url: bookingCheckoutCancelUrl(appUrl, tech, booking),
+    expires_at: bookingCheckoutExpiresAt(),
     metadata: { bookingId: booking.id, kind: "card_capture" },
     setup_intent_data: { metadata: { bookingId: booking.id, kind: "card_capture" } },
   };

@@ -38,6 +38,8 @@ describe("createCardCaptureCheckout", () => {
     const [params, opts] = createSessionMock.mock.calls[0];
     expect(params.mode).toBe("setup");
     expect(params.custom_text).toBeTruthy();
+    expect(params.cancel_url).toBe("https://app.example/allurebeauty/checkout-cancel/tok_bal");
+    expect(params.expires_at).toBeTypeOf("number");
     expect(opts).toEqual({ stripeAccount: "acct_1" });
   });
 
@@ -76,5 +78,14 @@ describe("createDepositCheckout", () => {
     await expect(createDepositCheckout(tech, service, booking, "https://app.example")).rejects.toThrow(
       /no URL/i,
     );
+  });
+
+  it("points cancel_url at the checkout-cancel route and sets expires_at", async () => {
+    createSessionMock.mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/cs_dep" });
+    await createDepositCheckout(tech, service, booking, "https://app.example");
+    const [params] = createSessionMock.mock.calls[0];
+    expect(params.cancel_url).toBe("https://app.example/allurebeauty/checkout-cancel/tok_bal");
+    expect(params.expires_at).toBeTypeOf("number");
+    expect(params.metadata).toEqual({ bookingId: booking.id, kind: "deposit" });
   });
 });
