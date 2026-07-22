@@ -49,6 +49,16 @@ import { isLive } from "@/lib/subscriptions";
 
 type Ctx = { sb: SupabaseClient; tech: Tech; role?: "owner" | "staff" };
 
+async function withFallback<T>(label: string, promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise;
+  } catch (err) {
+    console.error(`[dashboard ${label}]`, err);
+    return fallback;
+  }
+}
+
+
 export const DASHBOARD_DATA_KEYS = [
   "home",
   "bookings",
@@ -87,6 +97,7 @@ export async function loadDashboardPageData(
       const dayEnd = `${todayKey}T23:59:59.999Z`;
       const insightFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const insightTo = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+      // Core entity lists stay strict; counts/insights/decorative data fall back.
       const [
         upcoming,
         services,
@@ -104,17 +115,17 @@ export async function loadDashboardPageData(
       ] = await Promise.all([
         listUpcomingBookings(sb, tech.id, nowIso, 20),
         listServices(sb, tech.id),
-        sumMonthIncome(sb, tech.id, monthStart.toISOString()),
-        sumOutstandingBalances(sb, tech.id, nowIso),
-        countTodayBookings(sb, tech.id, dayStart, dayEnd),
-        countUpcomingBookings(sb, tech.id, nowIso),
-        countBlacklistedClients(sb, tech.id),
-        countNoShowBookings(sb, tech.id),
-        listInsightBookings(sb, tech.id, insightFrom, insightTo),
-        listRecentPayments(sb, tech.id, insightFrom),
+        withFallback("home/monthIncome", sumMonthIncome(sb, tech.id, monthStart.toISOString()), 0),
+        withFallback("home/outstanding", sumOutstandingBalances(sb, tech.id, nowIso), 0),
+        withFallback("home/todayCount", countTodayBookings(sb, tech.id, dayStart, dayEnd), 0),
+        withFallback("home/upcomingCount", countUpcomingBookings(sb, tech.id, nowIso), 0),
+        withFallback("home/blacklisted", countBlacklistedClients(sb, tech.id), 0),
+        withFallback("home/noShows", countNoShowBookings(sb, tech.id), 0),
+        withFallback("home/insightBookings", listInsightBookings(sb, tech.id, insightFrom, insightTo), []),
+        withFallback("home/recentPayments", listRecentPayments(sb, tech.id, insightFrom), []),
         listClients(sb, tech.id),
         listBookingsInWindow(sb, tech.id, dayStart, dayEnd),
-        listPastBookingsNeedingWrapUp(sb, tech.id, nowIso, 25),
+        withFallback("home/settleUp", listPastBookingsNeedingWrapUp(sb, tech.id, nowIso, 25), []),
       ]);
       const lateCascadeCount = filterLateCascadeBookings(
         todayBookings,
@@ -162,12 +173,12 @@ export async function loadDashboardPageData(
           listServices(sb, tech.id),
           listCategories(sb, tech.id),
           listClients(sb, tech.id),
-          listWaitlist(sb, tech.id).catch(() => []),
-          listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
-          listTimeOff(sb, tech.id).catch(() => []),
-          listWorkingHours(sb, tech.id).catch(() => []),
-          listAddons(sb, tech.id, { activeOnly: true }).catch(() => []),
-          listRotaHours(sb, tech.id, { fromWeek, toWeek }).catch(() => []),
+          withFallback("bookings/waitlist", listWaitlist(sb, tech.id), []),
+          withFallback("bookings/staff", listStaff(supabaseService(), tech.id, { activeOnly: true }), []),
+          withFallback("bookings/offs", listTimeOff(sb, tech.id), []),
+          withFallback("bookings/hours", listWorkingHours(sb, tech.id), []),
+          withFallback("bookings/addons", listAddons(sb, tech.id, { activeOnly: true }), []),
+          withFallback("bookings/rota", listRotaHours(sb, tech.id, { fromWeek, toWeek }), []),
         ]);
       const owner = staff.find((s) => s.role === "owner");
       const { workingHoursForStaff } = await import("@/lib/booking/staff");
@@ -207,7 +218,7 @@ export async function loadDashboardPageData(
         listClients(sb, tech.id),
         listBookings(sb, tech.id),
         listProducts(sb, tech.id),
-        batchSummaries(sb, tech.id),
+        withFallback("services/batchSummaries", batchSummaries(sb, tech.id), []),
         listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
       ]);
       const signed = await signedPhotoUrls(
@@ -247,7 +258,7 @@ export async function loadDashboardPageData(
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([
         listClients(sb, tech.id),
-        completedVisitCounts(sb, tech.id),
+        withFallback("clients/visits", completedVisitCounts(sb, tech.id), [] as [string, number][]),
       ]);
       return { clients, visitsByClient: Object.fromEntries(visitsEntries) };
     }
@@ -315,9 +326,9 @@ export async function loadDashboardPageData(
       const [reminders, services, checkins, infillNudges, preCare] = await Promise.all([
         listReminders(sb, tech.id),
         listServices(sb, tech.id),
-        listReactionCheckins(sb, tech.id).catch(() => []),
-        listInfillDeadlineNudges(sb, tech.id).catch(() => []),
-        listPreCareConfirmations(sb, tech.id).catch(() => []),
+        withFallback("reminders/checkins", listReactionCheckins(sb, tech.id), []),
+        withFallback("reminders/infillNudges", listInfillDeadlineNudges(sb, tech.id), []),
+        withFallback("reminders/preCare", listPreCareConfirmations(sb, tech.id), []),
       ]);
       const bookingIds = [
         ...new Set([
@@ -341,9 +352,12 @@ export async function loadDashboardPageData(
     }
     case "reviews": {
       const reviews = await listReviewsForTech(sb, tech.id);
-      const clientById = Object.fromEntries(
-        (await getClientNameMap(sb, reviews.map((r) => r.clientId))).entries(),
+      const names = await withFallback(
+        "reviews/names",
+        getClientNameMap(sb, reviews.map((r) => r.clientId)),
+        new Map<string, string>(),
       );
+      const clientById = Object.fromEntries(names.entries());
       return { reviews, clientById };
     }
     case "reports": {
@@ -393,7 +407,18 @@ export async function loadDashboardPageData(
           .select("*")
           .eq("status", "requested")
           .order("requestedAt", { ascending: false }),
-        getPlatformTraffic(),
+        withFallback("admin/traffic", getPlatformTraffic(), {
+          today: { views: 0, visitors: 0 },
+          last7Days: { views: 0, visitors: 0 },
+          last30Days: { views: 0, visitors: 0 },
+          allTime: { views: 0, visitors: 0 },
+          daily: [],
+          topPaths: [],
+          topTechs: [],
+          topReferrers: [],
+          topSources: [],
+          signups: { last7Days: 0, last30Days: 0 },
+        }),
       ]);
       return { techs: techsData ?? [], closures: closuresData ?? [], traffic };
     }

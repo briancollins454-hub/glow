@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendEmail, brandedEmail } from "@/lib/email";
+import { sendEmail, brandedEmail, isValidEmail } from "@/lib/email";
 import { randomId } from "@/lib/ids";
 import type { Tech } from "@/lib/db/types";
 
@@ -60,6 +60,7 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
 
 /** Immediate welcome email with the go-live checklist. */
 export async function sendWelcomeEmail(tech: Tech): Promise<void> {
+  if (!isValidEmail(tech.email)) return;
   const url = (p: string) => `${APP_URL}${p}`;
   const price = tech.signupOffer === "tester" ? "£1" : "£9.50";
   const html = brandedEmail({
@@ -116,7 +117,7 @@ export async function processDueOnboardingEmails(sb: SupabaseClient): Promise<nu
         .select("id", { count: "exact", head: true })
         .eq("techId", tech.id);
       const live = ["trialing", "active", "comped"].includes(tech.subscriptionStatus);
-      if (!(live && (serviceCount ?? 0) > 0)) {
+      if (!(live && (serviceCount ?? 0) > 0) && isValidEmail(tech.email)) {
         const html = brandedEmail({
           brand: BRAND,
           businessName: "Glow",

@@ -8,6 +8,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { TZ, poundsToPennies } from "@/lib/format";
 import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
+import { revalidatePublicAvailability } from "@/lib/booking/public-availability-cache";
 import { slugify } from "@/lib/utils";
 import { randomId, randomToken } from "@/lib/ids";
 import {
@@ -561,6 +562,7 @@ export async function saveAvailabilityAction(formData: FormData) {
   });
   await replaceWorkingHours(sb, tech.id, rows, owner?.id);
   invalidateDashboardTech(tech.authUserId);
+  revalidatePublicAvailability(tech.id);
   revalidatePath("/dashboard/availability");
   revalidatePath(`/${tech.handle}`);
   redirect("/dashboard/availability?saved=1");
@@ -615,6 +617,7 @@ export async function addTimeOffAction(formData: FormData) {
   }
   revalidatePath("/dashboard/availability");
   revalidatePath("/dashboard/bookings");
+  revalidatePublicAvailability(tech.id);
   if (returnTo.startsWith("/dashboard/bookings")) {
     redirect("/dashboard/bookings?blocked=1");
   }
@@ -642,6 +645,7 @@ export async function deleteTimeOffAction(formData: FormData) {
   // Forbidden / missing: no-op redirect (do not leak other accounts).
   revalidatePath("/dashboard/availability");
   revalidatePath("/dashboard/bookings");
+  if (result.ok) revalidatePublicAvailability(tech.id);
   if (returnTo.startsWith("/dashboard/bookings")) {
     redirect(result.ok ? "/dashboard/bookings?unblocked=1" : "/dashboard/bookings");
   }
@@ -1118,6 +1122,9 @@ export async function setBookingStatusAction(formData: FormData) {
     depositStatus: patch.depositStatus,
     balanceStatus: patch.balanceStatus,
   });
+  if (status === "cancelled" || status === "confirmed" || status === "no_show") {
+    revalidatePublicAvailability(tech.id);
+  }
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/clients/${booking.clientId}`);
@@ -1414,6 +1421,7 @@ export async function addManualBookingAction(formData: FormData) {
     paymentTaken,
   });
 
+  revalidatePublicAvailability(tech.id);
   revalidatePath("/dashboard/bookings");
   redirect("/dashboard/bookings?saved=1");
 }
@@ -1475,6 +1483,7 @@ export async function rescheduleBookingAction(formData: FormData) {
     to: { serviceId: service!.id, startIso: start.toISOString() },
   });
 
+  revalidatePublicAvailability(tech.id);
   revalidatePath("/dashboard/bookings");
   redirect(`/dashboard/bookings/${id}?saved=1`);
 }
@@ -1662,6 +1671,7 @@ export async function deleteBookingAction(formData: FormData) {
       serviceId: booking.serviceId,
       startIso: booking.startIso,
     });
+    revalidatePublicAvailability(tech.id);
   }
   revalidatePath("/dashboard/bookings");
   redirect("/dashboard/bookings?saved=1");

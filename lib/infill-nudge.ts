@@ -11,6 +11,7 @@ import {
   updateInfillDeadlineNudge,
 } from "@/lib/db/queries";
 import { notifyClientOfInfillDeadline } from "@/lib/notify";
+import { isValidEmail } from "@/lib/email";
 import type { Booking, InfillDeadlineNudge, Service, Tech } from "@/lib/db/types";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -125,7 +126,7 @@ export async function sendInfillDeadlineNudge(
     return false;
   }
 
-  if (!client.email?.trim() || client.isBlacklisted || client.marketingOptOut) {
+  if (!client.email?.trim() || !isValidEmail(client.email) || client.isBlacklisted || client.marketingOptOut) {
     await updateInfillDeadlineNudge(sb, nudge.id, { status: "skipped" });
     return false;
   }

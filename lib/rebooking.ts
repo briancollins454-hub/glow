@@ -6,7 +6,7 @@ import {
   listServices,
   updateClient,
 } from "@/lib/db/queries";
-import { sendEmail, brandedEmail } from "@/lib/email";
+import { sendEmail, brandedEmail, isValidEmail } from "@/lib/email";
 import type { Booking, Client, Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -83,7 +83,7 @@ export async function processRebookNudges(sb: SupabaseClient): Promise<number> {
     for (const client of clients) {
       if (sent >= MAX_PER_RUN) break;
       // messageToken is required for the unsubscribe link - no token, no marketing.
-      if (!client.email || !client.messageToken || client.isBlacklisted || client.marketingOptOut) continue;
+      if (!client.email || !isValidEmail(client.email) || !client.messageToken || client.isBlacklisted || client.marketingOptOut) continue;
 
       const lastNudge = client.lastNudgeAtIso ? new Date(client.lastNudgeAtIso).getTime() : 0;
       if (now - lastNudge < NUDGE_COOLDOWN_DAYS * DAY) continue;
@@ -95,8 +95,9 @@ export async function processRebookNudges(sb: SupabaseClient): Promise<number> {
       if (hasUpcomingBooking(bookings, client.id, now)) continue;
 
       const ok = await sendNudge(tech, client, serviceName.get(last.serviceId) ?? "");
+      // Stamp even on failure so a dead/invalid address is not retried every cron run.
+      await updateClient(sb, client.id, { lastNudgeAtIso: new Date(now).toISOString() });
       if (ok) {
-        await updateClient(sb, client.id, { lastNudgeAtIso: new Date(now).toISOString() });
         sent++;
       }
     }

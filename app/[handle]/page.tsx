@@ -2,20 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseService } from "@/lib/supabase/service";
 import {
-  listBlockingBookingsInRange,
   listCategories,
   listQuestions,
   listServices,
-  listTimeOff,
   listWorkingHours,
-  listRotaHours,
   getCategory,
   addonsForService,
   listApprovedReviews,
   listClientPhotosForTech,
   getClientNameMap,
 } from "@/lib/db/queries";
-import { addDaysToDateStr, currentWeekStartLondon } from "@/lib/rota";
+import {
+  getCachedPublicAvailabilityBundle,
+} from "@/lib/booking/public-availability-cache";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
 import { signedPhotoUrls } from "@/lib/storage";
 import {
@@ -40,7 +39,6 @@ import {
   workingHoursForStaff,
 } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
 import { acceptsOnlineBookings, usesCardCapture } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
@@ -162,34 +160,24 @@ export default async function PublicBookingPage({
   let pairStaffId: string | null = null;
   let addableForStaff = addable;
   if (selected && live) {
-    const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    const rotaFrom = currentWeekStartLondon();
-    const rotaTo = addDaysToDateStr(rotaFrom, 7 * 12);
-    const [workingHours, timeOff, bookings, qs, adds, category, staffList, rotaHours] =
-      await Promise.all([
-        listWorkingHours(sb, tech.id),
-        listTimeOff(sb, tech.id),
-        listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
-        listQuestions(sb, tech.id, { activeOnly: true }),
-        addonsForService(sb, selected.id, { activeOnly: true }),
-        getCategory(sb, selected.categoryId),
-        listStaff(sb, tech.id, { activeOnly: true }).catch(() => [] as StaffMember[]),
-        listRotaHours(sb, tech.id, { fromWeek: rotaFrom, toWeek: rotaTo }),
-      ]);
+    const [bundle, qs, adds, category] = await Promise.all([
+      getCachedPublicAvailabilityBundle(tech.id),
+      listQuestions(sb, tech.id, { activeOnly: true }),
+      addonsForService(sb, selected.id, { activeOnly: true }),
+      getCategory(sb, selected.categoryId),
+    ]);
+    const {
+      workingHours,
+      timeOff,
+      bookings,
+      rotaHours,
+      staffList,
+      restrictions,
+      dayRulesByStaff,
+    } = bundle;
     minLeadHours = category?.patchTestMinLeadHours ?? 24;
     questions = qs;
     addons = adds;
-
-    const restrictions = staffList.length
-      ? await staffServiceMap(sb, staffList.map((s) => s.id)).catch(
-          () => ({}) as Record<string, string[]>,
-        )
-      : ({} as Record<string, string[]>);
-    const dayRulesByStaff = staffList.length
-      ? await staffServiceDayMap(sb, staffList.map((s) => s.id)).catch(
-          () => ({}) as Record<string, Record<string, number[] | null>>,
-        )
-      : ({} as Record<string, Record<string, number[] | null>>);
 
     const basketServices = usePairedFlow ? [selected] : [selected, ...basketExtras];
     const basketIds = usePairedFlow && patchTestService

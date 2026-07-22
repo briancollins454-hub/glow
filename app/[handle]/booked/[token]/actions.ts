@@ -150,6 +150,8 @@ export async function cancelClientBookingAction(formData: FormData) {
       // Google Calendar sync is best-effort.
     }
   }
+  const { revalidatePublicAvailability } = await import("@/lib/booking/public-availability-cache");
+  revalidatePublicAvailability(tech.id);
   try {
     await syncBookingToGoogle(sb, tech, { ...booking, ...patch });
   } catch {

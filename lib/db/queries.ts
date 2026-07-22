@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomId } from "@/lib/ids";
-import { throwDbError } from "@/lib/db/errors";
+import { dbError, throwDbError } from "@/lib/db/errors";
 import type {
   AccountClosureRequest,
   AuditEvent,
@@ -49,8 +49,12 @@ type SB = SupabaseClient;
 /** PostgREST/Supabase caps a single select at 1000 rows by default. */
 const PAGE_SIZE = 1000;
 
-function must<T>(data: T | null, error: { message: string } | null): T {
-  if (error) throw new Error(error.message);
+function must<T>(
+  data: T | null,
+  error: { message?: string; code?: string; details?: string } | null,
+  fn: string,
+): T {
+  if (error) throw dbError(fn, error);
   return data as T;
 }
 
@@ -71,7 +75,7 @@ async function listAllForTech<T>(
       .eq("techId", techId)
       .order(orderCol, { ascending })
       .range(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError("listAllForTech", error);
     const chunk = (data as T[]) ?? [];
     out.push(...chunk);
     if (chunk.length < PAGE_SIZE) break;
@@ -83,43 +87,43 @@ async function listAllForTech<T>(
 // ---------------- Techs ----------------
 export async function getTechById(sb: SB, id: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechById", error);
   return data as Tech | null;
 }
 export async function getTechByHandle(sb: SB, handle: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").ilike("handle", handle).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByHandle", error);
   return data as Tech | null;
 }
 export async function getTechByAuthUserId(sb: SB, authUserId: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("authUserId", authUserId).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByAuthUserId", error);
   return data as Tech | null;
 }
 export async function getTechByEmail(sb: SB, email: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").ilike("email", email).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByEmail", error);
   return data as Tech | null;
 }
 export async function getTechByStripeCustomerId(sb: SB, customerId: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("stripeCustomerId", customerId).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByStripeCustomerId", error);
   return data as Tech | null;
 }
 export async function getTechByConnectAccountId(sb: SB, accountId: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("stripeConnectAccountId", accountId).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByConnectAccountId", error);
   return data as Tech | null;
 }
 export async function getTechByCalendarToken(sb: SB, token: string): Promise<Tech | null> {
   if (!token) return null;
   const { data, error } = await sb.from("techs").select("*").eq("calendarToken", token).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByCalendarToken", error);
   return data as Tech | null;
 }
 export async function getTechByResetTokenHash(sb: SB, tokenHash: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("resetTokenHash", tokenHash).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTechByResetTokenHash", error);
   return data as Tech | null;
 }
 type ManagedTechField =
@@ -171,7 +175,7 @@ type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
 
 export async function createTech(sb: SB, tech: NewTech): Promise<Tech> {
   const { data, error } = await sb.from("techs").insert({ ...tech }).select("*").single();
-  return must(data as Tech, error);
+  return must(data as Tech, error, "createTech");
 }
 const SCHEMA_COLUMN_RE = /Could not find the '([^']+)' column/;
 
@@ -197,12 +201,12 @@ export async function updateTech(sb: SB, id: string, patch: Partial<Tech>): Prom
     const missing = error.message.match(SCHEMA_COLUMN_RE);
     if (missing) {
       const next = patchWithoutMissingColumn(current, missing[1]);
-      if (!next) throw new Error(error.message);
+      if (!next) throw dbError("updateTech", error);
       current = next;
       continue;
     }
 
-    throw new Error(error.message);
+    throw dbError("updateTech", error);
   }
 
   throw new Error("updateTech: too many schema retries");
@@ -211,16 +215,16 @@ export async function updateTech(sb: SB, id: string, patch: Partial<Tech>): Prom
 // ---------------- Categories ----------------
 export async function listCategories(sb: SB, techId: string): Promise<ServiceCategory[]> {
   const { data, error } = await sb.from("categories").select("*").eq("techId", techId).order("name");
-  return must(data as ServiceCategory[], error) ?? [];
+  return must(data as ServiceCategory[], error, "listCategories") ?? [];
 }
 export async function getCategory(sb: SB, id: string): Promise<ServiceCategory | null> {
   const { data, error } = await sb.from("categories").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getCategory", error);
   return data as ServiceCategory | null;
 }
 export async function createCategory(sb: SB, c: Omit<ServiceCategory, "id" | "createdAt">): Promise<ServiceCategory> {
   const { data, error } = await sb.from("categories").insert({ ...c, id: randomId("cat") }).select("*").single();
-  return must(data as ServiceCategory, error);
+  return must(data as ServiceCategory, error, "createCategory");
 }
 
 // ---------------- Services ----------------
@@ -228,11 +232,11 @@ export async function listServices(sb: SB, techId: string, opts: { activeOnly?: 
   let q = sb.from("services").select("*").eq("techId", techId);
   if (opts.activeOnly) q = q.eq("active", true);
   const { data, error } = await q.order("sortOrder").order("name");
-  return must(data as Service[], error) ?? [];
+  return must(data as Service[], error, "listServices") ?? [];
 }
 export async function getService(sb: SB, id: string): Promise<Service | null> {
   const { data, error } = await sb.from("services").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getService", error);
   return data as Service | null;
 }
 export async function createService(
@@ -241,11 +245,11 @@ export async function createService(
     Partial<Pick<Service, "photoPath" | "aftercareText" | "precareText">>,
 ): Promise<Service> {
   const { data, error } = await sb.from("services").insert({ ...s, id: randomId("svc") }).select("*").single();
-  return must(data as Service, error);
+  return must(data as Service, error, "createService");
 }
 export async function updateService(sb: SB, id: string, patch: Partial<Service>): Promise<void> {
   const { error } = await sb.from("services").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateService", error);
 }
 export async function deleteService(sb: SB, id: string): Promise<void> {
   await deleteServices(sb, [id]);
@@ -281,7 +285,7 @@ export async function deleteServices(sb: SB, ids: string[]): Promise<number> {
     if (bookingErr) throw new Error(bookingErr.message);
 
     const { error } = await sb.from("services").delete().in("id", chunk);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError("deleteServices", error);
   }
 
   return unique.length;
@@ -298,21 +302,21 @@ export async function listAddons(sb: SB, techId: string, opts: { activeOnly?: bo
   let q = sb.from("service_addons").select("*").eq("techId", techId);
   if (opts.activeOnly) q = q.eq("active", true);
   const { data, error } = await q.order("createdAt");
-  return must(data as ServiceAddon[], error) ?? [];
+  return must(data as ServiceAddon[], error, "listAddons") ?? [];
 }
 export async function addonsForService(sb: SB, serviceId: string, opts: { activeOnly?: boolean } = {}): Promise<ServiceAddon[]> {
   let q = sb.from("service_addons").select("*").eq("serviceId", serviceId);
   if (opts.activeOnly) q = q.eq("active", true);
   const { data, error } = await q.order("createdAt");
-  return must(data as ServiceAddon[], error) ?? [];
+  return must(data as ServiceAddon[], error, "addonsForService") ?? [];
 }
 export async function createAddon(sb: SB, a: Omit<ServiceAddon, "id" | "createdAt">): Promise<ServiceAddon> {
   const { data, error } = await sb.from("service_addons").insert({ ...a, id: randomId("add") }).select("*").single();
-  return must(data as ServiceAddon, error);
+  return must(data as ServiceAddon, error, "createAddon");
 }
 export async function deleteAddon(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("service_addons").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteAddon", error);
 }
 
 // ---------------- Working hours / time off ----------------
@@ -324,7 +328,7 @@ export async function listWorkingHours(
   let q = sb.from("working_hours").select("*").eq("techId", techId);
   if (staffId) q = q.eq("staffId", staffId);
   const { data, error } = await q.order("weekday");
-  return must(data as WorkingHour[], error) ?? [];
+  return must(data as WorkingHour[], error, "listWorkingHours") ?? [];
 }
 export async function replaceWorkingHours(
   sb: SB,
@@ -345,7 +349,7 @@ export async function replaceWorkingHours(
       return sid != null ? { ...rest, staffId: sid } : rest;
     });
     const { error } = await sb.from("working_hours").insert(clean);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError("replaceWorkingHours", error);
   }
 }
 /** Rota rows for a tech, optionally one staff member and/or a week range (inclusive). */
@@ -362,7 +366,7 @@ export async function listRotaHours(
   if (error) {
     // Migration not applied yet.
     if (/rota_hours|schema cache/i.test(error.message)) return [];
-    throw new Error(error.message);
+    throw dbError("listRotaHours", error);
   }
   return (data as RotaHour[]) ?? [];
 }
@@ -384,7 +388,7 @@ export async function replaceRotaWeek(
   if (delErr) throw new Error(delErr.message);
   if (!rows.length) return;
   const { error } = await sb.from("rota_hours").insert(rows);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("replaceRotaWeek", error);
 }
 
 /** Remove a saved rota week so booking falls back to flexible / template hours. */
@@ -400,12 +404,12 @@ export async function clearRotaWeek(
     .eq("techId", techId)
     .eq("staffId", staffId)
     .eq("weekStart", weekStart);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("clearRotaWeek", error);
 }
 
 export async function listTimeOff(sb: SB, techId: string): Promise<TimeOff[]> {
   const { data, error } = await sb.from("time_off").select("*").eq("techId", techId).order("startIso");
-  return must(data as TimeOff[], error) ?? [];
+  return must(data as TimeOff[], error, "listTimeOff") ?? [];
 }
 export async function createTimeOff(sb: SB, t: Omit<TimeOff, "id">): Promise<void> {
   // Omit null staffId so pre-migration DBs (no column) still accept inserts.
@@ -415,16 +419,16 @@ export async function createTimeOff(sb: SB, t: Omit<TimeOff, "id">): Promise<voi
       ? { ...rest, staffId, id: randomId("off") }
       : { ...rest, id: randomId("off") };
   const { error } = await sb.from("time_off").insert(row);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("createTimeOff", error);
 }
 export async function getTimeOff(sb: SB, id: string): Promise<TimeOff | null> {
   const { data, error } = await sb.from("time_off").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getTimeOff", error);
   return data as TimeOff | null;
 }
 export async function deleteTimeOff(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("time_off").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteTimeOff", error);
 }
 
 /**
@@ -449,7 +453,7 @@ export async function listClients(sb: SB, techId: string): Promise<Client[]> {
 }
 export async function getClient(sb: SB, id: string): Promise<Client | null> {
   const { data, error } = await sb.from("clients").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getClient", error);
   return data as Client | null;
 }
 export async function getClientByEmail(sb: SB, techId: string, email: string): Promise<Client | null> {
@@ -463,13 +467,13 @@ export async function getClientByEmail(sb: SB, techId: string, email: string): P
     .ilike("email", email.trim())
     .order("createdAt", { ascending: true })
     .limit(1);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getClientByEmail", error);
   return ((data as Client[]) ?? [])[0] ?? null;
 }
 export async function getClientByMessageToken(sb: SB, token: string): Promise<Client | null> {
   if (!token) return null;
   const { data, error } = await sb.from("clients").select("*").eq("messageToken", token).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getClientByMessageToken", error);
   return data as Client | null;
 }
 type ClientInsert = Omit<
@@ -510,7 +514,7 @@ function prepareClientRow(c: ClientInsert): Record<string, unknown> {
 
 export async function createClient(sb: SB, c: ClientInsert): Promise<Client> {
   const { data, error } = await sb.from("clients").insert(prepareClientRow(c)).select("*").single();
-  return must(data as Client, error);
+  return must(data as Client, error, "createClient");
 }
 
 /** Bulk insert clients (used by Move to Glow). Falls back per-row on unique conflicts. */
@@ -535,7 +539,7 @@ export async function createClientsBatch(sb: SB, rows: ClientInsert[]): Promise<
 }
 export async function updateClient(sb: SB, id: string, patch: Partial<Client>): Promise<void> {
   const { error } = await sb.from("clients").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateClient", error);
 }
 export async function findOrCreateClient(
   sb: SB,
@@ -550,7 +554,7 @@ export async function findOrCreateClient(
     const digits = data.phone.replace(/\D/g, "");
     if (digits.length >= 7) {
       const { data: rows, error } = await sb.from("clients").select("*").eq("techId", techId);
-      if (error) throw new Error(error.message);
+      if (error) throw dbError("findOrCreateClient", error);
       existing = ((rows as Client[]) ?? []).find((c) => c.phone.replace(/\D/g, "") === digits) ?? null;
     }
   }
@@ -560,7 +564,7 @@ export async function findOrCreateClient(
       .select("*")
       .eq("techId", techId)
       .ilike("name", data.name.trim());
-    if (error) throw new Error(error.message);
+    if (error) throw dbError("findOrCreateClient", error);
     existing = ((rows as Client[]) ?? [])[0] ?? null;
   }
 
@@ -591,14 +595,16 @@ export async function listBlockingBookingsInRange(
 ): Promise<Booking[]> {
   let q = sb
     .from("bookings")
-    .select("*")
+    // Public slot maths only needs timing + assignment columns (not select("*")).
+    .select("id, techId, startIso, endIso, status, staffId, serviceId, clientId")
     .eq("techId", techId)
     .gte("startIso", fromIso)
     .lt("startIso", toIso)
     .in("status", ["pending_approval", "pending", "confirmed", "completed"]);
   if (staffId) q = q.eq("staffId", staffId);
   const { data, error } = await q.order("startIso");
-  return must(data as Booking[], error) ?? [];
+  if (error) throw dbError("listBlockingBookingsInRange", error);
+  return (data as Booking[]) ?? [];
 }
 
 /** Bounded window for calendar views — avoids loading entire booking history. */
@@ -615,7 +621,7 @@ export async function listBookingsInWindow(
     .gte("startIso", fromIso)
     .lte("startIso", toIso)
     .order("startIso");
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "listBookingsInWindow") ?? [];
 }
 
 export async function listUpcomingBookings(
@@ -632,7 +638,7 @@ export async function listUpcomingBookings(
     .in("status", ["pending", "confirmed"])
     .order("startIso")
     .limit(limit);
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "listUpcomingBookings") ?? [];
 }
 
 /**
@@ -657,7 +663,7 @@ export async function listPastBookingsNeedingWrapUp(
     .in("status", ["pending_approval", "pending", "confirmed", "completed"])
     .order("startIso", { ascending: false })
     .limit(80);
-  const rows = must(data as Booking[], error) ?? [];
+  const rows = must(data as Booking[], error, "listPastBookingsNeedingWrapUp") ?? [];
   const needsWrapUp = rows.filter((b) => {
     if (b.status !== "completed") return true;
     const depositDue =
@@ -677,7 +683,7 @@ export async function listPastBookingsNeedingWrapUp(
 export async function getBookingsByIds(sb: SB, ids: string[]): Promise<Booking[]> {
   if (ids.length === 0) return [];
   const { data, error } = await sb.from("bookings").select("*").in("id", ids);
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "getBookingsByIds") ?? [];
 }
 
 export async function completedVisitCounts(
@@ -689,7 +695,7 @@ export async function completedVisitCounts(
     .select("clientId")
     .eq("techId", techId)
     .eq("status", "completed");
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("completedVisitCounts", error);
   const counts = new Map<string, number>();
   for (const row of (data as { clientId: string }[]) ?? []) {
     counts.set(row.clientId, (counts.get(row.clientId) ?? 0) + 1);
@@ -703,7 +709,7 @@ export async function countBlacklistedClients(sb: SB, techId: string): Promise<n
     .select("*", { count: "exact", head: true })
     .eq("techId", techId)
     .eq("isBlacklisted", true);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("countBlacklistedClients", error);
   return count ?? 0;
 }
 
@@ -713,7 +719,7 @@ export async function countNoShowBookings(sb: SB, techId: string): Promise<numbe
     .select("*", { count: "exact", head: true })
     .eq("techId", techId)
     .eq("status", "no_show");
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("countNoShowBookings", error);
   return count ?? 0;
 }
 
@@ -728,7 +734,7 @@ export async function sumMonthIncome(
     .eq("techId", techId)
     .eq("status", "succeeded")
     .gte("createdAt", monthStartIso);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("sumMonthIncome", error);
   return ((data as Pick<Payment, "kind" | "amountPennies">[]) ?? []).reduce(
     (sum, p) => sum + (p.kind === "refund" ? -p.amountPennies : p.amountPennies),
     0,
@@ -747,7 +753,7 @@ export async function sumOutstandingBalances(
     .gte("startIso", fromIso)
     .eq("balanceStatus", "unpaid")
     .in("status", ["pending", "confirmed"]);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("sumOutstandingBalances", error);
   return ((data as Pick<Booking, "balancePennies">[]) ?? []).reduce(
     (sum, b) => sum + b.balancePennies,
     0,
@@ -765,7 +771,7 @@ export async function countUpcomingBookings(
     .eq("techId", techId)
     .gte("startIso", fromIso)
     .in("status", ["pending", "confirmed"]);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("countUpcomingBookings", error);
   return count ?? 0;
 }
 
@@ -782,7 +788,7 @@ export async function countTodayBookings(
     .gte("startIso", dayStartIso)
     .lte("startIso", dayEndIso)
     .neq("status", "cancelled");
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("countTodayBookings", error);
   return count ?? 0;
 }
 
@@ -870,7 +876,7 @@ export async function getClientsByIds(sb: SB, ids: string[]): Promise<Client[]> 
   const out: Client[] = [];
   for (const chunk of chunkIds(unique, 100)) {
     const { data, error } = await sb.from("clients").select("*").in("id", chunk);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError("getClientsByIds", error);
     out.push(...((data as Client[]) ?? []));
   }
   return out;
@@ -885,7 +891,7 @@ export async function getClientNameMap(
     .from("clients")
     .select("id, name")
     .in("id", clientIds);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getClientNameMap", error);
   return new Map(
     ((data as Pick<Client, "id" | "name">[]) ?? []).map((c) => [c.id, c.name]),
   );
@@ -902,7 +908,7 @@ export async function listRecentPayments(
     .eq("techId", techId)
     .gte("createdAt", sinceIso)
     .order("createdAt");
-  return must(data as Payment[], error) ?? [];
+  return must(data as Payment[], error, "listRecentPayments") ?? [];
 }
 
 export async function listInsightBookings(
@@ -918,26 +924,26 @@ export async function listInsightBookings(
     .gte("startIso", fromIso)
     .lte("startIso", toIso)
     .order("startIso");
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "listInsightBookings") ?? [];
 }
 export async function getBooking(sb: SB, id: string): Promise<Booking | null> {
   const { data, error } = await sb.from("bookings").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getBooking", error);
   return data as Booking | null;
 }
 export async function getBookingByToken(sb: SB, token: string): Promise<Booking | null> {
   const { data, error } = await sb.from("bookings").select("*").eq("balanceToken", token).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getBookingByToken", error);
   return data as Booking | null;
 }
 export async function getBookingByApprovalToken(sb: SB, token: string): Promise<Booking | null> {
   const { data, error } = await sb.from("bookings").select("*").eq("approvalToken", token).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getBookingByApprovalToken", error);
   return data as Booking | null;
 }
 export async function bookingsForClient(sb: SB, techId: string, clientId: string): Promise<Booking[]> {
   const { data, error } = await sb.from("bookings").select("*").eq("techId", techId).eq("clientId", clientId).order("startIso");
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "bookingsForClient") ?? [];
 }
 type BookingInsert = Omit<
   Booking,
@@ -995,12 +1001,12 @@ export async function listStaff(
   let q = sb.from("staff_members").select("*").eq("techId", techId);
   if (opts.activeOnly) q = q.eq("active", true);
   const { data, error } = await q.order("sortOrder").order("createdAt");
-  return must(data as StaffMember[], error) ?? [];
+  return must(data as StaffMember[], error, "listStaff") ?? [];
 }
 
 export async function getStaff(sb: SB, id: string): Promise<StaffMember | null> {
   const { data, error } = await sb.from("staff_members").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getStaff", error);
   return data as StaffMember | null;
 }
 
@@ -1010,7 +1016,7 @@ export async function getStaffByAuthUserId(sb: SB, authUserId: string): Promise<
     .select("*")
     .eq("authUserId", authUserId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getStaffByAuthUserId", error);
   return data as StaffMember | null;
 }
 
@@ -1029,7 +1035,7 @@ export async function createStaff(
 
 export async function updateStaff(sb: SB, id: string, patch: Partial<StaffMember>): Promise<void> {
   const { error } = await sb.from("staff_members").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateStaff", error);
 }
 
 /**
@@ -1038,7 +1044,7 @@ export async function updateStaff(sb: SB, id: string, patch: Partial<StaffMember
  */
 export async function staffServiceIds(sb: SB, staffId: string): Promise<string[]> {
   const { data, error } = await sb.from("staff_services").select("serviceId").eq("staffId", staffId);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("staffServiceIds", error);
   return (data ?? []).map((r) => (r as { serviceId: string }).serviceId);
 }
 
@@ -1054,7 +1060,7 @@ export async function staffServiceMap(
     .from("staff_services")
     .select("staffId, serviceId")
     .in("staffId", staffIds);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("staffServiceMap", error);
   for (const row of (data ?? []) as { staffId: string; serviceId: string }[]) {
     (map[row.staffId] ??= []).push(row.serviceId);
   }
@@ -1068,7 +1074,7 @@ export async function setStaffServices(sb: SB, staffId: string, serviceIds: stri
     const { error } = await sb
       .from("staff_services")
       .insert(serviceIds.map((serviceId) => ({ staffId, serviceId })));
-    if (error) throw new Error(error.message);
+    if (error) throw dbError("setStaffServices", error);
   }
 }
 
@@ -1085,7 +1091,7 @@ export async function staffServiceDaysForService(
     .eq("serviceId", serviceId);
   if (error) {
     if (/staff_service_days|schema cache|relation/i.test(error.message)) return {};
-    throw new Error(error.message);
+    throw dbError("staffServiceDaysForService", error);
   }
   const map: Record<string, number[] | null> = {};
   for (const row of (data ?? []) as { staffId: string; availableWeekdays: number[] | null }[]) {
@@ -1111,7 +1117,7 @@ export async function staffServiceDayMap(
     .in("staffId", staffIds);
   if (error) {
     if (/staff_service_days|schema cache|relation/i.test(error.message)) return map;
-    throw new Error(error.message);
+    throw dbError("staffServiceDayMap", error);
   }
   for (const row of (data ?? []) as StaffServiceDay[]) {
     (map[row.staffId] ??= {})[row.serviceId] = row.availableWeekdays;
@@ -1138,7 +1144,7 @@ export async function setStaffServiceDaysForService(
       availableWeekdays: r.availableWeekdays,
     })),
   );
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("setStaffServiceDaysForService", error);
 }
 
 export async function countBookingsForStaff(sb: SB, staffId: string): Promise<number> {
@@ -1146,7 +1152,7 @@ export async function countBookingsForStaff(sb: SB, staffId: string): Promise<nu
     .from("bookings")
     .select("*", { count: "exact", head: true })
     .eq("staffId", staffId);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("countBookingsForStaff", error);
   return count ?? 0;
 }
 
@@ -1158,7 +1164,7 @@ export async function countTimeOffForStaff(sb: SB, staffId: string): Promise<num
   if (error) {
     // staffId column optional until migration 0036.
     if (/staffId|schema cache|column/i.test(error.message)) return 0;
-    throw new Error(error.message);
+    throw dbError("countTimeOffForStaff", error);
   }
   return count ?? 0;
 }
@@ -1169,7 +1175,7 @@ export async function bookingCountsByStaff(
   techId: string,
 ): Promise<Record<string, number>> {
   const { data, error } = await sb.from("bookings").select("staffId").eq("techId", techId);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("bookingCountsByStaff", error);
   const map: Record<string, number> = {};
   for (const row of (data ?? []) as { staffId: string | null }[]) {
     if (!row.staffId) continue;
@@ -1186,7 +1192,7 @@ export async function timeOffCountsByStaff(
   const { data, error } = await sb.from("time_off").select("staffId").eq("techId", techId);
   if (error) {
     if (/staffId|schema cache|column/i.test(error.message)) return {};
-    throw new Error(error.message);
+    throw dbError("timeOffCountsByStaff", error);
   }
   const map: Record<string, number> = {};
   for (const row of (data ?? []) as { staffId: string | null }[]) {
@@ -1206,7 +1212,7 @@ export async function reassignStaffBookings(
     .update({ staffId: toStaffId })
     .eq("staffId", fromStaffId)
     .select("id");
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("reassignStaffBookings", error);
   return (data ?? []).length;
 }
 
@@ -1222,7 +1228,7 @@ export async function reassignStaffTimeOff(
     .select("id");
   if (error) {
     if (/staffId|schema cache|column/i.test(error.message)) return 0;
-    throw new Error(error.message);
+    throw dbError("reassignStaffTimeOff", error);
   }
   return (data ?? []).length;
 }
@@ -1258,7 +1264,7 @@ export async function deleteStaffMember(sb: SB, staff: StaffMember): Promise<voi
   }
 
   const { error } = await sb.from("staff_members").delete().eq("id", staffId);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteStaffMember", error);
 
   if (staff.authUserId) {
     await sb.auth.admin.deleteUser(staff.authUserId).catch(() => undefined);
@@ -1272,20 +1278,20 @@ export async function listBookingsByGroup(sb: SB, groupId: string): Promise<Book
     .select("*")
     .eq("groupId", groupId)
     .order("startIso");
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "listBookingsByGroup") ?? [];
 }
 export async function updateBooking(sb: SB, id: string, patch: Partial<Booking>): Promise<void> {
   const { error } = await sb.from("bookings").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateBooking", error);
 }
 /** Hard delete (mistake bookings). Payments and reminders cascade in the DB. */
 export async function deleteBooking(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("bookings").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteBooking", error);
 }
 export async function bookingsForService(sb: SB, serviceId: string): Promise<Booking[]> {
   const { data, error } = await sb.from("bookings").select("*").eq("serviceId", serviceId);
-  return must(data as Booking[], error) ?? [];
+  return must(data as Booking[], error, "bookingsForService") ?? [];
 }
 /** Skip any still-scheduled reminders for a booking (used when rescheduling). */
 export async function skipScheduledReminders(sb: SB, bookingId: string): Promise<void> {
@@ -1294,17 +1300,17 @@ export async function skipScheduledReminders(sb: SB, bookingId: string): Promise
     .update({ status: "skipped" })
     .eq("bookingId", bookingId)
     .eq("status", "scheduled");
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("skipScheduledReminders", error);
 }
 
 // ---------------- Payments ----------------
 export async function listPayments(sb: SB, techId: string): Promise<Payment[]> {
   const { data, error } = await sb.from("payments").select("*").eq("techId", techId).order("createdAt");
-  return must(data as Payment[], error) ?? [];
+  return must(data as Payment[], error, "listPayments") ?? [];
 }
 export async function paymentsForBooking(sb: SB, bookingId: string): Promise<Payment[]> {
   const { data, error } = await sb.from("payments").select("*").eq("bookingId", bookingId);
-  return must(data as Payment[], error) ?? [];
+  return must(data as Payment[], error, "paymentsForBooking") ?? [];
 }
 export async function createPayment(sb: SB, p: Omit<Payment, "id" | "createdAt">): Promise<Payment> {
   const { data, error } = await sb.from("payments").insert({ ...p, id: randomId("pay") }).select("*").single();
@@ -1315,19 +1321,19 @@ export async function createPayment(sb: SB, p: Omit<Payment, "id" | "createdAt">
 // ---------------- Patch tests ----------------
 export async function listPatchTests(sb: SB, techId: string): Promise<PatchTest[]> {
   const { data, error } = await sb.from("patch_tests").select("*").eq("techId", techId).order("performedAtIso", { ascending: false });
-  return must(data as PatchTest[], error) ?? [];
+  return must(data as PatchTest[], error, "listPatchTests") ?? [];
 }
 export async function patchTestsForClient(sb: SB, techId: string, clientId: string): Promise<PatchTest[]> {
   const { data, error } = await sb.from("patch_tests").select("*").eq("techId", techId).eq("clientId", clientId).order("performedAtIso", { ascending: false });
-  return must(data as PatchTest[], error) ?? [];
+  return must(data as PatchTest[], error, "patchTestsForClient") ?? [];
 }
 export async function createPatchTest(sb: SB, p: Omit<PatchTest, "id" | "createdAt">): Promise<PatchTest> {
   const { data, error } = await sb.from("patch_tests").insert({ ...p, id: randomId("pt") }).select("*").single();
-  return must(data as PatchTest, error);
+  return must(data as PatchTest, error, "createPatchTest");
 }
 export async function updatePatchTest(sb: SB, id: string, patch: Partial<PatchTest>): Promise<void> {
   const { error } = await sb.from("patch_tests").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updatePatchTest", error);
 }
 
 // ---------------- Product change re-tests ----------------
@@ -1336,7 +1342,7 @@ export async function createProductChangeEvent(
   e: ProductChangeEvent,
 ): Promise<ProductChangeEvent> {
   const { data, error } = await sb.from("product_change_events").insert(e).select("*").single();
-  return must(data as ProductChangeEvent, error);
+  return must(data as ProductChangeEvent, error, "createProductChangeEvent");
 }
 export async function listProductChangeEvents(sb: SB, techId: string): Promise<ProductChangeEvent[]> {
   const { data, error } = await sb
@@ -1344,7 +1350,7 @@ export async function listProductChangeEvents(sb: SB, techId: string): Promise<P
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as ProductChangeEvent[], error) ?? [];
+  return must(data as ProductChangeEvent[], error, "listProductChangeEvents") ?? [];
 }
 export async function listProductChangeRetests(sb: SB, techId: string): Promise<ProductChangeRetest[]> {
   const { data, error } = await sb
@@ -1352,14 +1358,14 @@ export async function listProductChangeRetests(sb: SB, techId: string): Promise<
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as ProductChangeRetest[], error) ?? [];
+  return must(data as ProductChangeRetest[], error, "listProductChangeRetests") ?? [];
 }
 export async function createProductChangeRetest(
   sb: SB,
   r: ProductChangeRetest,
 ): Promise<ProductChangeRetest> {
   const { data, error } = await sb.from("product_change_retests").insert(r).select("*").single();
-  return must(data as ProductChangeRetest, error);
+  return must(data as ProductChangeRetest, error, "createProductChangeRetest");
 }
 export async function updateProductChangeRetest(
   sb: SB,
@@ -1367,7 +1373,7 @@ export async function updateProductChangeRetest(
   patch: Partial<ProductChangeRetest>,
 ): Promise<void> {
   const { error } = await sb.from("product_change_retests").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateProductChangeRetest", error);
 }
 
 // ---------------- Products & batches ----------------
@@ -1377,24 +1383,24 @@ export async function listProducts(sb: SB, techId: string): Promise<Product[]> {
     .select("*")
     .eq("techId", techId)
     .order("name");
-  return must(data as Product[], error) ?? [];
+  return must(data as Product[], error, "listProducts") ?? [];
 }
 export async function getProduct(sb: SB, id: string): Promise<Product | null> {
   const { data, error } = await sb.from("products").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getProduct", error);
   return data as Product | null;
 }
 export async function createProduct(sb: SB, p: Omit<Product, "id" | "createdAt">): Promise<Product> {
   const { data, error } = await sb.from("products").insert({ ...p, id: randomId("prd") }).select("*").single();
-  return must(data as Product, error);
+  return must(data as Product, error, "createProduct");
 }
 export async function updateProduct(sb: SB, id: string, patch: Partial<Product>): Promise<void> {
   const { error } = await sb.from("products").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateProduct", error);
 }
 export async function deleteProduct(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("products").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteProduct", error);
 }
 
 export async function listProductBatches(sb: SB, techId: string): Promise<ProductBatch[]> {
@@ -1403,7 +1409,7 @@ export async function listProductBatches(sb: SB, techId: string): Promise<Produc
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as ProductBatch[], error) ?? [];
+  return must(data as ProductBatch[], error, "listProductBatches") ?? [];
 }
 export async function listActiveBatchesForProduct(sb: SB, productId: string): Promise<ProductBatch[]> {
   const { data, error } = await sb
@@ -1412,25 +1418,25 @@ export async function listActiveBatchesForProduct(sb: SB, productId: string): Pr
     .eq("productId", productId)
     .is("retiredAtIso", null)
     .order("createdAt", { ascending: false });
-  return must(data as ProductBatch[], error) ?? [];
+  return must(data as ProductBatch[], error, "listActiveBatchesForProduct") ?? [];
 }
 export async function getProductBatch(sb: SB, id: string): Promise<ProductBatch | null> {
   const { data, error } = await sb.from("product_batches").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getProductBatch", error);
   return data as ProductBatch | null;
 }
 export async function createProductBatch(sb: SB, b: Omit<ProductBatch, "id" | "createdAt">): Promise<ProductBatch> {
   const { data, error } = await sb.from("product_batches").insert({ ...b, id: randomId("bat") }).select("*").single();
-  return must(data as ProductBatch, error);
+  return must(data as ProductBatch, error, "createProductBatch");
 }
 export async function updateProductBatch(sb: SB, id: string, patch: Partial<ProductBatch>): Promise<void> {
   const { error } = await sb.from("product_batches").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateProductBatch", error);
 }
 
 export async function createProductUsage(sb: SB, u: Omit<ProductUsage, "id" | "createdAt">): Promise<ProductUsage> {
   const { data, error } = await sb.from("product_usages").insert({ ...u, id: randomId("usg") }).select("*").single();
-  return must(data as ProductUsage, error);
+  return must(data as ProductUsage, error, "createProductUsage");
 }
 export async function productUsagesForClient(sb: SB, techId: string, clientId: string): Promise<ProductUsage[]> {
   const { data, error } = await sb
@@ -1439,7 +1445,7 @@ export async function productUsagesForClient(sb: SB, techId: string, clientId: s
     .eq("techId", techId)
     .eq("clientId", clientId)
     .order("usedAtIso", { ascending: false });
-  return must(data as ProductUsage[], error) ?? [];
+  return must(data as ProductUsage[], error, "productUsagesForClient") ?? [];
 }
 export async function productUsagesForBatch(sb: SB, batchId: string): Promise<ProductUsage[]> {
   const { data, error } = await sb
@@ -1447,14 +1453,14 @@ export async function productUsagesForBatch(sb: SB, batchId: string): Promise<Pr
     .select("*")
     .eq("batchId", batchId)
     .order("usedAtIso", { ascending: false });
-  return must(data as ProductUsage[], error) ?? [];
+  return must(data as ProductUsage[], error, "productUsagesForBatch") ?? [];
 }
 
 export async function listClientReactions(sb: SB, techId: string, clientId?: string): Promise<ClientReaction[]> {
   let q = sb.from("client_reactions").select("*").eq("techId", techId);
   if (clientId) q = q.eq("clientId", clientId);
   const { data, error } = await q.order("onsetIso", { ascending: false });
-  return must(data as ClientReaction[], error) ?? [];
+  return must(data as ClientReaction[], error, "listClientReactions") ?? [];
 }
 export async function reactionsForBatch(sb: SB, batchId: string): Promise<ClientReaction[]> {
   const { data, error } = await sb
@@ -1462,26 +1468,26 @@ export async function reactionsForBatch(sb: SB, batchId: string): Promise<Client
     .select("*")
     .eq("batchId", batchId)
     .order("onsetIso", { ascending: false });
-  return must(data as ClientReaction[], error) ?? [];
+  return must(data as ClientReaction[], error, "reactionsForBatch") ?? [];
 }
 export async function createClientReaction(sb: SB, r: Omit<ClientReaction, "id" | "createdAt">): Promise<ClientReaction> {
   const { data, error } = await sb.from("client_reactions").insert({ ...r, id: randomId("rxn") }).select("*").single();
-  return must(data as ClientReaction, error);
+  return must(data as ClientReaction, error, "createClientReaction");
 }
 export async function deleteClientReaction(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("client_reactions").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteClientReaction", error);
 }
 
 // ---------------- Reaction check-ins ----------------
 export async function getReactionCheckin(sb: SB, id: string): Promise<ReactionCheckin | null> {
   const { data, error } = await sb.from("reaction_checkins").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getReactionCheckin", error);
   return data as ReactionCheckin | null;
 }
 export async function getReactionCheckinByToken(sb: SB, token: string): Promise<ReactionCheckin | null> {
   const { data, error } = await sb.rpc("reaction_checkin_by_token", { lookup_token: token });
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getReactionCheckinByToken", error);
   const row = Array.isArray(data) ? data[0] : data;
   return (row as ReactionCheckin) ?? null;
 }
@@ -1491,7 +1497,7 @@ export async function listReactionCheckins(sb: SB, techId: string): Promise<Reac
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as ReactionCheckin[], error) ?? [];
+  return must(data as ReactionCheckin[], error, "listReactionCheckins") ?? [];
 }
 export async function reactionCheckinsForClient(
   sb: SB,
@@ -1504,7 +1510,7 @@ export async function reactionCheckinsForClient(
     .eq("techId", techId)
     .eq("clientId", clientId)
     .order("createdAt", { ascending: false });
-  return must(data as ReactionCheckin[], error) ?? [];
+  return must(data as ReactionCheckin[], error, "reactionCheckinsForClient") ?? [];
 }
 export async function dueReactionCheckins(sb: SB, nowIso: string): Promise<ReactionCheckin[]> {
   const { data, error } = await sb
@@ -1512,18 +1518,18 @@ export async function dueReactionCheckins(sb: SB, nowIso: string): Promise<React
     .select("*")
     .eq("status", "scheduled")
     .lte("sendAtIso", nowIso);
-  return must(data as ReactionCheckin[], error) ?? [];
+  return must(data as ReactionCheckin[], error, "dueReactionCheckins") ?? [];
 }
 export async function createReactionCheckin(
   sb: SB,
   c: Omit<ReactionCheckin, "id" | "createdAt">,
 ): Promise<ReactionCheckin> {
   const { data, error } = await sb.from("reaction_checkins").insert({ ...c, id: randomId("rci") }).select("*").single();
-  return must(data as ReactionCheckin, error);
+  return must(data as ReactionCheckin, error, "createReactionCheckin");
 }
 export async function updateReactionCheckin(sb: SB, id: string, patch: Partial<ReactionCheckin>): Promise<void> {
   const { error } = await sb.from("reaction_checkins").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateReactionCheckin", error);
 }
 
 // ---------------- Infill deadline nudges ----------------
@@ -1533,7 +1539,7 @@ export async function listInfillDeadlineNudges(sb: SB, techId: string): Promise<
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as InfillDeadlineNudge[], error) ?? [];
+  return must(data as InfillDeadlineNudge[], error, "listInfillDeadlineNudges") ?? [];
 }
 export async function dueInfillDeadlineNudges(sb: SB, nowIso: string): Promise<InfillDeadlineNudge[]> {
   const { data, error } = await sb
@@ -1541,7 +1547,7 @@ export async function dueInfillDeadlineNudges(sb: SB, nowIso: string): Promise<I
     .select("*")
     .eq("status", "scheduled")
     .lte("sendAtIso", nowIso);
-  return must(data as InfillDeadlineNudge[], error) ?? [];
+  return must(data as InfillDeadlineNudge[], error, "dueInfillDeadlineNudges") ?? [];
 }
 export async function createInfillDeadlineNudge(
   sb: SB,
@@ -1552,7 +1558,7 @@ export async function createInfillDeadlineNudge(
     .insert({ ...n, id: randomId("idn") })
     .select("*")
     .single();
-  return must(data as InfillDeadlineNudge, error);
+  return must(data as InfillDeadlineNudge, error, "createInfillDeadlineNudge");
 }
 export async function updateInfillDeadlineNudge(
   sb: SB,
@@ -1560,7 +1566,7 @@ export async function updateInfillDeadlineNudge(
   patch: Partial<InfillDeadlineNudge>,
 ): Promise<void> {
   const { error } = await sb.from("infill_deadline_nudges").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateInfillDeadlineNudge", error);
 }
 
 // ---------------- Running late cascade ----------------
@@ -1570,7 +1576,7 @@ export async function listLateCascadeEvents(sb: SB, techId: string): Promise<Lat
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as LateCascadeEvent[], error) ?? [];
+  return must(data as LateCascadeEvent[], error, "listLateCascadeEvents") ?? [];
 }
 export async function createLateCascadeEvent(
   sb: SB,
@@ -1581,7 +1587,7 @@ export async function createLateCascadeEvent(
     .insert({ ...e, id: randomId("lce") })
     .select("*")
     .single();
-  return must(data as LateCascadeEvent, error);
+  return must(data as LateCascadeEvent, error, "createLateCascadeEvent");
 }
 export async function createLateCascadeNotification(
   sb: SB,
@@ -1592,7 +1598,7 @@ export async function createLateCascadeNotification(
     .insert({ ...n, id: randomId("lcn") })
     .select("*")
     .single();
-  return must(data as LateCascadeNotification, error);
+  return must(data as LateCascadeNotification, error, "createLateCascadeNotification");
 }
 
 // ---------------- Pre-care confirmations ----------------
@@ -1602,11 +1608,11 @@ export async function listPreCareConfirmations(sb: SB, techId: string): Promise<
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as PreCareConfirmation[], error) ?? [];
+  return must(data as PreCareConfirmation[], error, "listPreCareConfirmations") ?? [];
 }
 export async function getPreCareConfirmation(sb: SB, id: string): Promise<PreCareConfirmation | null> {
   const { data, error } = await sb.from("pre_care_confirmations").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getPreCareConfirmation", error);
   return data as PreCareConfirmation | null;
 }
 export async function getPreCareConfirmationByToken(
@@ -1614,7 +1620,7 @@ export async function getPreCareConfirmationByToken(
   token: string,
 ): Promise<PreCareConfirmation | null> {
   const { data, error } = await sb.rpc("pre_care_confirmation_by_token", { lookup_token: token });
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getPreCareConfirmationByToken", error);
   const rows = data as PreCareConfirmation[] | null;
   return rows?.[0] ?? null;
 }
@@ -1625,7 +1631,7 @@ export async function duePreCareConfirmations(sb: SB, nowIso: string): Promise<P
     .eq("status", "scheduled")
     .lte("sendAtIso", nowIso)
     .order("sendAtIso");
-  return must(data as PreCareConfirmation[], error) ?? [];
+  return must(data as PreCareConfirmation[], error, "duePreCareConfirmations") ?? [];
 }
 export async function createPreCareConfirmation(
   sb: SB,
@@ -1636,7 +1642,7 @@ export async function createPreCareConfirmation(
     .insert({ ...row, id: randomId("pcc") })
     .select("*")
     .single();
-  return must(data as PreCareConfirmation, error);
+  return must(data as PreCareConfirmation, error, "createPreCareConfirmation");
 }
 export async function updatePreCareConfirmation(
   sb: SB,
@@ -1644,7 +1650,7 @@ export async function updatePreCareConfirmation(
   patch: Partial<PreCareConfirmation>,
 ): Promise<void> {
   const { error } = await sb.from("pre_care_confirmations").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updatePreCareConfirmation", error);
 }
 
 // ---------------- DM quote links ----------------
@@ -1661,18 +1667,18 @@ export async function listDmQuoteLinks(sb: SB, techId: string): Promise<DmQuoteL
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return (must(data as DmQuoteLink[], error) ?? []).map(mapDmQuote);
+  return (must(data as DmQuoteLink[], error, "listDmQuoteLinks") ?? []).map(mapDmQuote);
 }
 
 export async function getDmQuoteLink(sb: SB, id: string): Promise<DmQuoteLink | null> {
   const { data, error } = await sb.from("dm_quote_links").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getDmQuoteLink", error);
   return data ? mapDmQuote(data as DmQuoteLink) : null;
 }
 
 export async function getDmQuoteLinkByToken(sb: SB, token: string): Promise<DmQuoteLink | null> {
   const { data, error } = await sb.rpc("dm_quote_by_token", { lookup_token: token });
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getDmQuoteLinkByToken", error);
   const rows = data as DmQuoteLink[] | null;
   const row = rows?.[0];
   return row ? mapDmQuote(row) : null;
@@ -1687,7 +1693,7 @@ export async function createDmQuoteLink(
     .insert({ ...q, id: randomId("dql") })
     .select("*")
     .single();
-  return mapDmQuote(must(data as DmQuoteLink, error));
+  return mapDmQuote(must(data as DmQuoteLink, error, "createDmQuoteLink"));
 }
 
 export async function updateDmQuoteLink(
@@ -1696,52 +1702,52 @@ export async function updateDmQuoteLink(
   patch: Partial<DmQuoteLink>,
 ): Promise<void> {
   const { error } = await sb.from("dm_quote_links").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateDmQuoteLink", error);
 }
 
 // ---------------- Reminders ----------------
 export async function listReminders(sb: SB, techId: string): Promise<Reminder[]> {
   const { data, error } = await sb.from("reminders").select("*").eq("techId", techId).order("sendAtIso");
-  return must(data as Reminder[], error) ?? [];
+  return must(data as Reminder[], error, "listReminders") ?? [];
 }
 export async function remindersForBooking(sb: SB, bookingId: string): Promise<Reminder[]> {
   const { data, error } = await sb.from("reminders").select("*").eq("bookingId", bookingId);
-  return must(data as Reminder[], error) ?? [];
+  return must(data as Reminder[], error, "remindersForBooking") ?? [];
 }
 export async function createReminder(sb: SB, r: Omit<Reminder, "id" | "createdAt">): Promise<Reminder> {
   const { data, error } = await sb.from("reminders").insert({ ...r, id: randomId("rem") }).select("*").single();
-  return must(data as Reminder, error);
+  return must(data as Reminder, error, "createReminder");
 }
 export async function dueReminders(sb: SB, nowIso: string): Promise<Reminder[]> {
   const { data, error } = await sb.from("reminders").select("*").eq("status", "scheduled").lte("sendAtIso", nowIso);
-  return must(data as Reminder[], error) ?? [];
+  return must(data as Reminder[], error, "dueReminders") ?? [];
 }
 export async function markReminder(sb: SB, id: string, patch: Partial<Reminder>): Promise<void> {
   const { error } = await sb.from("reminders").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("markReminder", error);
 }
 
 // ---------------- Client photos ----------------
 export async function listClientPhotos(sb: SB, clientId: string): Promise<ClientPhoto[]> {
   const { data, error } = await sb.from("client_photos").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
-  return must(data as ClientPhoto[], error) ?? [];
+  return must(data as ClientPhoto[], error, "listClientPhotos") ?? [];
 }
 export async function listClientPhotosForTech(sb: SB, techId: string): Promise<ClientPhoto[]> {
   const { data, error } = await sb.from("client_photos").select("*").eq("techId", techId).order("createdAt", { ascending: false });
-  return must(data as ClientPhoto[], error) ?? [];
+  return must(data as ClientPhoto[], error, "listClientPhotosForTech") ?? [];
 }
 export async function createClientPhoto(sb: SB, p: Omit<ClientPhoto, "id" | "createdAt">): Promise<ClientPhoto> {
   const { data, error } = await sb.from("client_photos").insert({ ...p, id: randomId("ph") }).select("*").single();
-  return must(data as ClientPhoto, error);
+  return must(data as ClientPhoto, error, "createClientPhoto");
 }
 export async function getClientPhoto(sb: SB, id: string): Promise<ClientPhoto | null> {
   const { data, error } = await sb.from("client_photos").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getClientPhoto", error);
   return data as ClientPhoto | null;
 }
 export async function deleteClientPhoto(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("client_photos").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteClientPhoto", error);
 }
 
 // ---------------- Consultation forms ----------------
@@ -1749,27 +1755,27 @@ export async function listQuestions(sb: SB, techId: string, opts: { activeOnly?:
   let q = sb.from("consultation_questions").select("*").eq("techId", techId);
   if (opts.activeOnly) q = q.eq("active", true);
   const { data, error } = await q.order("sortOrder").order("createdAt");
-  return must(data as ConsultationQuestion[], error) ?? [];
+  return must(data as ConsultationQuestion[], error, "listQuestions") ?? [];
 }
 export async function createQuestion(sb: SB, q: Omit<ConsultationQuestion, "id" | "createdAt">): Promise<ConsultationQuestion> {
   const { data, error } = await sb.from("consultation_questions").insert({ ...q, id: randomId("q") }).select("*").single();
-  return must(data as ConsultationQuestion, error);
+  return must(data as ConsultationQuestion, error, "createQuestion");
 }
 export async function deleteQuestion(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("consultation_questions").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteQuestion", error);
 }
 export async function createFormResponse(sb: SB, r: Omit<FormResponse, "id" | "createdAt">): Promise<FormResponse> {
   const { data, error } = await sb.from("form_responses").insert({ ...r, id: randomId("fr") }).select("*").single();
-  return must(data as FormResponse, error);
+  return must(data as FormResponse, error, "createFormResponse");
 }
 export async function formResponsesForClient(sb: SB, clientId: string): Promise<FormResponse[]> {
   const { data, error } = await sb.from("form_responses").select("*").eq("clientId", clientId).order("createdAt", { ascending: false });
-  return must(data as FormResponse[], error) ?? [];
+  return must(data as FormResponse[], error, "formResponsesForClient") ?? [];
 }
 export async function listFormResponsesForTech(sb: SB, techId: string): Promise<FormResponse[]> {
   const { data, error } = await sb.from("form_responses").select("*").eq("techId", techId).order("createdAt", { ascending: false });
-  return must(data as FormResponse[], error) ?? [];
+  return must(data as FormResponse[], error, "listFormResponsesForTech") ?? [];
 }
 
 // ---------------- Messages ----------------
@@ -1785,11 +1791,11 @@ export async function threadMessages(
   let q = sb.from("messages").select("*").eq("clientId", clientId);
   if (techId) q = q.eq("techId", techId);
   const { data, error } = await q.order("createdAt", { ascending: true });
-  return must(data as Message[], error) ?? [];
+  return must(data as Message[], error, "threadMessages") ?? [];
 }
 export async function createMessage(sb: SB, m: Omit<Message, "id" | "createdAt" | "readAt"> & Partial<Pick<Message, "readAt">>): Promise<Message> {
   const { data, error } = await sb.from("messages").insert({ readAt: null, ...m, id: randomId("msg") }).select("*").single();
-  return must(data as Message, error);
+  return must(data as Message, error, "createMessage");
 }
 /** Mark messages in a thread that were sent by `from` as read. */
 export async function markThreadRead(sb: SB, clientId: string, from: MessageSender): Promise<void> {
@@ -1799,7 +1805,7 @@ export async function markThreadRead(sb: SB, clientId: string, from: MessageSend
     .eq("clientId", clientId)
     .eq("sender", from)
     .is("readAt", null);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("markThreadRead", error);
 }
 /** Count unread client-sent messages across all of a tech's threads (for the nav badge). */
 export async function unreadCountForTech(sb: SB, techId: string): Promise<number> {
@@ -1809,7 +1815,7 @@ export async function unreadCountForTech(sb: SB, techId: string): Promise<number
     .eq("techId", techId)
     .eq("sender", "client")
     .is("readAt", null);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("unreadCountForTech", error);
   return count ?? 0;
 }
 
@@ -1820,7 +1826,7 @@ export async function createWaitlistEntry(sb: SB, w: Omit<WaitlistEntry, "id" | 
     .insert({ ...w, id: randomId("wl"), notifiedAtIso: null })
     .select("*")
     .single();
-  return must(data as WaitlistEntry, error);
+  return must(data as WaitlistEntry, error, "createWaitlistEntry");
 }
 export async function listWaitlist(sb: SB, techId: string): Promise<WaitlistEntry[]> {
   const { data, error } = await sb
@@ -1828,30 +1834,30 @@ export async function listWaitlist(sb: SB, techId: string): Promise<WaitlistEntr
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as WaitlistEntry[], error) ?? [];
+  return must(data as WaitlistEntry[], error, "listWaitlist") ?? [];
 }
 export async function updateWaitlistEntry(sb: SB, id: string, patch: Partial<WaitlistEntry>): Promise<void> {
   const { error } = await sb.from("waitlist_entries").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateWaitlistEntry", error);
 }
 export async function deleteWaitlistEntry(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("waitlist_entries").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteWaitlistEntry", error);
 }
 
 // ---------------- Reviews ----------------
 export async function createReview(sb: SB, r: Omit<Review, "id" | "createdAt">): Promise<Review> {
   const { data, error } = await sb.from("reviews").insert({ ...r, id: randomId("rev") }).select("*").single();
-  return must(data as Review, error);
+  return must(data as Review, error, "createReview");
 }
 export async function getReviewByBookingId(sb: SB, bookingId: string): Promise<Review | null> {
   const { data, error } = await sb.from("reviews").select("*").eq("bookingId", bookingId).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("getReviewByBookingId", error);
   return data as Review | null;
 }
 export async function listReviewsForTech(sb: SB, techId: string): Promise<Review[]> {
   const { data, error } = await sb.from("reviews").select("*").eq("techId", techId).order("createdAt", { ascending: false });
-  return must(data as Review[], error) ?? [];
+  return must(data as Review[], error, "listReviewsForTech") ?? [];
 }
 export async function listApprovedReviews(sb: SB, techId: string): Promise<Review[]> {
   const { data, error } = await sb
@@ -1860,15 +1866,15 @@ export async function listApprovedReviews(sb: SB, techId: string): Promise<Revie
     .eq("techId", techId)
     .eq("status", "approved")
     .order("createdAt", { ascending: false });
-  return must(data as Review[], error) ?? [];
+  return must(data as Review[], error, "listApprovedReviews") ?? [];
 }
 export async function updateReview(sb: SB, id: string, patch: Partial<Review>): Promise<void> {
   const { error } = await sb.from("reviews").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("updateReview", error);
 }
 export async function deleteReview(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("reviews").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("deleteReview", error);
 }
 
 /** Techs with a live subscription (used by cross-tech cron jobs). */
@@ -1877,7 +1883,7 @@ export async function listLiveTechs(sb: SB): Promise<Tech[]> {
     .from("techs")
     .select("*")
     .in("subscriptionStatus", ["trialing", "active", "comped"]);
-  return must(data as Tech[], error) ?? [];
+  return must(data as Tech[], error, "listLiveTechs") ?? [];
 }
 
 // ---------------- Audit / compliance ----------------
@@ -1886,7 +1892,7 @@ export async function createAuditEvent(
   event: Omit<AuditEvent, "id" | "createdAt">,
 ): Promise<void> {
   const { error } = await sb.from("audit_events").insert({ ...event, id: randomId("aud") });
-  if (error) throw new Error(error.message);
+  if (error) throw dbError("createAuditEvent", error);
 }
 export async function listAuditEvents(sb: SB, techId: string): Promise<AuditEvent[]> {
   const { data, error } = await sb
@@ -1894,7 +1900,7 @@ export async function listAuditEvents(sb: SB, techId: string): Promise<AuditEven
     .select("*")
     .eq("techId", techId)
     .order("createdAt", { ascending: false });
-  return must(data as AuditEvent[], error) ?? [];
+  return must(data as AuditEvent[], error, "listAuditEvents") ?? [];
 }
 export async function createAccountClosureRequest(
   sb: SB,
@@ -1906,7 +1912,7 @@ export async function createAccountClosureRequest(
     .insert({ ...request, id: randomId("acr"), status: request.status ?? "requested", completedAt: request.completedAt ?? null })
     .select("*")
     .single();
-  return must(data as AccountClosureRequest, error);
+  return must(data as AccountClosureRequest, error, "createAccountClosureRequest");
 }
 export async function listAccountClosureRequests(sb: SB, techId: string): Promise<AccountClosureRequest[]> {
   const { data, error } = await sb
@@ -1914,5 +1920,5 @@ export async function listAccountClosureRequests(sb: SB, techId: string): Promis
     .select("*")
     .eq("techId", techId)
     .order("requestedAt", { ascending: false });
-  return must(data as AccountClosureRequest[], error) ?? [];
+  return must(data as AccountClosureRequest[], error, "listAccountClosureRequests") ?? [];
 }

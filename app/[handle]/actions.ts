@@ -9,13 +9,9 @@ import {
   getClientByEmail,
   getService,
   getTechByHandle,
-  listBlockingBookingsInRange,
   listBookingsByGroup,
   listQuestions,
   listServices,
-  listTimeOff,
-  listWorkingHours,
-  listRotaHours,
   patchTestsForClient,
   createFormResponse,
   addonsForService,
@@ -30,11 +26,9 @@ import {
   bookingAmounts,
   daySlots,
   daySlotsForDuration,
-  withTechAvailability,
   dateStrInTz,
   evaluateEligibility,
   findPatchTestService,
-  bufferMapFromServices,
   intersectWeekdays,
   weekdaysForStaffBasket,
   needsManualApproval,
@@ -45,7 +39,6 @@ import {
 } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
 import { createWaitlistEntry } from "@/lib/db/queries";
-import { addDaysToDateStr, currentWeekStartLondon } from "@/lib/rota";
 import {
   createBasketBookings,
   createConfirmedBooking,
@@ -60,6 +53,7 @@ import { ANY_STAFF, capableStaff, rowsForStaff, workingHoursForStaff } from "@/l
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
+import { revalidatePublicAvailability } from "@/lib/booking/public-availability-cache";
 
 /** Client asks to be told when a cancellation frees up a slot. */
 export async function joinWaitlistAction(formData: FormData) {
@@ -135,23 +129,21 @@ async function loadAvailability(
     | "flexibleEndMinutes"
     | "flexibleLastStartMinutes"
   >,
+  opts?: { freshBookings?: boolean },
 ): Promise<AvailabilityCtx> {
-  const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-  const rotaFrom = currentWeekStartLondon();
-  const rotaTo = addDaysToDateStr(rotaFrom, 7 * 12);
-  const [workingHours, timeOff, bookings, rotaHours, services] = await Promise.all([
-    listWorkingHours(sb, tech.id),
-    listTimeOff(sb, tech.id),
-    listBlockingBookingsInRange(sb, tech.id, new Date().toISOString(), rangeEnd),
-    listRotaHours(sb, tech.id, { fromWeek: rotaFrom, toWeek: rotaTo }),
-    listServices(sb, tech.id),
-  ]);
-  return {
-    ...withTechAvailability({ workingHours, timeOff, bookings }, tech),
-    rotaHours,
-    rotaFetchedRange: { fromWeek: rotaFrom, toWeek: rotaTo },
-    bufferByServiceId: bufferMapFromServices(services),
-  };
+  const {
+    getCachedPublicAvailabilityBundle,
+    availabilityCtxFromBundle,
+    loadFreshBlockingBookings,
+  } = await import("@/lib/booking/public-availability-cache");
+  const bundle = await getCachedPublicAvailabilityBundle(tech.id);
+  const ctx = availabilityCtxFromBundle(bundle, tech);
+  if (opts?.freshBookings) {
+    // Intentionally uncached: final slot check must see the latest diary so
+    // double-bookings remain impossible even when the display cache is stale.
+    ctx.bookings = await loadFreshBlockingBookings(tech.id);
+  }
+  return ctx;
 }
 
 /**
@@ -297,7 +289,8 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const [category, services, fullCtx] = await Promise.all([
     getCategory(sb, service.categoryId),
     listServices(sb, tech.id),
-    loadAvailability(sb, tech),
+    // Intentionally uncached bookings for the final paired-slot check.
+    loadAvailability(sb, tech, { freshBookings: true }),
   ]);
   const patchTestService = findPatchTestService(services, service.categoryId);
   if (!patchTestService) redirect(`/${handle}?service=${serviceId}&err=patch`);
@@ -413,6 +406,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     }
     await linkPairedBookings(sb, patchBooking.id, pending.id);
     await saveAnswers(pending.id);
+    revalidatePublicAvailability(tech.id);
     const { notifyTechOfBookingRequest } = await import("@/lib/notify");
     await notifyTechOfBookingRequest(sb, pending, { completedVisits });
     redirect(`/${tech.handle}/requested/${pending.balanceToken}`);
@@ -445,6 +439,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     }
     await linkPairedBookings(sb, patchBooking.id, pending.id);
     await saveAnswers(pending.id);
+    revalidatePublicAvailability(tech.id);
     try {
       const url = cardCapture
         ? await createCardCaptureCheckout(tech, service, pending, client, APP_URL)
@@ -481,6 +476,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   }
   await linkPairedBookings(sb, patchBooking.id, treatmentBooking.id);
   await saveAnswers(treatmentBooking.id);
+  revalidatePublicAvailability(tech.id);
   redirect(`/${tech.handle}/booked/${treatmentBooking.balanceToken}`);
 }
 
@@ -517,7 +513,8 @@ export async function createPublicBookingAction(formData: FormData) {
   if (!policyAccepted) redirect(`${base}&err=form`);
 
   // Re-check the slot is still free (respects flexible hours when enabled).
-  const availability = await loadAvailability(sb, tech!);
+  // Intentionally uncached bookings: see loadAvailability({ freshBookings: true }).
+  const availability = await loadAvailability(sb, tech!, { freshBookings: true });
 
   // Client history + full service list (needed for rules and the basket).
   const existing = await getClientByEmail(sb, tech!.id, email);
@@ -712,6 +709,7 @@ export async function createPublicBookingAction(formData: FormData) {
       throw e;
     }
     await saveAnswers(pending.id);
+    revalidatePublicAvailability(tech!.id);
     const { notifyTechOfBookingRequest } = await import("@/lib/notify");
     await notifyTechOfBookingRequest(sb, pending, { completedVisits });
     redirect(`/${tech!.handle}/requested/${pending.balanceToken}`);
@@ -765,6 +763,7 @@ export async function createPublicBookingAction(formData: FormData) {
       throw e;
     }
     await saveAnswers(pending.id);
+    revalidatePublicAvailability(tech!.id);
     try {
       const { notifySalonOfNewBooking } = await import("@/lib/notify");
       await notifySalonOfNewBooking(sb, pending);
@@ -820,6 +819,7 @@ export async function createPublicBookingAction(formData: FormData) {
     throw e;
   }
   await saveAnswers(booking.id);
+  revalidatePublicAvailability(tech!.id);
   try {
     const { notifySalonOfNewBooking } = await import("@/lib/notify");
     await notifySalonOfNewBooking(sb, booking);

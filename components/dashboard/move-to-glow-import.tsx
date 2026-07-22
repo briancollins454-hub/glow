@@ -18,6 +18,11 @@ export type MoveToGlowImportActions = {
   importBookings: (formData: FormData) => Promise<void>;
 };
 
+function noEmailSummary(ne: string | null | undefined): number {
+  const n = Number(ne ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function isNextRedirect(e: unknown): boolean {
   return (
     typeof e === "object" &&
@@ -71,6 +76,7 @@ export function MoveToGlowImport({
   s,
   skipServices,
   skipDupes,
+  noEmail,
 }: {
   actions: MoveToGlowImportActions;
   returnTo: string;
@@ -83,11 +89,13 @@ export function MoveToGlowImport({
   s: string | null;
   skipServices?: string | null;
   skipDupes?: string | null;
+  noEmail?: string | null;
 }) {
   const router = useRouter();
   const hidden = Object.entries(hiddenFields ?? {});
   const skipServicesN = Number(skipServices) || 0;
   const skipDupesN = Number(skipDupes) || 0;
+  const noEmailN = noEmailSummary(noEmail);
 
   const wrap = (action: (formData: FormData) => Promise<void>) => {
     return async (formData: FormData) => {
@@ -131,6 +139,11 @@ export function MoveToGlowImport({
               })`}
             .
           </p>
+          {noEmailN > 0 && what === "clients" && (
+            <p className="mt-1 text-xs opacity-90">
+              {noEmailN} client{noEmailN === 1 ? "" : "s"} imported without a valid email.
+            </p>
+          )}
           {skipServicesN > 0 && what === "appointments" && (
             <p className="mt-1 text-xs opacity-90">
               Most skips are unknown services — run Step 1 with this appointments file first (tick

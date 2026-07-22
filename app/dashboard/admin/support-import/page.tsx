@@ -153,6 +153,7 @@ function SupportImportView({ techs }: { techs: Tech[] }) {
           s={searchParams.get("s")}
           skipServices={searchParams.get("skipServices")}
           skipDupes={searchParams.get("skipDupes")}
+          noEmail={searchParams.get("ne")}
         />
       ) : (
         <p className="text-sm text-ink-faint">Pick an account above to show the import steps.</p>

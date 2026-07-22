@@ -7,6 +7,65 @@ import { supabaseService } from "@/lib/supabase/service";
 
 const FROM = process.env.RESEND_FROM ?? "Glow <onboarding@resend.dev>";
 
+const EMAIL_RE = /^[^\s@,]+@[^\s@,]+\.[^\s@,]{2,}$/;
+const PLACEHOLDER_DOMAINS = new Set(["example.com", "example.org", "example.net", "test.com"]);
+
+/** Reject addresses Resend will 422 on (comma pairs, phones, placeholders, no-dot domains). */
+export function isValidEmail(email: string): boolean {
+  const value = email.trim();
+  if (!value || value !== email || !EMAIL_RE.test(value)) return false;
+  const at = value.lastIndexOf("@");
+  if (at < 0) return false;
+  const domain = value.slice(at + 1).toLowerCase();
+  if (!domain.includes(".")) return false;
+  if (PLACEHOLDER_DOMAINS.has(domain)) return false;
+  return true;
+}
+
+/**
+ * Sanitise a client email/phone pair on CSV ingest.
+ * - Comma-separated emails: keep the first valid token
+ * - Phone stuffed into email with empty phone: move to phone
+ * - Otherwise blank invalid emails (caller counts them)
+ */
+export function sanitiseImportContact(
+  emailRaw: string,
+  phoneRaw: string,
+): { email: string; phone: string; emailInvalid: boolean } {
+  let email = emailRaw.trim();
+  let phone = phoneRaw.trim();
+  let emailInvalid = false;
+
+  if (email.includes(",")) {
+    const tokens = email.split(",").map((t) => t.trim()).filter(Boolean);
+    const firstValid = tokens.find((t) => isValidEmail(t));
+    if (firstValid) {
+      email = firstValid;
+    } else {
+      email = "";
+      emailInvalid = tokens.length > 0;
+    }
+  }
+
+  if (email && !isValidEmail(email)) {
+    // Phone number landed in the email column (common bad export rows).
+    const digits = email.replace(/\D/g, "");
+    const phoneLike = /^[+()\d\s./-]+$/.test(email) && digits.length >= 7;
+    if (phoneLike && !phone) {
+      phone = email;
+      email = "";
+      // Moved, not counted as "imported without valid email" unless we still have no email —
+      // caller still counts blanked invalid emails; moving a phone clears the bad email.
+      emailInvalid = true;
+    } else {
+      email = "";
+      emailInvalid = true;
+    }
+  }
+
+  return { email, phone, emailInvalid };
+}
+
 export function emailConfigured(): boolean {
   return !!process.env.RESEND_API_KEY;
 }
@@ -56,6 +115,10 @@ export async function sendEmail(params: {
   techId?: string | null;
 }): Promise<boolean> {
   if (!emailConfigured() || !params.to) return false;
+  if (!isValidEmail(params.to)) {
+    console.error("[resend] skipped invalid recipient", params.to);
+    return false;
+  }
   try {
     // The Resend SDK returns { data, error } (it does not throw on API errors).
     const { error } = await getResend().emails.send(
