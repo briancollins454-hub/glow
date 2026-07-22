@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { makeBooking, makeClient, makeService, makeTech } from "./fixtures";
+import { makeClient, makeService, makeTech } from "./fixtures";
 
 const updateClient = vi.fn(async () => undefined);
 const sendEmail = vi.fn(async () => true);
@@ -8,8 +8,8 @@ vi.mock("@/lib/db/queries", () => ({
   listLiveTechs: vi.fn(async () => [
     makeTech({ id: "tech_1", rebookNudgesEnabled: true, subscriptionStatus: "active" }),
   ]),
-  listClients: vi.fn(async () => [] as ReturnType<typeof makeClient>[]),
-  listBookings: vi.fn(async () => [] as ReturnType<typeof makeBooking>[]),
+  listRebookNudgeClients: vi.fn(async () => []),
+  listRebookNudgeBookings: vi.fn(async () => []),
   listServices: vi.fn(async () => [makeService()]),
   updateClient,
 }));
@@ -31,7 +31,7 @@ describe("processRebookNudges email handling", () => {
 
   it("skips clients with invalid emails", async () => {
     const queries = await import("@/lib/db/queries");
-    vi.mocked(queries.listClients).mockResolvedValue([
+    vi.mocked(queries.listRebookNudgeClients).mockResolvedValue([
       makeClient({
         id: "cli_bad",
         email: "user@example.com",
@@ -40,14 +40,14 @@ describe("processRebookNudges email handling", () => {
       }),
     ]);
     const past = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
-    vi.mocked(queries.listBookings).mockResolvedValue([
-      makeBooking({
+    vi.mocked(queries.listRebookNudgeBookings).mockResolvedValue([
+      {
         id: "bk_1",
         clientId: "cli_bad",
+        serviceId: "svc_1",
         status: "completed",
         startIso: past,
-        endIso: past,
-      }),
+      },
     ]);
 
     const { processRebookNudges } = await import("@/lib/rebooking");
@@ -60,7 +60,7 @@ describe("processRebookNudges email handling", () => {
   it("stamps lastNudgeAtIso even when send fails so dead addresses are not retried", async () => {
     sendEmail.mockResolvedValueOnce(false);
     const queries = await import("@/lib/db/queries");
-    vi.mocked(queries.listClients).mockResolvedValue([
+    vi.mocked(queries.listRebookNudgeClients).mockResolvedValue([
       makeClient({
         id: "cli_ok",
         email: "sophie@glow-uk.com",
@@ -69,14 +69,14 @@ describe("processRebookNudges email handling", () => {
       }),
     ]);
     const past = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
-    vi.mocked(queries.listBookings).mockResolvedValue([
-      makeBooking({
+    vi.mocked(queries.listRebookNudgeBookings).mockResolvedValue([
+      {
         id: "bk_1",
         clientId: "cli_ok",
+        serviceId: "svc_1",
         status: "completed",
         startIso: past,
-        endIso: past,
-      }),
+      },
     ]);
 
     const { processRebookNudges } = await import("@/lib/rebooking");
@@ -90,7 +90,7 @@ describe("processRebookNudges email handling", () => {
     );
 
     // Next run within cooldown must not retry.
-    vi.mocked(queries.listClients).mockResolvedValue([
+    vi.mocked(queries.listRebookNudgeClients).mockResolvedValue([
       makeClient({
         id: "cli_ok",
         email: "sophie@glow-uk.com",
