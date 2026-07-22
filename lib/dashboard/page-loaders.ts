@@ -151,8 +151,11 @@ export async function loadDashboardPageData(
       const windowStart = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
       const { listStaff, listRotaHours } = await import("@/lib/db/queries");
-      const fromWeek = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const toWeek = new Date(now + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      // Rota fetch must cover the same horizon as the bookings window.
+      // Otherwise saved rota weeks beyond the cutoff are never loaded and the
+      // diary silently falls back to recurring weekly hours for those dates.
+      const fromWeek = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const toWeek = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const [bookings, services, categories, clients, waitlist, staff, offs, allHours, addons, rotaHours] =
         await Promise.all([
           listBookingsInWindow(sb, tech.id, windowStart, windowEnd),
@@ -183,6 +186,7 @@ export async function loadDashboardPageData(
         hoursByStaff,
         addons,
         rotaHours,
+        rotaFetchedRange: { fromWeek, toWeek },
         tech: {
           flexibleHoursEnabled: tech.flexibleHoursEnabled,
           flexibleStartMinutes: tech.flexibleStartMinutes,

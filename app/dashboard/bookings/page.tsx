@@ -41,6 +41,7 @@ type BookingsData = {
   hoursByStaff?: Record<string, WorkingHour[]>;
   addons?: ServiceAddon[];
   rotaHours?: import("@/lib/db/types").RotaHour[];
+  rotaFetchedRange?: { fromWeek: string; toWeek: string };
   tech?: Pick<
     import("@/lib/db/types").Tech,
     | "flexibleHoursEnabled"
@@ -70,6 +71,7 @@ function BookingsView({
   hoursByStaff = {},
   addons = [],
   rotaHours = [],
+  rotaFetchedRange,
   tech = null,
   now,
 }: BookingsData) {
@@ -262,6 +264,7 @@ function BookingsView({
           offs={offs}
           hoursByStaff={hoursByStaff}
           rotaHours={rotaHours}
+          rotaFetchedRange={rotaFetchedRange}
         />
       ) : (
         <Card className="ring-1 ring-brand-500/30">

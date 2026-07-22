@@ -13,8 +13,9 @@ import {
 } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingActions } from "@/components/dashboard/booking-actions";
+import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { statusBadge } from "@/components/dashboard/status";
-import { fmtDate, fmtTime, gbp } from "@/lib/format";
+import { fmtTime, gbp } from "@/lib/format";
 import { dateStrInTz } from "@/lib/rules";
 import type { Booking } from "@/lib/db/types";
 
@@ -172,12 +173,12 @@ export function BookingsMonthCalendar({
 
         {!hideDayList && (
           <div className="border-t border-edge pt-4">
-            <p className="mb-2 text-sm font-medium text-ink">
-              {fmtDate(`${selected}T12:00:00Z`)}
-              <span className="ml-2 font-normal text-ink-faint">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <DiaryDatePicker dateStr={selected} onDateChange={setSelected} />
+              <span className="text-sm text-ink-faint">
                 ({selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"})
               </span>
-            </p>
+            </div>
             {selectedBookings.length === 0 ? (
               <p className="py-3 text-center text-sm text-ink-faint">Nothing booked this day.</p>
             ) : (
