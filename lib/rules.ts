@@ -185,6 +185,11 @@ export interface AvailabilityCtx {
    */
   rotaHours?: RotaHour[];
   /**
+   * Inclusive YYYY-MM-DD range that was actually queried for rotaHours.
+   * Used only for a non-production warn when a date falls outside the fetch.
+   */
+  rotaFetchedRange?: { fromWeek: string; toWeek: string };
+  /**
    * When set and non-empty, only these weekdays (0 = Sunday … 6 = Saturday)
    * may offer slots (per-service available days / basket intersection).
    */
@@ -290,14 +295,29 @@ export function weekdaysForStaffBasket(
 }
 
 /** Resolve the open window for one calendar day (or null if closed). */
+const warnedRotaRangeKeys = new Set<string>();
+
 export function dayWindowForDate(
   dateStr: string,
   ctx: AvailabilityCtx,
 ): { startMinutes: number; endMinutes: number; lastStartMinutes: number | null } | null {
   const weekday = weekdayOf(dateStr);
+  const weekStart = mondayOfWeekContaining(dateStr);
+
+  if (ctx.rotaFetchedRange && process.env.NODE_ENV !== "production") {
+    const { fromWeek, toWeek } = ctx.rotaFetchedRange;
+    if (weekStart < fromWeek || weekStart > toWeek) {
+      const key = `${fromWeek}|${toWeek}|${weekStart}`;
+      if (!warnedRotaRangeKeys.has(key)) {
+        warnedRotaRangeKeys.add(key);
+        console.warn(
+          `[rota] date ${dateStr} (week ${weekStart}) is outside fetched range ${fromWeek}..${toWeek}; falling back to recurring hours`,
+        );
+      }
+    }
+  }
 
   if (ctx.rotaHours?.length) {
-    const weekStart = mondayOfWeekContaining(dateStr);
     const weekRows = ctx.rotaHours.filter((r) => r.weekStart.slice(0, 10) === weekStart);
     if (weekRows.length > 0) {
       const row = weekRows.find((w) => w.weekday === weekday && w.enabled);

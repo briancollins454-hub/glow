@@ -93,6 +93,7 @@ export function unavailableRangesForStaffDay(
   opts?: {
     rotaHours?: RotaHour[];
     flexibleHours?: FlexibleHoursWindow | null;
+    rotaFetchedRange?: { fromWeek: string; toWeek: string };
   },
 ): { startM: number; endM: number }[] {
   if (windowEnd <= windowStart) return [];
@@ -102,6 +103,7 @@ export function unavailableRangesForStaffDay(
     bookings: [],
     flexibleHours: opts?.flexibleHours ?? null,
     rotaHours: opts?.rotaHours,
+    rotaFetchedRange: opts?.rotaFetchedRange,
   });
   if (!win || win.endMinutes <= win.startMinutes) {
     return [{ startM: windowStart, endM: windowEnd }];

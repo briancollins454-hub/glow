@@ -8,8 +8,9 @@ import {
   CalendarManualBlock,
   CalendarRotaUnavailable,
 } from "@/components/dashboard/calendar-time-block";
+import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { statusBadge } from "@/components/dashboard/status";
-import { fmtDate, fmtTime } from "@/lib/format";
+import { fmtTime } from "@/lib/format";
 import {
   UNASSIGNED_STAFF_ID,
   activeBookingsOnDate,
@@ -51,6 +52,8 @@ type Props = {
   hoursByStaff?: Record<string, WorkingHour[]>;
   /** Week rota rows (same source as online booking). */
   rotaHours?: RotaHour[];
+  /** Inclusive range that was queried for rotaHours (for silent-fallback warnings). */
+  rotaFetchedRange?: { fromWeek: string; toWeek: string };
 };
 
 function hourLabels(startMin: number, endMin: number): number[] {
@@ -76,6 +79,7 @@ export function BookingsStaffDayView({
   offs = [],
   hoursByStaff = {},
   rotaHours = [],
+  rotaFetchedRange,
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const dayOffs = timeOffOnDate(offs, dateStr);
@@ -114,18 +118,16 @@ export function BookingsStaffDayView({
               type="button"
               aria-label="Previous day"
               onClick={() => onDateChange(addDaysToDateStr(dateStr, -1))}
-              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
+              className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <p className="min-w-[9rem] text-center text-sm font-medium text-ink">
-              {fmtDate(`${dateStr}T12:00:00Z`)}
-            </p>
+            <DiaryDatePicker dateStr={dateStr} onDateChange={onDateChange} />
             <button
               type="button"
               aria-label="Next day"
               onClick={() => onDateChange(addDaysToDateStr(dateStr, 1))}
-              className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
+              className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -236,6 +238,7 @@ export function BookingsStaffDayView({
                         windowEnd,
                         {
                           rotaHours: member ? rowsForStaff(rotaHours, member) : [],
+                          rotaFetchedRange,
                         },
                       );
                 const laidOut = packBookingLanes(colBookings, (b) => {

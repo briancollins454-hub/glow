@@ -149,6 +149,7 @@ async function loadAvailability(
   return {
     ...withTechAvailability({ workingHours, timeOff, bookings }, tech),
     rotaHours,
+    rotaFetchedRange: { fromWeek: rotaFrom, toWeek: rotaTo },
     bufferByServiceId: bufferMapFromServices(services),
   };
 }
@@ -192,6 +193,7 @@ async function resolveBookingStaff(
       bookings: rowsForStaff(availability.bookings, staff),
       flexibleHours: availability.flexibleHours,
       rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
+      rotaFetchedRange: availability.rotaFetchedRange,
       allowedWeekdays,
       bufferByServiceId: availability.bufferByServiceId,
     }).includes(slotIso);
@@ -230,6 +232,7 @@ async function scopeCtxToStaff(
     bookings: rowsForStaff(ctx.bookings, staff),
     flexibleHours: ctx.flexibleHours,
     rotaHours: rowsForStaff(ctx.rotaHours ?? [], staff),
+    rotaFetchedRange: ctx.rotaFetchedRange,
     bufferByServiceId: ctx.bufferByServiceId,
     allowedWeekdays: ctx.allowedWeekdays,
   };
@@ -572,6 +575,7 @@ export async function createPublicBookingAction(formData: FormData) {
       bookings: rowsForStaff(availability.bookings, bookingStaff),
       flexibleHours: availability.flexibleHours,
       rotaHours: rowsForStaff(availability.rotaHours ?? [], bookingStaff),
+      rotaFetchedRange: availability.rotaFetchedRange,
       allowedWeekdays: weekdaysForStaffBasket(basket, dayRulesByStaff[bookingStaff.id]),
       bufferByServiceId: availability.bufferByServiceId,
     }).includes(slotIso);
