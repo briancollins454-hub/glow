@@ -265,24 +265,24 @@ export async function deleteServices(sb: SB, ids: string[]): Promise<number> {
       .from("services")
       .update({ fullSetServiceId: null })
       .in("fullSetServiceId", chunk);
-    if (infillErr) throw new Error(infillErr.message);
+    if (infillErr) throw dbError("deleteServices", infillErr);
 
     const { error: waitlistErr } = await sb.from("waitlist_entries").delete().in("serviceId", chunk);
-    if (waitlistErr) throw new Error(waitlistErr.message);
+    if (waitlistErr) throw dbError("deleteServices", waitlistErr);
 
     const { error: staffLinkErr } = await sb.from("staff_services").delete().in("serviceId", chunk);
     if (staffLinkErr && !/staff_services|schema cache/i.test(staffLinkErr.message)) {
-      throw new Error(staffLinkErr.message);
+      throw dbError("deleteServices", staffLinkErr);
     }
 
     const { error: staffDaysErr } = await sb.from("staff_service_days").delete().in("serviceId", chunk);
     if (staffDaysErr && !/staff_service_days|schema cache/i.test(staffDaysErr.message)) {
-      throw new Error(staffDaysErr.message);
+      throw dbError("deleteServices", staffDaysErr);
     }
 
     // Bookings restrict service deletes — remove them first (payments/reminders cascade).
     const { error: bookingErr } = await sb.from("bookings").delete().in("serviceId", chunk);
-    if (bookingErr) throw new Error(bookingErr.message);
+    if (bookingErr) throw dbError("deleteServices", bookingErr);
 
     const { error } = await sb.from("services").delete().in("id", chunk);
     if (error) throw dbError("deleteServices", error);
@@ -341,7 +341,7 @@ export async function replaceWorkingHours(
   let del = sb.from("working_hours").delete().eq("techId", techId);
   if (staffId) del = del.eq("staffId", staffId);
   const delRes = await del;
-  if (delRes.error) throw new Error(delRes.error.message);
+  if (delRes.error) throw dbError("replaceWorkingHours", delRes.error);
   if (rows.length) {
     // Strip undefined/null staffId so pre-migration environments keep working.
     const clean = rows.map((r) => {
@@ -385,7 +385,7 @@ export async function replaceRotaWeek(
     .eq("techId", techId)
     .eq("staffId", staffId)
     .eq("weekStart", weekStart);
-  if (delErr) throw new Error(delErr.message);
+  if (delErr) throw dbError("replaceRotaWeek", delErr);
   if (!rows.length) return;
   const { error } = await sb.from("rota_hours").insert(rows);
   if (error) throw dbError("replaceRotaWeek", error);
@@ -816,8 +816,8 @@ export async function getReportSummary(sb: SB, techId: string): Promise<ReportSu
       .eq("techId", techId),
     listServices(sb, techId),
   ]);
-  if (paymentsRes.error) throw new Error(paymentsRes.error.message);
-  if (bookingsRes.error) throw new Error(bookingsRes.error.message);
+  if (paymentsRes.error) throw dbError("getReportSummary", paymentsRes.error);
+  if (bookingsRes.error) throw dbError("getReportSummary", bookingsRes.error);
 
   const payments = (paymentsRes.data ?? []) as Pick<
     Payment,
@@ -1069,7 +1069,7 @@ export async function staffServiceMap(
 
 export async function setStaffServices(sb: SB, staffId: string, serviceIds: string[]): Promise<void> {
   const del = await sb.from("staff_services").delete().eq("staffId", staffId);
-  if (del.error) throw new Error(del.error.message);
+  if (del.error) throw dbError("setStaffServices", del.error);
   if (serviceIds.length) {
     const { error } = await sb
       .from("staff_services")
@@ -1134,7 +1134,7 @@ export async function setStaffServiceDaysForService(
   const del = await sb.from("staff_service_days").delete().eq("serviceId", serviceId);
   if (del.error) {
     if (/staff_service_days|schema cache|relation/i.test(del.error.message)) return;
-    throw new Error(del.error.message);
+    throw dbError("setStaffServiceDaysForService", del.error);
   }
   if (!rules.length) return;
   const { error } = await sb.from("staff_service_days").insert(
@@ -1241,26 +1241,26 @@ export async function deleteStaffMember(sb: SB, staff: StaffMember): Promise<voi
   const staffId = staff.id;
 
   const wh = await sb.from("working_hours").delete().eq("staffId", staffId);
-  if (wh.error) throw new Error(wh.error.message);
+  if (wh.error) throw dbError("deleteStaffMember", wh.error);
 
   const rota = await sb.from("rota_hours").delete().eq("staffId", staffId);
   if (rota.error && !/rota_hours|schema cache/i.test(rota.error.message)) {
-    throw new Error(rota.error.message);
+    throw dbError("deleteStaffMember", rota.error);
   }
 
   const services = await sb.from("staff_services").delete().eq("staffId", staffId);
   if (services.error && !/staff_services|schema cache/i.test(services.error.message)) {
-    throw new Error(services.error.message);
+    throw dbError("deleteStaffMember", services.error);
   }
 
   const days = await sb.from("staff_service_days").delete().eq("staffId", staffId);
   if (days.error && !/staff_service_days|schema cache/i.test(days.error.message)) {
-    throw new Error(days.error.message);
+    throw dbError("deleteStaffMember", days.error);
   }
 
   const offs = await sb.from("time_off").delete().eq("staffId", staffId);
   if (offs.error && !/staffId|schema cache|column/i.test(offs.error.message)) {
-    throw new Error(offs.error.message);
+    throw dbError("deleteStaffMember", offs.error);
   }
 
   const { error } = await sb.from("staff_members").delete().eq("id", staffId);
