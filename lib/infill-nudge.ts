@@ -6,7 +6,7 @@ import {
   getClient,
   getService,
   getTechById,
-  listBookings,
+  listClientBookingsInRange,
   listServices,
   updateInfillDeadlineNudge,
 } from "@/lib/db/queries";
@@ -38,7 +38,7 @@ export function findInfillForCompletedService(
 }
 
 function hasReturnVisitSince(
-  bookings: Booking[],
+  bookings: Pick<Booking, "clientId" | "serviceId" | "startIso" | "status">[],
   clientId: string,
   categoryId: string,
   afterMs: number,
@@ -53,7 +53,7 @@ function hasReturnVisitSince(
 }
 
 function hasUpcomingInCategory(
-  bookings: Booking[],
+  bookings: Pick<Booking, "clientId" | "serviceId" | "startIso" | "status">[],
   clientId: string,
   categoryId: string,
   nowMs: number,
@@ -138,7 +138,14 @@ export async function sendInfillDeadlineNudge(
   }
 
   const [bookings, services] = await Promise.all([
-    listBookings(sb, tech.id),
+    // Client-scoped window only — do not download the whole salon diary.
+    listClientBookingsInRange(
+      sb,
+      tech.id,
+      client.id,
+      baseBooking.startIso,
+      new Date(now + 365 * DAY).toISOString(),
+    ),
     listServices(sb, tech.id),
   ]);
   const categoryByServiceId = new Map(services.map((s) => [s.id, s.categoryId]));

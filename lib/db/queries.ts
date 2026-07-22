@@ -585,6 +585,122 @@ export async function listBookings(sb: SB, techId: string): Promise<Booking[]> {
   return listAllForTech<Booking>(sb, "bookings", techId, "startIso");
 }
 
+/** Slim booking row for the rebook-nudge cron (avoids select("*") over full history). */
+export type RebookNudgeBooking = Pick<
+  Booking,
+  "id" | "clientId" | "serviceId" | "startIso" | "status"
+>;
+
+/**
+ * Bookings the rebook cron needs: startIso in [fromIso, toIso], slim columns only.
+ * Window is typically 120 days back → 60 days ahead so lapse + upcoming checks work
+ * without downloading the whole bookings table.
+ */
+export async function listRebookNudgeBookings(
+  sb: SB,
+  techId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<RebookNudgeBooking[]> {
+  const out: RebookNudgeBooking[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await sb
+      .from("bookings")
+      .select("id, clientId, serviceId, startIso, status")
+      .eq("techId", techId)
+      .gte("startIso", fromIso)
+      .lte("startIso", toIso)
+      .order("startIso")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw dbError("listRebookNudgeBookings", error);
+    const chunk = (data as RebookNudgeBooking[]) ?? [];
+    out.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
+}
+
+/** Slim client row for the rebook-nudge cron. */
+export type RebookNudgeClient = Pick<
+  Client,
+  | "id"
+  | "name"
+  | "email"
+  | "phone"
+  | "messageToken"
+  | "isBlacklisted"
+  | "marketingOptOut"
+  | "lastNudgeAtIso"
+>;
+
+/**
+ * Marketing-eligible clients for rebook nudges. SQL excludes blacklisted,
+ * opted-out, empty-email, and anyone nudged since cooldownBeforeIso.
+ */
+export async function listRebookNudgeClients(
+  sb: SB,
+  techId: string,
+  cooldownBeforeIso: string,
+): Promise<RebookNudgeClient[]> {
+  const out: RebookNudgeClient[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await sb
+      .from("clients")
+      .select(
+        "id, name, email, phone, messageToken, isBlacklisted, marketingOptOut, lastNudgeAtIso",
+      )
+      .eq("techId", techId)
+      .eq("isBlacklisted", false)
+      .eq("marketingOptOut", false)
+      .not("email", "is", null)
+      .neq("email", "")
+      .or(`lastNudgeAtIso.is.null,lastNudgeAtIso.lt.${cooldownBeforeIso}`)
+      .order("name")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw dbError("listRebookNudgeClients", error);
+    const chunk = (data as RebookNudgeClient[]) ?? [];
+    out.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
+}
+
+/**
+ * One client's bookings in a date window (slim columns) — used by the infill
+ * deadline cron instead of listBookings for the whole salon.
+ */
+export async function listClientBookingsInRange(
+  sb: SB,
+  techId: string,
+  clientId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<RebookNudgeBooking[]> {
+  const out: RebookNudgeBooking[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await sb
+      .from("bookings")
+      .select("id, clientId, serviceId, startIso, status")
+      .eq("techId", techId)
+      .eq("clientId", clientId)
+      .gte("startIso", fromIso)
+      .lte("startIso", toIso)
+      .order("startIso")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw dbError("listClientBookingsInRange", error);
+    const chunk = (data as RebookNudgeBooking[]) ?? [];
+    out.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
+}
+
 /** Bookings that block availability within a time window (for slot calculation). */
 export async function listBlockingBookingsInRange(
   sb: SB,
