@@ -157,6 +157,7 @@ export async function importClientsForTech(
   if (!loaded) go(scope, { import: "empty" });
 
   const { parseCsv, col, normalizeImportPhone } = await import("@/lib/csv");
+  const { sanitiseImportContact } = await import("@/lib/email");
   const { headers, rows } = parseCsv(loaded!.text);
   if (rows.length === 0) go(scope, { import: "empty" });
 
@@ -179,6 +180,7 @@ export async function importClientsForTech(
   type Pending = { techId: string; name: string; email: string; phone: string; notes: string };
   const pending: Pending[] = [];
   let skipped = 0;
+  let noEmail = 0;
 
   const { isPhoneLikeName } = await import("@/lib/import/name-cleanup");
   for (const cols of rows) {
@@ -194,8 +196,9 @@ export async function importClientsForTech(
       skipped++;
       continue;
     }
-    const email = (iEmail !== -1 ? (cols[iEmail] ?? "") : "").trim();
-    const phone = iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "";
+    const rawEmail = (iEmail !== -1 ? (cols[iEmail] ?? "") : "").trim();
+    const rawPhone = iPhone !== -1 ? normalizeImportPhone(cols[iPhone] ?? "") : "";
+    const { email, phone, emailInvalid } = sanitiseImportContact(rawEmail, rawPhone);
     const notes = iNotes !== -1 ? (cols[iNotes] ?? "") : "";
     const emailKey = email.toLowerCase();
     const phoneKey = phone.replace(/\D/g, "");
@@ -216,6 +219,8 @@ export async function importClientsForTech(
       continue;
     }
 
+    if (emailInvalid || (rawEmail && !email)) noEmail++;
+
     pending.push({ techId: scope.tech.id, name, email, phone, notes });
     // Reserve keys so later rows in this file don't queue duplicates.
     if (emailKey) seenEmails.add(emailKey);
@@ -235,6 +240,7 @@ export async function importClientsForTech(
   await auditImport(scope, "clients_imported", "clients", {
     imported,
     skipped,
+    noEmail,
     rows: rows.length,
   });
   if (scope.onSupportAudit) {
@@ -247,7 +253,13 @@ export async function importClientsForTech(
     });
   }
   revalidatePath("/dashboard/clients");
-  go(scope, { import: "done", what: "clients", n: imported, s: skipped });
+  go(scope, {
+    import: "done",
+    what: "clients",
+    n: imported,
+    s: skipped,
+    ne: noEmail > 0 ? noEmail : undefined,
+  });
 }
 
 export async function importServicesForTech(

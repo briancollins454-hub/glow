@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDashboardContext } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
+import { revalidatePublicAvailability } from "@/lib/booking/public-availability-cache";
 import {
   clearRotaWeek,
   countBookingsForStaff,
@@ -168,6 +169,7 @@ export async function saveStaffHoursAction(formData: FormData) {
   const staff = await getStaff(svc, id);
   if (!staff || staff.techId !== tech.id) redirect(TEAM);
   await replaceWorkingHours(svc, tech.id, hoursFromForm(formData, tech.id, id), id);
+  revalidatePublicAvailability(tech.id);
   revalidatePath(TEAM);
   redirect(`${TEAM}?saved=1`);
 }
@@ -363,6 +365,7 @@ export async function saveStaffRotaWeekAction(
       weekStart,
       rotaRowsFromForm(formData, owned.tech.id, staffId, weekStart),
     );
+    revalidatePublicAvailability(owned.tech.id);
     revalidatePath(TEAM);
     revalidatePath(`/${owned.tech.handle}`);
     return { ok: true };
@@ -387,6 +390,7 @@ export async function clearStaffRotaWeekAction(
   const week = mondayOfWeekContaining(weekStart);
   try {
     await clearRotaWeek(owned.svc, owned.tech.id, staffId, week);
+    revalidatePublicAvailability(owned.tech.id);
     revalidatePath(TEAM);
     revalidatePath(`/${owned.tech.handle}`);
     return { ok: true };
@@ -418,6 +422,7 @@ export async function copyStaffRotaFromPreviousAction(
       weekStart: week,
     }));
     await replaceRotaWeek(owned.svc, owned.tech.id, staffId, week, rows);
+    revalidatePublicAvailability(owned.tech.id);
     revalidatePath(TEAM);
     revalidatePath(`/${owned.tech.handle}`);
     return { ok: true, rows };
