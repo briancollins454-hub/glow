@@ -258,7 +258,7 @@ export async function loadDashboardPageData(
     case "clients": {
       const [clients, visitsEntries] = await Promise.all([
         listClients(sb, tech.id),
-        withFallback("clients/visits", completedVisitCounts(sb, tech.id), [] as [string, number][]),
+        withFallback("clients/visits", completedVisitCounts(sb, tech.id), new Map<string, number>()),
       ]);
       return { clients, visitsByClient: Object.fromEntries(visitsEntries) };
     }
