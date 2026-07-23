@@ -22,7 +22,8 @@ import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
 import type { BusinessInsight } from "@/lib/insights";
-import type { Booking, Client, Service, Tech } from "@/lib/db/types";
+import type { AuditEvent, Booking, Client, Service, Tech } from "@/lib/db/types";
+import { fmtDateTime } from "@/lib/format";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 
@@ -41,6 +42,7 @@ type HomeData = {
   serviceById: Record<string, Service>;
   lateCascadeCount: number;
   settleUp: Booking[];
+  recentCancellations: AuditEvent[];
 };
 
 export default function DashboardOverview() {
@@ -66,6 +68,7 @@ function HomeView({
   serviceById,
   lateCascadeCount,
   settleUp,
+  recentCancellations,
 }: HomeData) {
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
@@ -161,6 +164,50 @@ function HomeView({
         clientById={clientById}
         serviceById={serviceById}
       />
+
+      {recentCancellations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent cancellations</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recentCancellations.map((ev) => {
+              const meta = (ev.metadata ?? {}) as Record<string, unknown>;
+              const clientName =
+                typeof meta.clientName === "string" && meta.clientName
+                  ? meta.clientName
+                  : "Client";
+              const serviceName =
+                typeof meta.serviceName === "string" && meta.serviceName
+                  ? meta.serviceName
+                  : "Appointment";
+              const startIso =
+                typeof meta.startIso === "string" ? meta.startIso : null;
+              const advance =
+                typeof meta.advanceLabel === "string" ? meta.advanceLabel : null;
+              const money =
+                typeof meta.moneyStatus === "string" ? meta.moneyStatus : null;
+              return (
+                <div
+                  key={ev.id}
+                  className="rounded-xl border border-edge bg-cream px-4 py-3 text-sm"
+                >
+                  <p className="font-medium text-ink">
+                    {clientName} — {serviceName}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-faint">
+                    {startIso ? fmtDateTime(startIso) : "—"}
+                    {advance ? ` · ${advance}` : ""}
+                  </p>
+                  {money && (
+                    <p className="mt-0.5 text-xs text-ink-soft">{money}</p>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {insights.length > 0 && (
         <Card>

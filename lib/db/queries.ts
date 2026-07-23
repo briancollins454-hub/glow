@@ -2018,6 +2018,24 @@ export async function listAuditEvents(sb: SB, techId: string): Promise<AuditEven
     .order("createdAt", { ascending: false });
   return must(data as AuditEvent[], error, "listAuditEvents") ?? [];
 }
+
+/** Recent audit rows for one action (dashboard home activity). */
+export async function listRecentAuditEvents(
+  sb: SB,
+  techId: string,
+  action: string,
+  limit = 5,
+): Promise<AuditEvent[]> {
+  const { data, error } = await sb
+    .from("audit_events")
+    .select("*")
+    .eq("techId", techId)
+    .eq("action", action)
+    .order("createdAt", { ascending: false })
+    .limit(limit);
+  if (error) throw dbError("listRecentAuditEvents", error);
+  return (data as AuditEvent[]) ?? [];
+}
 export async function createAccountClosureRequest(
   sb: SB,
   request: Omit<AccountClosureRequest, "id" | "requestedAt" | "completedAt" | "status"> &

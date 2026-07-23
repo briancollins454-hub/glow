@@ -6,6 +6,7 @@ import {
   createAuditEvent,
   createPayment,
   getBookingByToken,
+  getClient,
   getService,
   getTechByHandle,
   listBookingsByGroup,
@@ -17,6 +18,7 @@ import { syncBookingToGoogle } from "@/lib/google-calendar";
 import { createCardCaptureCheckout, createDepositCheckout, refundOnConnect } from "@/lib/payments";
 import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
 import type { Booking } from "@/lib/db/types";
+import type { CardProtectionCharge } from "@/lib/card-protection";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -74,7 +76,6 @@ export async function saveCardAction(formData: FormData) {
     group.length > 1
       ? { ...service, name: `${service.name} + ${group.length - 1} more treatment${group.length > 2 ? "s" : ""}` }
       : service;
-  const { getClient } = await import("@/lib/db/queries");
   const client = await getClient(sb, booking.clientId);
   const url = await createCardCaptureCheckout(
     tech,
@@ -106,13 +107,15 @@ export async function cancelClientBookingAction(formData: FormData) {
     redirect(`/${handle}/booked/${token}?cancelled=1`);
   }
 
+  const priorStatus = booking.status;
   const patch: Partial<typeof booking> = { status: "cancelled" };
   const hoursOut = (new Date(booking.startIso).getTime() - Date.now()) / (1000 * 60 * 60);
+  let cardCharge: CardProtectionCharge | null = null;
   if (hoursOut < tech.cancellationWindowHours) {
     if (booking.depositStatus === "paid") patch.depositStatus = "forfeited";
     // Card capture: charge the protection fee on late self-cancel.
     const { chargeCardProtectionFee } = await import("@/lib/card-protection");
-    await chargeCardProtectionFee(sb, tech, booking, "late_cancel");
+    cardCharge = await chargeCardProtectionFee(sb, tech, booking, "late_cancel");
   } else if (tech.stripeConnectAccountId) {
     const payments = await paymentsForBooking(sb, booking.id);
     for (const p of payments) {
@@ -138,6 +141,7 @@ export async function cancelClientBookingAction(formData: FormData) {
   }
 
   await updateBooking(sb, booking.id, patch);
+  const cancelledBooking = { ...booking, ...patch };
   // Cancel the rest of the visit (secondary bookings hold no money).
   for (const b of group) {
     if (b.id === booking.id) continue;
@@ -153,28 +157,63 @@ export async function cancelClientBookingAction(formData: FormData) {
   const { revalidatePublicAvailability } = await import("@/lib/booking/public-availability-cache");
   revalidatePublicAvailability(tech.id);
   try {
-    await syncBookingToGoogle(sb, tech, { ...booking, ...patch });
+    await syncBookingToGoogle(sb, tech, cancelledBooking);
   } catch {
     // Google Calendar sync is best-effort.
   }
   try {
     const { notifyWaitlistForCancelledBooking } = await import("@/lib/waitlist");
-    await notifyWaitlistForCancelledBooking(sb, { ...booking, ...patch });
+    await notifyWaitlistForCancelledBooking(sb, cancelledBooking);
   } catch {
     // Waitlist notifications are best-effort.
   }
   await skipScheduledReminders(sb, booking.id);
-  try {
-    await createAuditEvent(sb, {
-      techId: tech.id,
-      actor: "client",
-      action: "booking_cancelled_self_service",
-      entityType: "booking",
-      entityId: booking.id,
-      metadata: { hoursOut, depositStatus: patch.depositStatus, balanceStatus: patch.balanceStatus },
-    });
-  } catch {
-    // Do not block cancellation if audit tables are not deployed yet.
+
+  // Salon email: only for real held bookings (not unpaid pending holds).
+  const shouldNotifySalon =
+    priorStatus === "confirmed" ||
+    booking.depositStatus === "paid" ||
+    !!booking.cardPaymentMethodId;
+  if (shouldNotifySalon) {
+    try {
+      const { notifySalonOfCancellation, cancellationAdvanceLabel, cancellationMoneyStatus } =
+        await import("@/lib/notify");
+      await notifySalonOfCancellation(sb, cancelledBooking, {
+        hoursOut,
+        cardCharge: cardCharge
+          ? { outcome: cardCharge.outcome, amountPennies: cardCharge.amountPennies }
+          : null,
+      });
+      const client = await getClient(sb, booking.clientId);
+      const service = await getService(sb, booking.serviceId);
+      await createAuditEvent(sb, {
+        techId: tech.id,
+        actor: "client",
+        action: "booking_cancelled_self_service",
+        entityType: "booking",
+        entityId: booking.id,
+        metadata: {
+          hoursOut,
+          depositStatus: patch.depositStatus ?? booking.depositStatus,
+          balanceStatus: patch.balanceStatus ?? booking.balanceStatus,
+          clientName: client?.name ?? "",
+          serviceName: service?.name ?? "",
+          startIso: booking.startIso,
+          advanceLabel: cancellationAdvanceLabel(hoursOut),
+          moneyStatus: cancellationMoneyStatus({
+            depositPennies: cancelledBooking.depositPennies,
+            depositStatus: cancelledBooking.depositStatus,
+            balanceStatus: cancelledBooking.balanceStatus,
+            cardPaymentMethodId: cancelledBooking.cardPaymentMethodId,
+            cardCharge: cardCharge
+              ? { outcome: cardCharge.outcome, amountPennies: cardCharge.amountPennies }
+              : null,
+          }),
+        },
+      });
+    } catch {
+      // Do not block cancellation if notify/audit fail.
+    }
   }
   redirect(`/${handle}/booked/${token}?cancelled=1`);
 }
