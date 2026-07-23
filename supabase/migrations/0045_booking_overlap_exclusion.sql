@@ -7,14 +7,30 @@
 -- Deliberate dashboard overbooks set "allowOverlap" = true so they are excluded
 -- from both this constraint and the exact-start unique indexes.
 --
--- NOT VALID: existing historical overlaps (imports, races) are left alone; the
--- constraint still applies to new inserts and updates. Validate later with
--- ALTER TABLE ... VALIDATE CONSTRAINT once cleaned up.
+-- Postgres does not allow NOT VALID on EXCLUDE constraints, so historical
+-- overlaps are flagged allowOverlap=true (keeping the earliest booking in each
+-- clash) before the constraint is created.
 
 create extension if not exists btree_gist;
 
 alter table public.bookings
   add column if not exists "allowOverlap" boolean not null default false;
+
+-- Flag later bookings in each historical staff overlap so the exclusion
+-- constraint can be added without failing on existing data.
+update public.bookings as later
+set "allowOverlap" = true
+from public.bookings as earlier
+where later.id <> earlier.id
+  and later."staffId" is not null
+  and earlier."staffId" = later."staffId"
+  and later.status in ('pending_approval', 'pending', 'confirmed', 'completed')
+  and earlier.status in ('pending_approval', 'pending', 'confirmed', 'completed')
+  and not later."allowOverlap"
+  and not earlier."allowOverlap"
+  and tstzrange(earlier."startIso", earlier."endIso", '[)')
+      && tstzrange(later."startIso", later."endIso", '[)')
+  and (earlier."createdAt", earlier.id) < (later."createdAt", later.id);
 
 -- Exact-start unique indexes: allow flagged overbooks to share a start minute.
 drop index if exists idx_bookings_staff_start_active;
@@ -47,5 +63,4 @@ alter table public.bookings
     "staffId" is not null
     and not "allowOverlap"
     and status in ('pending_approval', 'pending', 'confirmed', 'completed')
-  )
-  not valid;
+  );
