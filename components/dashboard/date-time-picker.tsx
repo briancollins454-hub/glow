@@ -17,19 +17,19 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-const ALL_DAY_TIMES: { time: string }[] = (() => {
-  const out: { time: string }[] = [];
-  for (let h = 0; h < 24; h++)
-    for (const m of [0, 15, 30, 45]) out.push({ time: `${pad(h)}:${pad(m)}` });
-  return out;
-})();
-
 export type TimeSlotOption = {
   time: string;
   /** Client initial when this start is already taken. */
   takenInitial?: string;
   takenName?: string;
 };
+
+const ALL_DAY_TIMES: TimeSlotOption[] = (() => {
+  const out: TimeSlotOption[] = [];
+  for (let h = 0; h < 24; h++)
+    for (const m of [0, 15, 30, 45]) out.push({ time: `${pad(h)}:${pad(m)}` });
+  return out;
+})();
 
 /**
  * Month-grid calendar + time picker. Submits as a hidden input in
