@@ -371,6 +371,12 @@ export interface Booking {
   groupId: string | null;
   /** Staff member taking this appointment (null only pre-migration). */
   staffId?: string | null;
+  /**
+   * When true, this booking may overlap another active booking for the same
+   * staff member (deliberate dashboard overbook). Excluded from the Postgres
+   * overlap constraint and exact-start unique indexes.
+   */
+  allowOverlap?: boolean;
   /** Client risk at booking time (drives deposit tier). */
   riskTier: RiskTier | null;
   /** True when rules mode auto-approved without tech review. */

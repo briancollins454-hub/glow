@@ -30,6 +30,8 @@ type Props = {
   onSelectedChange?: (dateStr: string) => void;
   /** Hide the flat day list (e.g. when team columns are shown instead). */
   hideDayList?: boolean;
+  /** Open the manual booking form with this date prefilled. */
+  onAddBooking?: (dateStr: string) => void;
 };
 
 function activeBookings(bookings: Booking[]): Booking[] {
@@ -76,6 +78,7 @@ export function BookingsMonthCalendar({
   selected: selectedProp,
   onSelectedChange,
   hideDayList = false,
+  onAddBooking,
 }: Props) {
   const todayStr = dateStrInTz(new Date());
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
@@ -173,11 +176,22 @@ export function BookingsMonthCalendar({
 
         {!hideDayList && (
           <div className="border-t border-edge pt-4">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <DiaryDatePicker dateStr={selected} onDateChange={setSelected} />
-              <span className="text-sm text-ink-faint">
-                ({selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"})
-              </span>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <DiaryDatePicker dateStr={selected} onDateChange={setSelected} />
+                <span className="text-sm text-ink-faint">
+                  ({selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"})
+                </span>
+              </div>
+              {onAddBooking && (
+                <button
+                  type="button"
+                  onClick={() => onAddBooking(selected)}
+                  className="rounded-lg border border-brand-400/50 bg-brand-500/15 px-3 py-1.5 text-sm font-medium text-brand-text hover:bg-brand-500/25"
+                >
+                  Add booking
+                </button>
+              )}
             </div>
             {selectedBookings.length === 0 ? (
               <p className="py-3 text-center text-sm text-ink-faint">Nothing booked this day.</p>
@@ -213,9 +227,18 @@ export function BookingsMonthCalendar({
           </div>
         )}
         {hideDayList && (
-          <p className="border-t border-edge pt-3 text-xs text-ink-faint">
-            Selected day opens in the team columns below.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
+            <p className="text-xs text-ink-faint">Selected day opens in the team columns below.</p>
+            {onAddBooking && (
+              <button
+                type="button"
+                onClick={() => onAddBooking(selected)}
+                className="rounded-lg border border-brand-400/50 bg-brand-500/15 px-3 py-1.5 text-sm font-medium text-brand-text hover:bg-brand-500/25"
+              >
+                Add booking
+              </button>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

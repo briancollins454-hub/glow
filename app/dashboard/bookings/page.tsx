@@ -85,6 +85,8 @@ function BookingsView({
   const noShowFee = searchParams.get("noshowfee");
   const noShowAmt = Number(searchParams.get("noshowamt") ?? "0");
   const bookingError = searchParams.get("error");
+  const conflictName = searchParams.get("conflict");
+  const conflictAt = searchParams.get("at");
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
@@ -94,6 +96,19 @@ function BookingsView({
   // Day diary (with tappable blocks) for one or more staff; list-only when no staff rows.
   const showStaff = staff.length >= 1;
   const [selectedDate, setSelectedDate] = useState(() => dateStrInTz(new Date()));
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualPrefillDate, setManualPrefillDate] = useState<string | undefined>(undefined);
+  const manualFormId = "manual-booking-form";
+
+  function openManualBooking(dateStr: string) {
+    setSelectedDate(dateStr);
+    setManualPrefillDate(dateStr);
+    setManualOpen(true);
+    // Smooth-scroll after paint so the opened details is on screen.
+    requestAnimationFrame(() => {
+      document.getElementById(manualFormId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   const todayStr = fmtDate(new Date().toISOString());
   const todayKey = dateStrInTz(new Date());
@@ -175,10 +190,14 @@ function BookingsView({
       )}
       {bookingError === "slot" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
-          That time is not free — they may already have a booking, be off, or outside working hours.
-          Pick another slot, or tick Custom time to book it anyway. Two bookings can&apos;t share the
-          exact same start minute for one person, so stagger them by a minute if you&apos;re
-          double-booking.
+          {conflictName && conflictAt
+            ? `This slot is taken by ${conflictName} at ${fmtTime(conflictAt)}. Pick another time, or choose that slot again and confirm “Book anyway”.`
+            : "That time is not free — they may already have a booking, be off, or outside working hours. Pick another slot."}
+        </div>
+      )}
+      {bookingError === "verify" && (
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+          Couldn&apos;t verify the slot is free, please try again.
         </div>
       )}
       {bookingError === "missing" && (
@@ -214,12 +233,17 @@ function BookingsView({
         <RunningLatePanel targetCount={lateTargets.length} />
       )}
 
-      <details className="card">
+      <details
+        className="card"
+        open={manualOpen}
+        onToggle={(e) => setManualOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium text-brand-text">
           <Plus className="h-4 w-4" /> Add a booking manually
         </summary>
         <div className="border-t border-edge p-5">
           <ManualBookingForm
+            formId={manualFormId}
             services={services}
             categories={categories}
             clients={clients}
@@ -230,6 +254,7 @@ function BookingsView({
             hoursByStaff={hoursByStaff}
             rotaHours={rotaHours}
             tech={tech}
+            defaultDate={manualPrefillDate}
           />
         </div>
       </details>
@@ -241,6 +266,7 @@ function BookingsView({
         selected={selectedDate}
         onSelectedChange={setSelectedDate}
         hideDayList={showStaff}
+        onAddBooking={openManualBooking}
       />
 
       <details className="card">
@@ -265,6 +291,7 @@ function BookingsView({
           hoursByStaff={hoursByStaff}
           rotaHours={rotaHours}
           rotaFetchedRange={rotaFetchedRange}
+          onAddBooking={openManualBooking}
         />
       ) : (
         <Card className="ring-1 ring-brand-500/30">

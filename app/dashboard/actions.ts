@@ -40,7 +40,7 @@ import {
   updateService,
   updateTech,
 } from "@/lib/db/queries";
-import { isUniqueViolation } from "@/lib/db/errors";
+import { isSlotConflictViolation } from "@/lib/db/errors";
 import { isLive } from "@/lib/subscriptions";
 import {
   createClientPhoto,
@@ -1298,80 +1298,32 @@ export async function addManualBookingAction(formData: FormData) {
     }
   }
 
-  // Custom time: the tech deliberately overbooks or books outside hours.
-  // Online clients never get this path; it only exists on the manual form.
-  const customTime = String(formData.get("customTime") ?? "") === "1";
+  const confirmOverbook = String(formData.get("confirmOverbook") ?? "") === "1";
+  const { checkDashboardStaffSlot, slotConflictQuery } = await import(
+    "@/lib/booking/dashboard-slot"
+  );
+  const { basketDurationMin } = await import("@/lib/rules");
+  const slotCheck = await checkDashboardStaffSlot(sb, tech, {
+    startIso,
+    durationMin: basketDurationMin(basketServices),
+    staffId: manualStaffId,
+  });
 
-  // Only allow times that fall in working hours and do not clash (same rules as
-  // online) - unless a custom time was explicitly chosen.
-  let slotOk = true;
-  if (!customTime) {
-    try {
-    const {
-      listWorkingHours,
-      listTimeOff,
-      listBookingsInWindow,
-      listRotaHours,
-      listStaff,
-      getStaff,
-    } = await import("@/lib/db/queries");
-    const { workingHoursForStaff, rowsForStaff } = await import("@/lib/booking/staff");
-    const { timeOffAppliesToStaff } = await import("@/lib/booking/staff-day");
-    const {
-      basketDurationMin,
-      bufferMapFromServices,
-      dateStrInTz,
-      daySlotsForDuration,
-      flexibleHoursFromTech,
-    } = await import("@/lib/rules");
-
-    const duration = basketDurationMin(basketServices);
-    const dateStr = dateStrInTz(new Date(startIso));
-    const dayMs = 24 * 60 * 60 * 1000;
-    const windowStart = new Date(new Date(startIso).getTime() - dayMs).toISOString();
-    const windowEnd = new Date(new Date(startIso).getTime() + dayMs).toISOString();
-    const [allHours, offs, nearby, rotaHours, staffList, allServices] = await Promise.all([
-      listWorkingHours(sb, tech.id).catch(() => []),
-      listTimeOff(sb, tech.id).catch(() => []),
-      listBookingsInWindow(sb, tech.id, windowStart, windowEnd).catch(() => []),
-      listRotaHours(sb, tech.id).catch(() => []),
-      listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
-      listServices(sb, tech.id).catch(() => basketServices),
-    ]);
-    const owner = staffList.find((s) => s.role === "owner") ?? null;
-    const member =
-      (manualStaffId
-        ? staffList.find((s) => s.id === manualStaffId) ??
-          (await getStaff(sb, manualStaffId).catch(() => null))
-        : null) ??
-      owner ??
-      null;
-    const workingHours = member
-      ? workingHoursForStaff(allHours, member, owner?.id)
-      : allHours.filter((h) => h.staffId == null);
-    const scopedBookings = member ? rowsForStaff(nearby, member) : nearby;
-    const scopedOffs = member ? timeOffAppliesToStaff(offs, member.id) : offs;
-    const scopedRota = member ? rowsForStaff(rotaHours, member) : [];
-    const free = daySlotsForDuration(
-      duration,
-      dateStr,
-      {
-        workingHours,
-        timeOff: scopedOffs,
-        bookings: scopedBookings,
-        flexibleHours: flexibleHoursFromTech(tech),
-        rotaHours: scopedRota,
-        bufferByServiceId: bufferMapFromServices(allServices),
-      },
-      0,
-    );
-      slotOk = free.includes(startIso);
-    } catch {
-      // Soft-fail: do not block manual booking if hours/rota queries fail.
-      slotOk = true;
+  let allowOverlap = false;
+  if (!slotCheck.ok) {
+    if (slotCheck.reason === "verify_failed") {
+      redirect("/dashboard/bookings?error=verify");
+    }
+    if (slotCheck.reason === "conflict" && confirmOverbook) {
+      allowOverlap = true;
+    } else if (slotCheck.reason === "conflict") {
+      redirect(
+        `/dashboard/bookings?error=slot&${slotConflictQuery(slotCheck.conflict)}`,
+      );
+    } else {
+      redirect("/dashboard/bookings?error=slot");
     }
   }
-  if (!slotOk) redirect("/dashboard/bookings?error=slot");
 
   let booking;
   try {
@@ -1389,6 +1341,7 @@ export async function addManualBookingAction(formData: FormData) {
         depositOverridePennies,
         paymentTaken,
         paymentMethod,
+        allowOverlap,
       });
       booking = created.primary;
     } else {
@@ -1405,10 +1358,11 @@ export async function addManualBookingAction(formData: FormData) {
         depositOverridePennies,
         discountPennies,
         addons,
+        allowOverlap,
       });
     }
   } catch (e) {
-    if (isUniqueViolation(e)) {
+    if (isSlotConflictViolation(e)) {
       revalidatePath("/dashboard/bookings");
       redirect("/dashboard/bookings?error=slot");
     }
@@ -1419,6 +1373,7 @@ export async function addManualBookingAction(formData: FormData) {
     serviceIds: basketServices.map((s) => s.id),
     startIso,
     paymentTaken,
+    allowOverlap,
   });
 
   revalidatePublicAvailability(tech.id);
@@ -1441,15 +1396,44 @@ export async function rescheduleBookingAction(formData: FormData) {
 
   const start = new Date(toIso(dateTime));
   const end = new Date(start.getTime() + service!.durationMin * 60 * 1000);
+  const startIso = start.toISOString();
+  const confirmOverbook = String(formData.get("confirmOverbook") ?? "") === "1";
+
+  const { checkDashboardStaffSlot, slotConflictQuery } = await import(
+    "@/lib/booking/dashboard-slot"
+  );
+  const slotCheck = await checkDashboardStaffSlot(sb, tech, {
+    startIso,
+    durationMin: service!.durationMin,
+    staffId: booking!.staffId ?? null,
+    excludeBookingId: booking!.id,
+  });
+
+  let allowOverlap = false;
+  if (!slotCheck.ok) {
+    if (slotCheck.reason === "verify_failed") {
+      redirect(`/dashboard/bookings/${id}?err=verify`);
+    }
+    if (slotCheck.reason === "conflict" && confirmOverbook) {
+      allowOverlap = true;
+    } else if (slotCheck.reason === "conflict") {
+      redirect(
+        `/dashboard/bookings/${id}?err=slot&${slotConflictQuery(slotCheck.conflict)}`,
+      );
+    } else {
+      redirect(`/dashboard/bookings/${id}?err=slot`);
+    }
+  }
 
   const patch: Partial<typeof booking & object> = {
     serviceId: service!.id,
-    startIso: start.toISOString(),
+    startIso,
     endIso: end.toISOString(),
     notes: String(formData.get("notes") ?? booking!.notes),
     lashMap: String(formData.get("lashMap") ?? booking!.lashMap ?? ""),
     lashCurl: String(formData.get("lashCurl") ?? booking!.lashCurl ?? ""),
     lashLength: String(formData.get("lashLength") ?? booking!.lashLength ?? ""),
+    allowOverlap,
   };
 
   // Price follows the (possibly changed) service.
@@ -1475,8 +1459,8 @@ export async function rescheduleBookingAction(formData: FormData) {
   try {
     await updateBooking(sb, id, patch);
   } catch (e) {
-    // Another active booking already owns this staff + start time.
-    if (isUniqueViolation(e)) {
+    // Another active booking already owns this staff + start/range.
+    if (isSlotConflictViolation(e)) {
       redirect(`/dashboard/bookings/${id}?err=slot`);
     }
     throw e;
@@ -1488,7 +1472,8 @@ export async function rescheduleBookingAction(formData: FormData) {
   }
   await audit(sb, tech.id, "booking_rescheduled", "booking", id, {
     from: { serviceId: booking!.serviceId, startIso: booking!.startIso },
-    to: { serviceId: service!.id, startIso: start.toISOString() },
+    to: { serviceId: service!.id, startIso },
+    allowOverlap,
   });
 
   revalidatePublicAvailability(tech.id);

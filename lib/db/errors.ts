@@ -22,6 +22,19 @@ export function isUniqueViolation(err: unknown): boolean {
   return typeof e.message === "string" && /duplicate key|unique constraint/i.test(e.message);
 }
 
+/** Postgres exclusion_violation — surfaced by PostgREST as code "23P01". */
+export function isExclusionViolation(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; message?: string };
+  if (e.code === "23P01") return true;
+  return typeof e.message === "string" && /exclusion constraint|conflicting key value/i.test(e.message);
+}
+
+/** Unique slot index or overlap exclusion — treat both as a taken slot. */
+export function isSlotConflictViolation(err: unknown): boolean {
+  return isUniqueViolation(err) || isExclusionViolation(err);
+}
+
 export function throwDbError(
   error: { message?: string; code?: string; details?: string },
   fn = "query",
