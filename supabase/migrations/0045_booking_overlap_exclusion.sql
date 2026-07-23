@@ -11,7 +11,18 @@
 -- historical overlaps are flagged allowOverlap=true (keeping the earliest
 -- booking in each clash) before the constraint is created.
 
-create extension if not exists btree_gist;
+-- btree_gist may already be installed; IF NOT EXISTS can still race/fail with
+-- 23505 on pg_extension_name_index in some hosted Postgres setups.
+do $$
+begin
+  create extension if not exists btree_gist;
+exception
+  when unique_violation then
+    null;
+  when duplicate_object then
+    null;
+end
+$$;
 
 alter table public.bookings
   add column if not exists "allowOverlap" boolean not null default false;
