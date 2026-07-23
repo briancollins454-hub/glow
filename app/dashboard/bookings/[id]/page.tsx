@@ -118,7 +118,12 @@ export default async function EditBookingPage({
           <CheckCircle2 className="h-4 w-4" /> Booking updated.
         </div>
       )}
-      {err && (
+      {err === "slot" && (
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+          That time is not free — they may already have a booking then. Pick another slot.
+        </div>
+      )}
+      {err && err !== "slot" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Please pick a service, date and time.
         </div>

@@ -1472,7 +1472,15 @@ export async function rescheduleBookingAction(formData: FormData) {
     balanceStatus: booking!.balanceStatus === "paid" ? "paid" : balance > 0 ? "unpaid" : "paid",
   });
 
-  await updateBooking(sb, id, patch);
+  try {
+    await updateBooking(sb, id, patch);
+  } catch (e) {
+    // Another active booking already owns this staff + start time.
+    if (isUniqueViolation(e)) {
+      redirect(`/dashboard/bookings/${id}?err=slot`);
+    }
+    throw e;
+  }
   const updated = await getBooking(sb, id);
   if (updated) {
     const { rescheduleReminders } = await import("@/lib/bookings");
