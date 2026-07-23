@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ClientPicker } from "@/components/dashboard/client-picker";
 import { LazyDateTimePicker } from "@/components/dashboard/lazy-date-time-picker";
+import type { TimeSlotOption } from "@/components/dashboard/date-time-picker";
 import { groupServicesForDashboard } from "@/lib/booking/service-groups";
 import { rowsForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
@@ -12,7 +13,7 @@ import { gbp, fmtTime } from "@/lib/format";
 import {
   basketDurationMin,
   bufferMapFromServices,
-  daySlotsForDuration,
+  daySlotChoicesForDuration,
   flexibleHoursFromTech,
 } from "@/lib/rules";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,11 @@ import type {
   WorkingHour,
 } from "@/lib/db/types";
 
+function clientInitial(name: string): string {
+  const trimmed = name.trim();
+  return trimmed ? trimmed[0]!.toUpperCase() : "?";
+}
+
 export function ManualBookingForm({
   services,
   categories,
@@ -41,6 +47,8 @@ export function ManualBookingForm({
   hoursByStaff = {},
   rotaHours = [],
   tech,
+  defaultDate,
+  formId,
 }: {
   services: Service[];
   categories: ServiceCategory[];
@@ -58,6 +66,9 @@ export function ManualBookingForm({
     | "flexibleEndMinutes"
     | "flexibleLastStartMinutes"
   > | null;
+  /** Prefill the date picker (YYYY-MM-DD London). */
+  defaultDate?: string;
+  formId?: string;
 }) {
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const groups = useMemo(
@@ -67,6 +78,10 @@ export function ManualBookingForm({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const defaultStaffId = staff[0]?.id ?? "";
   const [staffId, setStaffId] = useState(defaultStaffId);
+  const clientById = useMemo(
+    () => Object.fromEntries(clients.map((c) => [c.id, c.name])),
+    [clients],
+  );
 
   const selectedServices = useMemo(
     () =>
@@ -76,7 +91,6 @@ export function ManualBookingForm({
     [selectedIds, activeServices],
   );
 
-  // Add-ons attach to the primary (first) treatment, matching online baskets.
   const primaryId = selectedServices[0]?.id ?? "";
   const primaryAddons = useMemo(
     () => addons.filter((a) => a.serviceId === primaryId && a.active),
@@ -89,7 +103,7 @@ export function ManualBookingForm({
   const flexibleHours = useMemo(() => flexibleHoursFromTech(tech), [tech]);
 
   const timesForDate = useCallback(
-    (dateStr: string) => {
+    (dateStr: string): TimeSlotOption[] => {
       if (selectedServices.length === 0) return [];
       const duration = basketDurationMin(selectedServices);
       const member = staff.find((s) => s.id === staffId) ?? staff[0] ?? null;
@@ -99,7 +113,7 @@ export function ManualBookingForm({
         : bookings.filter((b) => !b.staffId);
       const scopedOffs = member ? timeOffAppliesToStaff(offs, member.id) : offs;
       const scopedRota = member ? rowsForStaff(rotaHours, member) : [];
-      const slots = daySlotsForDuration(duration, dateStr, {
+      const choices = daySlotChoicesForDuration(duration, dateStr, {
         workingHours,
         timeOff: scopedOffs,
         bookings: scopedBookings,
@@ -107,7 +121,16 @@ export function ManualBookingForm({
         rotaHours: scopedRota,
         bufferByServiceId,
       }, 0);
-      return slots.map((iso) => fmtTime(iso));
+      return choices.map((c) => {
+        if (!c.takenByBookingId) return { time: fmtTime(c.iso) };
+        const booking = scopedBookings.find((b) => b.id === c.takenByBookingId);
+        const name = booking ? clientById[booking.clientId] ?? "Client" : "Client";
+        return {
+          time: fmtTime(c.iso),
+          takenInitial: clientInitial(name),
+          takenName: name,
+        };
+      });
     },
     [
       selectedServices,
@@ -119,6 +142,7 @@ export function ManualBookingForm({
       rotaHours,
       flexibleHours,
       bufferByServiceId,
+      clientById,
     ],
   );
 
@@ -129,8 +153,17 @@ export function ManualBookingForm({
     });
   }
 
+  const pickerDefault =
+    defaultDate && /^\d{4}-\d{2}-\d{2}$/.test(defaultDate)
+      ? `${defaultDate}T10:00`
+      : undefined;
+
   return (
-    <form action={addManualBookingAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <form
+      id={formId}
+      action={addManualBookingAction}
+      className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+    >
       <div className="sm:col-span-2">
         <Label>Existing client</Label>
         <ClientPicker clients={clients} name="clientId" />
@@ -267,15 +300,15 @@ export function ManualBookingForm({
         ) : (
           <>
             <LazyDateTimePicker
+              key={pickerDefault ?? "no-date"}
               name="startsAt"
+              defaultValue={pickerDefault}
               timesForDate={timesForDate}
-              emptyTimesHint="No free times — they may be fully booked or not working that day"
-              allowCustomTime
-              customTimeHint="Any time you like, even over an existing booking. Online clients never see this."
+              emptyTimesHint="No times — they may be fully booked or not working that day"
             />
             <p className="mt-1.5 text-xs text-ink-faint">
-              Times match working hours and skip slots that already have an appointment. Tick
-              Custom time to deliberately double-book or book outside hours.
+              Free times show as normal. Taken times are greyed with the client&apos;s initial —
+              pick one only if you mean to double-book, then confirm.
             </p>
           </>
         )}

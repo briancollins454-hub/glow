@@ -54,6 +54,8 @@ type Props = {
   rotaHours?: RotaHour[];
   /** Inclusive range that was queried for rotaHours (for silent-fallback warnings). */
   rotaFetchedRange?: { fromWeek: string; toWeek: string };
+  /** Open the manual booking form with this date prefilled. */
+  onAddBooking?: (dateStr: string) => void;
 };
 
 function hourLabels(startMin: number, endMin: number): number[] {
@@ -80,6 +82,7 @@ export function BookingsStaffDayView({
   hoursByStaff = {},
   rotaHours = [],
   rotaFetchedRange,
+  onAddBooking,
 }: Props) {
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const dayOffs = timeOffOnDate(offs, dateStr);
@@ -147,6 +150,15 @@ export function BookingsStaffDayView({
             >
               Today
             </button>
+            {onAddBooking && (
+              <button
+                type="button"
+                onClick={() => onAddBooking(dateStr)}
+                className="ml-1 rounded-lg border border-brand-400/50 bg-brand-500/15 px-2.5 py-1.5 text-xs font-medium text-brand-text hover:bg-brand-500/25"
+              >
+                Add booking
+              </button>
+            )}
           </div>
         </div>
       </CardHeader>

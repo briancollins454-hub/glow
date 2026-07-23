@@ -17,37 +17,43 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-const ALL_DAY_TIMES: string[] = (() => {
-  const out: string[] = [];
+const ALL_DAY_TIMES: { time: string }[] = (() => {
+  const out: { time: string }[] = [];
   for (let h = 0; h < 24; h++)
-    for (const m of [0, 15, 30, 45]) out.push(`${pad(h)}:${pad(m)}`);
+    for (const m of [0, 15, 30, 45]) out.push({ time: `${pad(h)}:${pad(m)}` });
   return out;
 })();
+
+export type TimeSlotOption = {
+  time: string;
+  /** Client initial when this start is already taken. */
+  takenInitial?: string;
+  takenName?: string;
+};
 
 /**
  * Month-grid calendar + time picker. Submits as a hidden input in
  * datetime-local format (YYYY-MM-DDTHH:mm) under `name`.
  *
- * Pass `timesForDate` to restrict times to free slots within working hours
- * (manual booking). Without it, every 15 minutes is offered (reschedule).
+ * Pass `timesForDate` to offer in-hours slots (free + taken). Taken times are
+ * greyed with the client's initial; selecting one requires an explicit
+ * "Book anyway" confirmation before submit.
  */
 export function DateTimePicker({
   name,
   defaultValue,
   timesForDate,
   emptyTimesHint = "No free times on this day",
-  allowCustomTime = false,
-  customTimeHint = "Any time, even over an existing booking.",
+  overbookConfirmLabel,
 }: {
   name: string;
   /** datetime-local format, e.g. 2026-07-03T12:30 */
   defaultValue?: string;
   /** When set, only these HH:mm values are offered for the selected date. */
-  timesForDate?: (dateStr: string) => string[];
+  timesForDate?: (dateStr: string) => TimeSlotOption[];
   emptyTimesHint?: string;
-  /** Offer a free-typed time that skips the free-slot list (deliberate overbooking). */
-  allowCustomTime?: boolean;
-  customTimeHint?: string;
+  /** Override the overbook confirmation copy. Receives client name + time. */
+  overbookConfirmLabel?: (clientName: string, time: string) => string;
 }) {
   const now = new Date();
   const initialDate = defaultValue ? defaultValue.slice(0, 10) : "";
@@ -55,8 +61,7 @@ export function DateTimePicker({
 
   const [selected, setSelected] = useState<string>(initialDate);
   const [time, setTime] = useState<string>(initialTime);
-  const [customMode, setCustomMode] = useState(false);
-  const [customTime, setCustomTime] = useState("10:00");
+  const [confirmOverbook, setConfirmOverbook] = useState(false);
   const [viewYear, setViewYear] = useState<number>(
     initialDate ? parseInt(initialDate.slice(0, 4), 10) : now.getFullYear(),
   );
@@ -66,7 +71,6 @@ export function DateTimePicker({
 
   const cells = useMemo(() => {
     const first = new Date(viewYear, viewMonth, 1);
-    // Monday-first offset
     const lead = (first.getDay() + 6) % 7;
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const out: (Date | null)[] = [];
@@ -90,37 +94,53 @@ export function DateTimePicker({
     } else setViewMonth((m) => m + 1);
   }
 
-  const times = useMemo(() => {
+  const options = useMemo(() => {
     if (!timesForDate) return ALL_DAY_TIMES;
     if (!selected) return [];
     return timesForDate(selected);
   }, [timesForDate, selected]);
 
+  const selectedOption = options.find((o) => o.time === time) ?? null;
+  const isTaken = Boolean(selectedOption?.takenInitial || selectedOption?.takenName);
+
   // Keep the selected time inside the allowed list for the chosen day.
   useEffect(() => {
     if (!timesForDate || !selected) return;
-    if (times.length === 0) {
+    if (options.length === 0) {
       if (time) setTime("");
       return;
     }
-    if (!times.includes(time)) setTime(times[0]!);
-  }, [timesForDate, selected, times, time]);
+    if (!options.some((o) => o.time === time)) setTime(options[0]!.time);
+  }, [timesForDate, selected, options, time]);
 
-  const usingCustom = allowCustomTime && customMode;
-  const effectiveTime = usingCustom ? customTime : time;
+  useEffect(() => {
+    if (!isTaken) setConfirmOverbook(false);
+  }, [isTaken, time, selected]);
+
   const valueReady = Boolean(
-    selected && effectiveTime && (usingCustom || !timesForDate || times.includes(time)),
+    selected && time && (!timesForDate || options.some((o) => o.time === time)),
   );
+
+  const confirmCopy =
+    isTaken && selectedOption
+      ? (overbookConfirmLabel?.(
+          selectedOption.takenName || "another client",
+          selectedOption.time,
+        ) ??
+        `This slot is taken by ${selectedOption.takenName || "another client"} at ${selectedOption.time}. Book anyway?`)
+      : "";
 
   return (
     <div className="rounded-xl border border-edge bg-fill p-3">
       <input
         type="hidden"
         name={name}
-        value={valueReady ? `${selected}T${effectiveTime}` : ""}
+        value={valueReady ? `${selected}T${time}` : ""}
         required
       />
-      {usingCustom && <input type="hidden" name="customTime" value="1" />}
+      {isTaken && confirmOverbook && (
+        <input type="hidden" name="confirmOverbook" value="1" />
+      )}
 
       <div className="flex items-center justify-between">
         <button type="button" onClick={prevMonth} className="grid h-9 w-9 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover">
@@ -163,52 +183,52 @@ export function DateTimePicker({
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge pt-3">
         <span className="text-sm text-ink-soft">Time</span>
-        {usingCustom ? (
-          <input
-            type="time"
-            value={customTime}
-            onChange={(e) => setCustomTime(e.target.value)}
-            className="input h-10 w-28"
-            aria-label="Custom time"
-          />
-        ) : timesForDate && !selected ? (
+        {timesForDate && !selected ? (
           <span className="text-sm text-ink-faint">Pick a date first</span>
-        ) : timesForDate && times.length === 0 ? (
+        ) : timesForDate && options.length === 0 ? (
           <span className="text-sm text-warning-text">{emptyTimesHint}</span>
         ) : (
           <select
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="input h-10 w-28 cursor-pointer"
-            disabled={times.length === 0}
+            className="input h-10 min-w-[7rem] cursor-pointer"
+            disabled={options.length === 0}
           >
-            {times.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {options.map((o) => (
+              <option
+                key={o.time}
+                value={o.time}
+                className={o.takenInitial ? "text-ink-faint" : undefined}
+              >
+                {o.takenInitial ? `${o.time} · ${o.takenInitial}` : o.time}
               </option>
             ))}
           </select>
         )}
         {valueReady ? (
           <span className="ml-auto text-sm font-medium text-brand-text">
-            {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {effectiveTime}
+            {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {time}
+            {isTaken && selectedOption?.takenInitial ? (
+              <span className="ml-1 text-ink-faint">({selectedOption.takenInitial})</span>
+            ) : null}
           </span>
         ) : (
           <span className="ml-auto text-sm text-ink-faint">Pick a date</span>
         )}
       </div>
-      {allowCustomTime && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-ink-soft">
+
+      {isTaken && (
+        <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+          <p className="text-sm text-warning-text">{confirmCopy}</p>
+          <label className="mt-2 flex items-center gap-2 text-sm font-medium text-ink">
             <input
               type="checkbox"
-              checked={customMode}
-              onChange={(e) => setCustomMode(e.target.checked)}
+              checked={confirmOverbook}
+              onChange={(e) => setConfirmOverbook(e.target.checked)}
               className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
             />
-            Custom time
+            Yes, book anyway
           </label>
-          {customMode && <span className="text-xs text-ink-faint">{customTimeHint}</span>}
         </div>
       )}
     </div>

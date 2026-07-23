@@ -7,42 +7,76 @@ import {
   getBooking,
   getClient,
   getService,
+  listBookingsInWindow,
   listCategories,
+  listClients,
   listProductBatches,
   listProducts,
+  listRotaHours,
   listServices,
+  listStaff,
+  listTimeOff,
+  listWorkingHours,
   productUsagesForClient,
 } from "@/lib/db/queries";
+import { workingHoursForStaff } from "@/lib/booking/staff";
 import { preCareForBooking } from "@/lib/pre-care";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { DateTimePicker } from "@/components/dashboard/date-time-picker";
-import { ServicePicker } from "@/components/dashboard/service-picker";
+import { BookingRescheduleForm } from "@/components/dashboard/booking-reschedule-form";
 import { statusBadge } from "@/components/dashboard/status";
-import { gbp, TZ, fmtDateTime } from "@/lib/format";
-import { rescheduleBookingAction, recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
+import { gbp, TZ, fmtDateTime, fmtTime } from "@/lib/format";
+import { recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
 import { GoogleBookingSyncButton } from "@/components/dashboard/google-booking-sync-button";
+import { supabaseService } from "@/lib/supabase/service";
 
 export default async function EditBookingPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; err?: string; usage?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    err?: string;
+    usage?: string;
+    conflict?: string;
+    at?: string;
+  }>;
 }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
   const { id } = await params;
-  const { saved, err, usage } = await searchParams;
+  const { saved, err, usage, conflict, at } = await searchParams;
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
-  const [client, service, services, categories, products, batches, usages, preCare, bookingStaff] =
-    await Promise.all([
+  const now = Date.now();
+  const windowStart = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const fromWeek = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const toWeek = new Date(now + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const [
+    client,
+    service,
+    services,
+    categories,
+    products,
+    batches,
+    usages,
+    preCare,
+    bookingStaff,
+    nearbyBookings,
+    staff,
+    offs,
+    allHours,
+    rotaHours,
+    clients,
+  ] = await Promise.all([
       getClient(sb, booking.clientId),
       getService(sb, booking.serviceId),
       listServices(sb, tech.id, { activeOnly: true }),
@@ -54,6 +88,12 @@ export default async function EditBookingPage({
       booking.staffId
         ? import("@/lib/db/queries").then((m) => m.getStaff(sb, booking.staffId!)).catch(() => null)
         : Promise.resolve(null),
+      listBookingsInWindow(sb, tech.id, windowStart, windowEnd).catch(() => []),
+      listStaff(supabaseService(), tech.id, { activeOnly: true }).catch(() => []),
+      listTimeOff(sb, tech.id).catch(() => []),
+      listWorkingHours(sb, tech.id).catch(() => []),
+      listRotaHours(sb, tech.id, { fromWeek, toWeek }).catch(() => []),
+      listClients(sb, tech.id).catch(() => []),
     ]);
 
   const productById = new Map(products.map((p) => [p.id, p]));
@@ -71,6 +111,13 @@ export default async function EditBookingPage({
     .filter((o): o is NonNullable<typeof o> => o != null);
   const bookingUsages = usages.filter((u) => u.bookingId === booking.id);
 
+  const owner = staff.find((s) => s.role === "owner");
+  const hoursByStaff: Record<string, typeof allHours> = {};
+  for (const member of staff) {
+    hoursByStaff[member.id] = workingHoursForStaff(allHours, member, owner?.id);
+  }
+  const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
+
   // Prefill the picker with the booking's current local date/time.
   const currentLocal = formatInTimeZone(new Date(booking.startIso), TZ, "yyyy-MM-dd'T'HH:mm");
   const depositOutstanding = booking.depositPennies > 0 && booking.depositStatus !== "paid";
@@ -80,6 +127,12 @@ export default async function EditBookingPage({
     googleConnected &&
     booking.status === "confirmed" &&
     new Date(booking.startIso).getTime() > Date.now() - 15 * 60 * 1000;
+
+  const conflictTime = at ? fmtTime(at) : null;
+  const pickerServices =
+    !services.some((s) => s.id === booking.serviceId) && service
+      ? [...services, service]
+      : services;
 
   return (
     <div className="space-y-6">
@@ -120,10 +173,17 @@ export default async function EditBookingPage({
       )}
       {err === "slot" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
-          That time is not free — they may already have a booking then. Pick another slot.
+          {conflict && conflictTime
+            ? `This slot is taken by ${conflict} at ${conflictTime}. Pick another time, or choose that slot again and confirm “Book anyway”.`
+            : "That time is not free — they may already have a booking then. Pick another slot."}
         </div>
       )}
-      {err && err !== "slot" && (
+      {err === "verify" && (
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+          Couldn&apos;t verify the slot is free, please try again.
+        </div>
+      )}
+      {err && err !== "slot" && err !== "verify" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           Please pick a service, date and time.
         </div>
@@ -142,68 +202,20 @@ export default async function EditBookingPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={rescheduleBookingAction} className="space-y-4">
-            <input type="hidden" name="id" value={booking.id} />
-            <div>
-              <Label>Service</Label>
-              <ServicePicker
-                name="serviceId"
-                services={
-                  !services.some((s) => s.id === booking.serviceId) && service
-                    ? [...services, service]
-                    : services
-                }
-                categories={categories}
-                defaultValue={booking.serviceId}
-                required
-              />
-            </div>
-            <div>
-              <Label>Date &amp; time</Label>
-              <DateTimePicker name="startsAt" defaultValue={currentLocal} />
-            </div>
-            <div>
-              <Label>Deposit for this booking (£)</Label>
-              {booking.depositStatus === "paid" ? (
-                <p className="rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm text-ink-soft">
-                  {gbp(booking.depositPennies)} - already paid, so the amount is locked.
-                </p>
-              ) : (
-                <>
-                  <Input
-                    name="depositPounds"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    defaultValue={(booking.depositPennies / 100).toFixed(2)}
-                  />
-                  <p className="mt-1.5 text-xs text-ink-faint">
-                    Set to 0 for no deposit - the client pays the full {gbp(booking.pricePennies)} on the day.
-                  </p>
-                </>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div><Label>Lash map</Label><Input name="lashMap" defaultValue={booking.lashMap} placeholder="e.g. Cat eye" /></div>
-              <div><Label>Curl</Label><Input name="lashCurl" defaultValue={booking.lashCurl} placeholder="e.g. C / CC / D" /></div>
-              <div><Label>Length</Label><Input name="lashLength" defaultValue={booking.lashLength} placeholder="e.g. 8-12mm" /></div>
-            </div>
-            {booking.addons.length > 0 && (
-              <div>
-                <Label>Extras chosen</Label>
-                <div className="flex flex-wrap gap-2">
-                  {booking.addons.map((a, i) => (
-                    <Badge key={i} tone="brand">{a.name} +{gbp(a.pricePennies)}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div>
-              <Label>Notes</Label>
-              <Textarea name="notes" defaultValue={booking.notes} placeholder="Anything to remember for this appointment" />
-            </div>
-            <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
-          </form>
+          <BookingRescheduleForm
+            booking={booking}
+            services={pickerServices}
+            categories={categories}
+            currentLocal={currentLocal}
+            staff={staff}
+            bookings={nearbyBookings}
+            offs={offs}
+            hoursByStaff={hoursByStaff}
+            rotaHours={rotaHours}
+            clientById={clientById}
+            tech={tech}
+            depositLocked={booking.depositStatus === "paid"}
+          />
         </CardContent>
       </Card>
 

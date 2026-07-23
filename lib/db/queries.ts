@@ -1063,14 +1063,20 @@ export async function bookingsForClient(sb: SB, techId: string, clientId: string
 }
 type BookingInsert = Omit<
   Booking,
-  "id" | "createdAt" | "googleEventId" | "approvalToken" | "groupId" | "staffId"
+  | "id"
+  | "createdAt"
+  | "googleEventId"
+  | "approvalToken"
+  | "groupId"
+  | "staffId"
+  | "allowOverlap"
 > &
-  Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId" | "staffId">>;
+  Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId" | "staffId" | "allowOverlap">>;
 
 function prepareBookingRow(b: BookingInsert): Record<string, unknown> {
-  // groupId/staffId are only included when set so bookings keep working while
-  // the 0028/0029 migrations are still pending on an environment.
-  const { groupId, staffId, ...rest } = b;
+  // groupId/staffId/allowOverlap are only included when set so bookings keep
+  // working while the matching migrations are still pending on an environment.
+  const { groupId, staffId, allowOverlap, ...rest } = b;
   const row: Record<string, unknown> = {
     ...rest,
     approvalToken: b.approvalToken ?? null,
@@ -1078,6 +1084,7 @@ function prepareBookingRow(b: BookingInsert): Record<string, unknown> {
   };
   if (groupId != null) row.groupId = groupId;
   if (staffId != null) row.staffId = staffId;
+  if (allowOverlap) row.allowOverlap = true;
   return row;
 }
 

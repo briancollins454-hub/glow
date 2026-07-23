@@ -467,6 +467,66 @@ export function daySlotsForDuration(
   return slots;
 }
 
+export type DaySlotChoice = {
+  iso: string;
+  /** When set, this start clashes with an existing booking (buffers included). */
+  takenByBookingId?: string;
+};
+
+/**
+ * All in-hours starts for the day, including ones that clash with bookings.
+ * Free slots have no takenByBookingId; taken ones name the conflicting booking
+ * so the dashboard picker can grey them with a client initial.
+ */
+export function daySlotChoicesForDuration(
+  durationMin: number,
+  dateStr: string,
+  ctx: AvailabilityCtx,
+  nowMs = Date.now(),
+): DaySlotChoice[] {
+  const allowed = ctx.allowedWeekdays;
+  if (allowed != null && (!allowed.length || !allowed.includes(weekdayOf(dateStr)))) {
+    return [];
+  }
+
+  const wh = dayWindowForDate(dateStr, ctx);
+  if (!wh) return [];
+
+  const offs = ctx.timeOff.map((o) => ({
+    start: new Date(o.startIso).getTime(),
+    end: new Date(o.endIso).getTime(),
+  }));
+  const blocking = ctx.bookings.filter((b) => BLOCKING_STATUSES.includes(b.status));
+  const busy = blocking.map((b) => {
+    const bufferMin = ctx.bufferByServiceId?.[b.serviceId] ?? 0;
+    return {
+      id: b.id,
+      start: new Date(b.startIso).getTime(),
+      end: new Date(b.endIso).getTime() + Math.max(0, bufferMin) * 60 * 1000,
+    };
+  });
+
+  const choices: DaySlotChoice[] = [];
+  const lastStart =
+    wh.lastStartMinutes != null
+      ? wh.lastStartMinutes
+      : wh.endMinutes - durationMin;
+  for (let m = wh.startMinutes; m <= lastStart; m += SLOT_STEP_MIN) {
+    const start = localInstant(dateStr, m);
+    const startMs = start.getTime();
+    const endMs = startMs + durationMin * 60 * 1000;
+    if (startMs <= nowMs) continue;
+    if (offs.some((o) => overlaps(startMs, endMs, o.start, o.end))) continue;
+    const clash = busy.find((b) => overlaps(startMs, endMs, b.start, b.end));
+    choices.push(
+      clash
+        ? { iso: start.toISOString(), takenByBookingId: clash.id }
+        : { iso: start.toISOString() },
+    );
+  }
+  return choices;
+}
+
 export function daySlots(
   service: Service,
   dateStr: string,

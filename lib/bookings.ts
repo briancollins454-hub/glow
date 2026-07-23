@@ -106,10 +106,12 @@ export async function createConfirmedBooking({
   pairedBookingId = null,
   riskTier = null,
   autoApproved = false,
+  allowOverlap = false,
 }: BaseParams & {
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
   depositOverridePennies?: number | null;
+  allowOverlap?: boolean;
 }): Promise<Booking> {
   const start = new Date(startIso);
   const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
@@ -152,6 +154,7 @@ export async function createConfirmedBooking({
     lashLength: "",
     addons,
     discountPennies,
+    ...(allowOverlap ? { allowOverlap: true } : {}),
   });
 
   if (depositPaid) {
@@ -763,6 +766,7 @@ export async function createBasketBookings({
   depositOverridePennies = null,
   paymentTaken = "none",
   paymentMethod = "in_person",
+  allowOverlap = false,
 }: {
   sb: SupabaseClient;
   tech: Tech;
@@ -779,6 +783,7 @@ export async function createBasketBookings({
   /** Offline payment already taken (manual bookings). */
   paymentTaken?: ManualPaymentTaken;
   paymentMethod?: string;
+  allowOverlap?: boolean;
 }): Promise<{ primary: Booking; all: Booking[] }> {
   if (services.length < 2) throw new Error("Basket needs at least two treatments");
 
@@ -848,6 +853,7 @@ export async function createBasketBookings({
         lashLength: "",
         addons: isPrimary ? addons : [],
         discountPennies: isPrimary ? discountPennies : 0,
+        ...(allowOverlap ? { allowOverlap: true } : {}),
       });
       created.push(booking);
     }
