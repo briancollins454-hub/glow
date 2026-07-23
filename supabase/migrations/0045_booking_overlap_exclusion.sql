@@ -7,9 +7,9 @@
 -- Deliberate dashboard overbooks set "allowOverlap" = true so they are excluded
 -- from both this constraint and the exact-start unique indexes.
 --
--- Postgres does not allow NOT VALID on EXCLUDE constraints, so historical
--- overlaps are flagged allowOverlap=true (keeping the earliest booking in each
--- clash) before the constraint is created.
+-- Postgres does not allow marking EXCLUDE constraints as unvalidated, so
+-- historical overlaps are flagged allowOverlap=true (keeping the earliest
+-- booking in each clash) before the constraint is created.
 
 create extension if not exists btree_gist;
 

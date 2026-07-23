@@ -221,9 +221,9 @@ describe("exclusion constraint migration + overbook flag", () => {
     expect(sql).toContain("tstzrange(\"startIso\", \"endIso\"");
     expect(sql).toContain("not \"allowOverlap\"");
     expect(sql).toContain("idx_bookings_staff_start_active");
-    // EXCLUDE cannot be NOT VALID in Postgres — flag historical overlaps instead.
-    expect(sql).not.toMatch(/not valid/i);
+    // EXCLUDE cannot be left unvalidated in Postgres — flag historical overlaps instead.
     expect(sql).toMatch(/set "allowOverlap" = true/i);
+    expect(sql).not.toMatch(/\bnot valid\b/i);
   });
 
   it("treats exclusion violations as slot conflicts", () => {
