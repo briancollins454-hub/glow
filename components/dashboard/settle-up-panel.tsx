@@ -13,25 +13,10 @@ import { Select } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { gbp, fmtDate, fmtTime } from "@/lib/format";
 import type { Booking, Client, Service } from "@/lib/db/types";
+import { bookingAmountDue } from "@/lib/booking/payment-summary";
 
 function amountDue(b: Booking): number {
-  let due = 0;
-  if (
-    b.depositPennies > 0 &&
-    b.depositStatus !== "paid" &&
-    b.depositStatus !== "forfeited" &&
-    b.depositStatus !== "refunded"
-  ) {
-    due += b.depositPennies;
-  }
-  if (
-    b.balancePennies > 0 &&
-    b.balanceStatus !== "paid" &&
-    b.balanceStatus !== "refunded"
-  ) {
-    due += b.balancePennies;
-  }
-  return due;
+  return bookingAmountDue(b);
 }
 
 function needsComplete(b: Booking): boolean {

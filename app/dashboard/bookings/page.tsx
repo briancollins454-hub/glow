@@ -17,6 +17,7 @@ import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { ManualBookingForm } from "@/components/dashboard/manual-booking-form";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { bufferMapFromServices } from "@/lib/rules";
+import { bookingPaymentSummary } from "@/lib/booking/payment-summary";
 import { deleteWaitlistEntryAction } from "../actions";
 import type {
   Booking,
@@ -156,7 +157,7 @@ function BookingsView({
             {gbp(b.pricePennies)}
           </span>
           {" · "}
-          {b.balanceStatus === "paid" ? "paid in full" : `${gbp(b.balancePennies)} due`}
+          {bookingPaymentSummary(b).listLabel}
         </p>
       </div>
       <div className="relative shrink-0">

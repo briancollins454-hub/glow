@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingActions } from "@/components/dashboard/booking-actions";
+import { BookingPaymentIndicator } from "@/components/dashboard/booking-payment-indicator";
 import {
   CalendarManualBlock,
   CalendarRotaUnavailable,
@@ -337,8 +338,12 @@ export function BookingsStaffDayView({
                                   {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"}
                                   {b.groupId ? " · multi" : ""}
                                 </p>
-                                <div className="mt-0.5 origin-left scale-90">
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1 origin-left scale-90">
                                   {statusBadge(b.status)}
+                                  <BookingPaymentIndicator
+                                    booking={b}
+                                    blockHeightPx={Math.min(apptHeight, blockHeight)}
+                                  />
                                 </div>
                               </div>
                               <div className="shrink-0 origin-top-right scale-90">

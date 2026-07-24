@@ -13,6 +13,7 @@ import {
 } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingActions } from "@/components/dashboard/booking-actions";
+import { BookingPaymentIndicator } from "@/components/dashboard/booking-payment-indicator";
 import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { statusBadge } from "@/components/dashboard/status";
 import { fmtTime, gbp } from "@/lib/format";
@@ -211,6 +212,7 @@ export function BookingsMonthCalendar({
                           {clientById[b.clientId] ?? "Client"}
                         </Link>
                         {statusBadge(b.status)}
+                        <BookingPaymentIndicator booking={b} />
                       </div>
                       <p className="mt-0.5 text-xs text-ink-faint">
                         {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"} ·{" "}
