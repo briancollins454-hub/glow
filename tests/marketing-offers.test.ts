@@ -253,8 +253,6 @@ describe("marketing routes + meta + sitemap", () => {
     ["app/switch/booksy/page.tsx", switchBooksy],
     ["app/guides/best-booking-app-lash-techs-uk/page.tsx", guideLash],
     ["app/guides/best-booking-app-nail-techs-uk/page.tsx", guideNail],
-    ["app/customers/klaudia/page.tsx", null],
-    ["app/customers/claire/page.tsx", null],
   ] as const;
 
   for (const [route] of pages) {
@@ -285,8 +283,6 @@ describe("marketing routes + meta + sitemap", () => {
         "/switch/booksy",
         "/guides/best-booking-app-lash-techs-uk",
         "/guides/best-booking-app-nail-techs-uk",
-        "/customers/klaudia",
-        "/customers/claire",
       ]),
     );
   });

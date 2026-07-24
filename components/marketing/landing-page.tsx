@@ -243,10 +243,10 @@ export default function LandingPage() {
             day. Ask them.
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <ButtonLink href="/customers/klaudia" variant="outline">
+            <ButtonLink href="/bellarose" variant="outline">
               Lash studio
             </ButtonLink>
-            <ButtonLink href="/customers/claire" variant="outline">
+            <ButtonLink href="/bellarose" variant="outline">
               Brow bar
             </ButtonLink>
             <ButtonLink href="/bellarose" variant="outline">
