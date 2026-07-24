@@ -1,6 +1,30 @@
-import { APP_URL, GLOW_AGGREGATE_RATING, ORGANIZATION, SOFTWARE_APPLICATION, type PricingFaq } from "@/lib/seo/config";
+import {
+  APP_URL,
+  GLOW_AGGREGATE_RATING,
+  ORGANIZATION,
+  SOFTWARE_APPLICATION,
+  townFromLocation,
+  type PricingFaq,
+} from "@/lib/seo/config";
 
 type JsonLd = Record<string, unknown>;
+
+export type OpeningHoursSpecInput = {
+  /** 0 = Sunday … 6 = Saturday (matches Glow working_hours.weekday). */
+  weekday: number;
+  opens: string; // HH:MM
+  closes: string; // HH:MM
+};
+
+const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
 
 export function organizationJsonLd(): JsonLd {
   return {
@@ -84,27 +108,31 @@ export function localBusinessJsonLd(input: {
   location?: string | null;
   image?: string | null;
   services: { name: string; pricePennies?: number }[];
+  openingHours?: OpeningHoursSpecInput[];
 }): JsonLd {
   const location = (input.location ?? "").trim();
+  const town = townFromLocation(location);
   const schema: JsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
+    "@id": `${input.url}#business`,
     name: input.name,
     url: input.url,
     description: input.description?.slice(0, 300) || undefined,
     image: input.image || undefined,
   };
-  if (location) {
+  if (town || location) {
     schema.address = {
       "@type": "PostalAddress",
-      addressLocality: location.split(",")[0]?.trim() || location,
+      addressLocality: town || undefined,
       addressCountry: "GB",
-      streetAddress: location,
+      ...(location && location !== town ? { streetAddress: location } : {}),
     };
   }
   if (input.services.length) {
     schema.makesOffer = input.services.slice(0, 40).map((s) => ({
       "@type": "Offer",
+      url: input.url,
       itemOffered: {
         "@type": "Service",
         name: s.name,
@@ -115,6 +143,14 @@ export function localBusinessJsonLd(input: {
             priceCurrency: "GBP",
           }
         : {}),
+    }));
+  }
+  if (input.openingHours?.length) {
+    schema.openingHoursSpecification = input.openingHours.map((h) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: DAY_NAMES[h.weekday] ?? "Monday",
+      opens: h.opens,
+      closes: h.closes,
     }));
   }
   return schema;

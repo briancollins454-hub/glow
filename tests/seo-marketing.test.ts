@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
+  absoluteCanonical,
   bookingPageDescription,
   bookingPageTitle,
+  canonicalAppUrl,
   GLOW_AGGREGATE_RATING,
+  primaryCategoryLabels,
   PRICING_FAQS,
   SOFTWARE_APPLICATION,
   townFromLocation,
@@ -19,6 +22,32 @@ import {
 import { MARKETING_SITEMAP_PATHS, marketingMetadata } from "@/lib/marketing/types";
 import { vsFresha, switchFresha, guideLash } from "@/lib/marketing/content";
 
+describe("canonical host", () => {
+  it("forces https and strips www", () => {
+    expect(canonicalAppUrl("http://www.glow-uk.com")).toBe("https://glow-uk.com");
+    expect(canonicalAppUrl("https://www.glow-uk.com/")).toBe("https://glow-uk.com");
+    expect(canonicalAppUrl("https://glow-uk.com")).toBe("https://glow-uk.com");
+  });
+
+  it("builds absolute canonicals on the apex host", () => {
+    expect(absoluteCanonical("/vs/fresha")).toMatch(/^https:\/\/[^/]+\/vs\/fresha$/);
+    expect(absoluteCanonical("/")).toMatch(/^https?:\/\//);
+    expect(absoluteCanonical("/")).not.toContain("www.");
+  });
+
+  it("middleware and vercel.json 301 www (and http) to https apex", () => {
+    const mw = readFileSync(join(process.cwd(), "middleware.ts"), "utf8");
+    const vercel = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    const nextCfg = readFileSync(join(process.cwd(), "next.config.mjs"), "utf8");
+    expect(mw).toContain("www.${apex}");
+    expect(mw).toContain('proto === "http"');
+    expect(mw).toContain("301");
+    expect(vercel).toContain("www.glow-uk.com");
+    expect(vercel).toContain("https://glow-uk.com/:path*");
+    expect(nextCfg).toContain("www.glow-uk.com");
+  });
+});
+
 describe("townFromLocation / booking titles", () => {
   it("extracts town from free-text location", () => {
     expect(townFromLocation("Manchester, UK")).toBe("Manchester");
@@ -26,19 +55,65 @@ describe("townFromLocation / booking titles", () => {
     expect(townFromLocation("")).toBeNull();
   });
 
-  it("builds Book with {name} | {town} titles", () => {
-    expect(bookingPageTitle("ILashIt", "Ballymena, NI")).toBe("Book with ILashIt | Ballymena");
-    expect(bookingPageTitle("Allure Beauty", "")).toBe("Book with Allure Beauty");
+  it("builds {Business}, {Town} | {Categories} | Book Online titles", () => {
+    expect(
+      bookingPageTitle({
+        businessName: "ILashIt - Lashes by Claudia",
+        location: "Ballymena",
+        categories: [{ name: "Lash Extensions" }, { name: "Lash Lift" }, { name: "Other" }],
+      }),
+    ).toBe("ILashIt - Lashes by Claudia, Ballymena | Lash Extensions and Lash Lift | Book Online");
+
+    expect(
+      bookingPageTitle({
+        businessName: "Frame & Define",
+        location: "",
+        categories: [{ name: "Brow treatments" }, { name: "Lash Extensions" }],
+      }),
+    ).toBe("Frame & Define | Lash Extensions and Brow treatments | Book Online");
+
+    expect(
+      bookingPageTitle({
+        businessName: "Allure Beauty",
+        location: null,
+        categories: [],
+      }),
+    ).toBe("Allure Beauty | Book Online");
   });
 
-  it("builds meta descriptions under 160 chars", () => {
-    const d = bookingPageDescription({
+  it("builds service+location meta descriptions without empty town placeholders", () => {
+    const withTown = bookingPageDescription({
       businessName: "Allure Beauty",
       location: "Devizes",
-      cardCapture: false,
+      categories: [{ name: "Nails" }, { name: "Piercings" }, { name: "Lashes" }],
     });
-    expect(d.length).toBeLessThanOrEqual(160);
-    expect(d).toContain("Allure Beauty");
+    expect(withTown).toBe(
+      "Book lashes, nails, and piercings with Allure Beauty in Devizes. Online booking, instant confirmation.",
+    );
+    expect(withTown.length).toBeLessThanOrEqual(160);
+
+    const noTown = bookingPageDescription({
+      businessName: "Frame & Define",
+      location: "",
+      categories: [{ name: "Lash Extensions" }],
+    });
+    expect(noTown).toBe(
+      "Book lash extensions with Frame & Define. Online booking, instant confirmation.",
+    );
+    expect(noTown).not.toContain(" in .");
+    expect(noTown).not.toContain("undefined");
+  });
+
+  it("ranks primary categories for SERP copy", () => {
+    expect(
+      primaryCategoryLabels([
+        { name: "Other" },
+        { name: "Piercings" },
+        { name: "Nails" },
+        { name: "Imported" },
+        { name: "Lash Extensions" },
+      ]),
+    ).toEqual(["Lash Extensions", "Nails", "Piercings"]);
   });
 });
 
@@ -79,16 +154,36 @@ describe("JSON-LD builders", () => {
     ]);
   });
 
-  it("LocalBusiness includes services and location when present", () => {
+  it("LocalBusiness includes services, prices, address and opening hours", () => {
     const ld = localBusinessJsonLd({
       name: "ILashIt",
       url: "https://glow-uk.com/ilashit",
       location: "Ballymena",
       services: [{ name: "Classic Full Set", pricePennies: 5500 }],
+      openingHours: [{ weekday: 2, opens: "09:00", closes: "17:00" }],
     });
     expect(ld["@type"]).toBe("LocalBusiness");
-    expect(ld.address).toBeTruthy();
-    expect(ld.makesOffer).toHaveLength(1);
+    expect(ld.address).toMatchObject({ addressLocality: "Ballymena", addressCountry: "GB" });
+    expect(ld.makesOffer).toEqual([
+      expect.objectContaining({
+        price: "55.00",
+        priceCurrency: "GBP",
+        url: "https://glow-uk.com/ilashit",
+      }),
+    ]);
+    expect(ld.openingHoursSpecification).toEqual([
+      expect.objectContaining({ dayOfWeek: "Tuesday", opens: "09:00", closes: "17:00" }),
+    ]);
+  });
+
+  it("LocalBusiness omits address when town is missing", () => {
+    const ld = localBusinessJsonLd({
+      name: "Frame & Define",
+      url: "https://glow-uk.com/frame-define",
+      location: "",
+      services: [],
+    });
+    expect(ld.address).toBeUndefined();
   });
 });
 
@@ -113,12 +208,14 @@ describe("marketing metadata on every route", () => {
     });
   }
 
-  it("marketingMetadata sets unique title, description, canonical, OG, Twitter", () => {
+  it("marketingMetadata sets unique title, description, absolute https canonical, OG, Twitter", () => {
     for (const page of [vsFresha, switchFresha, guideLash]) {
       const meta = marketingMetadata(page);
       expect(meta.title).toBe(page.title);
       expect(meta.description).toBe(page.description);
-      expect(meta.alternates?.canonical).toBe(page.path);
+      expect(String(meta.alternates?.canonical)).toBe(absoluteCanonical(page.path));
+      expect(String(meta.alternates?.canonical)).toMatch(/^https:\/\//);
+      expect(String(meta.alternates?.canonical)).not.toContain("www.");
       expect(meta.openGraph?.url).toContain(page.path);
       expect(meta.twitter?.card).toBe("summary_large_image");
     }
@@ -127,7 +224,7 @@ describe("marketing metadata on every route", () => {
   });
 });
 
-describe("sitemap + robots", () => {
+describe("sitemap + robots + brand SERP", () => {
   it("sitemap includes pricing and marketing paths", () => {
     const sitemap = readFileSync(join(process.cwd(), "app/sitemap.ts"), "utf8");
     expect(sitemap).toContain("MARKETING_SITEMAP_PATHS");
@@ -143,15 +240,19 @@ describe("sitemap + robots", () => {
     expect(robots).toContain("/*?*service=");
   });
 
-  it("booking pages use absolute title + canonical + LocalBusiness", () => {
+  it("booking pages use absolute title + canonical + LocalBusiness with hours", () => {
     const page = readFileSync(join(process.cwd(), "app/[handle]/page.tsx"), "utf8");
     expect(page).toContain("bookingPageTitle");
-    expect(page).toContain("alternates: { canonical");
+    expect(page).toContain("absoluteCanonical");
     expect(page).toContain("localBusinessJsonLd");
+    expect(page).toContain("openingHours");
   });
 
-  it("landing ships SoftwareApplication JSON-LD", () => {
+  it("landing/root titles lead with Glow for brand queries like glowbooking", () => {
     const landing = readFileSync(join(process.cwd(), "components/marketing/landing-page.tsx"), "utf8");
+    const layout = readFileSync(join(process.cwd(), "app/layout.tsx"), "utf8");
+    expect(landing).toContain("Glow | Booking for lash, brow and nail techs UK");
+    expect(layout).toContain("Glow | Booking for lash, brow and nail techs UK");
     expect(landing).toContain("softwareApplicationJsonLd");
   });
 

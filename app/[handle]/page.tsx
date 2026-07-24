@@ -62,7 +62,7 @@ import type { ServiceNavGroup } from "@/components/booking/booking-header";
 import { JsonLd } from "@/components/seo/json-ld";
 import { localBusinessJsonLd } from "@/lib/seo/json-ld";
 import {
-  APP_URL,
+  absoluteCanonical,
   bookingPageDescription,
   bookingPageTitle,
 } from "@/lib/seo/config";
@@ -77,15 +77,26 @@ export async function generateMetadata({
   const { handle } = await params;
   const tech = await loadPublicTechByHandle(handle);
   if (!tech) return { robots: { index: false, follow: false } };
-  const title = bookingPageTitle(tech.businessName, tech.location);
+
+  const sb = supabaseService();
+  const [categories, services] = await Promise.all([
+    listCategories(sb, tech.id).catch(() => []),
+    listServices(sb, tech.id, { activeOnly: true }).catch(() => []),
+  ]);
+
+  const title = bookingPageTitle({
+    businessName: tech.businessName,
+    location: tech.location,
+    categories,
+  });
   const description = bookingPageDescription({
     businessName: tech.businessName,
     location: tech.location,
-    tagline: tech.tagline,
-    bio: tech.bio,
-    cardCapture: usesCardCapture(tech),
+    categories,
+    services,
   });
-  const canonical = `/${tech.handle}`;
+  const canonicalPath = `/${tech.handle}`;
+  const canonical = absoluteCanonical(canonicalPath);
   return {
     title: { absolute: title },
     description,
@@ -94,7 +105,7 @@ export async function generateMetadata({
       title,
       description,
       type: "website",
-      url: `${APP_URL}${canonical}`,
+      url: canonical,
       locale: "en_GB",
       siteName: "Glow",
     },
@@ -107,6 +118,30 @@ export const revalidate = 60;
 
 function hhmm(m: number) {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** Schema.org OpeningHoursSpecification rows from the tech rota (enabled weekdays only). */
+function openingHoursForSchema(hours: Awaited<ReturnType<typeof listWorkingHours>>) {
+  const byDay = new Map<number, { start: number; end: number }>();
+  for (const h of hours) {
+    if (!h.enabled) continue;
+    const existing = byDay.get(h.weekday);
+    if (!existing) {
+      byDay.set(h.weekday, { start: h.startMinutes, end: h.endMinutes });
+    } else {
+      byDay.set(h.weekday, {
+        start: Math.min(existing.start, h.startMinutes),
+        end: Math.max(existing.end, h.endMinutes),
+      });
+    }
+  }
+  return [...byDay.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([weekday, range]) => ({
+      weekday,
+      opens: hhmm(range.start),
+      closes: hhmm(range.end),
+    }));
 }
 
 function buildOpeningHours(hours: Awaited<ReturnType<typeof listWorkingHours>>) {
@@ -301,6 +336,7 @@ export default async function PublicBookingPage({
 
   const photoUrls = new Map<string, string>();
   let openingHours: { label: string; value: string }[] = [];
+  let schemaOpeningHours: ReturnType<typeof openingHoursForSchema> = [];
   let reviews: { review: Review; clientLabel: string }[] = [];
   let ratingAvg = 0;
   let ratingCount = 0;
@@ -365,8 +401,15 @@ export default async function PublicBookingPage({
           value: `Vary by week · usually ${hhmm(flexible.startMinutes)} - ${hhmm(flexible.endMinutes)}`,
         },
       ];
+      // Flexible rotas still advertise typical daily hours in schema.
+      schemaOpeningHours = [1, 2, 3, 4, 5, 6].map((weekday) => ({
+        weekday,
+        opens: hhmm(flexible.startMinutes),
+        closes: hhmm(flexible.endMinutes),
+      }));
     } else {
       openingHours = buildOpeningHours(hours);
+      schemaOpeningHours = openingHoursForSchema(hours);
     }
   } else {
     const paths = [
@@ -454,11 +497,21 @@ export default async function PublicBookingPage({
       <JsonLd
         data={localBusinessJsonLd({
           name: tech.businessName,
-          description: tech.tagline || tech.bio || undefined,
-          url: `${APP_URL}/${tech.handle}`,
+          description:
+            bookingPageDescription({
+              businessName: tech.businessName,
+              location: tech.location,
+              categories,
+              services,
+            }) ||
+            tech.tagline ||
+            tech.bio ||
+            undefined,
+          url: absoluteCanonical(`/${tech.handle}`),
           location: tech.location,
           image: profileUrl ?? coverUrl ?? null,
           services: services.map((s) => ({ name: s.name, pricePennies: s.pricePennies })),
+          openingHours: schemaOpeningHours,
         })}
       />
       <PageViewBeacon path={`/${handle}`} techId={tech.id} />

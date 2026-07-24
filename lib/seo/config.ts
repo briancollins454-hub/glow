@@ -1,6 +1,32 @@
 /** Shared SEO constants for metadata and JSON-LD. */
 
-export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/\/$/, "");
+/**
+ * Canonical public origin: always https, never www.
+ * Prefer NEXT_PUBLIC_APP_URL when set, but normalise host/protocol so
+ * Search Console signals consolidate on https://glow-uk.com.
+ */
+export function canonicalAppUrl(raw = process.env.NEXT_PUBLIC_APP_URL): string {
+  const fallback = "https://glow-uk.com";
+  try {
+    const u = new URL((raw || fallback).trim());
+    let host = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "localhost" || host.endsWith(".vercel.app")) {
+      // Keep preview/local origins as-is (https when possible).
+      if (host === "localhost") return u.origin;
+      u.protocol = "https:";
+      u.port = "";
+      return u.origin;
+    }
+    if (host === "glow-uk.com" || host.endsWith(".glow-uk.com")) {
+      host = "glow-uk.com";
+    }
+    return `https://${host}`;
+  } catch {
+    return fallback;
+  }
+}
+
+export const APP_URL = canonicalAppUrl();
 
 export const ORGANIZATION = {
   name: "Glow",
@@ -9,7 +35,7 @@ export const ORGANIZATION = {
   logoUrl: `${APP_URL}/icon.png`,
   email: "support@glow-uk.com",
   description:
-    "The booking platform built for UK lash, brow and nail techs. £19 a month, everything included, 0% commission.",
+    "Glow is the booking platform built for UK lash, brow and nail techs. £19 a month, everything included, 0% commission.",
   sameAs: [] as string[],
 } as const;
 
@@ -67,6 +93,55 @@ export const PRICING_FAQS: PricingFaq[] = [
   },
 ];
 
+const CATEGORY_SKIP =
+  /^(other|imported|patch\s*test|consultations?|courses?|aftercare|add[- ]?ons?)$/i;
+
+/** Strip emoji / odd symbols from category labels for SERP titles. */
+export function cleanCategoryLabel(name: string): string {
+  return name
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Pick a few primary service categories for titles/descriptions.
+ * Prefers lash/brow/nail/piercing style labels; skips junk categories.
+ */
+export function primaryCategoryLabels(
+  categories: { name: string }[],
+  max = 3,
+): string[] {
+  const cleaned = categories
+    .map((c) => cleanCategoryLabel(c.name))
+    .filter((n) => n.length > 1 && !CATEGORY_SKIP.test(n));
+
+  const score = (n: string) => {
+    const lower = n.toLowerCase();
+    if (/lash/.test(lower)) return 100;
+    if (/brow/.test(lower)) return 90;
+    if (/nail|mani|pedi/.test(lower)) return 80;
+    if (/pierc/.test(lower)) return 70;
+    if (/wax|facial|massage|beauty/.test(lower)) return 40;
+    return 10;
+  };
+
+  const unique: string[] = [];
+  for (const n of [...cleaned].sort((a, b) => score(b) - score(a) || a.localeCompare(b))) {
+    if (unique.some((u) => u.toLowerCase() === n.toLowerCase())) continue;
+    unique.push(n);
+    if (unique.length >= max) break;
+  }
+  return unique;
+}
+
+function joinPhrase(parts: string[]): string {
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0]!;
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+}
+
 /** Extract a short town/locality from a free-text location field. */
 export function townFromLocation(location: string | null | undefined): string | null {
   const raw = (location ?? "").trim();
@@ -77,27 +152,53 @@ export function townFromLocation(location: string | null | undefined): string | 
   return primary.slice(0, 80);
 }
 
-export function bookingPageTitle(businessName: string, location?: string | null): string {
-  const town = townFromLocation(location);
-  const name = businessName.trim() || "this studio";
-  return town ? `Book with ${name} | ${town}` : `Book with ${name}`;
+/**
+ * SERP title: "{Business Name}, {Town} | {Categories} | Book Online"
+ * Omits empty town / category segments without leaving blank placeholders.
+ */
+export function bookingPageTitle(input: {
+  businessName: string;
+  location?: string | null;
+  categories?: { name: string }[];
+}): string {
+  const name = input.businessName.trim() || "Beauty studio";
+  const town = townFromLocation(input.location);
+  const cats = primaryCategoryLabels(input.categories ?? [], 3);
+  const head = town ? `${name}, ${town}` : name;
+  const mid = cats.length ? joinPhrase(cats) : null;
+  return mid ? `${head} | ${mid} | Book Online` : `${head} | Book Online`;
 }
 
+/**
+ * Meta description from services/categories + location.
+ * Example: "Book lash extensions, nails and brows with Allure Beauty in Devizes. Online booking, instant confirmation."
+ */
 export function bookingPageDescription(input: {
   businessName: string;
   location?: string | null;
-  tagline?: string | null;
-  bio?: string | null;
-  cardCapture?: boolean;
+  categories?: { name: string }[];
+  services?: { name: string }[];
 }): string {
+  const name = input.businessName.trim() || "this studio";
   const town = townFromLocation(input.location);
-  const tag = input.tagline?.trim();
-  if (tag) return tag.slice(0, 160);
-  const bio = input.bio?.trim();
-  if (bio) return bio.replace(/\s+/g, " ").slice(0, 160);
+  const cats = primaryCategoryLabels(input.categories ?? [], 3);
+  let offer = cats.length ? joinPhrase(cats.map((c) => c.toLowerCase())) : "";
+  if (!offer && input.services?.length) {
+    offer = joinPhrase(
+      input.services
+        .slice(0, 3)
+        .map((s) => cleanCategoryLabel(s.name).toLowerCase())
+        .filter(Boolean),
+    );
+  }
+  if (!offer) offer = "beauty treatments";
+
   const where = town ? ` in ${town}` : "";
-  const deposit = input.cardCapture
-    ? "No deposit needed to book."
-    : "Secure your slot with a deposit.";
-  return `Book ${input.businessName}${where} online. ${deposit} Powered by Glow.`.slice(0, 160);
+  return `Book ${offer} with ${name}${where}. Online booking, instant confirmation.`.slice(0, 160);
+}
+
+/** Absolute canonical URL for a path on the apex https host. */
+export function absoluteCanonical(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${APP_URL}${p === "/" ? "" : p}` || APP_URL;
 }

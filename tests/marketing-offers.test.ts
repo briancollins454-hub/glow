@@ -265,7 +265,8 @@ describe("marketing routes + meta + sitemap", () => {
 
   it("marketingMetadata sets canonical + OpenGraph", () => {
     const meta = marketingMetadata(vsFresha);
-    expect(meta.alternates?.canonical).toBe(vsFresha.path);
+    expect(String(meta.alternates?.canonical)).toContain(vsFresha.path);
+    expect(String(meta.alternates?.canonical)).toMatch(/^https:\/\//);
     expect(meta.openGraph?.url).toContain(vsFresha.path);
     expect(meta.description).toBe(vsFresha.description);
   });

@@ -29,12 +29,14 @@ const gsc =
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: "Booking system for lash, nail and brow techs UK | Glow",
+    default: "Glow | Booking for lash, brow and nail techs UK",
     template: "%s | Glow",
   },
   description:
-    "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
+    "Glow is the UK booking platform for lash, brow and nail techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat. Start online booking today.",
   keywords: [
+    "Glow booking",
+    "Glow UK booking",
     "booking system lash tech UK",
     "nail tech booking UK",
     "brow tech booking",
@@ -47,16 +49,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_GB",
     siteName: "Glow",
-    title: "Booking system for lash, nail and brow techs UK | Glow",
+    title: "Glow | Booking for lash, brow and nail techs UK",
     description:
-      "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
+      "Glow is the UK booking platform for lash, brow and nail techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
     url: APP_URL,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Booking system for lash, nail and brow techs UK | Glow",
+    title: "Glow | Booking for lash, brow and nail techs UK",
     description:
-      "UK booking for self-employed lash, nail and brow techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
+      "Glow is the UK booking platform for lash, brow and nail techs. Patch tests, deposits to your bank, 0% commission. £19/mo flat.",
   },
   robots: { index: true, follow: true },
   appleWebApp: {

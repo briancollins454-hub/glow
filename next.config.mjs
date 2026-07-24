@@ -36,6 +36,17 @@ const nextConfig = {
       }
     : undefined,
   serverExternalPackages: ["pdfkit"],
+  async redirects() {
+    // Belt-and-braces with vercel.json + middleware: www → https apex.
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.glow-uk.com" }],
+        destination: "https://glow-uk.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);

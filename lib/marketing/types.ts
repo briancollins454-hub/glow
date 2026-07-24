@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { APP_URL } from "@/lib/seo/config";
+import { APP_URL, absoluteCanonical } from "@/lib/seo/config";
 
 export type MarketingTable = {
   headers: string[];
@@ -27,13 +27,14 @@ export type MarketingPageContent = {
 };
 
 export function marketingMetadata(page: Pick<MarketingPageContent, "path" | "title" | "description">): Metadata {
-  const url = `${APP_URL}${page.path}`;
+  const url = absoluteCanonical(page.path);
   const title = page.title;
   const description = page.description;
   return {
     title,
     description,
-    alternates: { canonical: page.path },
+    metadataBase: new URL(APP_URL),
+    alternates: { canonical: url },
     openGraph: {
       type: "website",
       locale: "en_GB",
