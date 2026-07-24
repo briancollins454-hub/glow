@@ -14,7 +14,7 @@ export function StickyMobileCta() {
             : offer.ctaLabel}
         </ButtonLink>
         <Link
-          href="/bellarose"
+          href="/ilashit"
           className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-edge bg-fill px-4 text-sm font-semibold text-ink transition hover:bg-fill-hover"
         >
           Lash studio
