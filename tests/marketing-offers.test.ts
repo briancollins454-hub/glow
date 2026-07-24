@@ -312,6 +312,9 @@ describe("marketing CTA copy", () => {
 
   it("landing customer/demo buttons use studio labels", () => {
     const landing = readFileSync(join(process.cwd(), "components/marketing/landing-page.tsx"), "utf8");
+    expect(landing).toContain('href="/ilashit"');
+    expect(landing).toContain('href="/frame-define"');
+    expect(landing).toContain('href="/allurebeauty"');
     expect(landing).toContain("Lash studio");
     expect(landing).toContain("Brow bar");
     expect(landing).toContain("Nail studio");

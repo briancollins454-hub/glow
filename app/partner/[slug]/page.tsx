@@ -69,7 +69,7 @@ export default async function PartnerPage({
             <ButtonLink href={`/signup?partner=${encodeURIComponent(partner.slug)}`} size="lg" className="min-h-12">
               Get started with your academy offer
             </ButtonLink>
-            <ButtonLink href="/bellarose" variant="outline" size="lg" className="min-h-12">
+            <ButtonLink href="/ilashit" variant="outline" size="lg" className="min-h-12">
               Lash studio
             </ButtonLink>
           </div>
