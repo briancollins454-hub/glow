@@ -53,7 +53,7 @@ export function launchOfferCopy(isTester: boolean): {
     return {
       firstMonthLabel: "£9.50",
       thenLabel: "then £19/mo",
-      ctaLabel: "Start free, first month half price",
+      ctaLabel: "Get started, £9.50 your first month",
       trustLine: "No contracts. No bolt-ons. No per-staff fees. Cancel anytime.",
     };
   }

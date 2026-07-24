@@ -244,13 +244,13 @@ export default function LandingPage() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <ButtonLink href="/customers/klaudia" variant="outline">
-              Klaudia
+              Lash studio
             </ButtonLink>
             <ButtonLink href="/customers/claire" variant="outline">
-              Claire
+              Brow bar
             </ButtonLink>
             <ButtonLink href="/bellarose" variant="outline">
-              Live demo
+              Nail studio
             </ButtonLink>
           </div>
         </div>

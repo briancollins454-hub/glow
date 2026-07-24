@@ -11,5 +11,11 @@ export const metadata: Metadata = marketingMetadata({
 });
 
 export default function Page() {
-  return <ComingSoonCustomer name="Klaudia" path="/customers/klaudia" />;
+  return (
+    <ComingSoonCustomer
+      name="Klaudia's lash studio"
+      path="/customers/klaudia"
+      demoLabel="Lash studio"
+    />
+  );
 }

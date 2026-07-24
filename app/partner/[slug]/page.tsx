@@ -67,10 +67,10 @@ export default async function PartnerPage({
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <ButtonLink href={`/signup?partner=${encodeURIComponent(partner.slug)}`} size="lg" className="min-h-12">
-              Claim 3 months free
+              Get started with your academy offer
             </ButtonLink>
             <ButtonLink href="/bellarose" variant="outline" size="lg" className="min-h-12">
-              See a live demo
+              Lash studio
             </ButtonLink>
           </div>
           <p className="mt-4 text-sm text-ink-faint">

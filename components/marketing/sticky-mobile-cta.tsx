@@ -10,14 +10,14 @@ export function StickyMobileCta() {
       <div className="mx-auto flex max-w-lg gap-2">
         <ButtonLink href="/signup" size="lg" className="min-h-12 flex-1">
           {launchOfferCopy(false).firstMonthLabel === "£9.50"
-            ? "Start for £9.50"
+            ? "Get started, £9.50"
             : offer.ctaLabel}
         </ButtonLink>
         <Link
           href="/bellarose"
           className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-edge bg-fill px-4 text-sm font-semibold text-ink transition hover:bg-fill-hover"
         >
-          Live demo
+          Lash studio
         </Link>
       </div>
     </div>
