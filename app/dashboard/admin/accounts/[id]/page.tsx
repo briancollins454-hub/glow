@@ -50,12 +50,29 @@ export default async function OwnerAccountDetailPage({
         <Badge tone="neutral">{tech.subscriptionStatus}</Badge>
         {tech.plan ? <Badge tone="neutral">{tech.plan}</Badge> : null}
         {tech.signupOffer === "tester" ? <Badge tone="brand">Tester</Badge> : null}
+        {tech.signupPartnerSlug ? <Badge tone="brand">Partner: {tech.signupPartnerSlug}</Badge> : null}
         {tech.connectChargesEnabled ? (
           <Badge tone="green">Connect ready</Badge>
         ) : (
           <Badge tone="amber">Connect pending</Badge>
         )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Signup attribution</CardTitle>
+          <CardDescription>UTM, partner and “how did you hear” captured at signup.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm text-ink-soft">
+          <p>UTM source: {tech.signupUtmSource || "—"}</p>
+          <p>UTM medium: {tech.signupUtmMedium || "—"}</p>
+          <p>UTM campaign: {tech.signupUtmCampaign || "—"}</p>
+          <p>Heard about: {tech.signupHeardAbout || "—"}</p>
+          <p>Partner slug: {tech.signupPartnerSlug || "—"}</p>
+          <p>Referred by: {tech.referredBy || "—"}</p>
+          <p>Referral credit granted: {tech.referralCreditGrantedAt ? fmtDate(tech.referralCreditGrantedAt) : "—"}</p>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Staff" value={String(detail.staff.length)} />

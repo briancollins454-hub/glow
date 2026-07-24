@@ -3,33 +3,40 @@
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/auth/session";
 import { updateTech } from "@/lib/db/queries";
-import { stripe, OFFERS, PRICES, ensureCoupon } from "@/lib/stripe";
+import {
+  stripe,
+  OFFERS,
+  PRICES,
+  ensureCoupon,
+  selectCheckoutOffer,
+} from "@/lib/stripe";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 async function ctx() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
-  // Billing is the owner's business, never a staff login's.
   if (c!.role !== "owner") redirect("/dashboard");
   return c;
 }
 
 /**
- * Subscription checkout. The intro offer (£1 tester month / 50% off first
- * month) is applied to the Checkout session itself, so Stripe's payment page
- * shows the real amount due today (e.g. "£1.00") - no invisible follow-up
- * charges, no confusing £0.00 screens.
+ * Subscription checkout. Intro offers are applied to the Checkout session so
+ * Stripe shows the real amount due today.
+ *
+ * Stacking: launch/partner coupon on invoice 1; referral balance credits are
+ * applied later (from invoice 2 onward) when a referred tech becomes paying.
  */
 export async function startCheckoutAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const plan = formData.get("plan") === "annual" ? "annual" : "monthly";
   const promo = String(formData.get("promo") ?? "").trim().toUpperCase();
 
-  // Intro offer: the account's signup offer decides (set once at signup).
-  // Testers get £1 first month; everyone else 50% off. Monthly plan only.
-  const isTester = tech.signupOffer === "tester";
-  const offer = plan === "monthly" ? (isTester ? OFFERS.tester1 : OFFERS.firstMonth50) : "";
+  const offer = selectCheckoutOffer({
+    plan,
+    signupOffer: tech.signupOffer,
+    signupPartnerSlug: tech.signupPartnerSlug,
+  });
 
   const s = stripe();
 
@@ -44,7 +51,6 @@ export async function startCheckoutAction(formData: FormData) {
     await updateTech(sb, tech.id, { stripeCustomerId: customerId });
   }
 
-  // Resolve the discount up front. An explicit promo code takes priority.
   let discounts: ({ promotion_code: string } | { coupon: string })[] | undefined;
   if (promo) {
     try {
@@ -56,7 +62,7 @@ export async function startCheckoutAction(formData: FormData) {
   }
   if (!discounts && offer) {
     try {
-      discounts = [{ coupon: await ensureCoupon(s, offer) }];
+      discounts = [{ coupon: await ensureCoupon(s, offer as (typeof OFFERS)[keyof typeof OFFERS]) }];
     } catch (err) {
       console.error("[billing] offer coupon failed:", (err as Error).message);
     }
@@ -68,8 +74,15 @@ export async function startCheckoutAction(formData: FormData) {
     customer: customerId,
     line_items: [{ price: plan === "annual" ? PRICES.annual : PRICES.monthly, quantity: 1 }],
     discounts,
-    subscription_data: { metadata: { techId: tech.id, plan } },
-    metadata: { techId: tech.id, plan },
+    subscription_data: {
+      metadata: {
+        techId: tech.id,
+        plan,
+        offer: offer || "",
+        partnerSlug: tech.signupPartnerSlug ?? "",
+      },
+    },
+    metadata: { techId: tech.id, plan, offer: offer || "" },
     success_url: `${APP_URL}/dashboard/billing?status=started`,
     cancel_url: `${APP_URL}/dashboard/billing?status=cancelled`,
   });

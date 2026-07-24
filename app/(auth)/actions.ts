@@ -34,6 +34,12 @@ export async function signupAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const handleSeed = String(formData.get("handle") ?? "") || businessName || name;
   const refRaw = slugify(String(formData.get("ref") ?? ""));
+  const clip = (v: FormDataEntryValue | null) => String(v ?? "").trim().slice(0, 120) || null;
+  const signupUtmSource = clip(formData.get("utmSource"));
+  const signupUtmMedium = clip(formData.get("utmMedium"));
+  const signupUtmCampaign = clip(formData.get("utmCampaign"));
+  const signupHeardAbout = clip(formData.get("heardAbout"));
+  const signupPartnerSlug = slugify(String(formData.get("partnerSlug") ?? "")) || null;
 
   if (!email || !password || !businessName) {
     redirect("/signup?error=missing");
@@ -84,6 +90,11 @@ export async function signupAction(formData: FormData) {
     handleSeed,
     refRaw,
     isTester,
+    signupUtmSource,
+    signupUtmMedium,
+    signupUtmCampaign,
+    signupHeardAbout,
+    signupPartnerSlug,
   });
 
   // Ensure a session cookie. Ignore "already signed in" from the recovery path.

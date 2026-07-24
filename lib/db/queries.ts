@@ -168,7 +168,13 @@ type ManagedTechField =
   | "noShowFeeType"
   | "noShowFeeValue"
   | "autoApproveMinVisits"
-  | "signupOffer";
+  | "signupOffer"
+  | "signupUtmSource"
+  | "signupUtmMedium"
+  | "signupUtmCampaign"
+  | "signupHeardAbout"
+  | "signupPartnerSlug"
+  | "referralCreditGrantedAt";
 
 type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
   Partial<Pick<Tech, ManagedTechField>>;

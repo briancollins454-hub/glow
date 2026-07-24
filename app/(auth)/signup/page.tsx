@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { ClearSessionCache } from "@/components/auth/clear-session-cache";
 import { OnceSubmitForm } from "@/components/auth/once-submit-form";
+import { SignupAttributionFields } from "@/components/auth/signup-attribution-fields";
 import { signupAction } from "../actions";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
+import { HEAR_ABOUT_OPTIONS } from "@/lib/signup-attribution";
+import { launchOfferEnabled, partnerOfferEnabled } from "@/lib/offers";
+import { getPartnerBySlug } from "@/lib/partners";
 
 const errors: Record<string, ReactNode> = {
   email: (
@@ -38,10 +42,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ref?: string }>;
+  searchParams: Promise<{ error?: string; ref?: string; partner?: string }>;
 }) {
-  const { error, ref } = await searchParams;
+  const { error, ref, partner: partnerParam } = await searchParams;
   const isTester = (await cookies()).get("glow_offer")?.value === "tester";
+  const partnerSlug = (partnerParam ?? "").trim().toLowerCase() || null;
+  const partner =
+    partnerSlug && partnerOfferEnabled() ? await getPartnerBySlug(partnerSlug).catch(() => null) : null;
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
@@ -69,12 +76,37 @@ export default async function SignupPage({
           </div>
         )}
 
+        {partner && !isTester && (
+          <div className="mb-4 rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
+            {partner.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={partner.logoUrl}
+                alt={partner.name}
+                className="mx-auto mb-3 h-12 w-auto max-w-[180px] object-contain"
+              />
+            ) : null}
+            <p className="font-display text-xl font-semibold">
+              {partner.name} students get 3 months of Glow free
+            </p>
+            <p className="mt-1 text-sm text-white/85">
+              Then £19/mo. Cancel anytime.
+            </p>
+          </div>
+        )}
+
         <div className="card p-7">
           <h1 className="font-display text-2xl font-semibold">
             Create your booking page
           </h1>
           <p className="mt-1 text-sm text-ink-soft">
-            £19/mo when you go live. No commission, ever.
+            {isTester
+              ? "£1 your first month, then £19. No commission, ever."
+              : partner
+                ? "3 months free via your academy, then £19/mo. No commission, ever."
+                : launchOfferEnabled()
+                  ? "£9.50 your first month, then £19. No commission, ever."
+                  : "£19/mo when you go live. No commission, ever."}
           </p>
 
           {error && (
@@ -85,6 +117,7 @@ export default async function SignupPage({
 
           <OnceSubmitForm action={signupAction} className="mt-6 space-y-4">
             {ref && <input type="hidden" name="ref" value={ref} />}
+            <SignupAttributionFields partnerSlug={partner?.slug ?? partnerSlug} />
             <div>
               <Label htmlFor="businessName">Business name</Label>
               <Input
@@ -124,6 +157,22 @@ export default async function SignupPage({
                 minLength={8}
                 autoComplete="new-password"
               />
+            </div>
+            <div>
+              <Label htmlFor="heardAbout">How did you hear about us? (optional)</Label>
+              <select
+                id="heardAbout"
+                name="heardAbout"
+                defaultValue=""
+                className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
+              >
+                <option value="">Prefer not to say</option>
+                {HEAR_ABOUT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button type="submit" className="w-full">
               Create my page
