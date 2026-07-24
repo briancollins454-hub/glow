@@ -214,14 +214,16 @@ describe("reschedule / manual actions wire-up", () => {
 describe("exclusion constraint migration + overbook flag", () => {
   const sql = read("supabase/migrations/0045_booking_overlap_exclusion.sql");
 
-  it("adds allowOverlap, btree_gist exclusion NOT VALID, and relaxes unique indexes", () => {
+  it("adds allowOverlap, btree_gist exclusion, and relaxes unique indexes", () => {
     expect(sql).toContain("btree_gist");
     expect(sql).toContain('"allowOverlap"');
     expect(sql).toContain("bookings_staff_no_overlap");
-    expect(sql).toMatch(/not valid/i);
     expect(sql).toContain("tstzrange(\"startIso\", \"endIso\"");
     expect(sql).toContain("not \"allowOverlap\"");
     expect(sql).toContain("idx_bookings_staff_start_active");
+    // EXCLUDE cannot be left unvalidated in Postgres — flag historical overlaps instead.
+    expect(sql).toMatch(/set "allowOverlap" = true/i);
+    expect(sql).not.toMatch(/\bnot valid\b/i);
   });
 
   it("treats exclusion violations as slot conflicts", () => {
