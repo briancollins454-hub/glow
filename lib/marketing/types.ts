@@ -70,6 +70,4 @@ export const MARKETING_SITEMAP_PATHS = [
   ...COMPARE_LINKS.map((l) => l.href),
   ...SWITCH_LINKS.map((l) => l.href),
   ...GUIDE_LINKS.map((l) => l.href),
-  "/customers/klaudia",
-  "/customers/claire",
 ] as const;

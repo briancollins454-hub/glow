@@ -253,8 +253,6 @@ describe("marketing routes + meta + sitemap", () => {
     ["app/switch/booksy/page.tsx", switchBooksy],
     ["app/guides/best-booking-app-lash-techs-uk/page.tsx", guideLash],
     ["app/guides/best-booking-app-nail-techs-uk/page.tsx", guideNail],
-    ["app/customers/klaudia/page.tsx", null],
-    ["app/customers/claire/page.tsx", null],
   ] as const;
 
   for (const [route] of pages) {
@@ -285,8 +283,6 @@ describe("marketing routes + meta + sitemap", () => {
         "/switch/booksy",
         "/guides/best-booking-app-lash-techs-uk",
         "/guides/best-booking-app-nail-techs-uk",
-        "/customers/klaudia",
-        "/customers/claire",
       ]),
     );
   });
@@ -304,6 +300,25 @@ describe("marketing routes + meta + sitemap", () => {
     const partner = readFileSync(join(process.cwd(), "app/partner/[slug]/page.tsx"), "utf8");
     expect(partner).toContain("students get 3 months of Glow free");
     expect(partner).toContain("/signup?partner=");
+    expect(partner).not.toMatch(/Claim 3 months free|Start free|Try free/i);
+  });
+});
+
+describe("marketing CTA copy", () => {
+  it("hero CTA does not say free and shows £9.50", () => {
+    expect(launchOfferCopy(false).ctaLabel).toBe("Get started, £9.50 your first month");
+    expect(launchOfferCopy(false).ctaLabel.toLowerCase()).not.toContain("free");
+  });
+
+  it("landing customer/demo buttons use studio labels", () => {
+    const landing = readFileSync(join(process.cwd(), "components/marketing/landing-page.tsx"), "utf8");
+    expect(landing).toContain("Lash studio");
+    expect(landing).toContain("Brow bar");
+    expect(landing).toContain("Nail studio");
+    expect(landing).toContain("Move to Glow free");
+    expect(landing).not.toMatch(/>\s*Klaudia\s*</);
+    expect(landing).not.toMatch(/>\s*Claire\s*</);
+    expect(landing).not.toContain("Start free");
   });
 });
 

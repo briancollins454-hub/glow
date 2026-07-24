@@ -96,33 +96,3 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
     </MarketingShell>
   );
 }
-
-export function ComingSoonCustomer({
-  name,
-  path,
-}: {
-  name: string;
-  path: string;
-}) {
-  return (
-    <MarketingShell>
-      <PageViewBeacon path={path} />
-      <div className="container-page py-16 text-center">
-        <p className="text-sm font-medium uppercase tracking-wider text-brand-text">Customer story</p>
-        <h1 className="mt-3 font-display text-4xl font-semibold text-ink">{name}</h1>
-        <p className="mx-auto mt-4 max-w-lg text-ink-soft">
-          This page is coming soon. In the meantime, start Glow with first month half price, or see a live demo
-          booking page.
-        </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <ButtonLink href="/signup" size="lg">
-            Start free, first month half price
-          </ButtonLink>
-          <ButtonLink href="/bellarose" variant="outline" size="lg">
-            Live demo
-          </ButtonLink>
-        </div>
-      </div>
-    </MarketingShell>
-  );
-}
