@@ -47,8 +47,12 @@ export default async function PartnerPage({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={partner.logoUrl}
-              alt={partner.name}
+              alt={`${partner.name} logo`}
               className="mx-auto mb-6 h-16 w-auto max-w-[220px] object-contain"
+              width={220}
+              height={64}
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <span className="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-glow">

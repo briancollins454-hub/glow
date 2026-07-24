@@ -59,6 +59,13 @@ import { RetestBookingNotice } from "@/components/booking/retest-booking-notice"
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { groupServicesForMenu } from "@/lib/booking/service-groups";
 import type { ServiceNavGroup } from "@/components/booking/booking-header";
+import { JsonLd } from "@/components/seo/json-ld";
+import { localBusinessJsonLd } from "@/lib/seo/json-ld";
+import {
+  APP_URL,
+  bookingPageDescription,
+  bookingPageTitle,
+} from "@/lib/seo/config";
 
 type DayOption = { dateStr: string; slots: string[] };
 
@@ -70,18 +77,29 @@ export async function generateMetadata({
   const { handle } = await params;
   const tech = await loadPublicTechByHandle(handle);
   if (!tech) return { robots: { index: false, follow: false } };
-  const title = `${tech.businessName} - book online`;
-  const description =
-    tech.tagline?.trim() ||
-    tech.bio ||
-    `Book ${tech.businessName} online. ${
-      usesCardCapture(tech) ? "No deposit needed to book." : "Secure your slot with a deposit."
-    } Powered by Glow.`;
+  const title = bookingPageTitle(tech.businessName, tech.location);
+  const description = bookingPageDescription({
+    businessName: tech.businessName,
+    location: tech.location,
+    tagline: tech.tagline,
+    bio: tech.bio,
+    cardCapture: usesCardCapture(tech),
+  });
+  const canonical = `/${tech.handle}`;
   return {
-    title,
+    title: { absolute: title },
     description,
-    openGraph: { title, description, type: "website" },
-    twitter: { card: "summary", title, description },
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `${APP_URL}${canonical}`,
+      locale: "en_GB",
+      siteName: "Glow",
+    },
+    twitter: { card: "summary_large_image", title, description },
+    robots: { index: true, follow: true },
   };
 }
 
@@ -433,6 +451,16 @@ export default async function PublicBookingPage({
 
   return (
     <div className="min-h-screen bg-cream pb-24 lg:pb-16">
+      <JsonLd
+        data={localBusinessJsonLd({
+          name: tech.businessName,
+          description: tech.tagline || tech.bio || undefined,
+          url: `${APP_URL}/${tech.handle}`,
+          location: tech.location,
+          image: profileUrl ?? coverUrl ?? null,
+          services: services.map((s) => ({ name: s.name, pricePennies: s.pricePennies })),
+        })}
+      />
       <PageViewBeacon path={`/${handle}`} techId={tech.id} />
       <BookingHeader
         businessName={tech.businessName}

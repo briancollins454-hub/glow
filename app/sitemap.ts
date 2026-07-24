@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 import { supabaseService, serviceConfigured } from "@/lib/supabase/service";
 import { MARKETING_SITEMAP_PATHS } from "@/lib/marketing/types";
+import { APP_URL } from "@/lib/seo/config";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 const LIVE = ["trialing", "active", "comped"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -17,7 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${APP_URL}${path}`,
       lastModified: now,
       changeFrequency: "monthly" as const,
-      priority: 0.7,
+      priority: path === "/pricing" ? 0.85 : 0.7,
     })),
   ];
 

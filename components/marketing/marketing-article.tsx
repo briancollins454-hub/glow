@@ -2,20 +2,68 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
-import type { MarketingPageContent } from "@/lib/marketing/types";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbJsonLd } from "@/lib/seo/json-ld";
+import {
+  COMPARE_LINKS,
+  SWITCH_LINKS,
+  type MarketingPageContent,
+} from "@/lib/marketing/types";
+
+function breadcrumbItems(page: MarketingPageContent): { name: string; path: string }[] | null {
+  if (page.breadcrumbs?.length) {
+    return [{ name: "Home", path: "/" }, ...page.breadcrumbs];
+  }
+  if (page.path.startsWith("/vs/")) {
+    const label = COMPARE_LINKS.find((l) => l.href === page.path)?.label ?? page.h1;
+    return [
+      { name: "Home", path: "/" },
+      { name: "Compare", path: "/vs/fresha" },
+      { name: label, path: page.path },
+    ];
+  }
+  if (page.path.startsWith("/switch/")) {
+    const label = SWITCH_LINKS.find((l) => l.href === page.path)?.label ?? page.h1;
+    return [
+      { name: "Home", path: "/" },
+      { name: "Switching", path: "/switch/fresha" },
+      { name: label, path: page.path },
+    ];
+  }
+  return null;
+}
 
 export function MarketingArticle({ page }: { page: MarketingPageContent }) {
+  const crumbs = breadcrumbItems(page);
+
   return (
     <MarketingShell>
+      {crumbs ? <JsonLd data={breadcrumbJsonLd(crumbs)} /> : null}
       <PageViewBeacon path={page.path} />
       <article className="container-page pb-12 pt-4 lg:pb-16">
-        <p className="text-sm text-ink-faint">
-          <Link href="/" className="hover:text-ink">
-            Home
-          </Link>
-          <span className="mx-2">/</span>
-          <span className="text-ink-soft">{page.h1}</span>
-        </p>
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-faint">
+          <ol className="flex flex-wrap items-center gap-x-2">
+            <li>
+              <Link href="/" className="hover:text-ink">
+                Home
+              </Link>
+            </li>
+            {crumbs
+              ?.slice(1)
+              .map((c, i, arr) => (
+                <li key={c.path} className="flex items-center gap-x-2">
+                  <span aria-hidden="true">/</span>
+                  {i === arr.length - 1 ? (
+                    <span className="text-ink-soft">{c.name}</span>
+                  ) : (
+                    <Link href={c.path} className="hover:text-ink">
+                      {c.name}
+                    </Link>
+                  )}
+                </li>
+              ))}
+          </ol>
+        </nav>
         <h1 className="mt-4 max-w-3xl font-display text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl lg:text-[2.75rem]">
           {page.h1}
         </h1>
@@ -55,7 +103,16 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
               )}
               {section.table && (
                 <div className="mt-5 overflow-x-auto rounded-xl border border-edge">
-                  <table className="w-full min-w-[32rem] text-left text-sm">
+                  {/* Fixed min size reduces CLS when wide tables paint. */}
+                  <table className="w-full min-h-[12rem] min-w-[32rem] table-fixed text-left text-sm">
+                    <colgroup>
+                      {section.table.headers.map((h, idx) => (
+                        <col
+                          key={h || `col-${idx}`}
+                          style={{ width: `${Math.floor(100 / section.table!.headers.length)}%` }}
+                        />
+                      ))}
+                    </colgroup>
                     <thead className="bg-cream">
                       <tr>
                         {section.table.headers.map((h) => (

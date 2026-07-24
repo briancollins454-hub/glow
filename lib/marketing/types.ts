@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
+import { APP_URL } from "@/lib/seo/config";
 
 export type MarketingTable = {
   headers: string[];
@@ -23,6 +22,8 @@ export type MarketingPageContent = {
   intro: string;
   sections: MarketingSection[];
   cta: { label: string; href?: string; note?: string };
+  /** Optional breadcrumb trail after Home (used on vs/switch pages). */
+  breadcrumbs?: { name: string; path: string }[];
 };
 
 export function marketingMetadata(page: Pick<MarketingPageContent, "path" | "title" | "description">): Metadata {
@@ -46,6 +47,7 @@ export function marketingMetadata(page: Pick<MarketingPageContent, "path" | "tit
       title: `${title} | Glow`,
       description,
     },
+    robots: { index: true, follow: true },
   };
 }
 
@@ -67,6 +69,7 @@ export const GUIDE_LINKS = [
 ] as const;
 
 export const MARKETING_SITEMAP_PATHS = [
+  "/pricing",
   ...COMPARE_LINKS.map((l) => l.href),
   ...SWITCH_LINKS.map((l) => l.href),
   ...GUIDE_LINKS.map((l) => l.href),
