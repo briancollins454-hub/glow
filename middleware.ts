@@ -11,16 +11,16 @@ const SESSION_PATHS = [
   "/api/google",
 ];
 
+/** Production apex host (non-www). Null on localhost / Vercel previews. */
 function apexHostname(): string | null {
-  const raw = process.env.NEXT_PUBLIC_APP_URL;
-  if (!raw) return null;
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
   try {
-    const host = new URL(raw).hostname.toLowerCase();
-    // Never rewrite local/preview hosts.
+    const host = new URL(raw).hostname.toLowerCase().replace(/^www\./, "");
     if (!host || host === "localhost" || host.endsWith(".vercel.app")) return null;
-    return host.replace(/^www\./, "");
+    if (host === "glow-uk.com" || host.endsWith(".glow-uk.com")) return "glow-uk.com";
+    return host;
   } catch {
-    return null;
+    return "glow-uk.com";
   }
 }
 
@@ -33,14 +33,25 @@ function needsSessionRefresh(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const apex = apexHostname();
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  const proto = (
+    request.headers.get("x-forwarded-proto") ??
+    request.nextUrl.protocol.replace(":", "")
+  )
+    .split(",")[0]
+    ?.trim()
+    .toLowerCase();
 
-  // Collapse www → apex so search engines see one canonical site.
-  if (apex && host === `www.${apex}`) {
-    const url = request.nextUrl.clone();
-    url.hostname = apex;
-    url.protocol = "https:";
-    url.port = "";
-    return NextResponse.redirect(url, 301);
+  // Collapse www → apex and http → https so Search Console sees one host.
+  if (apex && host) {
+    const isWww = host === `www.${apex}`;
+    const isApex = host === apex;
+    if (isWww || (isApex && proto === "http")) {
+      const url = request.nextUrl.clone();
+      url.hostname = apex;
+      url.protocol = "https:";
+      url.port = "";
+      return NextResponse.redirect(url, 301);
+    }
   }
 
   if (needsSessionRefresh(request.nextUrl.pathname)) {
@@ -53,7 +64,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Run on all app routes so www→apex works everywhere.
+     * Run on all app routes so www→apex / http→https works everywhere.
      * Skip Next internals and common static assets.
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",

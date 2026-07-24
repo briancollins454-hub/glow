@@ -24,23 +24,23 @@ const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
 const offer = launchOfferCopy(false);
 
 const META_DESCRIPTION =
-  "The booking platform built for lash, brow and nail techs. £19 a month, everything included, 0% commission. Made by a working lash tech.";
+  "Glow is the booking platform built for lash, brow and nail techs. £19 a month, everything included, 0% commission. Made by a working lash tech.";
 
 export const metadata: Metadata = {
-  title: "Booking platform for lash, brow and nail techs UK",
+  title: { absolute: "Glow | Booking for lash, brow and nail techs UK" },
   description: META_DESCRIPTION,
-  alternates: { canonical: "/" },
+  alternates: { canonical: APP_URL },
   openGraph: {
     type: "website",
     locale: "en_GB",
     siteName: "Glow",
     url: APP_URL,
-    title: "Booking platform for lash, brow and nail techs UK | Glow",
+    title: "Glow | Booking for lash, brow and nail techs UK",
     description: META_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Booking platform for lash, brow and nail techs UK | Glow",
+    title: "Glow | Booking for lash, brow and nail techs UK",
     description: META_DESCRIPTION,
   },
   robots: { index: true, follow: true },
