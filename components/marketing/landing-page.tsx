@@ -14,10 +14,12 @@ import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { COMPARE_LINKS, SWITCH_LINKS, GUIDE_LINKS } from "@/lib/marketing/types";
 import { launchOfferCopy, launchOfferEnabled } from "@/lib/offers";
 import { AttributionCapture } from "@/components/marketing/attribution-capture";
+import { JsonLd } from "@/components/seo/json-ld";
+import { softwareApplicationJsonLd } from "@/lib/seo/json-ld";
+import { APP_URL } from "@/lib/seo/config";
 
 export const revalidate = 3600;
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com";
 const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
 const offer = launchOfferCopy(false);
 
@@ -41,11 +43,13 @@ export const metadata: Metadata = {
     title: "Booking platform for lash, brow and nail techs UK | Glow",
     description: META_DESCRIPTION,
   },
+  robots: { index: true, follow: true },
 };
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
+      <JsonLd data={softwareApplicationJsonLd()} />
       <AttributionCapture />
       <PageViewBeacon path="/" />
       <header className="container-page flex items-center justify-between py-5 sm:py-6">
@@ -350,6 +354,11 @@ export default function LandingPage() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/pricing" className="hover:text-ink">
+                  Pricing
+                </Link>
+              </li>
               <li>
                 <a href="mailto:support@glow-uk.com" className="hover:text-ink">
                   Support

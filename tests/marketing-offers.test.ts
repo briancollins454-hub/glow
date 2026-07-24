@@ -283,6 +283,7 @@ describe("marketing routes + meta + sitemap", () => {
         "/switch/booksy",
         "/guides/best-booking-app-lash-techs-uk",
         "/guides/best-booking-app-nail-techs-uk",
+        "/pricing",
       ]),
     );
   });

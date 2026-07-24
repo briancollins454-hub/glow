@@ -82,8 +82,12 @@ export default async function SignupPage({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={partner.logoUrl}
-                alt={partner.name}
+                alt={`${partner.name} academy logo`}
                 className="mx-auto mb-3 h-12 w-auto max-w-[180px] object-contain"
+                width={180}
+                height={48}
+                loading="eager"
+                decoding="async"
               />
             ) : null}
             <p className="font-display text-xl font-semibold">

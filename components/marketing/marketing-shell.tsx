@@ -90,6 +90,11 @@ export function MarketingShell({
                 </li>
               ))}
               <li>
+                <Link href="/pricing" className="hover:text-ink">
+                  Pricing
+                </Link>
+              </li>
+              <li>
                 <a href="mailto:support@glow-uk.com" className="hover:text-ink">
                   Support
                 </a>
