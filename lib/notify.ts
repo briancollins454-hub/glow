@@ -498,6 +498,163 @@ export async function notifySalonOfNewBooking(
         html,
         text,
         idempotencyKey: `booking-notify/${booking.id}/${to}`,
+        kind: "booking_notify",
+        techId: tech.id,
+      }),
+    ),
+  );
+}
+
+/** How far ahead of the appointment the client cancelled (for salon emails). */
+export function cancellationAdvanceLabel(hoursOut: number): string {
+  if (hoursOut >= 48) {
+    const days = Math.round(hoursOut / 24);
+    return `cancelled ${days} day${days === 1 ? "" : "s"} before`;
+  }
+  if (hoursOut >= 1) {
+    const hours = Math.round(hoursOut);
+    return `cancelled ${hours} hour${hours === 1 ? "" : "s"} before`;
+  }
+  if (hoursOut >= 0) return "cancelled less than an hour before";
+  return "cancelled after the start time";
+}
+
+export type CancellationMoneyInput = {
+  depositPennies: number;
+  depositStatus: Booking["depositStatus"];
+  balanceStatus?: Booking["balanceStatus"];
+  cardPaymentMethodId?: string | null;
+  /** Late-cancel card fee outcome when the policy window applied. */
+  cardCharge?: {
+    outcome: "charged" | "declined" | "skipped";
+    amountPennies: number;
+  } | null;
+};
+
+/** Human-readable money outcome for a client cancellation email. */
+export function cancellationMoneyStatus(input: CancellationMoneyInput): string {
+  const parts: string[] = [];
+  if (input.depositStatus === "forfeited") {
+    parts.push(`Deposit of ${gbp(input.depositPennies)} retained (late cancellation)`);
+  } else if (input.depositStatus === "refunded") {
+    parts.push(`Deposit of ${gbp(input.depositPennies)} refunded`);
+  } else if (input.depositStatus === "paid") {
+    parts.push(
+      `Deposit of ${gbp(input.depositPennies)} still paid — refund may need completing in Stripe`,
+    );
+  } else if (input.depositPennies > 0) {
+    parts.push("No deposit had been paid");
+  } else {
+    parts.push("No deposit was taken");
+  }
+
+  if (input.balanceStatus === "refunded") {
+    parts.push("Balance payment refunded");
+  }
+
+  if (input.cardPaymentMethodId) {
+    const charge = input.cardCharge;
+    if (charge?.outcome === "charged") {
+      parts.push(`Late cancellation fee of ${gbp(charge.amountPennies)} charged to saved card`);
+    } else if (charge?.outcome === "declined") {
+      parts.push(
+        `Saved card on file — late fee of ${gbp(charge.amountPennies)} was declined`,
+      );
+    } else {
+      parts.push("Card on file (nothing charged)");
+    }
+  }
+
+  return parts.join(". ") + ".";
+}
+
+/** Email the salon when a client cancels a confirmed booking themselves. */
+export async function notifySalonOfCancellation(
+  sb: SupabaseClient,
+  booking: Booking,
+  opts: {
+    hoursOut: number;
+    cardCharge?: CancellationMoneyInput["cardCharge"];
+  },
+): Promise<void> {
+  const { getStaff } = await import("@/lib/db/queries");
+  const { isValidEmail } = await import("@/lib/email");
+  const [client, service, tech] = await Promise.all([
+    getClient(sb, booking.clientId),
+    getService(sb, booking.serviceId),
+    getTechById(sb, booking.techId),
+  ]);
+  if (!tech || !client || !service) return;
+  if (tech.bookingNotifyEmailEnabled === false) return;
+
+  let serviceLabel = service.name;
+  if (booking.groupId) {
+    const { listBookingsByGroup } = await import("@/lib/db/queries");
+    const group = await listBookingsByGroup(sb, booking.groupId);
+    if (group.length > 1) {
+      const names = (
+        await Promise.all(group.map((b) => getService(sb, b.serviceId)))
+      ).map((s) => s?.name ?? "Treatment");
+      serviceLabel = names.join(" + ");
+    }
+  }
+
+  const staff = booking.staffId ? await getStaff(sb, booking.staffId) : null;
+  const when = fmtDateTime(booking.startIso);
+  const shortWhen = `${fmtDate(booking.startIso)}, ${fmtTime(booking.startIso)}`;
+  const advance = cancellationAdvanceLabel(opts.hoursOut);
+  const money = cancellationMoneyStatus({
+    depositPennies: booking.depositPennies,
+    depositStatus: booking.depositStatus,
+    balanceStatus: booking.balanceStatus,
+    cardPaymentMethodId: booking.cardPaymentMethodId,
+    cardCharge: opts.cardCharge ?? null,
+  });
+  const brand = tech.brandColor || "#db2777";
+  const biz = tech.businessName || "Glow";
+  const dashUrl = `${APP_URL}/dashboard/bookings/${booking.id}`;
+  const staffLine = staff?.name ? `<br/>With: <strong>${staff.name}</strong>` : "";
+
+  const bodyHtml =
+    `<strong>${client.name}</strong> cancelled their <strong>${serviceLabel}</strong> on <strong>${when}</strong>.` +
+    `${staffLine}<br/>Timing: <strong>${advance}</strong>` +
+    `<br/>Money: <strong>${money}</strong>` +
+    (client.email ? `<br/>Email: ${client.email}` : "") +
+    (client.phone ? `<br/>Phone: ${client.phone}` : "");
+
+  const html = brandedEmail({
+    brand,
+    businessName: biz,
+    heading: "Booking cancelled",
+    bodyHtml,
+    buttonLabel: "Open booking",
+    buttonUrl: dashUrl,
+  });
+  const text =
+    `${client.name} cancelled ${serviceLabel} on ${when}.` +
+    (staff?.name ? ` With ${staff.name}.` : "") +
+    ` ${advance}. Money: ${money} Open: ${dashUrl}`;
+
+  const subject = `Cancelled: ${client.name} — ${serviceLabel}, ${shortWhen}`;
+
+  const recipients = new Set<string>();
+  if (tech.email?.trim() && isValidEmail(tech.email.trim())) {
+    recipients.add(tech.email.trim().toLowerCase());
+  }
+  if (staff?.email?.trim() && isValidEmail(staff.email.trim())) {
+    recipients.add(staff.email.trim().toLowerCase());
+  }
+
+  await Promise.all(
+    [...recipients].map((to) =>
+      sendEmail({
+        to,
+        subject,
+        html,
+        text,
+        idempotencyKey: `booking-cancel-notify/${booking.id}/${to}`,
+        kind: "booking_cancel_notify",
+        techId: tech.id,
       }),
     ),
   );
