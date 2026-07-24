@@ -70,3 +70,11 @@ describe("owner console routes exist", () => {
     });
   }
 });
+
+describe("owner partners route", () => {
+  it("app/dashboard/admin/partners/page.tsx", () => {
+    const src = readFileSync(join(process.cwd(), "app/dashboard/admin/partners/page.tsx"), "utf8");
+    expect(src).toContain("requireOwner");
+    expect(src).toContain("ownerCreatePartnerAction");
+  });
+});

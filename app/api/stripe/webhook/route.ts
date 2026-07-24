@@ -154,6 +154,10 @@ export async function POST(request: Request) {
           currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : tech.currentPeriodEnd,
           ...(planMeta === "monthly" || planMeta === "annual" ? { plan: planMeta } : {}),
         });
+        if (status === "active" || status === "trialing") {
+          const { maybeGrantReferralCredit } = await import("@/lib/referral-credit");
+          await maybeGrantReferralCredit(sb, s, { ...tech, subscriptionStatus: status }, status);
+        }
         break;
       }
     }

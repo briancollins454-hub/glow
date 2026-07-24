@@ -25,6 +25,11 @@ export async function provisionNewTechAccount(
     handleSeed: string;
     refRaw: string;
     isTester: boolean;
+    signupUtmSource?: string | null;
+    signupUtmMedium?: string | null;
+    signupUtmCampaign?: string | null;
+    signupHeardAbout?: string | null;
+    signupPartnerSlug?: string | null;
   },
 ): Promise<{ tech: Tech; created: boolean }> {
   const existing = await getTechByAuthUserId(admin, opts.authUserId);
@@ -66,6 +71,11 @@ export async function provisionNewTechAccount(
       referredBy: referrer?.handle ?? null,
       calendarToken: randomToken(),
       signupOffer: opts.isTester ? "tester" : "",
+      signupUtmSource: opts.signupUtmSource ?? null,
+      signupUtmMedium: opts.signupUtmMedium ?? null,
+      signupUtmCampaign: opts.signupUtmCampaign ?? null,
+      signupHeardAbout: opts.signupHeardAbout ?? null,
+      signupPartnerSlug: opts.signupPartnerSlug ?? null,
     });
   } catch (err) {
     // Race: another request provisioned the same auth user first.

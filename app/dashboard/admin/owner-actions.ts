@@ -154,3 +154,26 @@ export async function ownerRefreshCacheAction() {
   revalidatePath("/dashboard/admin");
   redirect("/dashboard/admin?ok=refresh");
 }
+
+export async function ownerCreatePartnerAction(formData: FormData) {
+  const { tech: admin } = await requireOwner();
+  const name = String(formData.get("name") ?? "").trim();
+  const slug = String(formData.get("slug") ?? "").trim();
+  const logoUrl = String(formData.get("logoUrl") ?? "").trim() || null;
+  if (!name || !slug) {
+    redirect("/dashboard/admin/partners?err=slug");
+  }
+  try {
+    const { createPartner } = await import("@/lib/partners");
+    const partner = await createPartner({ name, slug, logoUrl });
+    await ownerAudit({
+      actorTechId: admin.id,
+      action: "admin_partner_created",
+      metadata: { partnerId: partner.id, slug: partner.slug },
+    });
+    revalidatePath("/dashboard/admin/partners");
+    redirect("/dashboard/admin/partners?ok=1");
+  } catch {
+    redirect("/dashboard/admin/partners?err=save");
+  }
+}

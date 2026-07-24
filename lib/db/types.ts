@@ -28,6 +28,17 @@ export type ReminderKind =
   | "balance_request"
   | "patch_test_retest";
 
+/** Training academy / affiliate partner for co-branded signup offers. */
+export interface Partner {
+  id: string;
+  slug: string;
+  name: string;
+  logoUrl: string;
+  offerType: string;
+  active: boolean;
+  createdAt: string;
+}
+
 export interface Tech {
   id: string;
   authUserId: string | null;
@@ -149,6 +160,14 @@ export interface Tech {
   autoApproveMinVisits: number;
   // Offer captured at signup ("tester" = invited £1 first month; "" = standard).
   signupOffer: string;
+  /** UTM / attribution captured at signup (optional until migration 0046). */
+  signupUtmSource?: string | null;
+  signupUtmMedium?: string | null;
+  signupUtmCampaign?: string | null;
+  signupHeardAbout?: string | null;
+  signupPartnerSlug?: string | null;
+  /** When a free-month referral credit was granted to the referrer for this tech. */
+  referralCreditGrantedAt?: string | null;
   createdAt: string;
 }
 

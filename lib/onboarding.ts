@@ -22,7 +22,24 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
   const referredLine = tech.referredBy
     ? `Referred by: <strong>${tech.referredBy}</strong><br/>`
     : "";
-  const offerLine = tech.signupOffer === "tester" ? "Tester (£1 first month)" : "Standard (£9.50 first month)";
+  const partnerLine = tech.signupPartnerSlug
+    ? `Partner: <strong>${tech.signupPartnerSlug}</strong><br/>`
+    : "";
+  const utmBits = [
+    tech.signupUtmSource ? `source=${tech.signupUtmSource}` : "",
+    tech.signupUtmMedium ? `medium=${tech.signupUtmMedium}` : "",
+    tech.signupUtmCampaign ? `campaign=${tech.signupUtmCampaign}` : "",
+  ].filter(Boolean);
+  const utmLine = utmBits.length ? `UTM: ${utmBits.join(" · ")}<br/>` : "";
+  const heardLine = tech.signupHeardAbout
+    ? `Heard about us: <strong>${tech.signupHeardAbout}</strong><br/>`
+    : "";
+  const offerLine =
+    tech.signupOffer === "tester"
+      ? "Tester (£1 first month)"
+      : tech.signupPartnerSlug
+        ? "Partner (3 months free)"
+        : "Standard (£9.50 first month)";
 
   const html = brandedEmail({
     brand: BRAND,
@@ -36,6 +53,9 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
       `Booking link: ${pageUrl}<br/>` +
       `Offer: ${offerLine}<br/>` +
       referredLine +
+      partnerLine +
+      utmLine +
+      heardLine +
       `<br/>They have <strong>not paid yet</strong> - they need to activate a plan before they can take bookings.`,
     buttonLabel: "Open the owner dashboard",
     buttonUrl: dash("/dashboard/admin"),
@@ -53,6 +73,9 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
       `Booking link: ${pageUrl}\n` +
       `Offer: ${offerLine}\n` +
       `${tech.referredBy ? `Referred by: ${tech.referredBy}\n` : ""}` +
+      `${tech.signupPartnerSlug ? `Partner: ${tech.signupPartnerSlug}\n` : ""}` +
+      `${utmBits.length ? `UTM: ${utmBits.join(" · ")}\n` : ""}` +
+      `${tech.signupHeardAbout ? `Heard about us: ${tech.signupHeardAbout}\n` : ""}` +
       `\nThey have not paid yet. Owner dashboard: ${dash("/dashboard/admin")}`,
     idempotencyKey: `owner-signup/${tech.id}`,
   });
@@ -62,7 +85,12 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
 export async function sendWelcomeEmail(tech: Tech): Promise<void> {
   if (!isValidEmail(tech.email)) return;
   const url = (p: string) => `${APP_URL}${p}`;
-  const price = tech.signupOffer === "tester" ? "£1" : "£9.50";
+  const price =
+    tech.signupOffer === "tester"
+      ? "£1"
+      : tech.signupPartnerSlug
+        ? "£0 (3 months free)"
+        : "£9.50";
   const html = brandedEmail({
     brand: BRAND,
     businessName: "Glow",
@@ -74,7 +102,7 @@ export async function sendWelcomeEmail(tech: Tech): Promise<void> {
       `2. <a href="${url("/dashboard/services")}" style="color:${BRAND}">Add your services and prices</a><br/>` +
       `3. Set your hours and put your link in your Instagram and TikTok bio<br/><br/>` +
       `Activating unlocks your services, availability, deposits and client messaging - and switches your booking page on so clients can book.`,
-    buttonLabel: `Activate for ${price}`,
+    buttonLabel: tech.signupPartnerSlug ? "Activate — 3 months free" : `Activate for ${price}`,
     buttonUrl: url("/dashboard/billing"),
   });
   await sendEmail({

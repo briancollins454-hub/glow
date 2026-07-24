@@ -11,6 +11,7 @@ import { Input, Label } from "@/components/ui/input";
 import { isLive, planLabel } from "@/lib/subscriptions";
 import { startCheckoutAction, manageBillingAction } from "./actions";
 import type { Tech } from "@/lib/db/types";
+import { launchOfferCopy, launchOfferEnabled, partnerOfferEnabled } from "@/lib/offers";
 
 const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
 
@@ -50,6 +51,37 @@ function BillingView({
   const welcome = searchParams.get("welcome") === "1";
   const live = isLive(tech);
   const isTester = tech.signupOffer === "tester";
+  const isPartner = !!tech.signupPartnerSlug && partnerOfferEnabled();
+  const offer = launchOfferCopy(isTester);
+  const monthlyPrice = isTester ? "£1" : isPartner ? "£0" : launchOfferEnabled() ? "£9.50" : "£19";
+  const monthlyCadence = isTester
+    ? " first month, then £19/mo"
+    : isPartner
+      ? " for 3 months, then £19/mo"
+      : launchOfferEnabled()
+        ? " first month, then £19/mo"
+        : "/mo";
+  const monthlyNote = isTester
+    ? "Tester offer"
+    : isPartner
+      ? "Partner: 3 months free"
+      : launchOfferEnabled()
+        ? "50% off first month"
+        : "Everything included";
+  const monthlyButton = isTester
+    ? "Go live for £1"
+    : isPartner
+      ? "Go live — 3 months free"
+      : launchOfferEnabled()
+        ? "Go live for £9.50"
+        : "Go live for £19";
+  const footerNote = isTester
+    ? "Tester offer: first month £1, then £19/mo. Cancel anytime."
+    : isPartner
+      ? "Partner offer: 3 months free, then £19/mo. Cancel anytime."
+      : launchOfferEnabled()
+        ? "50% off your first month on the monthly plan, then £19/mo. Cancel anytime."
+        : "£19/mo on the monthly plan. Cancel anytime.";
 
   return (
     <div className="space-y-6">
@@ -74,6 +106,15 @@ function BillingView({
           <p className="mt-1 text-3xl font-bold">First month £1</p>
           <p className="mt-1 text-sm text-white/85">
             Then £19/mo, cancel anytime. Pick Monthly below - the £1 shows at checkout. Thanks for helping test Glow!
+          </p>
+        </div>
+      )}
+      {isPartner && !isTester && !live && (
+        <div className="rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
+          <p className="font-display text-lg font-semibold">Partner offer active</p>
+          <p className="mt-1 text-3xl font-bold">3 months free</p>
+          <p className="mt-1 text-sm text-white/85">
+            Then £19/mo, cancel anytime. Pick Monthly below to activate.
           </p>
         </div>
       )}
@@ -112,13 +153,13 @@ function BillingView({
           <div className="grid gap-5 sm:grid-cols-2">
             <PlanCard
               title="Monthly"
-              price={isTester ? "£1" : "£9.50"}
-              cadence=" first month, then £19/mo"
+              price={monthlyPrice}
+              cadence={monthlyCadence}
               plan="monthly"
               configured={configured}
               highlight
-              note={isTester ? "Tester offer" : "50% off first month"}
-              buttonLabel={isTester ? "Go live for £1" : "Go live for £9.50"}
+              note={monthlyNote}
+              buttonLabel={monthlyButton}
             />
             <PlanCard
               title="Annual"
@@ -129,11 +170,12 @@ function BillingView({
               note="Save ~2 months"
             />
           </div>
-          <p className="text-center text-xs text-ink-faint">
-            {isTester
-              ? "Tester offer: first month £1, then £19/mo. Cancel anytime."
-              : "50% off your first month on the monthly plan, then £19/mo. Cancel anytime."}
-          </p>
+          <p className="text-center text-xs text-ink-faint">{footerNote}</p>
+          {!isTester && !isPartner && launchOfferEnabled() ? (
+            <p className="text-center text-xs text-ink-faint">
+              Launch offer: {offer.firstMonthLabel} {offer.thenLabel}. Referral free-month credits apply from invoice 2 onward for the referrer.
+            </p>
+          ) : null}
         </>
       )}
 
