@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { QuestionScopePicker } from "@/components/dashboard/question-scope-picker";
 import { addQuestionAction, deleteQuestionAction } from "../actions";
 import { questionScopeLabel } from "@/lib/booking/consultation-scope";
 import type { ConsultationQuestion, Service, ServiceCategory } from "@/lib/db/types";
@@ -52,7 +53,7 @@ function FormsView({ questions, categories, services }: FormsData) {
           <CardDescription>Shown on your booking page before payment.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={addQuestionAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto_auto] lg:items-end">
+          <form action={addQuestionAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)_auto_auto] lg:items-end">
             <div className="sm:col-span-2 lg:col-span-1">
               <Label>Question</Label>
               <Input name="prompt" placeholder="Any allergies or skin sensitivities?" required />
@@ -65,25 +66,13 @@ function FormsView({ questions, categories, services }: FormsData) {
                 <option value="yesno">Yes / No</option>
               </Select>
             </div>
-            <div>
+            <div className="min-w-0 sm:col-span-2 lg:col-span-1">
               <Label>Shown for</Label>
-              <Select name="scope" defaultValue="all">
-                <option value="all">All services</option>
-                {categories.length > 0 && (
-                  <optgroup label="Categories">
-                    {categories.map((c) => (
-                      <option key={c.id} value={`category:${c.id}`}>{c.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {activeServices.length > 0 && (
-                  <optgroup label="Services">
-                    {activeServices.map((s) => (
-                      <option key={s.id} value={`service:${s.id}`}>{s.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </Select>
+              <QuestionScopePicker
+                categories={categories}
+                services={activeServices}
+                defaultValue="all"
+              />
             </div>
             <label className="flex items-center gap-2 pb-2.5 text-sm">
               <input type="checkbox" name="required" className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" /> Required
