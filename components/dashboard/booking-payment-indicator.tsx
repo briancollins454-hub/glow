@@ -14,16 +14,20 @@ import {
 export function BookingPaymentIndicator({
   booking,
   blockHeightPx,
+  forceCompact = false,
   className = "",
 }: {
   booking: BookingPaymentFields;
   /** Appointment block height in px; under threshold → compact dot. */
   blockHeightPx?: number;
+  /** Narrow laned blocks force the dot even when height would allow a badge. */
+  forceCompact?: boolean;
   className?: string;
 }) {
   const summary = bookingPaymentSummary(booking);
   const compact =
-    typeof blockHeightPx === "number" ? isCompactPaymentIndicator(blockHeightPx) : false;
+    forceCompact ||
+    (typeof blockHeightPx === "number" ? isCompactPaymentIndicator(blockHeightPx) : false);
 
   const tone =
     summary.state === "paid" ? "green" : summary.state === "deposit_paid" ? "blue" : "amber";

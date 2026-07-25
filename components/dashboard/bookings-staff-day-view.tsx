@@ -24,17 +24,18 @@ import {
   timeOffOnDate,
   unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
-import { COMPACT_PAYMENT_HEIGHT_PX } from "@/lib/booking/payment-summary";
+import {
+  DAY_VIEW_PX_PER_MIN,
+  dayBlockDensity,
+} from "@/lib/booking/day-block-layout";
 import { addDaysToDateStr, weekDatesContaining } from "@/lib/rota";
 import { rowsForStaff } from "@/lib/booking/staff";
 import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
-const PX_PER_MIN = 1.15;
+const PX_PER_MIN = DAY_VIEW_PX_PER_MIN;
 const COL_MIN_WIDTH = 160;
 const TIME_AXIS_REM = 3;
 const LANE_GAP_PX = 2;
-/** Below this content height, use the compact name + dots layout. */
-const COMPACT_LAYOUT_HEIGHT_PX = COMPACT_PAYMENT_HEIGHT_PX;
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -313,14 +314,20 @@ export function BookingsStaffDayView({
                           ? Math.max(18, (apptEndM - startM) * PX_PER_MIN)
                           : blockHeight;
                       const contentHeight = Math.min(apptHeight, blockHeight);
-                      const compact = contentHeight < COMPACT_LAYOUT_HEIGHT_PX;
+                      const { density, useDots } = dayBlockDensity({
+                        contentHeightPx: contentHeight,
+                        laneCount,
+                      });
                       const widthPct = 100 / laneCount;
                       const leftPct = lane * widthPct;
                       const serviceLabel = serviceById[b.serviceId] ?? "Service";
+                      const timeService = `${fmtTime(b.startIso)} · ${serviceLabel}${
+                        b.groupId ? " · multi" : ""
+                      }`;
                       return (
                         <div
                           key={b.id}
-                          className="absolute z-[2] overflow-visible"
+                          className="absolute z-[3] overflow-hidden rounded-lg border border-brand-400/50 bg-surface shadow-sm"
                           style={{
                             top,
                             height: blockHeight,
@@ -328,13 +335,23 @@ export function BookingsStaffDayView({
                             width: `calc(${widthPct}% - ${LANE_GAP_PX * 2}px)`,
                           }}
                         >
-                          <div className="relative h-full overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 shadow-sm">
+                          <div className="relative h-full overflow-hidden">
                             <div
-                              className="overflow-hidden px-1.5 py-0.5 pr-7"
+                              className="min-w-0 overflow-hidden px-1.5 py-0.5 pr-7"
                               style={{ height: contentHeight }}
                             >
-                              {compact ? (
-                                <div className="min-w-0">
+                              {density === "single" ? (
+                                <div className="flex h-full min-w-0 items-center gap-1">
+                                  <Link
+                                    href={`/dashboard/bookings/${b.id}`}
+                                    className="min-w-0 flex-1 truncate text-xs font-semibold text-ink hover:text-brand-text"
+                                  >
+                                    {clientById[b.clientId] ?? "Client"}
+                                  </Link>
+                                  <StatusDot status={b.status} className="shrink-0" />
+                                </div>
+                              ) : density === "compact" ? (
+                                <div className="min-w-0 overflow-hidden">
                                   <div className="flex min-w-0 items-center gap-1">
                                     <Link
                                       href={`/dashboard/bookings/${b.id}`}
@@ -346,27 +363,22 @@ export function BookingsStaffDayView({
                                     <BookingPaymentIndicator
                                       booking={b}
                                       blockHeightPx={contentHeight}
+                                      forceCompact
                                       className="shrink-0"
                                     />
                                   </div>
-                                  <p className="truncate text-[10px] text-ink-faint">
-                                    {fmtTime(b.startIso)} · {serviceLabel}
-                                    {b.groupId ? " · multi" : ""}
-                                  </p>
+                                  <p className="truncate text-[10px] text-ink-faint">{timeService}</p>
                                 </div>
                               ) : (
-                                <div className="min-w-0">
+                                <div className="min-w-0 overflow-hidden">
                                   <Link
                                     href={`/dashboard/bookings/${b.id}`}
                                     className="block truncate text-xs font-semibold text-ink hover:text-brand-text"
                                   >
                                     {clientById[b.clientId] ?? "Client"}
                                   </Link>
-                                  <p className="truncate text-[10px] text-ink-faint">
-                                    {fmtTime(b.startIso)} · {serviceLabel}
-                                    {b.groupId ? " · multi" : ""}
-                                  </p>
-                                  <div className="mt-0.5 flex flex-wrap items-center gap-1 origin-left scale-90">
+                                  <p className="truncate text-[10px] text-ink-faint">{timeService}</p>
+                                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 origin-left scale-90">
                                     {statusBadge(b.status)}
                                     <BookingPaymentIndicator
                                       booking={b}
@@ -376,7 +388,7 @@ export function BookingsStaffDayView({
                                 </div>
                               )}
                             </div>
-                            {/* Actions sit above the clip region so the trigger stays tappable on short blocks. */}
+                            {/* Menu portals to document.body; trigger stays inside overflow-hidden. */}
                             <div className="absolute right-0.5 top-0.5 z-20 origin-top-right scale-90">
                               <BookingActions id={b.id} status={b.status} />
                             </div>
