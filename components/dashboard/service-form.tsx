@@ -117,6 +117,22 @@ export function ServiceForm({
       </label>
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
+        <input
+          type="checkbox"
+          name="requiresSignedConsent"
+          defaultChecked={s?.requiresSignedConsent === true}
+          className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
+        />
+        <span>
+          <span className="font-medium">Requires signed consent</span>
+          <span className="mt-0.5 block text-xs text-ink-faint">
+            Clients must sign (finger or mouse), type their name, and confirm consent before payment.
+            A signed consent record is kept on their profile.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm sm:col-span-2">
         <input type="checkbox" name="isPatchTestService" defaultChecked={s?.isPatchTestService} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />
         <span>
           <span className="font-medium">This is the patch test appointment</span>

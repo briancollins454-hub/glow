@@ -14,10 +14,12 @@ import {
 import type { ConsultationQuestion, Service, ServiceAddon, Tech } from "@/lib/db/types";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { YesNoQuestion } from "@/components/booking/yesno-question";
+import { ConsentSignatureFields } from "@/components/booking/consent-signature-fields";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor } from "@/lib/rules";
+import { serviceRequiresSignedConsent } from "@/lib/booking/consent";
 import { usesCardCapture } from "@/lib/subscriptions";
 import {
   createPairedPublicBookingAction,
@@ -36,6 +38,7 @@ const ERR: Record<string, string> = {
   blocked: "We can't complete this booking online. Please contact the studio directly.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
   form: "Please complete the required questions and agree to the booking policy.",
+  consent: "Please sign, type your full name, and confirm consent to continue.",
   rate: "Too many attempts, try again shortly.",
   payment:
     "We couldn't start card checkout. Please try again, or contact the studio if it keeps happening.",
@@ -78,6 +81,7 @@ export function PairedBookingStepInteractive({
   // Card capture: nothing is paid upfront; a card is saved at checkout instead.
   const cardCapture = usesCardCapture(tech);
   const deposit = cardCapture ? 0 : depositFor(treatmentService);
+  const requiresSignedConsent = serviceRequiresSignedConsent(treatmentService);
   const balance = Math.max(0, treatmentService.pricePennies - deposit);
   const [patchSlot, setPatchSlot] = useState(initialPatchSlot ?? "");
   const [treatmentSlot, setTreatmentSlot] = useState(initialTreatmentSlot ?? "");
@@ -302,6 +306,8 @@ export function PairedBookingStepInteractive({
                 ))}
               </div>
             )}
+
+            {requiresSignedConsent && <ConsentSignatureFields />}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input name="policyAccepted" type="checkbox" required className="mt-1 h-4 w-4 rounded" />

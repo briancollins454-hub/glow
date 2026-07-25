@@ -702,6 +702,7 @@ export async function saveServiceAction(formData: FormData) {
     requiresPatchTest: formData.get("requiresPatchTest") === "on",
     isPatchTestService: formData.get("isPatchTestService") === "on",
     isInfill: formData.get("isInfill") === "on",
+    requiresSignedConsent: formData.get("requiresSignedConsent") === "on",
     fullSetServiceId: fullSet || null,
     infillMaxGapDays: clampInt(String(formData.get("infillMaxGapDays") ?? "21"), 1, 365, 21),
     active: formData.get("active") === "on",
@@ -725,15 +726,24 @@ export async function saveServiceAction(formData: FormData) {
       serviceId = created.id;
     }
   } catch (e) {
-    // Migrations 0034 / 0035 may not be applied yet — retry without new columns.
+    // Migrations 0034 / 0035 / 0047 may not be applied yet — retry without new columns.
     const msg = e instanceof Error ? e.message : "";
-    if (!/availableWeekdays/i.test(msg) && !/bufferMinutes/i.test(msg)) throw e;
+    if (
+      !/availableWeekdays/i.test(msg) &&
+      !/bufferMinutes/i.test(msg) &&
+      !/requiresSignedConsent/i.test(msg)
+    ) {
+      throw e;
+    }
     const fallback = { ...data };
     if (/availableWeekdays/i.test(msg)) {
       delete (fallback as { availableWeekdays?: unknown }).availableWeekdays;
     }
     if (/bufferMinutes/i.test(msg)) {
       delete (fallback as { bufferMinutes?: unknown }).bufferMinutes;
+    }
+    if (/requiresSignedConsent/i.test(msg)) {
+      delete (fallback as { requiresSignedConsent?: unknown }).requiresSignedConsent;
     }
     if (existing) {
       await updateService(sb, id, fallback);
@@ -1922,14 +1932,32 @@ export async function addQuestionAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const prompt = String(formData.get("prompt") ?? "").trim();
   if (prompt) {
-    await createQuestion(sb, {
-      techId: tech.id,
-      prompt,
-      type: String(formData.get("type") ?? "text") as QuestionType,
-      required: formData.get("required") === "on",
-      sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
-      active: true,
-    });
+    const { parseQuestionScope } = await import("@/lib/booking/consultation-scope");
+    const scope = parseQuestionScope(String(formData.get("scope") ?? "all"));
+    try {
+      await createQuestion(sb, {
+        techId: tech.id,
+        prompt,
+        type: String(formData.get("type") ?? "text") as QuestionType,
+        required: formData.get("required") === "on",
+        sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
+        active: true,
+        categoryId: scope.categoryId,
+        serviceId: scope.serviceId,
+      });
+    } catch (e) {
+      // Migration 0047 may not be applied yet — create as a global question.
+      const msg = e instanceof Error ? e.message : "";
+      if (!/categoryId|serviceId/i.test(msg)) throw e;
+      await createQuestion(sb, {
+        techId: tech.id,
+        prompt,
+        type: String(formData.get("type") ?? "text") as QuestionType,
+        required: formData.get("required") === "on",
+        sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
+        active: true,
+      });
+    }
   }
   revalidatePath("/dashboard/forms");
   redirect("/dashboard/forms");

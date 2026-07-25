@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { addQuestionAction, deleteQuestionAction } from "../actions";
-import type { ConsultationQuestion } from "@/lib/db/types";
+import { questionScopeLabel } from "@/lib/booking/consultation-scope";
+import type { ConsultationQuestion, Service, ServiceCategory } from "@/lib/db/types";
 
 const typeLabel: Record<string, string> = {
   text: "Short text",
@@ -17,6 +18,8 @@ const typeLabel: Record<string, string> = {
 
 type FormsData = {
   questions: ConsultationQuestion[];
+  categories: ServiceCategory[];
+  services: Service[];
 };
 
 export default function FormsPage() {
@@ -27,13 +30,19 @@ export default function FormsPage() {
   );
 }
 
-function FormsView({ questions }: FormsData) {
+function FormsView({ questions, categories, services }: FormsData) {
+  const catById = new Map(categories.map((c) => [c.id, c.name]));
+  const svcById = new Map(services.map((s) => [s.id, s.name]));
+  const activeServices = services.filter((s) => s.active);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">Consultation form</h1>
         <p className="text-sm text-ink-soft">
-          Questions clients answer when they book (allergies, medical, preferences).
+          Questions clients answer when they book (allergies, medical, preferences). Scope a
+          question to one service or category when needed — leave as all services for the usual
+          form.
         </p>
       </div>
 
@@ -43,8 +52,8 @@ function FormsView({ questions }: FormsData) {
           <CardDescription>Shown on your booking page before payment.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={addQuestionAction} className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
-            <div>
+          <form action={addQuestionAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto_auto] lg:items-end">
+            <div className="sm:col-span-2 lg:col-span-1">
               <Label>Question</Label>
               <Input name="prompt" placeholder="Any allergies or skin sensitivities?" required />
             </div>
@@ -54,6 +63,26 @@ function FormsView({ questions }: FormsData) {
                 <option value="text">Short text</option>
                 <option value="longtext">Long text</option>
                 <option value="yesno">Yes / No</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Shown for</Label>
+              <Select name="scope" defaultValue="all">
+                <option value="all">All services</option>
+                {categories.length > 0 && (
+                  <optgroup label="Categories">
+                    {categories.map((c) => (
+                      <option key={c.id} value={`category:${c.id}`}>{c.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {activeServices.length > 0 && (
+                  <optgroup label="Services">
+                    {activeServices.map((s) => (
+                      <option key={s.id} value={`service:${s.id}`}>{s.name}</option>
+                    ))}
+                  </optgroup>
+                )}
               </Select>
             </div>
             <label className="flex items-center gap-2 pb-2.5 text-sm">
@@ -76,9 +105,15 @@ function FormsView({ questions }: FormsData) {
             <div key={q.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3">
               <div>
                 <p className="font-medium">{q.prompt}</p>
-                <p className="mt-0.5 flex items-center gap-2 text-xs text-ink-faint">
+                <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
                   <Badge tone="neutral">{typeLabel[q.type] ?? q.type}</Badge>
                   {q.required && <Badge tone="amber">Required</Badge>}
+                  <Badge tone="neutral">
+                    {questionScopeLabel(q, {
+                      serviceName: q.serviceId ? svcById.get(q.serviceId) : null,
+                      categoryName: q.categoryId ? catById.get(q.categoryId) : null,
+                    })}
+                  </Badge>
                 </p>
               </div>
               <form action={deleteQuestionAction}>

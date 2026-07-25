@@ -13,11 +13,21 @@ import {
   listServices,
   patchTestsForClient,
   createFormResponse,
+  createConsentRecord,
   addonsForService,
   updateBooking,
 } from "@/lib/db/queries";
 import { isUniqueViolation } from "@/lib/db/errors";
-import type { Booking, BookingAddon, FormAnswer } from "@/lib/db/types";
+import type { Booking, BookingAddon, Service } from "@/lib/db/types";
+import {
+  anyServiceRequiresSignedConsent,
+  collectScopedAnswers,
+  missingRequiredScopedAnswer,
+  readConsentFormInput,
+  serverSignedAt,
+  serviceRequiresSignedConsent,
+  validateConsentFormInput,
+} from "@/lib/booking/consent";
 import {
   basketAmounts,
   basketDurationMin,
@@ -332,18 +342,17 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const discountPennies = loyaltyDiscountFor(tech, completedVisits, gross, client.isVip);
 
   const questions = await listQuestions(sb, tech.id, { activeOnly: true });
-  const answers: FormAnswer[] = questions
-    .map((q) => {
-      const answer = String(formData.get(`q_${q.id}`) ?? "").trim();
-      const detail = String(formData.get(`q_${q.id}_detail`) ?? "").trim();
-      return { prompt: q.prompt, answer: detail ? `${answer} - ${detail}` : answer };
-    })
-    .filter((a) => a.answer);
-  const missingRequiredAnswer = questions.some((q) => {
-    if (!q.required) return false;
-    return !String(formData.get(`q_${q.id}`) ?? "").trim();
-  });
-  if (missingRequiredAnswer) redirect(`${base}&err=form`);
+  const consentServices: Service[] = [service];
+  const { answers, snapshot } = collectScopedAnswers(questions, consentServices, formData);
+  if (missingRequiredScopedAnswer(questions, consentServices, formData)) {
+    redirect(`${base}&err=form`);
+  }
+  const consentRequired = anyServiceRequiresSignedConsent(consentServices);
+  const consentInput = readConsentFormInput(formData);
+  if (validateConsentFormInput(consentInput, consentRequired)) {
+    redirect(`${base}&err=consent`);
+  }
+  const signedAt = consentRequired ? serverSignedAt() : null;
 
   const patchBooking = await (async () => {
     try {
@@ -366,6 +375,21 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const saveAnswers = async (bookingId: string) => {
     if (answers.length) {
       await createFormResponse(sb, { techId: tech.id, clientId: client.id, bookingId, answers });
+    }
+    if (consentRequired && signedAt) {
+      for (const svc of consentServices.filter(serviceRequiresSignedConsent)) {
+        await createConsentRecord(sb, {
+          techId: tech.id,
+          clientId: client.id,
+          bookingId,
+          serviceId: svc.id,
+          questionsSnapshot: snapshot,
+          typedName: consentInput.typedName,
+          signatureImage: consentInput.signatureImage,
+          consentAccepted: true,
+          signedAt,
+        });
+      }
     }
   };
 
@@ -627,24 +651,36 @@ export async function createPublicBookingAction(formData: FormData) {
     addons.reduce((s, a) => s + a.pricePennies, 0);
   const discountPennies = loyaltyDiscountFor(tech!, completedVisits, gross, client.isVip);
 
-  // Collect consultation answers (if the tech has questions).
+  // Collect consultation answers (scoped to services in this visit).
   const questions = await listQuestions(sb, tech!.id, { activeOnly: true });
-  const answers: FormAnswer[] = questions
-    .map((q) => {
-      const answer = String(formData.get(`q_${q.id}`) ?? "").trim();
-      // Yes/No questions can carry a follow-up detail ("Yes - nut allergy").
-      const detail = String(formData.get(`q_${q.id}_detail`) ?? "").trim();
-      return { prompt: q.prompt, answer: detail ? `${answer} - ${detail}` : answer };
-    })
-    .filter((a) => a.answer);
-  const missingRequiredAnswer = questions.some((q) => {
-    if (!q.required) return false;
-    return !String(formData.get(`q_${q.id}`) ?? "").trim();
-  });
-  if (missingRequiredAnswer) redirect(`${base}&err=form`);
+  const { answers, snapshot } = collectScopedAnswers(questions, basket, formData);
+  if (missingRequiredScopedAnswer(questions, basket, formData)) {
+    redirect(`${base}&err=form`);
+  }
+  const consentRequired = anyServiceRequiresSignedConsent(basket);
+  const consentInput = readConsentFormInput(formData);
+  if (validateConsentFormInput(consentInput, consentRequired)) {
+    redirect(`${base}&err=consent`);
+  }
+  const signedAt = consentRequired ? serverSignedAt() : null;
   const saveAnswers = async (bookingId: string) => {
     if (answers.length) {
       await createFormResponse(sb, { techId: tech!.id, clientId: client.id, bookingId, answers });
+    }
+    if (consentRequired && signedAt) {
+      for (const svc of basket.filter(serviceRequiresSignedConsent)) {
+        await createConsentRecord(sb, {
+          techId: tech!.id,
+          clientId: client.id,
+          bookingId,
+          serviceId: svc.id,
+          questionsSnapshot: snapshot,
+          typedName: consentInput.typedName,
+          signatureImage: consentInput.signatureImage,
+          consentAccepted: true,
+          signedAt,
+        });
+      }
     }
   };
 
