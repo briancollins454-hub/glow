@@ -314,7 +314,7 @@ export function BookingsStaffDayView({
                           ? Math.max(18, (apptEndM - startM) * PX_PER_MIN)
                           : blockHeight;
                       const contentHeight = Math.min(apptHeight, blockHeight);
-                      const { density, useDots } = dayBlockDensity({
+                      const { density } = dayBlockDensity({
                         contentHeightPx: contentHeight,
                         laneCount,
                       });
