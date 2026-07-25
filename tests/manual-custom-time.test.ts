@@ -8,9 +8,10 @@ describe("manual booking deliberate overbook (confirm path)", () => {
   it("date-time picker requires named-conflict confirmation instead of free custom time", () => {
     const src = read("components/dashboard/date-time-picker.tsx");
     expect(src).toContain('name="confirmOverbook" value="1"');
-    expect(src).toContain("This slot is taken by");
+    expect(src).toContain("overbookConfirmMessage");
     expect(src).not.toContain("allowCustomTime");
     expect(src).not.toContain('name="customTime"');
+    expect(read("lib/booking/overbook-copy.ts")).toContain("This slot is taken by");
   });
 
   it("manual booking form shows taken slots; online booking does not offer overbook", () => {

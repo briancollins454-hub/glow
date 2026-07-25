@@ -10,7 +10,7 @@ import {
   CalendarRotaUnavailable,
 } from "@/components/dashboard/calendar-time-block";
 import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
-import { statusBadge } from "@/components/dashboard/status";
+import { StatusDot, statusBadge } from "@/components/dashboard/status";
 import { fmtTime } from "@/lib/format";
 import {
   UNASSIGNED_STAFF_ID,
@@ -24,6 +24,7 @@ import {
   timeOffOnDate,
   unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
+import { COMPACT_PAYMENT_HEIGHT_PX } from "@/lib/booking/payment-summary";
 import { addDaysToDateStr, weekDatesContaining } from "@/lib/rota";
 import { rowsForStaff } from "@/lib/booking/staff";
 import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
@@ -32,6 +33,8 @@ const PX_PER_MIN = 1.15;
 const COL_MIN_WIDTH = 160;
 const TIME_AXIS_REM = 3;
 const LANE_GAP_PX = 2;
+/** Below this content height, use the compact name + dots layout. */
+const COMPACT_LAYOUT_HEIGHT_PX = COMPACT_PAYMENT_HEIGHT_PX;
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -309,12 +312,15 @@ export function BookingsStaffDayView({
                         bufferMin > 0
                           ? Math.max(18, (apptEndM - startM) * PX_PER_MIN)
                           : blockHeight;
+                      const contentHeight = Math.min(apptHeight, blockHeight);
+                      const compact = contentHeight < COMPACT_LAYOUT_HEIGHT_PX;
                       const widthPct = 100 / laneCount;
                       const leftPct = lane * widthPct;
+                      const serviceLabel = serviceById[b.serviceId] ?? "Service";
                       return (
                         <div
                           key={b.id}
-                          className="absolute z-[2] overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 shadow-sm"
+                          className="absolute z-[2] overflow-visible"
                           style={{
                             top,
                             height: blockHeight,
@@ -322,46 +328,70 @@ export function BookingsStaffDayView({
                             width: `calc(${widthPct}% - ${LANE_GAP_PX * 2}px)`,
                           }}
                         >
-                          <div
-                            className="overflow-hidden px-1.5 py-1"
-                            style={{ height: Math.min(apptHeight, blockHeight) }}
-                          >
-                            <div className="flex items-start justify-between gap-1">
-                              <div className="min-w-0 flex-1">
-                                <Link
-                                  href={`/dashboard/bookings/${b.id}`}
-                                  className="block truncate text-xs font-semibold text-ink hover:text-brand-text"
-                                >
-                                  {clientById[b.clientId] ?? "Client"}
-                                </Link>
-                                <p className="truncate text-[10px] text-ink-faint">
-                                  {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"}
-                                  {b.groupId ? " · multi" : ""}
-                                </p>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-1 origin-left scale-90">
-                                  {statusBadge(b.status)}
-                                  <BookingPaymentIndicator
-                                    booking={b}
-                                    blockHeightPx={Math.min(apptHeight, blockHeight)}
-                                  />
-                                </div>
-                              </div>
-                              <div className="shrink-0 origin-top-right scale-90">
-                                <BookingActions id={b.id} status={b.status} />
-                              </div>
-                            </div>
-                          </div>
-                          {bufferMin > 0 && blockHeight > apptHeight + 4 && (
+                          <div className="relative h-full overflow-hidden rounded-lg border border-brand-400/40 bg-brand-500/15 shadow-sm">
                             <div
-                              className="absolute inset-x-0 bottom-0 border-t border-dashed border-brand-400/50 bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(255,255,255,0.06)_3px,rgba(255,255,255,0.06)_6px)]"
-                              style={{ height: blockHeight - apptHeight }}
-                              title={`${bufferMin} min cleanup buffer`}
+                              className="overflow-hidden px-1.5 py-0.5 pr-7"
+                              style={{ height: contentHeight }}
                             >
-                              {blockHeight - apptHeight >= 14 && (
-                                <p className="px-1.5 pt-0.5 text-[9px] text-ink-faint">Buffer</p>
+                              {compact ? (
+                                <div className="min-w-0">
+                                  <div className="flex min-w-0 items-center gap-1">
+                                    <Link
+                                      href={`/dashboard/bookings/${b.id}`}
+                                      className="min-w-0 flex-1 truncate text-xs font-semibold text-ink hover:text-brand-text"
+                                    >
+                                      {clientById[b.clientId] ?? "Client"}
+                                    </Link>
+                                    <StatusDot status={b.status} className="shrink-0" />
+                                    <BookingPaymentIndicator
+                                      booking={b}
+                                      blockHeightPx={contentHeight}
+                                      className="shrink-0"
+                                    />
+                                  </div>
+                                  <p className="truncate text-[10px] text-ink-faint">
+                                    {fmtTime(b.startIso)} · {serviceLabel}
+                                    {b.groupId ? " · multi" : ""}
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="min-w-0">
+                                  <Link
+                                    href={`/dashboard/bookings/${b.id}`}
+                                    className="block truncate text-xs font-semibold text-ink hover:text-brand-text"
+                                  >
+                                    {clientById[b.clientId] ?? "Client"}
+                                  </Link>
+                                  <p className="truncate text-[10px] text-ink-faint">
+                                    {fmtTime(b.startIso)} · {serviceLabel}
+                                    {b.groupId ? " · multi" : ""}
+                                  </p>
+                                  <div className="mt-0.5 flex flex-wrap items-center gap-1 origin-left scale-90">
+                                    {statusBadge(b.status)}
+                                    <BookingPaymentIndicator
+                                      booking={b}
+                                      blockHeightPx={contentHeight}
+                                    />
+                                  </div>
+                                </div>
                               )}
                             </div>
-                          )}
+                            {/* Actions sit above the clip region so the trigger stays tappable on short blocks. */}
+                            <div className="absolute right-0.5 top-0.5 z-20 origin-top-right scale-90">
+                              <BookingActions id={b.id} status={b.status} />
+                            </div>
+                            {bufferMin > 0 && blockHeight > apptHeight + 4 && (
+                              <div
+                                className="absolute inset-x-0 bottom-0 border-t border-dashed border-brand-400/50 bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(255,255,255,0.06)_3px,rgba(255,255,255,0.06)_6px)]"
+                                style={{ height: blockHeight - apptHeight }}
+                                title={`${bufferMin} min cleanup buffer`}
+                              >
+                                {blockHeight - apptHeight >= 14 && (
+                                  <p className="px-1.5 pt-0.5 text-[9px] text-ink-faint">Buffer</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

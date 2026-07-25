@@ -44,13 +44,14 @@ export default async function EditBookingPage({
     usage?: string;
     conflict?: string;
     at?: string;
+    slot_reason?: string;
   }>;
 }) {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   const { sb, tech } = c;
   const { id } = await params;
-  const { saved, err, usage, conflict, at } = await searchParams;
+  const { saved, err, usage, conflict, at, slot_reason: slotReason } = await searchParams;
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
@@ -175,7 +176,11 @@ export default async function EditBookingPage({
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           {conflict && conflictTime
             ? `This slot is taken by ${conflict} at ${conflictTime}. Pick another time, or choose that slot again and confirm “Book anyway”.`
-            : "That time is not free — they may already have a booking then. Pick another slot."}
+            : slotReason === "blocked"
+              ? "This time is blocked. Pick another time, or choose it again and confirm “Book anyway”."
+              : slotReason === "outside_hours"
+                ? "This is outside your working hours. Pick another time, or choose it again and confirm “Book anyway”."
+                : "That time is not free — they may already have a booking then. Pick another slot."}
         </div>
       )}
       {err === "verify" && (

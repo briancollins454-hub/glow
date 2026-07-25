@@ -1,14 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { workingHoursForStaff, rowsForStaff } from "@/lib/booking/staff";
-import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
+import { minutesFromMidnightLondon, timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import {
   BLOCKING_STATUSES,
   bufferMapFromServices,
   dateStrInTz,
   daySlotsForDuration,
+  dayWindowForDate,
   flexibleHoursFromTech,
 } from "@/lib/rules";
 import type { Booking, Service, StaffMember, Tech } from "@/lib/db/types";
+import {
+  isOverbookableReason,
+  overbookConfirmMessage,
+  type OverbookableSlotReason,
+} from "@/lib/booking/overbook-copy";
+
+export type { OverbookableSlotReason };
+export { isOverbookableReason, overbookConfirmMessage };
 
 export type SlotConflict = {
   bookingId: string;
@@ -19,7 +28,8 @@ export type SlotConflict = {
 export type DashboardSlotCheckResult =
   | { ok: true }
   | { ok: false; reason: "conflict"; conflict: SlotConflict }
-  | { ok: false; reason: "unavailable" }
+  | { ok: false; reason: "blocked" }
+  | { ok: false; reason: "outside_hours" }
   | { ok: false; reason: "verify_failed"; error: unknown };
 
 function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
@@ -110,20 +120,17 @@ export async function checkDashboardStaffSlot(
     const scopedOffs = member ? timeOffAppliesToStaff(offs, member.id) : offs;
     const scopedRota = member ? rowsForStaff(rotaHours, member) : [];
     const bufferByServiceId = bufferMapFromServices(allServices as Service[]);
+    const flexibleHours = flexibleHoursFromTech(tech);
+    const availabilityCtx = {
+      workingHours,
+      timeOff: scopedOffs,
+      bookings: scopedBookings.filter((b) => b.id !== opts.excludeBookingId),
+      flexibleHours,
+      rotaHours: scopedRota,
+      bufferByServiceId,
+    };
 
-    const free = daySlotsForDuration(
-      opts.durationMin,
-      dateStr,
-      {
-        workingHours,
-        timeOff: scopedOffs,
-        bookings: scopedBookings.filter((b) => b.id !== opts.excludeBookingId),
-        flexibleHours: flexibleHoursFromTech(tech),
-        rotaHours: scopedRota,
-        bufferByServiceId,
-      },
-      0,
-    );
+    const free = daySlotsForDuration(opts.durationMin, dateStr, availabilityCtx, 0);
 
     if (free.includes(opts.startIso)) return { ok: true };
 
@@ -153,7 +160,25 @@ export async function checkDashboardStaffSlot(
       };
     }
 
-    return { ok: false, reason: "unavailable" };
+    const startMs = new Date(opts.startIso).getTime();
+    const endMs = startMs + opts.durationMin * 60 * 1000;
+    const blocked = scopedOffs.some((o) =>
+      rangesOverlap(startMs, endMs, new Date(o.startIso).getTime(), new Date(o.endIso).getTime()),
+    );
+    if (blocked) return { ok: false, reason: "blocked" };
+
+    const wh = dayWindowForDate(dateStr, availabilityCtx);
+    if (!wh) return { ok: false, reason: "outside_hours" };
+
+    const startM = minutesFromMidnightLondon(opts.startIso);
+    const lastStart =
+      wh.lastStartMinutes != null ? wh.lastStartMinutes : wh.endMinutes - opts.durationMin;
+    if (startM < wh.startMinutes || startM > lastStart) {
+      return { ok: false, reason: "outside_hours" };
+    }
+
+    // Inside the diary window but not offered as free (e.g. edge cases) — treat as outside hours.
+    return { ok: false, reason: "outside_hours" };
   } catch (error) {
     console.error("[checkDashboardStaffSlot] availability check failed", error);
     return { ok: false, reason: "verify_failed", error };
@@ -167,4 +192,9 @@ export function slotConflictQuery(conflict: SlotConflict): string {
     at: conflict.startIso,
   });
   return params.toString();
+}
+
+/** Query string for a non-conflict slot rejection the tech can confirm past. */
+export function slotReasonQuery(reason: "blocked" | "outside_hours"): string {
+  return new URLSearchParams({ slot_reason: reason }).toString();
 }

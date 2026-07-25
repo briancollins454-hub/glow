@@ -467,22 +467,31 @@ export function daySlotsForDuration(
   return slots;
 }
 
+export type DaySlotOverrideReason = "conflict" | "blocked" | "outside_hours";
+
 export type DaySlotChoice = {
   iso: string;
   /** When set, this start clashes with an existing booking (buffers included). */
   takenByBookingId?: string;
+  /**
+   * Dashboard-only: slot needs an explicit tech “book anyway” confirmation.
+   * Public booking uses daySlotsForDuration and never sees these.
+   */
+  overrideReason?: DaySlotOverrideReason;
 };
 
 /**
- * All in-hours starts for the day, including ones that clash with bookings.
- * Free slots have no takenByBookingId; taken ones name the conflicting booking
- * so the dashboard picker can grey them with a client initial.
+ * Starts for the day for the dashboard picker.
+ * Free slots have no overrideReason; conflict / blocked / outside_hours are
+ * included so a tech can confirm past them. Public booking must keep using
+ * daySlotsForDuration (strict free-only).
  */
 export function daySlotChoicesForDuration(
   durationMin: number,
   dateStr: string,
   ctx: AvailabilityCtx,
   nowMs = Date.now(),
+  opts?: { includeOutsideHours?: boolean },
 ): DaySlotChoice[] {
   const allowed = ctx.allowedWeekdays;
   if (allowed != null && (!allowed.length || !allowed.includes(weekdayOf(dateStr)))) {
@@ -490,7 +499,8 @@ export function daySlotChoicesForDuration(
   }
 
   const wh = dayWindowForDate(dateStr, ctx);
-  if (!wh) return [];
+  const includeOutside = Boolean(opts?.includeOutsideHours);
+  if (!wh && !includeOutside) return [];
 
   const offs = ctx.timeOff.map((o) => ({
     start: new Date(o.startIso).getTime(),
@@ -506,23 +516,51 @@ export function daySlotChoicesForDuration(
     };
   });
 
-  const choices: DaySlotChoice[] = [];
-  const lastStart =
-    wh.lastStartMinutes != null
+  const inHoursLastStart = wh
+    ? wh.lastStartMinutes != null
       ? wh.lastStartMinutes
-      : wh.endMinutes - durationMin;
-  for (let m = wh.startMinutes; m <= lastStart; m += SLOT_STEP_MIN) {
+      : wh.endMinutes - durationMin
+    : null;
+
+  const loopStart = includeOutside ? 0 : (wh?.startMinutes ?? 0);
+  const loopEnd = includeOutside
+    ? 24 * 60 - durationMin
+    : (inHoursLastStart ?? 0);
+
+  const choices: DaySlotChoice[] = [];
+  for (let m = loopStart; m <= loopEnd; m += SLOT_STEP_MIN) {
     const start = localInstant(dateStr, m);
     const startMs = start.getTime();
     const endMs = startMs + durationMin * 60 * 1000;
     if (startMs <= nowMs) continue;
-    if (offs.some((o) => overlaps(startMs, endMs, o.start, o.end))) continue;
+
     const clash = busy.find((b) => overlaps(startMs, endMs, b.start, b.end));
-    choices.push(
-      clash
-        ? { iso: start.toISOString(), takenByBookingId: clash.id }
-        : { iso: start.toISOString() },
-    );
+    if (clash) {
+      choices.push({
+        iso: start.toISOString(),
+        takenByBookingId: clash.id,
+        overrideReason: "conflict",
+      });
+      continue;
+    }
+
+    if (offs.some((o) => overlaps(startMs, endMs, o.start, o.end))) {
+      choices.push({ iso: start.toISOString(), overrideReason: "blocked" });
+      continue;
+    }
+
+    const outside =
+      !wh ||
+      inHoursLastStart == null ||
+      m < wh.startMinutes ||
+      m > inHoursLastStart;
+    if (outside) {
+      if (!includeOutside) continue;
+      choices.push({ iso: start.toISOString(), overrideReason: "outside_hours" });
+      continue;
+    }
+
+    choices.push({ iso: start.toISOString() });
   }
   return choices;
 }

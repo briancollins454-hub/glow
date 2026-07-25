@@ -88,6 +88,7 @@ function BookingsView({
   const bookingError = searchParams.get("error");
   const conflictName = searchParams.get("conflict");
   const conflictAt = searchParams.get("at");
+  const slotReason = searchParams.get("slot_reason");
   const waiting = waitlist.filter((w) => !w.notifiedAtIso);
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
@@ -193,7 +194,11 @@ function BookingsView({
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           {conflictName && conflictAt
             ? `This slot is taken by ${conflictName} at ${fmtTime(conflictAt)}. Pick another time, or choose that slot again and confirm “Book anyway”.`
-            : "That time is not free — they may already have a booking, be off, or outside working hours. Pick another slot."}
+            : slotReason === "blocked"
+              ? "This time is blocked. Pick another time, or choose it again and confirm “Book anyway”."
+              : slotReason === "outside_hours"
+                ? "This is outside your working hours. Pick another time, or choose it again and confirm “Book anyway”."
+                : "That time is not free — they may already have a booking, be off, or outside working hours. Pick another slot."}
         </div>
       )}
       {bookingError === "verify" && (

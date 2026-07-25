@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { overbookConfirmMessage, type OverbookableSlotReason } from "@/lib/booking/overbook-copy";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = [
@@ -22,6 +23,8 @@ export type TimeSlotOption = {
   /** Client initial when this start is already taken. */
   takenInitial?: string;
   takenName?: string;
+  /** Dashboard override: conflict / blocked / outside_hours. */
+  overrideReason?: OverbookableSlotReason;
 };
 
 const ALL_DAY_TIMES: TimeSlotOption[] = (() => {
@@ -31,13 +34,24 @@ const ALL_DAY_TIMES: TimeSlotOption[] = (() => {
   return out;
 })();
 
+function optionLabel(o: TimeSlotOption): string {
+  if (o.overrideReason === "blocked") return `${o.time} · blocked`;
+  if (o.overrideReason === "outside_hours") return `${o.time} · outside hours`;
+  if (o.takenInitial) return `${o.time} · ${o.takenInitial}`;
+  return o.time;
+}
+
+function needsOverbookConfirm(o: TimeSlotOption | null): boolean {
+  if (!o) return false;
+  return Boolean(o.overrideReason || o.takenInitial || o.takenName);
+}
+
 /**
  * Month-grid calendar + time picker. Submits as a hidden input in
  * datetime-local format (YYYY-MM-DDTHH:mm) under `name`.
  *
- * Pass `timesForDate` to offer in-hours slots (free + taken). Taken times are
- * greyed with the client's initial; selecting one requires an explicit
- * "Book anyway" confirmation before submit.
+ * Pass `timesForDate` to offer slots (free + overridable). Overridable times
+ * require an explicit "Book anyway" confirmation before submit.
  */
 export function DateTimePicker({
   name,
@@ -52,7 +66,7 @@ export function DateTimePicker({
   /** When set, only these HH:mm values are offered for the selected date. */
   timesForDate?: (dateStr: string) => TimeSlotOption[];
   emptyTimesHint?: string;
-  /** Override the overbook confirmation copy. Receives client name + time. */
+  /** Override the conflict confirmation copy. Receives client name + time. */
   overbookConfirmLabel?: (clientName: string, time: string) => string;
 }) {
   const now = new Date();
@@ -101,7 +115,7 @@ export function DateTimePicker({
   }, [timesForDate, selected]);
 
   const selectedOption = options.find((o) => o.time === time) ?? null;
-  const isTaken = Boolean(selectedOption?.takenInitial || selectedOption?.takenName);
+  const needsConfirm = needsOverbookConfirm(selectedOption);
 
   // Keep the selected time inside the allowed list for the chosen day.
   useEffect(() => {
@@ -114,21 +128,30 @@ export function DateTimePicker({
   }, [timesForDate, selected, options, time]);
 
   useEffect(() => {
-    if (!isTaken) setConfirmOverbook(false);
-  }, [isTaken, time, selected]);
+    if (!needsConfirm) setConfirmOverbook(false);
+  }, [needsConfirm, time, selected]);
 
   const valueReady = Boolean(
     selected && time && (!timesForDate || options.some((o) => o.time === time)),
   );
 
-  const confirmCopy =
-    isTaken && selectedOption
-      ? (overbookConfirmLabel?.(
-          selectedOption.takenName || "another client",
-          selectedOption.time,
-        ) ??
-        `This slot is taken by ${selectedOption.takenName || "another client"} at ${selectedOption.time}. Book anyway?`)
-      : "";
+  const confirmCopy = (() => {
+    if (!needsConfirm || !selectedOption) return "";
+    const reason: OverbookableSlotReason = selectedOption.overrideReason ?? "conflict";
+    if (reason === "conflict" && overbookConfirmLabel) {
+      return overbookConfirmLabel(
+        selectedOption.takenName || "another client",
+        selectedOption.time,
+      );
+    }
+    return overbookConfirmMessage(reason, {
+      clientName: selectedOption.takenName,
+      time: selectedOption.time,
+    });
+  })();
+
+  const mutedOption =
+    selectedOption?.overrideReason != null || Boolean(selectedOption?.takenInitial);
 
   return (
     <div className="rounded-xl border border-edge bg-fill p-3">
@@ -138,7 +161,7 @@ export function DateTimePicker({
         value={valueReady ? `${selected}T${time}` : ""}
         required
       />
-      {isTaken && confirmOverbook && (
+      {needsConfirm && confirmOverbook && (
         <input type="hidden" name="confirmOverbook" value="1" />
       )}
 
@@ -198,9 +221,11 @@ export function DateTimePicker({
               <option
                 key={o.time}
                 value={o.time}
-                className={o.takenInitial ? "text-ink-faint" : undefined}
+                className={
+                  o.overrideReason || o.takenInitial ? "text-ink-faint" : undefined
+                }
               >
-                {o.takenInitial ? `${o.time} · ${o.takenInitial}` : o.time}
+                {optionLabel(o)}
               </option>
             ))}
           </select>
@@ -208,7 +233,7 @@ export function DateTimePicker({
         {valueReady ? (
           <span className="ml-auto text-sm font-medium text-brand-text">
             {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {time}
-            {isTaken && selectedOption?.takenInitial ? (
+            {mutedOption && selectedOption?.takenInitial ? (
               <span className="ml-1 text-ink-faint">({selectedOption.takenInitial})</span>
             ) : null}
           </span>
@@ -217,7 +242,7 @@ export function DateTimePicker({
         )}
       </div>
 
-      {isTaken && (
+      {needsConfirm && (
         <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
           <p className="text-sm text-warning-text">{confirmCopy}</p>
           <label className="mt-2 flex items-center gap-2 text-sm font-medium text-ink">
