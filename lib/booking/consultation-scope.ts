@@ -69,3 +69,60 @@ export function parseQuestionScope(raw: string): {
   }
   return { categoryId: null, serviceId: null };
 }
+
+export type QuestionScopeOption = {
+  value: string;
+  label: string;
+  kind: "all" | "category" | "service";
+};
+
+/** Flat option list for the Forms scope combobox (All → categories → services). */
+export function buildQuestionScopeOptions(
+  categories: Array<{ id: string; name: string }>,
+  services: Array<{ id: string; name: string; active?: boolean }>,
+): QuestionScopeOption[] {
+  const active = services.filter((s) => s.active !== false);
+  return [
+    { value: "all", label: "All services", kind: "all" },
+    ...categories.map((c) => ({
+      value: `category:${c.id}`,
+      label: c.name,
+      kind: "category" as const,
+    })),
+    ...active.map((s) => ({
+      value: `service:${s.id}`,
+      label: s.name,
+      kind: "service" as const,
+    })),
+  ];
+}
+
+/**
+ * Filter scope options by typed query. "All services" always stays visible.
+ * Case-insensitive: every whitespace-separated token must appear in the label
+ * (so "helix titanium" matches "Helix piercing — titanium").
+ */
+export function filterQuestionScopeOptions(
+  options: QuestionScopeOption[],
+  query: string,
+): QuestionScopeOption[] {
+  const tokens = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return options;
+  return options.filter((o) => {
+    if (o.kind === "all") return true;
+    const label = o.label.toLowerCase();
+    return tokens.every((t) => label.includes(t));
+  });
+}
+
+/** Label shown on the closed combobox control / pill. */
+export function questionScopeSelectionLabel(
+  value: string,
+  options: QuestionScopeOption[],
+): string {
+  return options.find((o) => o.value === value)?.label ?? "All services";
+}
