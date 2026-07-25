@@ -670,6 +670,15 @@ export interface ConsentRecord {
   /** PNG data URL or base64 of the drawn signature. */
   signatureImage: string;
   consentAccepted: boolean;
+  /**
+   * Client details captured at signing (migration 0048). Stored on the consent
+   * snapshot only — not on the general client record.
+   */
+  addressLine1: string;
+  addressLine2: string;
+  addressPostcode: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
   /** Server-generated UTC ISO timestamp. */
   signedAt: string;
   createdAt: string;

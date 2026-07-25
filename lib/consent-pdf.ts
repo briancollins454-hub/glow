@@ -25,6 +25,28 @@ export function consentPdfFilename(client: Client, record: ConsentRecord, genera
   return `signed-consent-${sanitizeFilename(client.name)}-${date}.pdf`;
 }
 
+/** Lines shown in the PDF "Client details" section (testable without parsing PDF bytes). */
+export function consentPdfClientDetailLines(
+  record: Pick<
+    ConsentRecord,
+    | "addressLine1"
+    | "addressLine2"
+    | "addressPostcode"
+    | "emergencyContactName"
+    | "emergencyContactPhone"
+  >,
+): { addressLines: string[]; emergencyLine: string } {
+  const addressLines = [
+    record.addressLine1,
+    record.addressLine2,
+    record.addressPostcode,
+  ].filter((p) => (p ?? "").trim());
+  return {
+    addressLines: addressLines.length ? addressLines : ["—"],
+    emergencyLine: `Emergency contact: ${record.emergencyContactName || "—"} · ${record.emergencyContactPhone || "—"}`,
+  };
+}
+
 function decodeSignature(image: string): Buffer | null {
   try {
     if (image.startsWith("data:image/")) {
@@ -73,6 +95,21 @@ export function buildConsentRecordPdf(data: ConsentPdfData): Promise<Buffer> {
       y += 14;
     }
     y += 8;
+
+    doc.font("Helvetica-Bold").fontSize(12).fillColor("#1f1726").text("Client details", left, y);
+    y += 18;
+    doc.moveTo(left, y).lineTo(right, y).strokeColor("#e8e0e8").stroke();
+    y += 10;
+
+    const { addressLines, emergencyLine } = consentPdfClientDetailLines(data.record);
+    const addressText = addressLines.join("\n");
+    doc.font("Helvetica-Bold").fontSize(10).fillColor("#564a5e").text("Address", left, y);
+    y += 14;
+    doc.font("Helvetica").fontSize(10).fillColor("#1f1726").text(addressText, left, y, { width });
+    y += doc.heightOfString(addressText, { width }) + 10;
+
+    doc.font("Helvetica").fontSize(10).fillColor("#564a5e").text(emergencyLine, left, y, { width });
+    y += doc.heightOfString(emergencyLine, { width }) + 14;
 
     doc.font("Helvetica-Bold").fontSize(12).fillColor("#1f1726").text("Consultation answers", left, y);
     y += 18;

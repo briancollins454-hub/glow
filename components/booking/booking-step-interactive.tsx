@@ -448,7 +448,7 @@ export function BookingStepInteractive({
               </div>
             )}
 
-            {requiresSignedConsent && <ConsentSignatureFields />}
+            {requiresSignedConsent && <ConsentSignatureFields handle={tech.handle} />}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input

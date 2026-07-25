@@ -1938,6 +1938,21 @@ export async function getConsentRecord(sb: SB, id: string): Promise<ConsentRecor
   return must(data as ConsentRecord | null, error, "getConsentRecord");
 }
 
+/** Most recent consent record for a client (for prefill only). */
+export async function latestConsentRecordForClient(
+  sb: SB,
+  clientId: string,
+): Promise<ConsentRecord | null> {
+  const { data, error } = await sb
+    .from("consent_records")
+    .select("*")
+    .eq("clientId", clientId)
+    .order("signedAt", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return must(data as ConsentRecord | null, error, "latestConsentRecordForClient");
+}
+
 // ---------------- Messages ----------------
 export async function listMessagesForTech(sb: SB, techId: string): Promise<Message[]> {
   // Newest first so the dashboard thread list can take the first row per client.
