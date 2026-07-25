@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { overbookConfirmMessage, type OverbookableSlotReason } from "@/lib/booking/overbook-copy";
+import {
+  optionLabel,
+  selectedTakenSuffix,
+} from "@/lib/booking/taken-slot-label";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = [
@@ -33,13 +37,6 @@ const ALL_DAY_TIMES: TimeSlotOption[] = (() => {
     for (const m of [0, 15, 30, 45]) out.push({ time: `${pad(h)}:${pad(m)}` });
   return out;
 })();
-
-function optionLabel(o: TimeSlotOption): string {
-  if (o.overrideReason === "blocked") return `${o.time} · blocked`;
-  if (o.overrideReason === "outside_hours") return `${o.time} · outside hours`;
-  if (o.takenInitial) return `${o.time} · ${o.takenInitial}`;
-  return o.time;
-}
 
 function needsOverbookConfirm(o: TimeSlotOption | null): boolean {
   if (!o) return false;
@@ -150,8 +147,7 @@ export function DateTimePicker({
     });
   })();
 
-  const mutedOption =
-    selectedOption?.overrideReason != null || Boolean(selectedOption?.takenInitial);
+  const selectedBookedSuffix = selectedOption ? selectedTakenSuffix(selectedOption) : null;
 
   return (
     <div className="rounded-xl border border-edge bg-fill p-3">
@@ -222,7 +218,9 @@ export function DateTimePicker({
                 key={o.time}
                 value={o.time}
                 className={
-                  o.overrideReason || o.takenInitial ? "text-ink-faint" : undefined
+                  o.overrideReason || o.takenName || o.takenInitial
+                    ? "text-ink-faint"
+                    : undefined
                 }
               >
                 {optionLabel(o)}
@@ -233,8 +231,8 @@ export function DateTimePicker({
         {valueReady ? (
           <span className="ml-auto text-sm font-medium text-brand-text">
             {new Date(`${selected}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {time}
-            {mutedOption && selectedOption?.takenInitial ? (
-              <span className="ml-1 text-ink-faint">({selectedOption.takenInitial})</span>
+            {selectedBookedSuffix ? (
+              <span className="ml-1 text-ink-faint">({selectedBookedSuffix})</span>
             ) : null}
           </span>
         ) : (

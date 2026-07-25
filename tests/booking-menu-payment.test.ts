@@ -181,18 +181,23 @@ describe("booking actions menu wiring", () => {
 });
 
 describe("day / month payment indicator wiring", () => {
-  it("day view blocks render BookingPaymentIndicator with height for compact mode", () => {
+  it("day view blocks clip content, stack above bands, and keep a portaled actions menu", () => {
     const day = readFileSync(
       join(process.cwd(), "components/dashboard/bookings-staff-day-view.tsx"),
       "utf8",
     );
     expect(day).toContain("BookingPaymentIndicator");
     expect(day).toContain("blockHeightPx");
+    expect(day).toContain("forceCompact");
     expect(day).toContain("BookingActions");
     expect(day).toContain("StatusDot");
-    expect(day).toContain("COMPACT_LAYOUT_HEIGHT_PX");
-    expect(day).toContain("overflow-visible");
-    // Actions stay outside the clipped content so short blocks keep a tappable menu.
+    expect(day).toContain("dayBlockDensity");
+    expect(day).toContain("overflow-hidden");
+    expect(day).not.toContain("overflow-visible");
+    // Solid surface so blocked/outside-hours bands do not show through.
+    expect(day).toContain("bg-surface");
+    expect(day).toContain("z-[3]");
+    // Menu portals out; trigger stays inside the clipped block.
     expect(day).toContain("absolute right-0.5 top-0.5 z-20");
   });
 
