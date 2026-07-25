@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { supabaseService } from "@/lib/supabase/service";
 import {
   listCategories,
-  listQuestions,
   listServices,
   listWorkingHours,
   getCategory,
@@ -30,7 +29,11 @@ import {
   withTechAvailability,
 } from "@/lib/rules";
 import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
-import { filterQuestionsForServices } from "@/lib/booking/consultation-scope";
+import {
+  buildPackScopeIndex,
+  filterQuestionsForServices,
+} from "@/lib/booking/consultation-scope";
+import { loadConsultationScopeBundle } from "@/lib/booking/consultation-packs";
 import {
   ANY_STAFF,
   capableStaff,
@@ -214,9 +217,9 @@ export default async function PublicBookingPage({
   let pairStaffId: string | null = null;
   let addableForStaff = addable;
   if (selected && live) {
-    const [bundle, qs, adds, category] = await Promise.all([
+    const [bundle, formBundle, adds, category] = await Promise.all([
       getCachedPublicAvailabilityBundle(tech.id),
-      listQuestions(sb, tech.id, { activeOnly: true }),
+      loadConsultationScopeBundle(sb, tech.id, { activeOnly: true }),
       addonsForService(sb, selected.id, { activeOnly: true }),
       getCategory(sb, selected.categoryId),
     ]);
@@ -233,7 +236,11 @@ export default async function PublicBookingPage({
     addons = adds;
 
     const basketServices = usePairedFlow ? [selected] : [selected, ...basketExtras];
-    questions = filterQuestionsForServices(qs, basketServices);
+    questions = filterQuestionsForServices(
+      formBundle.questions,
+      basketServices,
+      buildPackScopeIndex(formBundle.packs, formBundle.targets),
+    );
     const basketIds = usePairedFlow && patchTestService
       ? [selected.id, patchTestService.id]
       : basketServices.map((s) => s.id);
