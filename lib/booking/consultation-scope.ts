@@ -76,7 +76,7 @@ export type QuestionScopeOption = {
   kind: "all" | "category" | "service";
 };
 
-/** Flat option list for the Forms scope combobox (All → categories → services). */
+/** Flat option list for the Forms scope combobox (All → services → categories). */
 export function buildQuestionScopeOptions(
   categories: Array<{ id: string; name: string }>,
   services: Array<{ id: string; name: string; active?: boolean }>,
@@ -84,15 +84,16 @@ export function buildQuestionScopeOptions(
   const active = services.filter((s) => s.active !== false);
   return [
     { value: "all", label: "All services", kind: "all" },
-    ...categories.map((c) => ({
-      value: `category:${c.id}`,
-      label: c.name,
-      kind: "category" as const,
-    })),
+    // Services first so a large menu isn't buried under categories.
     ...active.map((s) => ({
       value: `service:${s.id}`,
       label: s.name,
       kind: "service" as const,
+    })),
+    ...categories.map((c) => ({
+      value: `category:${c.id}`,
+      label: c.name,
+      kind: "category" as const,
     })),
   ];
 }

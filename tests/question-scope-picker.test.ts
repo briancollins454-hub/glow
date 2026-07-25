@@ -26,13 +26,27 @@ function makeLargeCatalog() {
 }
 
 describe("question scope combobox options", () => {
-  it("builds All + categories + services in order", () => {
+  it("builds All + services + categories in that order", () => {
     const { categories, services } = makeLargeCatalog();
     const options = buildQuestionScopeOptions(categories, services);
     expect(options[0]).toEqual({ value: "all", label: "All services", kind: "all" });
-    expect(options.filter((o) => o.kind === "category")).toHaveLength(13);
+    expect(options[1]?.kind).toBe("service");
     expect(options.filter((o) => o.kind === "service")).toHaveLength(122);
+    expect(options.filter((o) => o.kind === "category")).toHaveLength(13);
     expect(options).toHaveLength(1 + 13 + 122);
+    // First service appears before any category so large menus aren't buried.
+    const firstCategoryIdx = options.findIndex((o) => o.kind === "category");
+    const firstServiceIdx = options.findIndex((o) => o.kind === "service");
+    expect(firstServiceIdx).toBeGreaterThan(0);
+    expect(firstServiceIdx).toBeLessThan(firstCategoryIdx);
+  });
+
+  it("shows services immediately when opening (not only after scrolling past categories)", () => {
+    const { categories, services } = makeLargeCatalog();
+    const options = buildQuestionScopeOptions(categories, services);
+    const visibleWithoutScroll = options.slice(0, 8);
+    expect(visibleWithoutScroll.some((o) => o.kind === "service")).toBe(true);
+    expect(visibleWithoutScroll.every((o) => o.kind !== "category")).toBe(true);
   });
 
   it("finds a specific service among 122 by typing", () => {
