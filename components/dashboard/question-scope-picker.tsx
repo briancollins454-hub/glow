@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,9 +22,13 @@ import { cn } from "@/lib/utils";
 
 type Item = { id: string; name: string; active?: boolean };
 
+const PANEL_MAX_HEIGHT = 320;
+const PANEL_GAP = 6;
+const VIEWPORT_MARGIN = 8;
+
 /**
  * Searchable scope picker for consultation questions.
- * Replaces a native <select> that becomes unusable with 100+ services.
+ * Dropdown renders in a portal so it never sits under the next card.
  */
 export function QuestionScopePicker({
   name = "scope",
@@ -37,7 +50,12 @@ export function QuestionScopePicker({
   );
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(
+    null,
+  );
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const listId = useId();
 
@@ -50,26 +68,67 @@ export function QuestionScopePicker({
   const allOption = filtered.find((o) => o.kind === "all");
   const selectedLabel = questionScopeSelectionLabel(value, options);
 
+  useEffect(() => setMounted(true), []);
+
+  function placePanel() {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN - PANEL_GAP;
+    const spaceAbove = rect.top - VIEWPORT_MARGIN - PANEL_GAP;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxHeight = Math.min(PANEL_MAX_HEIGHT, Math.max(160, openUp ? spaceAbove : spaceBelow));
+    const top = openUp
+      ? Math.max(VIEWPORT_MARGIN, rect.top - PANEL_GAP - maxHeight)
+      : rect.bottom + PANEL_GAP;
+    const left = Math.min(
+      Math.max(VIEWPORT_MARGIN, rect.left),
+      window.innerWidth - rect.width - VIEWPORT_MARGIN,
+    );
+    setCoords({
+      top,
+      left,
+      width: rect.width,
+      maxHeight,
+    });
+  }
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    placePanel();
+    const onReposition = () => placePanel();
+    window.addEventListener("resize", onReposition);
+    // Capture scroll from any scrollable ancestor (dashboard layout).
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: MouseEvent | TouchEvent) => {
-      const el = rootRef.current;
-      if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) {
-        setOpen(false);
-        setQuery("");
-      }
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
+      setQuery("");
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setOpen(false);
         setQuery("");
+        triggerRef.current?.focus();
       }
     };
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("touchstart", onPointer);
     document.addEventListener("keydown", onKey);
-    // Focus filter as soon as the panel opens (mobile-friendly).
     requestAnimationFrame(() => searchRef.current?.focus());
     return () => {
       document.removeEventListener("mousedown", onPointer);
@@ -82,12 +141,88 @@ export function QuestionScopePicker({
     setValue(option.value);
     setOpen(false);
     setQuery("");
+    triggerRef.current?.focus();
   }
 
+  const panel =
+    open && mounted && coords
+      ? createPortal(
+          <div
+            ref={panelRef}
+            id={listId}
+            role="listbox"
+            style={{
+              top: coords.top,
+              left: coords.left,
+              width: coords.width,
+              maxHeight: coords.maxHeight,
+            }}
+            className="fixed z-[220] flex flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-card ring-1 ring-black/10"
+          >
+            <div className="flex shrink-0 items-center gap-2 border-b border-edge bg-surface px-3 py-2">
+              <Search className="h-4 w-4 shrink-0 text-ink-faint" />
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search categories or services…"
+                className="w-full bg-transparent py-2 text-base outline-none placeholder:text-ink-faint"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface py-1">
+              {allOption && (
+                <ScopeOptionRow
+                  option={allOption}
+                  selected={value === allOption.value}
+                  onSelect={pick}
+                />
+              )}
+
+              {categoriesFiltered.length > 0 && (
+                <ScopeGroup label="Categories">
+                  {categoriesFiltered.map((option) => (
+                    <ScopeOptionRow
+                      key={option.value}
+                      option={option}
+                      selected={value === option.value}
+                      onSelect={pick}
+                    />
+                  ))}
+                </ScopeGroup>
+              )}
+
+              {servicesFiltered.length > 0 && (
+                <ScopeGroup label="Services">
+                  {servicesFiltered.map((option) => (
+                    <ScopeOptionRow
+                      key={option.value}
+                      option={option}
+                      selected={value === option.value}
+                      onSelect={pick}
+                    />
+                  ))}
+                </ScopeGroup>
+              )}
+
+              {!allOption && categoriesFiltered.length === 0 && servicesFiltered.length === 0 && (
+                <p className="px-4 py-3 text-sm text-ink-faint">No matches.</p>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div ref={rootRef} className="relative w-full">
+    <div className="relative w-full">
       <input type="hidden" name={name} value={value} />
       <button
+        ref={triggerRef}
         type="button"
         className="input flex w-full min-h-11 items-center justify-between gap-2 text-left"
         aria-haspopup="listbox"
@@ -102,69 +237,7 @@ export function QuestionScopePicker({
           className={cn("h-4 w-4 shrink-0 text-ink-faint transition", open && "rotate-180")}
         />
       </button>
-
-      {open && (
-        <div
-          id={listId}
-          role="listbox"
-          className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-card"
-        >
-          <div className="flex items-center gap-2 border-b border-edge px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-ink-faint" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search categories or services…"
-              className="w-full bg-transparent py-2 text-base outline-none placeholder:text-ink-faint"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </div>
-
-          <div className="max-h-72 overflow-y-auto overscroll-contain py-1">
-            {allOption && (
-              <ScopeOptionRow
-                option={allOption}
-                selected={value === allOption.value}
-                onSelect={pick}
-              />
-            )}
-
-            {categoriesFiltered.length > 0 && (
-              <ScopeGroup label="Categories">
-                {categoriesFiltered.map((option) => (
-                  <ScopeOptionRow
-                    key={option.value}
-                    option={option}
-                    selected={value === option.value}
-                    onSelect={pick}
-                  />
-                ))}
-              </ScopeGroup>
-            )}
-
-            {servicesFiltered.length > 0 && (
-              <ScopeGroup label="Services">
-                {servicesFiltered.map((option) => (
-                  <ScopeOptionRow
-                    key={option.value}
-                    option={option}
-                    selected={value === option.value}
-                    onSelect={pick}
-                  />
-                ))}
-              </ScopeGroup>
-            )}
-
-            {!allOption && categoriesFiltered.length === 0 && servicesFiltered.length === 0 && (
-              <p className="px-4 py-3 text-sm text-ink-faint">No matches.</p>
-            )}
-          </div>
-        </div>
-      )}
+      {panel}
     </div>
   );
 }

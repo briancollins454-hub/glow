@@ -53,7 +53,7 @@ function FormsView({ questions, categories, services }: FormsData) {
           <CardDescription>Shown on your booking page before payment.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={addQuestionAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)_auto_auto] lg:items-end">
+          <form action={addQuestionAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
             <div className="sm:col-span-2 lg:col-span-1">
               <Label>Question</Label>
               <Input name="prompt" placeholder="Any allergies or skin sensitivities?" required />
@@ -66,7 +66,11 @@ function FormsView({ questions, categories, services }: FormsData) {
                 <option value="yesno">Yes / No</option>
               </Select>
             </div>
-            <div className="min-w-0 sm:col-span-2 lg:col-span-1">
+            <label className="flex items-center gap-2 pb-2.5 text-sm">
+              <input type="checkbox" name="required" className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" /> Required
+            </label>
+            <Button type="submit" variant="secondary">Add</Button>
+            <div className="min-w-0 sm:col-span-2 lg:col-span-4">
               <Label>Shown for</Label>
               <QuestionScopePicker
                 categories={categories}
@@ -74,10 +78,6 @@ function FormsView({ questions, categories, services }: FormsData) {
                 defaultValue="all"
               />
             </div>
-            <label className="flex items-center gap-2 pb-2.5 text-sm">
-              <input type="checkbox" name="required" className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" /> Required
-            </label>
-            <Button type="submit" variant="secondary">Add</Button>
           </form>
         </CardContent>
       </Card>
