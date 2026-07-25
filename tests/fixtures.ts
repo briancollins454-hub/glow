@@ -30,6 +30,7 @@ export function makeService(overrides: Partial<Service> = {}): Service {
     photoPath: null,
     aftercareText: "",
     precareText: "",
+    requiresSignedConsent: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldAlert, ShieldCheck, Plus, ImagePlus, Trash2, MessageSq
 import { getDashboardContext } from "@/lib/auth/session";
 import {
   bookingsForClient,
+  consentRecordsForClient,
   formResponsesForClient,
   getClient,
   listCategories,
@@ -52,7 +53,7 @@ export default async function ClientDetailPage({
   const client = await getClient(sb, id);
   if (!client || client.techId !== tech.id) notFound();
 
-  const [history, tests, categories, services, photos, responses, reactions, products, batches] =
+  const [history, tests, categories, services, photos, responses, consentRecords, reactions, products, batches] =
     await Promise.all([
     bookingsForClient(sb, tech.id, client.id),
     patchTestsForClient(sb, tech.id, client.id),
@@ -60,11 +61,13 @@ export default async function ClientDetailPage({
     listServices(sb, tech.id),
     listClientPhotos(sb, client.id),
     formResponsesForClient(sb, client.id),
+    consentRecordsForClient(sb, client.id).catch(() => []),
     listClientReactions(sb, tech.id, client.id),
     listProducts(sb, tech.id),
     listProductBatches(sb, tech.id),
   ]);
   const latestResponse = responses[0];
+  const bookingById = new Map(history.map((b) => [b.id, b]));
   const signed = await signedPhotoUrls(photos.map((p) => p.path));
   const photoItems = photos.map((p) => ({ p, url: signed.get(p.path) ?? null }));
   const serviceById = new Map(services.map((s) => [s.id, s.name]));
@@ -225,7 +228,7 @@ export default async function ClientDetailPage({
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle>Consultation answers</CardTitle>
+              <CardTitle>Latest consultation answers</CardTitle>
               <CardDescription>From {fmtDate(latestResponse.createdAt)}</CardDescription>
             </div>
             <form action={deleteFormResponseAction}>
@@ -241,6 +244,95 @@ export default async function ClientDetailPage({
               <div key={i} className="rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
                 <p className="text-ink-faint">{a.prompt}</p>
                 <p className="font-medium">{a.answer}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {(consentRecords.length > 0 || responses.length > 1) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Consultation &amp; consent history</CardTitle>
+            <CardDescription>
+              Every response and signed consent record, newest first. Signed consent records are kept
+              separately and are not removed by deleting the latest answers above.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {consentRecords.map((record) => {
+              const appointment = record.bookingId ? bookingById.get(record.bookingId) : null;
+              return (
+                <div key={record.id} className="rounded-xl border border-edge bg-cream px-4 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-ink">Signed consent record</p>
+                      <p className="mt-0.5 text-xs text-ink-faint">
+                        {fmtDate(record.signedAt)}
+                        {" · "}
+                        {serviceById.get(record.serviceId) ?? "Service"}
+                        {appointment ? ` · appointment ${fmtDate(appointment.startIso)}` : ""}
+                      </p>
+                    </div>
+                    <a
+                      href={`/api/clients/${client.id}/consent/${record.id}/pdf`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-fill"
+                    >
+                      <FileDown className="h-3.5 w-3.5" />
+                      Download PDF
+                    </a>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {(record.questionsSnapshot ?? []).map((a, i) => (
+                      <div key={i} className="text-sm">
+                        <p className="text-ink-faint">{a.prompt}</p>
+                        <p className="font-medium">{a.answer || "—"}</p>
+                      </div>
+                    ))}
+                    <p className="text-sm text-ink-soft">
+                      Typed name: <span className="font-medium text-ink">{record.typedName}</span>
+                    </p>
+                    {record.signatureImage && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={record.signatureImage}
+                        alt={`Signature of ${record.typedName}`}
+                        className="mt-1 max-h-24 rounded-lg border border-edge bg-white"
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {responses.map((fr) => (
+              <div key={fr.id} className="rounded-xl border border-edge bg-cream px-4 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-ink">Consultation answers</p>
+                    <p className="mt-0.5 text-xs text-ink-faint">{fmtDate(fr.createdAt)}</p>
+                  </div>
+                  {fr.id !== latestResponse?.id && (
+                    <form action={deleteFormResponseAction}>
+                      <input type="hidden" name="id" value={fr.id} />
+                      <input type="hidden" name="clientId" value={client.id} />
+                      <button
+                        type="submit"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-danger-soft hover:text-red-400"
+                        title="Delete these answers"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  )}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {fr.answers.map((a, i) => (
+                    <div key={i} className="text-sm">
+                      <p className="text-ink-faint">{a.prompt}</p>
+                      <p className="font-medium">{a.answer}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </CardContent>

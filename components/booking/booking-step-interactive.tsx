@@ -17,10 +17,12 @@ import {
 import type { ConsultationQuestion, Service, ServiceAddon, Tech } from "@/lib/db/types";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { YesNoQuestion } from "@/components/booking/yesno-question";
+import { ConsentSignatureFields } from "@/components/booking/consent-signature-fields";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { gbp, minutesToLabel, TZ } from "@/lib/format";
 import { depositFor, noShowFeeFor } from "@/lib/rules";
+import { anyServiceRequiresSignedConsent } from "@/lib/booking/consent";
 import { usesCardCapture } from "@/lib/subscriptions";
 import { createPublicBookingAction, joinWaitlistAction } from "@/app/[handle]/actions";
 import { onBrand } from "@/lib/booking/brand";
@@ -38,6 +40,7 @@ const ERR: Record<string, string> = {
     "One of your chosen treatments needs a valid patch test on file, so it can't be booked in the same visit. Please remove it and book it separately.",
   infill: "Infills are only available to returning clients within the rebooking window. Please book a full set instead.",
   form: "Please complete the required questions and agree to the booking policy.",
+  consent: "Please sign, type your full name, and confirm consent to continue.",
   rate: "Too many attempts, try again shortly.",
   payment:
     "We couldn't start card checkout. Please try again, or contact the studio if it keeps happening.",
@@ -89,6 +92,7 @@ export function BookingStepInteractive({
   const deposit = cardCapture ? 0 : basket.reduce((s, x) => s + depositFor(x), 0);
   const balance = Math.max(0, totalPrice - deposit);
   const noShowFee = cardCapture ? noShowFeeFor(tech, totalPrice) : 0;
+  const requiresSignedConsent = anyServiceRequiresSignedConsent(basket);
   const hasBasket = basketExtras.length > 0;
   const alsoValue = basketParam(basketExtras);
   const [slot, setSlot] = useState(initialSlot ?? "");
@@ -443,6 +447,8 @@ export function BookingStepInteractive({
                 ))}
               </div>
             )}
+
+            {requiresSignedConsent && <ConsentSignatureFields />}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input

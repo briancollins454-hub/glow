@@ -255,6 +255,11 @@ export interface Service {
    * Optional until migration 0034 is applied.
    */
   availableWeekdays?: number[] | null;
+  /**
+   * When true, online booking requires a drawn signature + typed name + consent
+   * checkbox before payment. Optional until migration 0047; missing = false.
+   */
+  requiresSignedConsent?: boolean | null;
   createdAt: string;
 }
 
@@ -618,6 +623,12 @@ export interface ConsultationQuestion {
   required: boolean;
   sortOrder: number;
   active: boolean;
+  /**
+   * Optional scope (migration 0047). Null/null = all services (global).
+   * Mutually exclusive in the UI: either a category or a specific service.
+   */
+  categoryId?: string | null;
+  serviceId?: string | null;
   createdAt: string;
 }
 
@@ -632,6 +643,35 @@ export interface FormResponse {
   clientId: string;
   bookingId: string | null;
   answers: FormAnswer[];
+  createdAt: string;
+}
+
+/** Immutable copy of a question + answer as shown when consent was signed. */
+export interface ConsentQuestionSnapshot {
+  questionId: string;
+  prompt: string;
+  type: QuestionType;
+  required: boolean;
+  answer: string;
+}
+
+/**
+ * Signed consent record (migration 0047). Legal/insurance-oriented history —
+ * never overwrite; list every row chronologically on the client profile.
+ */
+export interface ConsentRecord {
+  id: string;
+  techId: string;
+  clientId: string;
+  bookingId: string | null;
+  serviceId: string;
+  questionsSnapshot: ConsentQuestionSnapshot[];
+  typedName: string;
+  /** PNG data URL or base64 of the drawn signature. */
+  signatureImage: string;
+  consentAccepted: boolean;
+  /** Server-generated UTC ISO timestamp. */
+  signedAt: string;
   createdAt: string;
 }
 

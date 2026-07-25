@@ -30,6 +30,7 @@ import {
   withTechAvailability,
 } from "@/lib/rules";
 import { addableBasketServices, resolveBasketExtras } from "@/lib/booking/basket";
+import { filterQuestionsForServices } from "@/lib/booking/consultation-scope";
 import {
   ANY_STAFF,
   capableStaff,
@@ -229,10 +230,10 @@ export default async function PublicBookingPage({
       dayRulesByStaff,
     } = bundle;
     minLeadHours = category?.patchTestMinLeadHours ?? 24;
-    questions = qs;
     addons = adds;
 
     const basketServices = usePairedFlow ? [selected] : [selected, ...basketExtras];
+    questions = filterQuestionsForServices(qs, basketServices);
     const basketIds = usePairedFlow && patchTestService
       ? [selected.id, patchTestService.id]
       : basketServices.map((s) => s.id);

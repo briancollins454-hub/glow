@@ -8,6 +8,7 @@ import type {
   Client,
   ClientPhoto,
   ConsultationQuestion,
+  ConsentRecord,
   FormResponse,
   Message,
   MessageSender,
@@ -1887,7 +1888,12 @@ export async function listQuestions(sb: SB, techId: string, opts: { activeOnly?:
   return must(data as ConsultationQuestion[], error, "listQuestions") ?? [];
 }
 export async function createQuestion(sb: SB, q: Omit<ConsultationQuestion, "id" | "createdAt">): Promise<ConsultationQuestion> {
-  const { data, error } = await sb.from("consultation_questions").insert({ ...q, id: randomId("q") }).select("*").single();
+  const { categoryId, serviceId, ...rest } = q;
+  const row: Record<string, unknown> = { ...rest, id: randomId("q") };
+  // Only send scope columns when set (or explicitly null after migration 0047).
+  if (categoryId !== undefined) row.categoryId = categoryId;
+  if (serviceId !== undefined) row.serviceId = serviceId;
+  const { data, error } = await sb.from("consultation_questions").insert(row).select("*").single();
   return must(data as ConsultationQuestion, error, "createQuestion");
 }
 export async function deleteQuestion(sb: SB, id: string): Promise<void> {
@@ -1905,6 +1911,31 @@ export async function formResponsesForClient(sb: SB, clientId: string): Promise<
 export async function listFormResponsesForTech(sb: SB, techId: string): Promise<FormResponse[]> {
   const { data, error } = await sb.from("form_responses").select("*").eq("techId", techId).order("createdAt", { ascending: false });
   return must(data as FormResponse[], error, "listFormResponsesForTech") ?? [];
+}
+
+// ---------------- Signed consent records ----------------
+export async function createConsentRecord(
+  sb: SB,
+  r: Omit<ConsentRecord, "id" | "createdAt">,
+): Promise<ConsentRecord> {
+  const { data, error } = await sb
+    .from("consent_records")
+    .insert({ ...r, id: randomId("cr") })
+    .select("*")
+    .single();
+  return must(data as ConsentRecord, error, "createConsentRecord");
+}
+export async function consentRecordsForClient(sb: SB, clientId: string): Promise<ConsentRecord[]> {
+  const { data, error } = await sb
+    .from("consent_records")
+    .select("*")
+    .eq("clientId", clientId)
+    .order("signedAt", { ascending: false });
+  return must(data as ConsentRecord[], error, "consentRecordsForClient") ?? [];
+}
+export async function getConsentRecord(sb: SB, id: string): Promise<ConsentRecord | null> {
+  const { data, error } = await sb.from("consent_records").select("*").eq("id", id).maybeSingle();
+  return must(data as ConsentRecord | null, error, "getConsentRecord");
 }
 
 // ---------------- Messages ----------------
