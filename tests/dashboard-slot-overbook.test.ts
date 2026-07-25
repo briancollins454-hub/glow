@@ -4,9 +4,22 @@ import { resolve } from "node:path";
 import { makeBooking, makeClient, makeService, makeTech, makeWorkingHour } from "./fixtures";
 import { dbError, isExclusionViolation, isSlotConflictViolation } from "@/lib/db/errors";
 import { findOverlappingBooking } from "@/lib/booking/dashboard-slot";
+import { overbookConfirmMessage } from "@/lib/booking/overbook-copy";
 import { daySlotChoicesForDuration } from "@/lib/rules";
 
 const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf8");
+
+describe("overbookConfirmMessage", () => {
+  it("names blocked, outside hours, and conflict reasons", () => {
+    expect(overbookConfirmMessage("blocked")).toBe("This time is blocked. Book anyway?");
+    expect(overbookConfirmMessage("outside_hours")).toBe(
+      "This is outside your working hours. Book anyway?",
+    );
+    expect(overbookConfirmMessage("conflict", { clientName: "Sophie", time: "10:00" })).toBe(
+      "This slot is taken by Sophie at 10:00. Book anyway?",
+    );
+  });
+});
 
 describe("findOverlappingBooking / day slot choices", () => {
   it("names an overlapping booking and excludes the booking being moved", () => {
@@ -57,7 +70,35 @@ describe("findOverlappingBooking / day slot choices", () => {
     );
     const clash = choices.find((c) => c.takenByBookingId === "bk_sophie");
     expect(clash).toBeTruthy();
+    expect(clash?.overrideReason).toBe("conflict");
     expect(choices.some((c) => !c.takenByBookingId)).toBe(true);
+  });
+
+  it("includes blocked and outside-hours starts for dashboard override", () => {
+    const hours = [makeWorkingHour({ weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 })];
+    const choices = daySlotChoicesForDuration(
+      60,
+      "2026-09-01",
+      {
+        workingHours: hours,
+        timeOff: [
+          {
+            id: "off_1",
+            techId: "tech_1",
+            staffId: null,
+            startIso: "2026-09-01T12:00:00.000Z",
+            endIso: "2026-09-01T13:00:00.000Z",
+            reason: "Break",
+          },
+        ],
+        bookings: [],
+      },
+      0,
+      { includeOutsideHours: true },
+    );
+    expect(choices.some((c) => c.overrideReason === "blocked")).toBe(true);
+    expect(choices.some((c) => c.overrideReason === "outside_hours")).toBe(true);
+    expect(choices.some((c) => !c.overrideReason)).toBe(true);
   });
 });
 
@@ -173,6 +214,73 @@ describe("dashboard slot check fail-closed + overbook", () => {
     });
     expect(result).toEqual({ ok: true });
   });
+
+  it("returns blocked when the slot overlaps time off", async () => {
+    vi.doMock("@/lib/db/queries", () => ({
+      listWorkingHours: vi.fn(async () => [
+        makeWorkingHour({ weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 }),
+      ]),
+      listTimeOff: vi.fn(async () => [
+        {
+          id: "off_1",
+          techId: "tech_1",
+          staffId: "st_1",
+          startIso: "2026-09-01T09:00:00.000Z",
+          endIso: "2026-09-01T11:00:00.000Z",
+          reason: "Lunch",
+        },
+      ]),
+      listBookingsInWindow: vi.fn(async () => []),
+      listRotaHours: vi.fn(async () => []),
+      listStaff: vi.fn(async () => [
+        { id: "st_1", techId: "tech_1", name: "Bella", role: "owner", active: true, email: "", color: "#db2777", sortOrder: 0, createdAt: "" },
+      ]),
+      listServices: vi.fn(async () => [makeService()]),
+      getStaff: vi.fn(async () => null),
+      getClient: vi.fn(async () => makeClient()),
+    }));
+    vi.doMock("@/lib/supabase/service", () => ({
+      supabaseService: () => ({}),
+    }));
+
+    const { checkDashboardStaffSlot } = await import("@/lib/booking/dashboard-slot");
+    // 10:00 BST = 09:00Z on 2026-09-01, inside the lunch block.
+    const result = await checkDashboardStaffSlot({} as never, makeTech(), {
+      startIso: "2026-09-01T09:00:00.000Z",
+      durationMin: 60,
+      staffId: "st_1",
+    });
+    expect(result).toEqual({ ok: false, reason: "blocked" });
+  });
+
+  it("returns outside_hours when the slot is before opening", async () => {
+    vi.doMock("@/lib/db/queries", () => ({
+      listWorkingHours: vi.fn(async () => [
+        makeWorkingHour({ weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 }),
+      ]),
+      listTimeOff: vi.fn(async () => []),
+      listBookingsInWindow: vi.fn(async () => []),
+      listRotaHours: vi.fn(async () => []),
+      listStaff: vi.fn(async () => [
+        { id: "st_1", techId: "tech_1", name: "Bella", role: "owner", active: true, email: "", color: "#db2777", sortOrder: 0, createdAt: "" },
+      ]),
+      listServices: vi.fn(async () => [makeService()]),
+      getStaff: vi.fn(async () => null),
+      getClient: vi.fn(async () => makeClient()),
+    }));
+    vi.doMock("@/lib/supabase/service", () => ({
+      supabaseService: () => ({}),
+    }));
+
+    const { checkDashboardStaffSlot } = await import("@/lib/booking/dashboard-slot");
+    // 08:00 BST = 07:00Z — before 09:00 opening.
+    const result = await checkDashboardStaffSlot({} as never, makeTech(), {
+      startIso: "2026-09-01T07:00:00.000Z",
+      durationMin: 60,
+      staffId: "st_1",
+    });
+    expect(result).toEqual({ ok: false, reason: "outside_hours" });
+  });
 });
 
 describe("reschedule / manual actions wire-up", () => {
@@ -198,14 +306,31 @@ describe("reschedule / manual actions wire-up", () => {
     expect(fn).toContain("checkDashboardStaffSlot");
     expect(fn).toContain("confirmOverbook");
     expect(fn).toContain("allowOverlap");
+    expect(fn).toContain("isOverbookableReason");
     expect(fn).toContain("error=verify");
+    expect(fn).toContain("slotReasonQuery");
+    expect(fn).toContain('"blocked"');
+    expect(fn).toContain('"outside_hours"');
     expect(fn).not.toContain("Soft-fail");
     expect(fn).not.toContain("customTime");
   });
 
-  it("booking edit page names the conflicting client", () => {
+  it("reschedule allows the same blocked / outside_hours confirm path", () => {
+    const src = read("app/dashboard/actions.ts");
+    const start = src.indexOf("export async function rescheduleBookingAction");
+    const end = src.indexOf("export async function recordManualPaymentAction", start);
+    const fn = src.slice(start, end);
+    expect(fn).toContain("isOverbookableReason");
+    expect(fn).toContain("slotReasonQuery");
+    expect(fn).toContain('"blocked"');
+    expect(fn).toContain('"outside_hours"');
+  });
+
+  it("booking edit page names the conflicting client and blocked / outside hours", () => {
     const src = read("app/dashboard/bookings/[id]/page.tsx");
     expect(src).toContain("This slot is taken by");
+    expect(src).toContain("This time is blocked");
+    expect(src).toContain("outside your working hours");
     expect(src).toContain("err === \"verify\"");
     expect(src).toContain("BookingRescheduleForm");
   });
@@ -256,19 +381,28 @@ describe("picker + month-view booking entry", () => {
   it("date-time picker greys taken times and requires overbook confirm", () => {
     const src = read("components/dashboard/date-time-picker.tsx");
     expect(src).toContain("takenInitial");
+    expect(src).toContain("overrideReason");
+    expect(src).toContain("overbookConfirmMessage");
     expect(src).toContain('name="confirmOverbook" value="1"');
-    expect(src).toContain("Book anyway?");
+    expect(src).toContain("Yes, book anyway");
     expect(src).not.toContain("allowCustomTime");
     expect(src).not.toContain('name="customTime"');
+    const copy = read("lib/booking/overbook-copy.ts");
+    expect(copy).toContain("This time is blocked. Book anyway?");
+    expect(copy).toContain("outside your working hours");
   });
 
   it("manual form uses taken-slot choices; online booking does not", () => {
     const form = read("components/dashboard/manual-booking-form.tsx");
     expect(form).toContain("daySlotChoicesForDuration");
     expect(form).toContain("takenInitial");
+    expect(form).toContain("includeOutsideHours");
     expect(form).not.toContain("allowCustomTime");
     const online = read("components/booking/booking-step-interactive.tsx");
     expect(online).not.toContain("confirmOverbook");
+    const publicActions = read("app/[handle]/actions.ts");
+    expect(publicActions).not.toContain("confirmOverbook");
+    expect(publicActions).not.toContain("isOverbookableReason");
   });
 
   it("month/day views open the prefilled manual booking form", () => {

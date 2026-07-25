@@ -189,6 +189,11 @@ describe("day / month payment indicator wiring", () => {
     expect(day).toContain("BookingPaymentIndicator");
     expect(day).toContain("blockHeightPx");
     expect(day).toContain("BookingActions");
+    expect(day).toContain("StatusDot");
+    expect(day).toContain("COMPACT_LAYOUT_HEIGHT_PX");
+    expect(day).toContain("overflow-visible");
+    // Actions stay outside the clipped content so short blocks keep a tappable menu.
+    expect(day).toContain("absolute right-0.5 top-0.5 z-20");
   });
 
   it("month day drawer lists the payment indicator", () => {

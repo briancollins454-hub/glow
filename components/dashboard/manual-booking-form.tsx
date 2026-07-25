@@ -113,22 +113,33 @@ export function ManualBookingForm({
         : bookings.filter((b) => !b.staffId);
       const scopedOffs = member ? timeOffAppliesToStaff(offs, member.id) : offs;
       const scopedRota = member ? rowsForStaff(rotaHours, member) : [];
-      const choices = daySlotChoicesForDuration(duration, dateStr, {
-        workingHours,
-        timeOff: scopedOffs,
-        bookings: scopedBookings,
-        flexibleHours,
-        rotaHours: scopedRota,
-        bufferByServiceId,
-      }, 0);
+      const choices = daySlotChoicesForDuration(
+        duration,
+        dateStr,
+        {
+          workingHours,
+          timeOff: scopedOffs,
+          bookings: scopedBookings,
+          flexibleHours,
+          rotaHours: scopedRota,
+          bufferByServiceId,
+        },
+        0,
+        { includeOutsideHours: true },
+      );
       return choices.map((c) => {
-        if (!c.takenByBookingId) return { time: fmtTime(c.iso) };
+        const time = fmtTime(c.iso);
+        if (c.overrideReason === "blocked" || c.overrideReason === "outside_hours") {
+          return { time, overrideReason: c.overrideReason };
+        }
+        if (!c.takenByBookingId) return { time };
         const booking = scopedBookings.find((b) => b.id === c.takenByBookingId);
         const name = booking ? clientById[booking.clientId] ?? "Client" : "Client";
         return {
-          time: fmtTime(c.iso),
+          time,
           takenInitial: clientInitial(name),
           takenName: name,
+          overrideReason: "conflict" as const,
         };
       });
     },

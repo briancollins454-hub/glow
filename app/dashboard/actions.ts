@@ -1309,9 +1309,10 @@ export async function addManualBookingAction(formData: FormData) {
   }
 
   const confirmOverbook = String(formData.get("confirmOverbook") ?? "") === "1";
-  const { checkDashboardStaffSlot, slotConflictQuery } = await import(
+  const { checkDashboardStaffSlot, slotConflictQuery, slotReasonQuery } = await import(
     "@/lib/booking/dashboard-slot"
   );
+  const { isOverbookableReason } = await import("@/lib/booking/overbook-copy");
   const { basketDurationMin } = await import("@/lib/rules");
   const slotCheck = await checkDashboardStaffSlot(sb, tech, {
     startIso,
@@ -1324,12 +1325,14 @@ export async function addManualBookingAction(formData: FormData) {
     if (slotCheck.reason === "verify_failed") {
       redirect("/dashboard/bookings?error=verify");
     }
-    if (slotCheck.reason === "conflict" && confirmOverbook) {
+    if (isOverbookableReason(slotCheck.reason) && confirmOverbook) {
       allowOverlap = true;
     } else if (slotCheck.reason === "conflict") {
       redirect(
         `/dashboard/bookings?error=slot&${slotConflictQuery(slotCheck.conflict)}`,
       );
+    } else if (slotCheck.reason === "blocked" || slotCheck.reason === "outside_hours") {
+      redirect(`/dashboard/bookings?error=slot&${slotReasonQuery(slotCheck.reason)}`);
     } else {
       redirect("/dashboard/bookings?error=slot");
     }
@@ -1409,9 +1412,10 @@ export async function rescheduleBookingAction(formData: FormData) {
   const startIso = start.toISOString();
   const confirmOverbook = String(formData.get("confirmOverbook") ?? "") === "1";
 
-  const { checkDashboardStaffSlot, slotConflictQuery } = await import(
+  const { checkDashboardStaffSlot, slotConflictQuery, slotReasonQuery } = await import(
     "@/lib/booking/dashboard-slot"
   );
+  const { isOverbookableReason } = await import("@/lib/booking/overbook-copy");
   const slotCheck = await checkDashboardStaffSlot(sb, tech, {
     startIso,
     durationMin: service!.durationMin,
@@ -1424,12 +1428,14 @@ export async function rescheduleBookingAction(formData: FormData) {
     if (slotCheck.reason === "verify_failed") {
       redirect(`/dashboard/bookings/${id}?err=verify`);
     }
-    if (slotCheck.reason === "conflict" && confirmOverbook) {
+    if (isOverbookableReason(slotCheck.reason) && confirmOverbook) {
       allowOverlap = true;
     } else if (slotCheck.reason === "conflict") {
       redirect(
         `/dashboard/bookings/${id}?err=slot&${slotConflictQuery(slotCheck.conflict)}`,
       );
+    } else if (slotCheck.reason === "blocked" || slotCheck.reason === "outside_hours") {
+      redirect(`/dashboard/bookings/${id}?err=slot&${slotReasonQuery(slotCheck.reason)}`);
     } else {
       redirect(`/dashboard/bookings/${id}?err=slot`);
     }
