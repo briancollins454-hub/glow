@@ -16,17 +16,21 @@ import {
   createConsentRecord,
   addonsForService,
   updateBooking,
+  latestConsentRecordForClient,
 } from "@/lib/db/queries";
 import { isUniqueViolation } from "@/lib/db/errors";
 import type { Booking, BookingAddon, Service } from "@/lib/db/types";
 import {
   anyServiceRequiresSignedConsent,
   collectScopedAnswers,
+  consentClientDetailsForStorage,
+  consentClientDetailsPrefill,
   missingRequiredScopedAnswer,
   readConsentFormInput,
   serverSignedAt,
   serviceRequiresSignedConsent,
   validateConsentFormInput,
+  type ConsentClientDetails,
 } from "@/lib/booking/consent";
 import {
   basketAmounts,
@@ -63,6 +67,34 @@ import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
 import { revalidatePublicAvailability } from "@/lib/booking/public-availability-cache";
+
+/**
+ * Prefill address / emergency contact from the client's most recent consent
+ * record (by email). Returns a fresh copy — never mutates prior records.
+ */
+export async function loadConsentPrefillAction(
+  handle: string,
+  email: string,
+): Promise<ConsentClientDetails | null> {
+  const cleaned = email.trim().toLowerCase();
+  if (!handle || !cleaned.includes("@")) return null;
+  if (!(await rateLimit("consent-prefill", { limit: 20, windowMs: 60_000 })).ok) {
+    return null;
+  }
+  const sb = supabaseService();
+  const tech = await getTechByHandle(sb, handle);
+  if (!tech) return null;
+  const client = await getClientByEmail(sb, tech.id, cleaned);
+  if (!client) return null;
+  try {
+    const latest = await latestConsentRecordForClient(sb, client.id);
+    const prefill = consentClientDetailsPrefill(latest);
+    if (!prefill.addressLine1 && !prefill.emergencyContactName) return null;
+    return prefill;
+  } catch {
+    return null;
+  }
+}
 
 /** Client asks to be told when a cancellation frees up a slot. */
 export async function joinWaitlistAction(formData: FormData) {
@@ -387,6 +419,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
           typedName: consentInput.typedName,
           signatureImage: consentInput.signatureImage,
           consentAccepted: true,
+          ...consentClientDetailsForStorage(consentInput),
           signedAt,
         });
       }
@@ -678,6 +711,7 @@ export async function createPublicBookingAction(formData: FormData) {
           typedName: consentInput.typedName,
           signatureImage: consentInput.signatureImage,
           consentAccepted: true,
+          ...consentClientDetailsForStorage(consentInput),
           signedAt,
         });
       }

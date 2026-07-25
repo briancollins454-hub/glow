@@ -307,7 +307,7 @@ export function PairedBookingStepInteractive({
               </div>
             )}
 
-            {requiresSignedConsent && <ConsentSignatureFields />}
+            {requiresSignedConsent && <ConsentSignatureFields handle={tech.handle} />}
 
             <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input name="policyAccepted" type="checkbox" required className="mt-1 h-4 w-4 rounded" />

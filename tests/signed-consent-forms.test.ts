@@ -8,13 +8,20 @@ import {
 import {
   anyServiceRequiresSignedConsent,
   collectScopedAnswers,
+  consentClientDetailsForStorage,
+  consentClientDetailsPrefill,
   isUsableSignatureImage,
   missingRequiredScopedAnswer,
   readConsentFormInput,
   serverSignedAt,
   validateConsentFormInput,
+  type ConsentFormInput,
 } from "@/lib/booking/consent";
-import { buildConsentRecordPdf, consentPdfFilename } from "@/lib/consent-pdf";
+import {
+  buildConsentRecordPdf,
+  consentPdfClientDetailLines,
+  consentPdfFilename,
+} from "@/lib/consent-pdf";
 import type { ConsentRecord, ConsultationQuestion } from "@/lib/db/types";
 import { makeClient, makeService, makeTech } from "./fixtures";
 
@@ -36,6 +43,44 @@ function makeQuestion(overrides: Partial<ConsultationQuestion> = {}): Consultati
 
 const tinyPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+function validConsentInput(overrides: Partial<ConsentFormInput> = {}): ConsentFormInput {
+  return {
+    signatureImage: tinyPng,
+    typedName: "Sophie Turner",
+    consentAccepted: true,
+    addressLine1: "12 High Street",
+    addressLine2: "Flat 2",
+    addressPostcode: "SW1A 1AA",
+    emergencyContactName: "Alex Turner",
+    emergencyContactPhone: "07700900222",
+    ...overrides,
+  };
+}
+
+function makeConsentRecord(overrides: Partial<ConsentRecord> = {}): ConsentRecord {
+  return {
+    id: "cr_1",
+    techId: "tech_1",
+    clientId: "cli_1",
+    bookingId: "bk_1",
+    serviceId: "svc_1",
+    questionsSnapshot: [
+      { questionId: "q1", prompt: "Any allergies?", type: "text", required: true, answer: "None" },
+    ],
+    typedName: "Sophie Turner",
+    signatureImage: tinyPng,
+    consentAccepted: true,
+    addressLine1: "12 High Street",
+    addressLine2: "Flat 2",
+    addressPostcode: "SW1A 1AA",
+    emergencyContactName: "Alex Turner",
+    emergencyContactPhone: "07700900222",
+    signedAt: "2026-07-25T12:34:56.000Z",
+    createdAt: "2026-07-25T12:34:56.000Z",
+    ...overrides,
+  };
+}
 
 describe("consultation question scope", () => {
   const piercing = makeService({ id: "svc_pierce", categoryId: "cat_pierce", name: "Lobe piercing" });
@@ -101,16 +146,37 @@ describe("signed consent requirement", () => {
     expect(anyServiceRequiresSignedConsent([needing])).toBe(true);
     expect(
       validateConsentFormInput(
-        { signatureImage: "", typedName: "", consentAccepted: false },
+        {
+          signatureImage: "",
+          typedName: "",
+          consentAccepted: false,
+          addressLine1: "",
+          addressLine2: "",
+          addressPostcode: "",
+          emergencyContactName: "",
+          emergencyContactPhone: "",
+        },
         true,
       ),
     ).toBe("consent");
-    expect(
-      validateConsentFormInput(
-        { signatureImage: tinyPng, typedName: "Sophie Turner", consentAccepted: true },
-        true,
-      ),
-    ).toBeNull();
+    expect(validateConsentFormInput(validConsentInput(), true)).toBeNull();
+  });
+
+  it("requires address and emergency contact only when consent is required", () => {
+    const missingAddress = validConsentInput({ addressLine1: "", addressPostcode: "" });
+    expect(validateConsentFormInput(missingAddress, true)).toBe("consent");
+    expect(validateConsentFormInput(missingAddress, false)).toBeNull();
+
+    const missingEmergency = validConsentInput({
+      emergencyContactName: "",
+      emergencyContactPhone: "",
+    });
+    expect(validateConsentFormInput(missingEmergency, true)).toBe("consent");
+
+    // Normal (non-consent) bookings do not require these fields.
+    expect(anyServiceRequiresSignedConsent([makeService({ requiresSignedConsent: false })])).toBe(
+      false,
+    );
   });
 
   it("does not require a signature when the flag is off", () => {
@@ -119,7 +185,16 @@ describe("signed consent requirement", () => {
     );
     expect(
       validateConsentFormInput(
-        { signatureImage: "", typedName: "", consentAccepted: false },
+        {
+          signatureImage: "",
+          typedName: "",
+          consentAccepted: false,
+          addressLine1: "",
+          addressLine2: "",
+          addressPostcode: "",
+          emergencyContactName: "",
+          emergencyContactPhone: "",
+        },
         false,
       ),
     ).toBeNull();
@@ -149,74 +224,103 @@ describe("signed consent requirement", () => {
     expect(missingRequiredScopedAnswer(questions, [piercing], new FormData())).toBe(true);
   });
 
-  it("reads consent fields from form data", () => {
+  it("reads consent fields including address and emergency contact", () => {
     const fd = new FormData();
     fd.set("signatureImage", tinyPng);
     fd.set("typedName", "Sophie Turner");
     fd.set("consentAccepted", "on");
-    expect(readConsentFormInput(fd)).toEqual({
-      signatureImage: tinyPng,
-      typedName: "Sophie Turner",
-      consentAccepted: true,
-    });
+    fd.set("addressLine1", "12 High Street");
+    fd.set("addressLine2", "Flat 2");
+    fd.set("addressPostcode", "SW1A 1AA");
+    fd.set("emergencyContactName", "Alex Turner");
+    fd.set("emergencyContactPhone", "07700900222");
+    expect(readConsentFormInput(fd)).toEqual(validConsentInput());
     expect(isUsableSignatureImage(tinyPng)).toBe(true);
     expect(isUsableSignatureImage("short")).toBe(false);
+
+    const stored = consentClientDetailsForStorage(validConsentInput());
+    expect(stored).toEqual({
+      addressLine1: "12 High Street",
+      addressLine2: "Flat 2",
+      addressPostcode: "SW1A 1AA",
+      emergencyContactName: "Alex Turner",
+      emergencyContactPhone: "07700900222",
+    });
   });
 });
 
-describe("consent record retention + PDF", () => {
-  it("keeps multiple consents as separate records (none overwritten)", () => {
+describe("consent record retention + PDF + prefill", () => {
+  it("keeps multiple consents as separate immutable records", () => {
     const records: ConsentRecord[] = [
-      {
+      makeConsentRecord({
         id: "cr_2",
-        techId: "tech_1",
-        clientId: "cli_1",
         bookingId: "bk_2",
-        serviceId: "svc_pierce",
-        questionsSnapshot: [{ questionId: "q1", prompt: "Allergies?", type: "text", required: true, answer: "None" }],
-        typedName: "Sophie Turner",
-        signatureImage: tinyPng,
-        consentAccepted: true,
+        addressLine1: "99 New Road",
+        addressPostcode: "E1 1AA",
+        questionsSnapshot: [
+          { questionId: "q1", prompt: "Allergies?", type: "text", required: true, answer: "None" },
+        ],
         signedAt: "2026-07-20T10:00:00.000Z",
         createdAt: "2026-07-20T10:00:00.000Z",
-      },
-      {
+      }),
+      makeConsentRecord({
         id: "cr_1",
-        techId: "tech_1",
-        clientId: "cli_1",
         bookingId: "bk_1",
-        serviceId: "svc_pierce",
-        questionsSnapshot: [{ questionId: "q1", prompt: "Allergies?", type: "text", required: true, answer: "Nuts" }],
-        typedName: "Sophie Turner",
-        signatureImage: tinyPng,
-        consentAccepted: true,
+        addressLine1: "12 High Street",
+        addressPostcode: "SW1A 1AA",
+        questionsSnapshot: [
+          { questionId: "q1", prompt: "Allergies?", type: "text", required: true, answer: "Nuts" },
+        ],
         signedAt: "2026-06-01T10:00:00.000Z",
         createdAt: "2026-06-01T10:00:00.000Z",
-      },
+      }),
     ];
-    // Newest first listing — both retained with distinct snapshots.
     expect(records).toHaveLength(2);
     expect(records[0].questionsSnapshot[0].answer).toBe("None");
     expect(records[1].questionsSnapshot[0].answer).toBe("Nuts");
+    expect(records[0].addressLine1).toBe("99 New Road");
+    expect(records[1].addressLine1).toBe("12 High Street");
     expect(records[0].id).not.toBe(records[1].id);
   });
 
-  it("generates a PDF from a stored record with signature and timestamp", async () => {
-    const record: ConsentRecord = {
-      id: "cr_1",
-      techId: "tech_1",
-      clientId: "cli_1",
-      bookingId: "bk_1",
-      serviceId: "svc_1",
-      questionsSnapshot: [
-        { questionId: "q1", prompt: "Any allergies?", type: "text", required: true, answer: "None" },
-      ],
-      typedName: "Sophie Turner",
-      signatureImage: tinyPng,
-      consentAccepted: true,
-      signedAt: "2026-07-25T12:34:56.000Z",
-      createdAt: "2026-07-25T12:34:56.000Z",
-    };
+  it("prefills from a prior record but produces a fresh copy for storage", () => {
+    const prior = makeConsentRecord({
+      addressLine1: "12 High Street",
+      addressLine2: "Flat 2",
+      addressPostcode: "SW1A 1AA",
+      emergencyContactName: "Alex Turner",
+      emergencyContactPhone: "07700900222",
+    });
+    const prefill = consentClientDetailsPrefill(prior);
+    expect(prefill).toEqual({
+      addressLine1: "12 High Street",
+      addressLine2: "Flat 2",
+      addressPostcode: "SW1A 1AA",
+      emergencyContactName: "Alex Turner",
+      emergencyContactPhone: "07700900222",
+    });
+    // Mutating the prefill must not change the prior record.
+    prefill.addressLine1 = "Changed";
+    expect(prior.addressLine1).toBe("12 High Street");
+
+    const fresh = consentClientDetailsForStorage(
+      validConsentInput({
+        ...prefill,
+        addressLine1: "99 New Road",
+        addressPostcode: "E1 1AA",
+      }),
+    );
+    expect(fresh.addressLine1).toBe("99 New Road");
+    expect(prior.addressLine1).toBe("12 High Street");
+  });
+
+  it("includes address and emergency contact in the PDF client-details section", async () => {
+    const record = makeConsentRecord();
+    expect(consentPdfClientDetailLines(record)).toEqual({
+      addressLines: ["12 High Street", "Flat 2", "SW1A 1AA"],
+      emergencyLine: "Emergency contact: Alex Turner · 07700900222",
+    });
+
     const pdf = await buildConsentRecordPdf({
       tech: makeTech({ businessName: "Glow Studio" }),
       client: makeClient(),
@@ -227,6 +331,8 @@ describe("consent record retention + PDF", () => {
     expect(Buffer.isBuffer(pdf)).toBe(true);
     expect(pdf.subarray(0, 4).toString("utf8")).toBe("%PDF");
     expect(pdf.length).toBeGreaterThan(500);
+    expect(record.signatureImage.length).toBeGreaterThan(80);
+    expect(record.signedAt).toBe("2026-07-25T12:34:56.000Z");
     expect(consentPdfFilename(makeClient(), record, new Date("2026-07-25T12:00:00.000Z"))).toBe(
       "signed-consent-Sophie-Turner-2026-07-25.pdf",
     );

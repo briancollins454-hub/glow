@@ -1,4 +1,10 @@
-import type { ConsentQuestionSnapshot, ConsultationQuestion, FormAnswer, Service } from "@/lib/db/types";
+import type {
+  ConsentQuestionSnapshot,
+  ConsentRecord,
+  ConsultationQuestion,
+  FormAnswer,
+  Service,
+} from "@/lib/db/types";
 import { filterQuestionsForServices } from "@/lib/booking/consultation-scope";
 
 export const CONSENT_STATEMENT =
@@ -6,10 +12,27 @@ export const CONSENT_STATEMENT =
 
 const MIN_SIGNATURE_CHARS = 80;
 
-export type ConsentFormInput = {
+/** Structured client details captured only on signed-consent bookings. */
+export type ConsentClientDetails = {
+  addressLine1: string;
+  addressLine2: string;
+  addressPostcode: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+};
+
+export type ConsentFormInput = ConsentClientDetails & {
   signatureImage: string;
   typedName: string;
   consentAccepted: boolean;
+};
+
+export const EMPTY_CONSENT_CLIENT_DETAILS: ConsentClientDetails = {
+  addressLine1: "",
+  addressLine2: "",
+  addressPostcode: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
 };
 
 export function serviceRequiresSignedConsent(
@@ -24,17 +47,22 @@ export function anyServiceRequiresSignedConsent(
   return services.some(serviceRequiresSignedConsent);
 }
 
-/** Pull signature fields from booking form data. */
+/** Pull signature + client-detail fields from booking form data. */
 export function readConsentFormInput(formData: FormData): ConsentFormInput {
   return {
     signatureImage: String(formData.get("signatureImage") ?? "").trim(),
     typedName: String(formData.get("typedName") ?? "").trim(),
     consentAccepted: formData.get("consentAccepted") === "on",
+    addressLine1: String(formData.get("addressLine1") ?? "").trim(),
+    addressLine2: String(formData.get("addressLine2") ?? "").trim(),
+    addressPostcode: String(formData.get("addressPostcode") ?? "").trim(),
+    emergencyContactName: String(formData.get("emergencyContactName") ?? "").trim(),
+    emergencyContactPhone: String(formData.get("emergencyContactPhone") ?? "").trim(),
   };
 }
 
 /**
- * Validates signature payload when consent is required.
+ * Validates signature + client details when consent is required.
  * Returns null when valid; otherwise a short error code.
  */
 export function validateConsentFormInput(
@@ -45,6 +73,10 @@ export function validateConsentFormInput(
   if (!input.consentAccepted) return "consent";
   if (!input.typedName) return "consent";
   if (!isUsableSignatureImage(input.signatureImage)) return "consent";
+  if (!input.addressLine1) return "consent";
+  if (!input.addressPostcode) return "consent";
+  if (!input.emergencyContactName) return "consent";
+  if (!input.emergencyContactPhone) return "consent";
   return null;
 }
 
@@ -96,6 +128,41 @@ export function missingRequiredScopedAnswer(
     if (!q.required) return false;
     return !String(formData.get(`q_${q.id}`) ?? "").trim();
   });
+}
+
+/**
+ * Prefill values from a prior consent record. Returns a fresh copy of the
+ * client-detail fields only (never mutates the source record).
+ */
+export function consentClientDetailsPrefill(
+  record: Pick<
+    ConsentRecord,
+    | "addressLine1"
+    | "addressLine2"
+    | "addressPostcode"
+    | "emergencyContactName"
+    | "emergencyContactPhone"
+  > | null | undefined,
+): ConsentClientDetails {
+  if (!record) return { ...EMPTY_CONSENT_CLIENT_DETAILS };
+  return {
+    addressLine1: record.addressLine1 ?? "",
+    addressLine2: record.addressLine2 ?? "",
+    addressPostcode: record.addressPostcode ?? "",
+    emergencyContactName: record.emergencyContactName ?? "",
+    emergencyContactPhone: record.emergencyContactPhone ?? "",
+  };
+}
+
+/** Slice of a consent form input stored on a new consent_records row. */
+export function consentClientDetailsForStorage(input: ConsentFormInput): ConsentClientDetails {
+  return {
+    addressLine1: input.addressLine1,
+    addressLine2: input.addressLine2,
+    addressPostcode: input.addressPostcode,
+    emergencyContactName: input.emergencyContactName,
+    emergencyContactPhone: input.emergencyContactPhone,
+  };
 }
 
 /**

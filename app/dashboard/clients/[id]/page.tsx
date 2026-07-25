@@ -289,6 +289,27 @@ export default async function ClientDetailPage({
                         <p className="font-medium">{a.answer || "—"}</p>
                       </div>
                     ))}
+                    {(record.addressLine1 || record.emergencyContactName) && (
+                      <div className="text-sm">
+                        <p className="text-ink-faint">Client details at signing</p>
+                        {record.addressLine1 && (
+                          <p className="font-medium whitespace-pre-line">
+                            {[record.addressLine1, record.addressLine2, record.addressPostcode]
+                              .filter(Boolean)
+                              .join("\n")}
+                          </p>
+                        )}
+                        {(record.emergencyContactName || record.emergencyContactPhone) && (
+                          <p className="mt-1 text-ink-soft">
+                            Emergency:{" "}
+                            <span className="font-medium text-ink">
+                              {record.emergencyContactName}
+                              {record.emergencyContactPhone ? ` · ${record.emergencyContactPhone}` : ""}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <p className="text-sm text-ink-soft">
                       Typed name: <span className="font-medium text-ink">{record.typedName}</span>
                     </p>
