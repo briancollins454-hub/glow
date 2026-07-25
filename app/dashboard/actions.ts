@@ -1927,40 +1927,110 @@ export async function deletePhotoAction(formData: FormData) {
   redirect(`/dashboard/clients/${clientId}`);
 }
 
-// ---------------- Consultation forms ----------------
-export async function addQuestionAction(formData: FormData) {
+// ---------------- Consultation forms (packs) ----------------
+export async function createConsultationPackAction(formData: FormData) {
   const { sb, tech } = await ctx();
+  const name = String(formData.get("name") ?? "").trim() || "Consultation form";
+  const { parsePackTargetsFromForm } = await import("@/lib/booking/consultation-scope");
+  const {
+    createConsultationPack,
+    replacePackTargets,
+  } = await import("@/lib/db/queries");
+  const targets = parsePackTargetsFromForm(formData.getAll("target").map(String));
+  const pack = await createConsultationPack(sb, {
+    techId: tech.id,
+    name,
+    sortOrder: 0,
+    active: true,
+  });
+  await replacePackTargets(sb, pack.id, targets);
+  revalidatePath("/dashboard/forms");
+  redirect("/dashboard/forms");
+}
+
+export async function updateConsultationPackAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!id || !name) {
+    redirect("/dashboard/forms");
+  }
+  const { parsePackTargetsFromForm } = await import("@/lib/booking/consultation-scope");
+  const {
+    listConsultationPacks,
+    replacePackTargets,
+    updateConsultationPack,
+  } = await import("@/lib/db/queries");
+  const packs = await listConsultationPacks(sb, tech.id);
+  if (!packs.some((p) => p.id === id)) redirect("/dashboard/forms");
+  const targets = parsePackTargetsFromForm(formData.getAll("target").map(String));
+  await updateConsultationPack(sb, id, { name });
+  await replacePackTargets(sb, id, targets);
+  revalidatePath("/dashboard/forms");
+  redirect("/dashboard/forms");
+}
+
+export async function deleteConsultationPackAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const { ALL_SERVICES_PACK_NAME } = await import("@/lib/booking/consultation-scope");
+  const { deleteConsultationPack, listConsultationPacks, listPackTargets } = await import(
+    "@/lib/db/queries"
+  );
+  const packs = await listConsultationPacks(sb, tech.id);
+  const pack = packs.find((p) => p.id === id);
+  if (!pack) redirect("/dashboard/forms");
+  const targets = await listPackTargets(sb, id).catch(() => []);
+  if (pack.name === ALL_SERVICES_PACK_NAME && targets.length === 0) {
+    redirect("/dashboard/forms");
+  }
+  await deleteConsultationPack(sb, id);
+  revalidatePath("/dashboard/forms");
+  redirect("/dashboard/forms");
+}
+
+export async function addPackQuestionAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const packId = String(formData.get("packId") ?? "");
   const prompt = String(formData.get("prompt") ?? "").trim();
-  if (prompt) {
-    const { parseQuestionScope } = await import("@/lib/booking/consultation-scope");
-    const scope = parseQuestionScope(String(formData.get("scope") ?? "all"));
-    try {
-      await createQuestion(sb, {
-        techId: tech.id,
-        prompt,
-        type: String(formData.get("type") ?? "text") as QuestionType,
-        required: formData.get("required") === "on",
-        sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
-        active: true,
-        categoryId: scope.categoryId,
-        serviceId: scope.serviceId,
-      });
-    } catch (e) {
-      // Migration 0047 may not be applied yet — create as a global question.
-      const msg = e instanceof Error ? e.message : "";
-      if (!/categoryId|serviceId/i.test(msg)) throw e;
-      await createQuestion(sb, {
-        techId: tech.id,
-        prompt,
-        type: String(formData.get("type") ?? "text") as QuestionType,
-        required: formData.get("required") === "on",
-        sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
-        active: true,
-      });
-    }
+  if (!packId || !prompt) {
+    redirect("/dashboard/forms");
+  }
+  const { listConsultationPacks } = await import("@/lib/db/queries");
+  const packs = await listConsultationPacks(sb, tech.id);
+  if (!packs.some((p) => p.id === packId)) redirect("/dashboard/forms");
+  try {
+    await createQuestion(sb, {
+      techId: tech.id,
+      prompt,
+      type: String(formData.get("type") ?? "text") as QuestionType,
+      required: formData.get("required") === "on",
+      sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
+      active: true,
+      packId,
+      categoryId: null,
+      serviceId: null,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (!/packId/i.test(msg)) throw e;
+    // Migration 0049 not applied — fall back to a global question.
+    await createQuestion(sb, {
+      techId: tech.id,
+      prompt,
+      type: String(formData.get("type") ?? "text") as QuestionType,
+      required: formData.get("required") === "on",
+      sortOrder: clampInt(String(formData.get("sortOrder") ?? "0"), 0, 999, 0),
+      active: true,
+    });
   }
   revalidatePath("/dashboard/forms");
   redirect("/dashboard/forms");
+}
+
+/** @deprecated Prefer addPackQuestionAction — kept for safety if old UI is cached. */
+export async function addQuestionAction(formData: FormData) {
+  return addPackQuestionAction(formData);
 }
 
 export async function deleteQuestionAction(formData: FormData) {

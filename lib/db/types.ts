@@ -615,6 +615,26 @@ export interface PreCareConfirmation {
 
 export type QuestionType = "text" | "longtext" | "yesno";
 
+export interface ConsultationPack {
+  id: string;
+  techId: string;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: string;
+}
+
+/**
+ * Where a pack is shown. Zero targets on a pack = all services.
+ * Exactly one of categoryId / serviceId is set per row.
+ */
+export interface ConsultationPackTarget {
+  id: string;
+  packId: string;
+  categoryId: string | null;
+  serviceId: string | null;
+}
+
 export interface ConsultationQuestion {
   id: string;
   techId: string;
@@ -624,11 +644,13 @@ export interface ConsultationQuestion {
   sortOrder: number;
   active: boolean;
   /**
-   * Optional scope (migration 0047). Null/null = all services (global).
-   * Mutually exclusive in the UI: either a category or a specific service.
+   * Legacy single scope (migration 0047). Prefer packId + pack targets.
+   * Kept so older rows still filter correctly until migrated into packs.
    */
   categoryId?: string | null;
   serviceId?: string | null;
+  /** Form pack this question belongs to (migration 0049). */
+  packId?: string | null;
   createdAt: string;
 }
 

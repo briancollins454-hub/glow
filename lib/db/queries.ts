@@ -9,6 +9,8 @@ import type {
   ClientPhoto,
   ConsultationQuestion,
   ConsentRecord,
+  ConsultationPack,
+  ConsultationPackTarget,
   FormResponse,
   Message,
   MessageSender,
@@ -1888,13 +1890,21 @@ export async function listQuestions(sb: SB, techId: string, opts: { activeOnly?:
   return must(data as ConsultationQuestion[], error, "listQuestions") ?? [];
 }
 export async function createQuestion(sb: SB, q: Omit<ConsultationQuestion, "id" | "createdAt">): Promise<ConsultationQuestion> {
-  const { categoryId, serviceId, ...rest } = q;
+  const { categoryId, serviceId, packId, ...rest } = q;
   const row: Record<string, unknown> = { ...rest, id: randomId("q") };
-  // Only send scope columns when set (or explicitly null after migration 0047).
   if (categoryId !== undefined) row.categoryId = categoryId;
   if (serviceId !== undefined) row.serviceId = serviceId;
+  if (packId !== undefined) row.packId = packId;
   const { data, error } = await sb.from("consultation_questions").insert(row).select("*").single();
   return must(data as ConsultationQuestion, error, "createQuestion");
+}
+export async function updateQuestion(
+  sb: SB,
+  id: string,
+  patch: Partial<Omit<ConsultationQuestion, "id" | "techId" | "createdAt">>,
+): Promise<void> {
+  const { error } = await sb.from("consultation_questions").update(patch).eq("id", id);
+  if (error) throw dbError("updateQuestion", error);
 }
 export async function deleteQuestion(sb: SB, id: string): Promise<void> {
   const { error } = await sb.from("consultation_questions").delete().eq("id", id);
@@ -1911,6 +1921,69 @@ export async function formResponsesForClient(sb: SB, clientId: string): Promise<
 export async function listFormResponsesForTech(sb: SB, techId: string): Promise<FormResponse[]> {
   const { data, error } = await sb.from("form_responses").select("*").eq("techId", techId).order("createdAt", { ascending: false });
   return must(data as FormResponse[], error, "listFormResponsesForTech") ?? [];
+}
+
+// ---------------- Consultation form packs ----------------
+export async function listConsultationPacks(
+  sb: SB,
+  techId: string,
+  opts: { activeOnly?: boolean } = {},
+): Promise<ConsultationPack[]> {
+  let q = sb.from("consultation_packs").select("*").eq("techId", techId);
+  if (opts.activeOnly) q = q.eq("active", true);
+  const { data, error } = await q.order("sortOrder").order("createdAt");
+  return must(data as ConsultationPack[], error, "listConsultationPacks") ?? [];
+}
+export async function createConsultationPack(
+  sb: SB,
+  pack: Omit<ConsultationPack, "id" | "createdAt">,
+): Promise<ConsultationPack> {
+  const { data, error } = await sb
+    .from("consultation_packs")
+    .insert({ ...pack, id: randomId("cfp") })
+    .select("*")
+    .single();
+  return must(data as ConsultationPack, error, "createConsultationPack");
+}
+export async function updateConsultationPack(
+  sb: SB,
+  id: string,
+  patch: Partial<Omit<ConsultationPack, "id" | "techId" | "createdAt">>,
+): Promise<void> {
+  const { error } = await sb.from("consultation_packs").update(patch).eq("id", id);
+  if (error) throw dbError("updateConsultationPack", error);
+}
+export async function deleteConsultationPack(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("consultation_packs").delete().eq("id", id);
+  if (error) throw dbError("deleteConsultationPack", error);
+}
+export async function listPackTargetsForTech(sb: SB, techId: string): Promise<ConsultationPackTarget[]> {
+  const packs = await listConsultationPacks(sb, techId);
+  if (!packs.length) return [];
+  const ids = packs.map((p) => p.id);
+  const { data, error } = await sb.from("consultation_pack_targets").select("*").in("packId", ids);
+  return must(data as ConsultationPackTarget[], error, "listPackTargetsForTech") ?? [];
+}
+export async function listPackTargets(sb: SB, packId: string): Promise<ConsultationPackTarget[]> {
+  const { data, error } = await sb.from("consultation_pack_targets").select("*").eq("packId", packId);
+  return must(data as ConsultationPackTarget[], error, "listPackTargets") ?? [];
+}
+export async function replacePackTargets(
+  sb: SB,
+  packId: string,
+  targets: Array<{ categoryId: string | null; serviceId: string | null }>,
+): Promise<void> {
+  const { error: delErr } = await sb.from("consultation_pack_targets").delete().eq("packId", packId);
+  if (delErr) throw dbError("replacePackTargets", delErr);
+  if (!targets.length) return;
+  const rows = targets.map((t) => ({
+    id: randomId("cpt"),
+    packId,
+    categoryId: t.categoryId,
+    serviceId: t.serviceId,
+  }));
+  const { error } = await sb.from("consultation_pack_targets").insert(rows);
+  if (error) throw dbError("replacePackTargets", error);
 }
 
 // ---------------- Signed consent records ----------------

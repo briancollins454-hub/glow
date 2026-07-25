@@ -319,12 +319,17 @@ export async function loadDashboardPageData(
       }
     }
     case "forms": {
-      const [questions, categories, services] = await Promise.all([
-        listQuestions(sb, tech.id),
-        listCategories(sb, tech.id),
-        listServices(sb, tech.id),
-      ]);
-      return { questions, categories, services };
+      const { ensureConsultationPacks } = await import("@/lib/booking/consultation-packs");
+      try {
+        return await ensureConsultationPacks(sb, tech.id);
+      } catch {
+        const [questions, categories, services] = await Promise.all([
+          listQuestions(sb, tech.id),
+          listCategories(sb, tech.id),
+          listServices(sb, tech.id),
+        ]);
+        return { packs: [], targets: [], questions, categories, services };
+      }
     }
     case "reminders": {
       const [reminders, services, checkins, infillNudges, preCare] = await Promise.all([

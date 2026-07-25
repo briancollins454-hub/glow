@@ -9,7 +9,6 @@ import {
   getClientByEmail,
   getService,
   getTechByHandle,
-  listQuestions,
   listServices,
   patchTestsForClient,
   createFormResponse,
@@ -26,12 +25,14 @@ import {
   consentClientDetailsForStorage,
   consentClientDetailsPrefill,
   missingRequiredScopedAnswer,
+  packIndexFromLists,
   readConsentFormInput,
   serverSignedAt,
   serviceRequiresSignedConsent,
   validateConsentFormInput,
   type ConsentClientDetails,
 } from "@/lib/booking/consent";
+import { loadConsultationScopeBundle } from "@/lib/booking/consultation-packs";
 import {
   basketAmounts,
   basketDurationMin,
@@ -373,10 +374,12 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const gross = service.pricePennies + addons.reduce((s, a) => s + a.pricePennies, 0);
   const discountPennies = loyaltyDiscountFor(tech, completedVisits, gross, client.isVip);
 
-  const questions = await listQuestions(sb, tech.id, { activeOnly: true });
+  const formBundle = await loadConsultationScopeBundle(sb, tech.id, { activeOnly: true });
+  const packIndex = packIndexFromLists(formBundle.packs, formBundle.targets);
+  const questions = formBundle.questions;
   const consentServices: Service[] = [service];
-  const { answers, snapshot } = collectScopedAnswers(questions, consentServices, formData);
-  if (missingRequiredScopedAnswer(questions, consentServices, formData)) {
+  const { answers, snapshot } = collectScopedAnswers(questions, consentServices, formData, packIndex);
+  if (missingRequiredScopedAnswer(questions, consentServices, formData, packIndex)) {
     redirect(`${base}&err=form`);
   }
   const consentRequired = anyServiceRequiresSignedConsent(consentServices);
@@ -685,9 +688,12 @@ export async function createPublicBookingAction(formData: FormData) {
   const discountPennies = loyaltyDiscountFor(tech!, completedVisits, gross, client.isVip);
 
   // Collect consultation answers (scoped to services in this visit).
-  const questions = await listQuestions(sb, tech!.id, { activeOnly: true });
-  const { answers, snapshot } = collectScopedAnswers(questions, basket, formData);
-  if (missingRequiredScopedAnswer(questions, basket, formData)) {
+  // Collect consultation answers (scoped via form packs / legacy rules).
+  const formBundle = await loadConsultationScopeBundle(sb, tech!.id, { activeOnly: true });
+  const packIndex = packIndexFromLists(formBundle.packs, formBundle.targets);
+  const questions = formBundle.questions;
+  const { answers, snapshot } = collectScopedAnswers(questions, basket, formData, packIndex);
+  if (missingRequiredScopedAnswer(questions, basket, formData, packIndex)) {
     redirect(`${base}&err=form`);
   }
   const consentRequired = anyServiceRequiresSignedConsent(basket);

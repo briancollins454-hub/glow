@@ -5,7 +5,12 @@ import type {
   FormAnswer,
   Service,
 } from "@/lib/db/types";
-import { filterQuestionsForServices } from "@/lib/booking/consultation-scope";
+import {
+  buildPackScopeIndex,
+  filterQuestionsForServices,
+  type PackScopeIndex,
+} from "@/lib/booking/consultation-scope";
+import type { ConsultationPack, ConsultationPackTarget } from "@/lib/db/types";
 
 export const CONSENT_STATEMENT =
   "I confirm the above is accurate and I consent to treatment";
@@ -94,8 +99,9 @@ export function collectScopedAnswers(
   questions: ConsultationQuestion[],
   services: Array<Pick<Service, "id" | "categoryId">>,
   formData: FormData,
+  packIndex?: PackScopeIndex,
 ): { applicable: ConsultationQuestion[]; answers: FormAnswer[]; snapshot: ConsentQuestionSnapshot[] } {
-  const applicable = filterQuestionsForServices(questions, services);
+  const applicable = filterQuestionsForServices(questions, services, packIndex);
   const answers: FormAnswer[] = [];
   const snapshot: ConsentQuestionSnapshot[] = [];
 
@@ -122,12 +128,20 @@ export function missingRequiredScopedAnswer(
   questions: ConsultationQuestion[],
   services: Array<Pick<Service, "id" | "categoryId">>,
   formData: FormData,
+  packIndex?: PackScopeIndex,
 ): boolean {
-  const applicable = filterQuestionsForServices(questions, services);
+  const applicable = filterQuestionsForServices(questions, services, packIndex);
   return applicable.some((q) => {
     if (!q.required) return false;
     return !String(formData.get(`q_${q.id}`) ?? "").trim();
   });
+}
+
+export function packIndexFromLists(
+  packs: ConsultationPack[],
+  targets: ConsultationPackTarget[],
+): PackScopeIndex {
+  return buildPackScopeIndex(packs, targets);
 }
 
 /**
