@@ -155,6 +155,18 @@ export async function updateStaffDetailsAction(formData: FormData) {
   if (!staff || staff.techId !== tech.id) redirect(TEAM);
   if (name) await updateStaff(svc, id, { name });
 
+  // Blank = inherit business default; a number (including 0) is an explicit override.
+  if (formData.has("minNoticeHours")) {
+    const { clampMinNoticeHours } = await import("@/lib/booking/min-notice");
+    const raw = String(formData.get("minNoticeHours") ?? "").trim();
+    const minNoticeHours = raw === "" ? null : clampMinNoticeHours(raw, 0);
+    await updateStaff(svc, id, { minNoticeHours });
+    const { revalidatePublicAvailability } = await import(
+      "@/lib/booking/public-availability-cache"
+    );
+    revalidatePublicAvailability(tech.id);
+  }
+
   const { all, ids } = serviceIdsFromForm(formData);
   await setStaffServices(svc, id, all ? [] : ids);
 

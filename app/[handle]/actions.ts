@@ -65,9 +65,10 @@ import {
 import { resolveBasketExtras } from "@/lib/booking/basket";
 import { ANY_STAFF, capableStaff, rowsForStaff, workingHoursForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { listStaff, staffServiceDayMap, staffServiceMap } from "@/lib/db/queries";
+import { listStaff, staffServiceDayMap, staffServiceMap, getStaff } from "@/lib/db/queries";
 import type { StaffMember, Tech } from "@/lib/db/types";
 import { revalidatePublicAvailability } from "@/lib/booking/public-availability-cache";
+import { isInsideMinNoticeWindow, minNoticeFloorMs } from "@/lib/booking/min-notice";
 
 /**
  * Prefill address / emergency contact from the client's most recent consent
@@ -186,7 +187,7 @@ async function loadAvailability(
  */
 async function resolveBookingStaff(
   sb: ReturnType<typeof supabaseService>,
-  techId: string,
+  tech: Tech,
   services: { id: string; availableWeekdays?: number[] | null }[],
   requested: string,
   slotIso: string,
@@ -194,7 +195,7 @@ async function resolveBookingStaff(
   availability: AvailabilityCtx,
 ): Promise<{ staff: StaffMember | null; legacy: boolean } | "invalid"> {
   const serviceIds = services.map((s) => s.id);
-  const staffList = await listStaff(sb, techId, { activeOnly: true }).catch(
+  const staffList = await listStaff(sb, tech.id, { activeOnly: true }).catch(
     () => [] as StaffMember[],
   );
   if (staffList.length === 0) return { staff: null, legacy: true };
@@ -212,16 +213,21 @@ async function resolveBookingStaff(
   const dateStr = dateStrInTz(new Date(slotIso));
   const freeFor = (staff: StaffMember) => {
     const allowedWeekdays = weekdaysForStaffBasket(services, dayRulesByStaff[staff.id]);
-    return daySlotsForDuration(totalDurationMin, dateStr, {
-      workingHours: workingHoursForStaff(availability.workingHours, staff, owner?.id),
-      timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
-      bookings: rowsForStaff(availability.bookings, staff),
-      flexibleHours: availability.flexibleHours,
-      rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
-      rotaFetchedRange: availability.rotaFetchedRange,
-      allowedWeekdays,
-      bufferByServiceId: availability.bufferByServiceId,
-    }).includes(slotIso);
+    return daySlotsForDuration(
+      totalDurationMin,
+      dateStr,
+      {
+        workingHours: workingHoursForStaff(availability.workingHours, staff, owner?.id),
+        timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
+        bookings: rowsForStaff(availability.bookings, staff),
+        flexibleHours: availability.flexibleHours,
+        rotaHours: rowsForStaff(availability.rotaHours ?? [], staff),
+        rotaFetchedRange: availability.rotaFetchedRange,
+        allowedWeekdays,
+        bufferByServiceId: availability.bufferByServiceId,
+      },
+      minNoticeFloorMs(tech, staff),
+    ).includes(slotIso);
   };
 
   if (requested && requested !== ANY_STAFF) {
@@ -284,12 +290,16 @@ export async function loadTreatmentSlotsAfterPatchAction(
   if (!patchTestService) return [];
 
   const ctx = await scopeCtxToStaff(sb, tech.id, fullCtx, staffId);
+  const noticeStaff =
+    staffId ? await getStaff(sb, staffId).catch(() => null) : null;
   return treatmentSlotsAfterPatchTest(
     treatmentService,
     patchTestService,
     patchSlotIso,
     category,
     ctx,
+    14,
+    minNoticeFloorMs(tech, noticeStaff),
   );
 }
 
@@ -330,6 +340,10 @@ export async function createPairedPublicBookingAction(formData: FormData) {
 
   // Paired bookings stay with one person; scope the diary when one is set.
   const ctx = await scopeCtxToStaff(sb, tech!.id, fullCtx, pairStaffId);
+  const pairStaff = pairStaffId
+    ? await getStaff(sb, pairStaffId).catch(() => null)
+    : null;
+  const noticeFloor = minNoticeFloorMs(tech, pairStaff);
 
   const timing = validatePairedPatchTestTiming(
     patchTestService,
@@ -339,14 +353,25 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   );
   if (!timing.ok) redirect(`${base}&err=pair_timing`);
 
+  if (
+    isInsideMinNoticeWindow(patchSlotIso, tech, pairStaff) ||
+    isInsideMinNoticeWindow(treatmentSlotIso, tech, pairStaff)
+  ) {
+    redirect(`${base}&err=slot`);
+  }
+
   const patchDateStr = dateStrInTz(new Date(patchSlotIso));
-  const patchFree = daySlots(patchTestService, patchDateStr, ctx).includes(patchSlotIso);
+  const patchFree = daySlots(patchTestService, patchDateStr, ctx, noticeFloor).includes(
+    patchSlotIso,
+  );
   const treatmentDays = treatmentSlotsAfterPatchTest(
     service,
     patchTestService,
     patchSlotIso,
     category,
     ctx,
+    14,
+    noticeFloor,
   );
   const treatmentFree = treatmentDays.some((d) => d.slots.includes(treatmentSlotIso));
   if (!patchFree || !treatmentFree) redirect(`${base}&err=slot`);
@@ -584,7 +609,7 @@ export async function createPublicBookingAction(formData: FormData) {
   // still free. Pre-migration accounts fall back to the whole-diary check.
   const resolved = await resolveBookingStaff(
     sb,
-    tech!.id,
+    tech!,
     basket,
     requestedStaff,
     slotIso,
@@ -596,12 +621,22 @@ export async function createPublicBookingAction(formData: FormData) {
   }
   const bookingStaff = (resolved as { staff: StaffMember | null }).staff;
 
+  // Guard the write path: never accept a slot inside the minimum-notice window.
+  if (isInsideMinNoticeWindow(slotIso, tech, bookingStaff)) {
+    redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
+  }
+
   if (!bookingStaff) {
     const dateStr = dateStrInTz(new Date(slotIso));
-    const stillFree = daySlotsForDuration(totalDuration, dateStr, {
-      ...availability,
-      allowedWeekdays,
-    }).includes(slotIso);
+    const stillFree = daySlotsForDuration(
+      totalDuration,
+      dateStr,
+      {
+        ...availability,
+        allowedWeekdays,
+      },
+      minNoticeFloorMs(tech),
+    ).includes(slotIso);
     if (!stillFree) {
       redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
     }
@@ -616,16 +651,21 @@ export async function createPublicBookingAction(formData: FormData) {
     const dayRulesByStaff = await staffServiceDayMap(sb, [bookingStaff.id]).catch(
       () => ({}) as Record<string, Record<string, number[] | null>>,
     );
-    const stillFree = daySlotsForDuration(totalDuration, dateStr, {
-      workingHours: workingHoursForStaff(availability.workingHours, bookingStaff, owner?.id),
-      timeOff: timeOffAppliesToStaff(availability.timeOff, bookingStaff.id),
-      bookings: rowsForStaff(availability.bookings, bookingStaff),
-      flexibleHours: availability.flexibleHours,
-      rotaHours: rowsForStaff(availability.rotaHours ?? [], bookingStaff),
-      rotaFetchedRange: availability.rotaFetchedRange,
-      allowedWeekdays: weekdaysForStaffBasket(basket, dayRulesByStaff[bookingStaff.id]),
-      bufferByServiceId: availability.bufferByServiceId,
-    }).includes(slotIso);
+    const stillFree = daySlotsForDuration(
+      totalDuration,
+      dateStr,
+      {
+        workingHours: workingHoursForStaff(availability.workingHours, bookingStaff, owner?.id),
+        timeOff: timeOffAppliesToStaff(availability.timeOff, bookingStaff.id),
+        bookings: rowsForStaff(availability.bookings, bookingStaff),
+        flexibleHours: availability.flexibleHours,
+        rotaHours: rowsForStaff(availability.rotaHours ?? [], bookingStaff),
+        rotaFetchedRange: availability.rotaFetchedRange,
+        allowedWeekdays: weekdaysForStaffBasket(basket, dayRulesByStaff[bookingStaff.id]),
+        bufferByServiceId: availability.bufferByServiceId,
+      },
+      minNoticeFloorMs(tech, bookingStaff),
+    ).includes(slotIso);
     if (!stillFree) {
       redirect(`/${tech!.handle}?service=${serviceId}${alsoQs}&err=slot`);
     }

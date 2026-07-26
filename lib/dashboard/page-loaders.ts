@@ -312,6 +312,7 @@ export async function loadDashboardPageData(
           bookingCountByStaff,
           timeOffCountByStaff,
           flexibleHoursEnabled: tech.flexibleHoursEnabled === true,
+          minNoticeHours: tech.minNoticeHours ?? 0,
         };
       } catch {
         // staff_members migration not applied yet on this environment.

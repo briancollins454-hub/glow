@@ -1166,8 +1166,26 @@ export async function createStaff(
 }
 
 export async function updateStaff(sb: SB, id: string, patch: Partial<StaffMember>): Promise<void> {
-  const { error } = await sb.from("staff_members").update(patch).eq("id", id);
-  if (error) throw dbError("updateStaff", error);
+  let current: Record<string, unknown> = { ...patch };
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    if (Object.keys(current).length === 0) return;
+
+    const { error } = await sb.from("staff_members").update(current).eq("id", id);
+    if (!error) return;
+
+    const missing = error.message.match(SCHEMA_COLUMN_RE);
+    if (missing) {
+      const next = patchWithoutMissingColumn(current, missing[1]);
+      if (!next) throw dbError("updateStaff", error);
+      current = next;
+      continue;
+    }
+
+    throw dbError("updateStaff", error);
+  }
+
+  throw new Error("updateStaff: too many schema retries");
 }
 
 /**

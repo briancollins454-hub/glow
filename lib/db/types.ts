@@ -62,6 +62,11 @@ export interface Tech {
   defaultDepositValue: number;
   // No-show / cancellation protection policy
   cancellationWindowHours: number;
+  /**
+   * Minimum hours of notice clients need for public online booking (0 = next free slot).
+   * Dashboard / tech-created bookings ignore this. Optional until migration 0050; missing = 0.
+   */
+  minNoticeHours?: number | null;
   noShowFeePct: number;
   noShowFeeType: "percent" | "fixed";
   /** percent: 0-100. fixed: pennies. Falls back to noShowFeePct. */
@@ -194,6 +199,11 @@ export interface StaffMember {
   bio: string;
   active: boolean;
   sortOrder: number;
+  /**
+   * Optional override of Tech.minNoticeHours for public online booking.
+   * null / missing = use the business default. Optional until migration 0050.
+   */
+  minNoticeHours?: number | null;
   createdAt: string;
 }
 

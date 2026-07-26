@@ -167,6 +167,7 @@ export function makeTech(overrides: Partial<Tech> = {}): Tech {
     defaultDepositType: "percent",
     defaultDepositValue: 30,
     cancellationWindowHours: 48,
+    minNoticeHours: 0,
     noShowFeePct: 100,
     noShowFeeType: "percent",
     noShowFeeValue: 100,

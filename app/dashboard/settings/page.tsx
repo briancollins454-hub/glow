@@ -361,6 +361,22 @@ export default function SettingsPage() {
               <Label htmlFor="cancellationWindowHours">Notice needed to cancel (hours)</Label>
               <Input id="cancellationWindowHours" name="cancellationWindowHours" type="number" min={0} max={336} defaultValue={tech.cancellationWindowHours} />
             </div>
+            <div>
+              <Label htmlFor="minNoticeHours">Minimum notice to book online (hours)</Label>
+              <Input
+                id="minNoticeHours"
+                name="minNoticeHours"
+                type="number"
+                min={0}
+                max={168}
+                defaultValue={tech.minNoticeHours ?? 0}
+              />
+              <p className="mt-1 text-xs text-ink-faint">
+                Clients cannot book a public slot sooner than this. 0 = next free slot (current behaviour).
+                New salons start at 2 so you have time to prepare. Does not limit bookings you add yourself
+                in the dashboard. You can override this per team member under Team.
+              </p>
+            </div>
             <DepositFields
               label="No-show / late-cancel charge"
               nameType="noShowFeeType"
