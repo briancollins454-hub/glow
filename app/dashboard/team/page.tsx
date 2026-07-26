@@ -56,6 +56,7 @@ type TeamData =
       bookingCountByStaff: Record<string, number>;
       timeOffCountByStaff: Record<string, number>;
       flexibleHoursEnabled?: boolean;
+      minNoticeHours?: number;
     };
 
 export default function TeamPage() {
@@ -88,6 +89,7 @@ function TeamView({
   bookingCountByStaff,
   timeOffCountByStaff,
   flexibleHoursEnabled,
+  minNoticeHours = 0,
 }: {
   staff: StaffMember[];
   services: Service[];
@@ -96,6 +98,7 @@ function TeamView({
   bookingCountByStaff: Record<string, number>;
   timeOffCountByStaff: Record<string, number>;
   flexibleHoursEnabled?: boolean;
+  minNoticeHours?: number;
 }) {
   const searchParams = useSearchParams();
   const saved = searchParams.get("saved");
@@ -143,6 +146,7 @@ function TeamView({
           bookingCount={bookingCountByStaff[member.id] ?? 0}
           timeOffCount={timeOffCountByStaff[member.id] ?? 0}
           mergeTargets={mergeTargets.filter((s) => s.id !== member.id)}
+          businessMinNoticeHours={minNoticeHours}
         />
       ))}
 
@@ -238,6 +242,7 @@ function StaffCard({
   bookingCount,
   timeOffCount,
   mergeTargets,
+  businessMinNoticeHours,
 }: {
   member: StaffMember;
   services: Service[];
@@ -246,6 +251,7 @@ function StaffCard({
   bookingCount: number;
   timeOffCount: number;
   mergeTargets: StaffMember[];
+  businessMinNoticeHours: number;
 }) {
   return (
     <Card>
@@ -277,6 +283,26 @@ function StaffCard({
             <div className="max-w-sm">
               <Label htmlFor={`name-${member.id}`}>Name</Label>
               <Input id={`name-${member.id}`} name="name" defaultValue={member.name} />
+            </div>
+            <div className="max-w-sm">
+              <Label htmlFor={`minNotice-${member.id}`}>
+                Minimum notice to book online (hours)
+              </Label>
+              <Input
+                id={`minNotice-${member.id}`}
+                name="minNoticeHours"
+                type="number"
+                min={0}
+                max={168}
+                placeholder="Same as business"
+                defaultValue={
+                  member.minNoticeHours == null ? "" : String(member.minNoticeHours)
+                }
+              />
+              <p className="mt-1 text-xs text-ink-faint">
+                Leave blank to use the business default ({businessMinNoticeHours}h). Only affects
+                public online booking for this person.
+              </p>
             </div>
             <ServicesPicker services={services} restricted={restricted} idPrefix={member.id} />
             <Button type="submit" variant="secondary">Save</Button>

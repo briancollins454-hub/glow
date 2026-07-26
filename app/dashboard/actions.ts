@@ -237,6 +237,12 @@ export async function updateSettingsAction(formData: FormData) {
     defaultDepositValue: defaultDeposit.value,
     defaultDepositPct: defaultDeposit.type === "percent" ? defaultDeposit.value : tech.defaultDepositPct,
     cancellationWindowHours: clampInt(get("cancellationWindowHours"), 0, 336, tech.cancellationWindowHours),
+    minNoticeHours: clampInt(
+      get("minNoticeHours"),
+      0,
+      168,
+      tech.minNoticeHours ?? 0,
+    ),
     loyaltyVisitThreshold: clampInt(get("loyaltyVisitThreshold"), 0, 100, tech.loyaltyVisitThreshold),
     loyaltyDiscountType: loyalty.type === "none" ? "percent" : loyalty.type,
     loyaltyDiscountValue: loyalty.value,
@@ -281,6 +287,7 @@ export async function updateSettingsAction(formData: FormData) {
     depositTierHighValue: highTier.value,
     depositTierHighPct: highTier.type === "percent" ? highTier.value : tech.depositTierHighPct ?? 100,
   });
+  revalidatePublicAvailability(tech.id);
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);
   invalidateDashboardTech(tech.authUserId);

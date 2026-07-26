@@ -43,6 +43,7 @@ import {
   workingHoursForStaff,
 } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
+import { minNoticeFloorMs } from "@/lib/booking/min-notice";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
 import { acceptsOnlineBookings, usesCardCapture } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
@@ -294,6 +295,7 @@ export default async function PublicBookingPage({
           allowedWeekdays: pairDays,
         },
         14,
+        minNoticeFloorMs(tech, pairStaff),
       );
     } else {
       const duration = basketDurationMin(basketServices);
@@ -307,6 +309,7 @@ export default async function PublicBookingPage({
           duration,
           withDays(legacyCtx, intersectWeekdays(basketServices)),
           14,
+          minNoticeFloorMs(tech),
         );
       } else if (selectedStaff !== ANY_STAFF) {
         const staff = capable.find((s) => s.id === selectedStaff)!;
@@ -314,6 +317,7 @@ export default async function PublicBookingPage({
           duration,
           withDays(ctxFor(staff), daysForStaff(staff, basketServices)),
           14,
+          minNoticeFloorMs(tech, staff),
         );
       } else {
         // "Any available": union of everyone who can do the whole visit.
@@ -323,6 +327,7 @@ export default async function PublicBookingPage({
               duration,
               withDays(ctxFor(s), daysForStaff(s, basketServices)),
               60,
+              minNoticeFloorMs(tech, s),
             ),
           ),
           14,

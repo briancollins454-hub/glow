@@ -65,6 +65,7 @@ export async function provisionNewTechAccount(
       defaultDepositType: "percent",
       defaultDepositValue: 30,
       cancellationWindowHours: 48,
+      minNoticeHours: 2,
       noShowFeePct: 100,
       noShowFeeType: "percent",
       noShowFeeValue: 100,
