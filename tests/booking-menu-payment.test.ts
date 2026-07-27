@@ -192,6 +192,8 @@ describe("day / month payment indicator wiring", () => {
     expect(day).toContain("BookingActions");
     expect(day).toContain("StatusDot");
     expect(day).toContain("dayBlockDensity");
+    expect(day).toContain("useDayViewZoom");
+    expect(day).toContain("DayViewZoomControl");
     expect(day).toContain("overflow-hidden");
     expect(day).not.toContain("overflow-visible");
     // Solid surface so blocked/outside-hours bands do not show through.
