@@ -25,14 +25,15 @@ import {
   unavailableRangesForStaffDay,
 } from "@/lib/booking/staff-day";
 import {
-  DAY_VIEW_PX_PER_MIN,
   dayBlockDensity,
+  dayViewOffsetPx,
+  dayViewSpanHeightPx,
 } from "@/lib/booking/day-block-layout";
+import { DayViewZoomControl, useDayViewZoom } from "@/components/dashboard/day-view-zoom-control";
 import { addDaysToDateStr, weekDatesContaining } from "@/lib/rota";
 import { rowsForStaff } from "@/lib/booking/staff";
 import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
-const PX_PER_MIN = DAY_VIEW_PX_PER_MIN;
 const COL_MIN_WIDTH = 160;
 const TIME_AXIS_REM = 3;
 const LANE_GAP_PX = 2;
@@ -89,6 +90,7 @@ export function BookingsStaffDayView({
   rotaFetchedRange,
   onAddBooking,
 }: Props) {
+  const { zoom, setZoom, pxPerMin } = useDayViewZoom();
   const dayBookings = activeBookingsOnDate(bookings, dateStr);
   const dayOffs = timeOffOnDate(offs, dateStr);
   const weekDates = weekDatesContaining(dateStr);
@@ -105,7 +107,7 @@ export function BookingsStaffDayView({
     bufferByServiceId,
     dayOffs,
   );
-  const height = (windowEnd - windowStart) * PX_PER_MIN;
+  const height = (windowEnd - windowStart) * pxPerMin;
   const hours = hourLabels(windowStart, windowEnd);
 
   return (
@@ -121,49 +123,52 @@ export function BookingsStaffDayView({
               under bookings are service cleanup buffers.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label="Previous day"
-              onClick={() => onDateChange(addDaysToDateStr(dateStr, -1))}
-              className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <DiaryDatePicker dateStr={dateStr} onDateChange={onDateChange} />
-            <button
-              type="button"
-              aria-label="Next day"
-              onClick={() => onDateChange(addDaysToDateStr(dateStr, 1))}
-              className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onDateChange(
-                  new Intl.DateTimeFormat("en-CA", {
-                    timeZone: "Europe/London",
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                  }).format(new Date()),
-                )
-              }
-              className="ml-1 rounded-lg border border-edge px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover"
-            >
-              Today
-            </button>
-            {onAddBooking && (
+          <div className="flex flex-wrap items-center gap-2">
+            <DayViewZoomControl zoom={zoom} onChange={setZoom} />
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => onAddBooking(dateStr)}
-                className="ml-1 rounded-lg border border-brand-400/50 bg-brand-500/15 px-2.5 py-1.5 text-xs font-medium text-brand-text hover:bg-brand-500/25"
+                aria-label="Previous day"
+                onClick={() => onDateChange(addDaysToDateStr(dateStr, -1))}
+                className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
               >
-                Add booking
+                <ChevronLeft className="h-4 w-4" />
               </button>
-            )}
+              <DiaryDatePicker dateStr={dateStr} onDateChange={onDateChange} />
+              <button
+                type="button"
+                aria-label="Next day"
+                onClick={() => onDateChange(addDaysToDateStr(dateStr, 1))}
+                className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-fill-hover"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onDateChange(
+                    new Intl.DateTimeFormat("en-CA", {
+                      timeZone: "Europe/London",
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    }).format(new Date()),
+                  )
+                }
+                className="ml-1 rounded-lg border border-edge px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-fill-hover"
+              >
+                Today
+              </button>
+              {onAddBooking && (
+                <button
+                  type="button"
+                  onClick={() => onAddBooking(dateStr)}
+                  className="ml-1 rounded-lg border border-brand-400/50 bg-brand-500/15 px-2.5 py-1.5 text-xs font-medium text-brand-text hover:bg-brand-500/25"
+                >
+                  Add booking
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -233,7 +238,7 @@ export function BookingsStaffDayView({
                     <div
                       key={m}
                       className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-ink-faint"
-                      style={{ top: (m - windowStart) * PX_PER_MIN }}
+                      style={{ top: dayViewOffsetPx(m, windowStart, pxPerMin) }}
                     >
                       {formatHour(m)}
                     </div>
@@ -272,12 +277,16 @@ export function BookingsStaffDayView({
                       <div
                         key={m}
                         className="pointer-events-none absolute inset-x-0 border-t border-edge"
-                        style={{ top: (m - windowStart) * PX_PER_MIN }}
+                        style={{ top: dayViewOffsetPx(m, windowStart, pxPerMin) }}
                       />
                     ))}
                     {outsideHours.map((range, i) => {
-                      const top = (range.startM - windowStart) * PX_PER_MIN;
-                      const blockHeight = Math.max(20, (range.endM - range.startM) * PX_PER_MIN - 2);
+                      const top = dayViewOffsetPx(range.startM, windowStart, pxPerMin);
+                      const blockHeight = dayViewSpanHeightPx(
+                        range.endM - range.startM,
+                        pxPerMin,
+                        { minPx: 20 },
+                      );
                       return (
                         <CalendarRotaUnavailable
                           key={`hours-${i}`}
@@ -293,8 +302,10 @@ export function BookingsStaffDayView({
                       );
                       const endM = Math.min(windowEnd, minutesFromMidnightLondon(o.endIso));
                       if (endM <= startM) return null;
-                      const top = (startM - windowStart) * PX_PER_MIN;
-                      const blockHeight = Math.max(20, (endM - startM) * PX_PER_MIN - 2);
+                      const top = dayViewOffsetPx(startM, windowStart, pxPerMin);
+                      const blockHeight = dayViewSpanHeightPx(endM - startM, pxPerMin, {
+                        minPx: 20,
+                      });
                       return (
                         <CalendarManualBlock
                           key={o.id}
@@ -307,11 +318,11 @@ export function BookingsStaffDayView({
                     {laidOut.map(({ booking: b, lane, laneCount, startM, endM }) => {
                       const apptEndM = minutesFromMidnightLondon(b.endIso);
                       const bufferMin = Math.max(0, endM - apptEndM);
-                      const top = (startM - windowStart) * PX_PER_MIN;
-                      const blockHeight = Math.max(28, (endM - startM) * PX_PER_MIN - 2);
+                      const top = dayViewOffsetPx(startM, windowStart, pxPerMin);
+                      const blockHeight = dayViewSpanHeightPx(endM - startM, pxPerMin);
                       const apptHeight =
                         bufferMin > 0
-                          ? Math.max(18, (apptEndM - startM) * PX_PER_MIN)
+                          ? Math.max(18, (apptEndM - startM) * pxPerMin)
                           : blockHeight;
                       const contentHeight = Math.min(apptHeight, blockHeight);
                       const { density } = dayBlockDensity({
