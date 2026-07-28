@@ -107,13 +107,19 @@ export async function POST(req: Request) {
         error: "recipient marked as spam",
       });
       if (email) {
-        await applyComplaint(sb, {
+        const result = await applyComplaint(sb, {
           email,
           resendEmailId,
           outboundId: outbound?.id ?? null,
         });
+        return NextResponse.json({
+          ok: true,
+          event: type,
+          suppressed: result.suppressed,
+          accountProtected: result.accountProtected,
+        });
       }
-      return NextResponse.json({ ok: true, event: type, suppressed: true });
+      return NextResponse.json({ ok: true, event: type, suppressed: false });
     }
 
     // email.bounced
@@ -129,26 +135,36 @@ export async function POST(req: Request) {
     }
 
     if (classifyBounce(bounceType) === "hard") {
-      await applyHardBounce(sb, {
+      const result = await applyHardBounce(sb, {
         email,
         resendEmailId,
         outboundId: outbound?.id ?? null,
       });
-      return NextResponse.json({ ok: true, event: type, suppressed: true, reason: "hard_bounce" });
+      return NextResponse.json({
+        ok: true,
+        event: type,
+        suppressed: result.suppressed,
+        accountProtected: result.accountProtected,
+        reason: "hard_bounce",
+      });
     }
 
-    const { suppression, newlySuppressed } = await applySoftBounce(sb, {
-      email,
-      resendEmailId,
-      outboundId: outbound?.id ?? null,
-    });
+    const { suppression, newlySuppressed, suppressed, accountProtected } = await applySoftBounce(
+      sb,
+      {
+        email,
+        resendEmailId,
+        outboundId: outbound?.id ?? null,
+      },
+    );
     return NextResponse.json({
       ok: true,
       event: type,
-      suppressed: suppression.suppressed,
+      suppressed,
       newlySuppressed,
-      consecutiveSoftFailures: suppression.consecutiveSoftFailures,
-      reason: suppression.reason,
+      accountProtected,
+      consecutiveSoftFailures: suppression?.consecutiveSoftFailures ?? 0,
+      reason: suppression?.reason ?? null,
     });
   } catch (err) {
     console.error("[resend/webhook] handler failed", (err as Error).message);

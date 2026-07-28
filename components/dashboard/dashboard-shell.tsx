@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { CalendarHeart, ExternalLink, LifeBuoy, Lightbulb, LogOut } from "lucide-react";
-import type { Tech } from "@/lib/db/types";
+import type { StaffMember, Tech } from "@/lib/db/types";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { InstallPrompt } from "@/components/dashboard/install-prompt";
@@ -13,21 +13,29 @@ import { logoutAction } from "@/app/(auth)/actions";
 import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { clearDashboardCache } from "@/lib/dashboard/client-cache";
 import { ensureInstallCapture } from "@/lib/pwa-install";
+import { accountEmailDeliveryWarning } from "@/lib/email-delivery-ui";
 
 export function DashboardShell({
   tech,
   admin,
   role = "owner",
   staffName,
+  staff = null,
   children,
 }: {
   tech: Tech;
   admin: boolean;
   role?: "owner" | "staff";
   staffName?: string | null;
+  staff?: StaffMember | null;
   children: React.ReactNode;
 }) {
   const unread = useUnreadMessages();
+  const deliveryWarning = accountEmailDeliveryWarning(
+    role === "staff" ? staff : tech,
+  );
+  const deliveryEmail =
+    role === "staff" && staff?.email ? staff.email : tech.email;
 
   // Capture beforeinstallprompt as early as the shell mounts so Settings
   // can offer a real one-click Install even if the bottom banner was dismissed.
@@ -97,6 +105,30 @@ export function DashboardShell({
           </div>
         </div>
       </header>
+
+      {deliveryWarning ? (
+        <div
+          role="alert"
+          className="border-b border-amber-500/40 bg-amber-500/15 text-amber-950"
+        >
+          <div className="container-page py-3 text-sm font-medium leading-snug">
+            {deliveryWarning}
+            {deliveryEmail ? (
+              <span className="font-normal text-amber-900/80">
+                {" "}
+                ({deliveryEmail}). Check it is correct, or contact{" "}
+                <a
+                  className="underline underline-offset-2"
+                  href="mailto:support@glow-uk.com"
+                >
+                  support@glow-uk.com
+                </a>
+                .
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div className="container-page grid grid-cols-1 gap-6 py-6 pb-28 lg:grid-cols-[220px_1fr] lg:pb-6">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">

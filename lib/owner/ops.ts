@@ -107,8 +107,16 @@ export async function runRemindersJobNow(trigger: "cron" | "manual" = "manual") 
     } catch (err) {
       console.error("[owner cron] infill failed:", (err as Error).message);
     }
+    let accountEmailRestored: string[] = [];
+    try {
+      const { reconcileSuppressedAccountEmails } = await import("@/lib/email-suppression");
+      const reconciled = await reconcileSuppressedAccountEmails(sb);
+      accountEmailRestored = reconciled.restored;
+    } catch (err) {
+      console.error("[owner cron] account email reconcile failed:", (err as Error).message);
+    }
     const finishedAt = new Date().toISOString();
-    const payload = { ...result, onboarding, rebookNudges, infillNudges };
+    const payload = { ...result, onboarding, rebookNudges, infillNudges, accountEmailRestored };
     await recordCronRun({
       job: "reminders",
       trigger,
