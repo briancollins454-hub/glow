@@ -96,6 +96,7 @@ export async function POST(req: Request) {
       await markOutboundDelivery(sb, {
         resendEmailId,
         deliveryStatus: "delivery_delayed",
+        destination: email,
       });
       return NextResponse.json({ ok: true, event: type });
     }
@@ -105,6 +106,7 @@ export async function POST(req: Request) {
         resendEmailId,
         deliveryStatus: "complained",
         error: "recipient marked as spam",
+        destination: email,
       });
       if (email) {
         const result = await applyComplaint(sb, {
@@ -128,6 +130,7 @@ export async function POST(req: Request) {
       deliveryStatus: "bounced",
       bounceType,
       error: bounceMessage,
+      destination: email,
     });
 
     if (!email) {

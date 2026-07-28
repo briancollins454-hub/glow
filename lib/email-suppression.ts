@@ -41,9 +41,119 @@ const OPS_EMAIL = process.env.OPS_ALERT_EMAIL ?? "support@glow-uk.com";
 const ACCOUNT_ALERT_WINDOW_MS = 15 * 60 * 1000;
 const lastAccountAlert = new Map<string, number>();
 
-/** Normalise for suppression keys and lookups. */
+/**
+ * Extract a bare mailbox address from an RFC-style recipient string.
+ * Handles `email@x.com`, `Name <email@x.com>`, and `"Name" <email@x.com>`.
+ * Returns lowercase trimmed address, or "" if nothing usable.
+ */
 export function normaliseEmail(email: string): string {
-  return email.trim().toLowerCase();
+  let s = String(email ?? "").trim();
+  if (!s) return "";
+  // Prefer the address inside the last pair of angle brackets.
+  const angle = s.match(/<([^<>]+)>/);
+  if (angle?.[1]) {
+    s = angle[1].trim();
+  } else {
+    // Strip a trailing "(comment)" form sometimes seen in legacy headers.
+    s = s.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  }
+  // Drop surrounding quotes left on a bare address.
+  s = s.replace(/^["']+|["']+$/g, "").trim();
+  // If spaces remain (display name without brackets), take the last token with @.
+  if (s.includes(" ") && s.includes("@")) {
+    const token = s
+      .split(/\s+/)
+      .reverse()
+      .find((t) => t.includes("@"));
+    if (token) s = token.replace(/^["']+|["']+$/g, "").trim();
+  }
+  return s.toLowerCase();
+}
+
+/** Severity score for merging duplicate suppression rows (higher wins). */
+export function suppressionSeverity(row: {
+  suppressed?: boolean | null;
+  permanent?: boolean | null;
+  reason?: string | null;
+  consecutiveSoftFailures?: number | null;
+}): number {
+  let score = 0;
+  if (row.suppressed) score += 100;
+  if (row.permanent) score += 50;
+  if (row.reason === "complaint") score += 30;
+  else if (row.reason === "hard_bounce") score += 20;
+  else if (row.reason === "soft_bounce") score += 10;
+  score += Math.min(Number(row.consecutiveSoftFailures ?? 0), 99);
+  return score;
+}
+
+type MergeableSuppression = {
+  email: string;
+  suppressed: boolean;
+  permanent: boolean;
+  reason: SuppressionReason | null;
+  consecutiveSoftFailures: number;
+  lastEventType: string | null;
+  lastResendEmailId: string | null;
+  lastOutboundId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Collapse rows that share the same normalised address into one canonical row.
+ * Keeps the most severe state and the highest consecutive soft-failure count.
+ */
+export function mergeSuppressionDuplicates(
+  rows: MergeableSuppression[],
+): MergeableSuppression | null {
+  if (!rows.length) return null;
+  const normalised = rows.map((r) => ({
+    ...r,
+    email: normaliseEmail(r.email),
+  }));
+  const key = normalised[0].email;
+  if (!key || normalised.some((r) => r.email !== key)) {
+    throw new Error("mergeSuppressionDuplicates: rows must share one normalised email");
+  }
+  let best = normalised[0];
+  for (let i = 1; i < normalised.length; i++) {
+    const row = normalised[i];
+    const bestScore = suppressionSeverity(best);
+    const rowScore = suppressionSeverity(row);
+    if (
+      rowScore > bestScore ||
+      (rowScore === bestScore && String(row.updatedAt) > String(best.updatedAt))
+    ) {
+      best = {
+        ...row,
+        consecutiveSoftFailures: Math.max(
+          best.consecutiveSoftFailures,
+          row.consecutiveSoftFailures,
+        ),
+        createdAt:
+          !best.createdAt || (row.createdAt && row.createdAt < best.createdAt)
+            ? row.createdAt
+            : best.createdAt,
+      };
+    } else {
+      best = {
+        ...best,
+        consecutiveSoftFailures: Math.max(
+          best.consecutiveSoftFailures,
+          row.consecutiveSoftFailures,
+        ),
+        createdAt:
+          !best.createdAt || (row.createdAt && row.createdAt < best.createdAt)
+            ? row.createdAt
+            : best.createdAt,
+        lastResendEmailId: best.lastResendEmailId ?? row.lastResendEmailId,
+        lastOutboundId: best.lastOutboundId ?? row.lastOutboundId,
+        lastEventType: best.lastEventType ?? row.lastEventType,
+      };
+    }
+  }
+  return { ...best, email: key };
 }
 
 /**
@@ -634,7 +744,10 @@ export async function applySoftBounce(
   };
 }
 
-/** Update outbound_sends delivery fields by Resend email id (best-effort). */
+/** Update outbound_sends delivery fields by Resend email id (best-effort).
+ * Falls back to matching a normalised destination when the Resend id is missing
+ * or no row has that id yet (e.g. older sends).
+ */
 export async function markOutboundDelivery(
   sb: SupabaseClient,
   opts: {
@@ -642,18 +755,43 @@ export async function markOutboundDelivery(
     deliveryStatus: string;
     bounceType?: string | null;
     error?: string | null;
+    destination?: string | null;
   },
 ): Promise<{ id: string } | null> {
-  if (!opts.resendEmailId) return null;
+  const patch = {
+    deliveryStatus: opts.deliveryStatus,
+    bounceType: opts.bounceType ?? null,
+    deliveryUpdatedAt: new Date().toISOString(),
+    ...(opts.error ? { error: opts.error } : {}),
+  };
+
+  if (opts.resendEmailId) {
+    const { data, error } = await sb
+      .from("outbound_sends")
+      .update(patch)
+      .eq("resendEmailId", opts.resendEmailId)
+      .select("id")
+      .maybeSingle();
+    if (!error && data) return { id: String((data as { id: string }).id) };
+  }
+
+  const dest = normaliseEmail(opts.destination ?? "");
+  if (!dest) return null;
+
+  // Destination is stored as a bare lowercase address. Find the latest send.
+  const { data: rows, error: findErr } = await sb
+    .from("outbound_sends")
+    .select("id")
+    .eq("channel", "email")
+    .eq("destination", dest)
+    .order("createdAt", { ascending: false })
+    .limit(1);
+  if (findErr || !rows?.length) return null;
+  const id = String((rows[0] as { id: string }).id);
   const { data, error } = await sb
     .from("outbound_sends")
-    .update({
-      deliveryStatus: opts.deliveryStatus,
-      bounceType: opts.bounceType ?? null,
-      deliveryUpdatedAt: new Date().toISOString(),
-      ...(opts.error ? { error: opts.error } : {}),
-    })
-    .eq("resendEmailId", opts.resendEmailId)
+    .update(patch)
+    .eq("id", id)
     .select("id")
     .maybeSingle();
   if (error || !data) return null;
