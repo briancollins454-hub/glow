@@ -21,3 +21,11 @@ export function clientEmailDeliveryBadge(
   }
   return null;
 }
+
+/** Dashboard banner when the logged-in tech/staff address is failing delivery. */
+export function accountEmailDeliveryWarning(
+  account: { emailDeliveryIssue?: boolean | null } | null | undefined,
+): string | null {
+  if (!account?.emailDeliveryIssue) return null;
+  return "We're having trouble delivering email to your address";
+}

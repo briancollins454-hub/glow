@@ -180,6 +180,14 @@ export interface Tech {
   signupPartnerSlug?: string | null;
   /** When a free-month referral credit was granted to the referrer for this tech. */
   referralCreditGrantedAt?: string | null;
+  /**
+   * True when delivery to this tech's login email failed (bounce/complaint).
+   * Account addresses are never auto-suppressed — ops is alerted instead.
+   * Optional until migration 0053; missing = false.
+   */
+  emailDeliveryIssue?: boolean | null;
+  emailDeliveryIssueReason?: string | null;
+  emailDeliveryIssueAt?: string | null;
   createdAt: string;
 }
 
@@ -211,6 +219,13 @@ export interface StaffMember {
    * null / missing = use the business default. Optional until migration 0050.
    */
   minNoticeHours?: number | null;
+  /**
+   * True when delivery to this staff login email failed (bounce/complaint).
+   * Staff addresses are never auto-suppressed. Optional until migration 0053.
+   */
+  emailDeliveryIssue?: boolean | null;
+  emailDeliveryIssueReason?: string | null;
+  emailDeliveryIssueAt?: string | null;
   createdAt: string;
 }
 

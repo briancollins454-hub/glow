@@ -24,7 +24,22 @@ export type SoftBounceDecision =
       reason: "soft_bounce";
     };
 
+export type AccountEmailHit = {
+  kind: "tech" | "staff";
+  techId: string;
+  staffId?: string;
+  email: string;
+  label: string;
+};
+
+export type AccountDeliveryReason =
+  | SuppressionReason
+  | "restored_from_suppression";
+
 const SOFT_BOUNCE_SUPPRESS_AFTER = 3;
+const OPS_EMAIL = process.env.OPS_ALERT_EMAIL ?? "support@glow-uk.com";
+const ACCOUNT_ALERT_WINDOW_MS = 15 * 60 * 1000;
+const lastAccountAlert = new Map<string, number>();
 
 /** Normalise for suppression keys and lookups. */
 export function normaliseEmail(email: string): string {
@@ -91,6 +106,57 @@ function mapRow(row: Record<string, unknown>): EmailSuppression {
   };
 }
 
+/**
+ * Find salon owner (tech) or staff login rows that own this address.
+ * Suppression must never apply to these — transactional mail to the account
+ * must keep attempting delivery.
+ */
+export async function findAccountEmailsByAddress(
+  sb: SupabaseClient,
+  email: string,
+): Promise<AccountEmailHit[]> {
+  const key = normaliseEmail(email);
+  if (!key) return [];
+  const hits: AccountEmailHit[] = [];
+
+  const { data: techs } = await sb
+    .from("techs")
+    .select("id, email, businessName, name, handle")
+    .ilike("email", key);
+  for (const t of techs ?? []) {
+    hits.push({
+      kind: "tech",
+      techId: String(t.id),
+      email: key,
+      label: String(t.businessName || t.name || t.handle || t.id),
+    });
+  }
+
+  const { data: staff } = await sb
+    .from("staff_members")
+    .select("id, techId, email, name")
+    .ilike("email", key);
+  for (const s of staff ?? []) {
+    hits.push({
+      kind: "staff",
+      techId: String(s.techId),
+      staffId: String(s.id),
+      email: key,
+      label: String(s.name || s.id),
+    });
+  }
+
+  return hits;
+}
+
+export async function isTechOrStaffEmail(
+  sb: SupabaseClient,
+  email: string,
+): Promise<boolean> {
+  const hits = await findAccountEmailsByAddress(sb, email);
+  return hits.length > 0;
+}
+
 export async function getEmailSuppression(
   sb: SupabaseClient,
   email: string,
@@ -102,9 +168,49 @@ export async function getEmailSuppression(
   return mapRow(data as Record<string, unknown>);
 }
 
-/** True when sends to this address must be skipped. */
+/**
+ * Force-clear a suppression row (including permanent). Used when an account
+ * address was wrongly suppressed — permanent lock must not block restore.
+ */
+export async function clearEmailSuppression(
+  sb: SupabaseClient,
+  email: string,
+  lastEventType = "account_unsuppress",
+): Promise<void> {
+  const key = normaliseEmail(email);
+  if (!key) return;
+  const now = new Date().toISOString();
+  const existing = await getEmailSuppression(sb, key);
+  await sb.from("email_suppressions").upsert({
+    email: key,
+    suppressed: false,
+    permanent: false,
+    reason: null,
+    consecutiveSoftFailures: 0,
+    lastEventType,
+    lastResendEmailId: existing?.lastResendEmailId ?? null,
+    lastOutboundId: existing?.lastOutboundId ?? null,
+    updatedAt: now,
+    ...(existing ? {} : { createdAt: now }),
+  });
+}
+
+/** True when sends to this address must be skipped. Account emails never skip. */
 export async function isEmailSuppressed(sb: SupabaseClient, email: string): Promise<boolean> {
-  const row = await getEmailSuppression(sb, email);
+  const key = normaliseEmail(email);
+  if (!key) return false;
+
+  const hits = await findAccountEmailsByAddress(sb, key);
+  if (hits.length > 0) {
+    const row = await getEmailSuppression(sb, key);
+    if (row?.suppressed) {
+      // Defensive restore: never leave a tech/staff address on the list.
+      await restoreSuppressedAccountEmail(sb, key, hits, { alert: true });
+    }
+    return false;
+  }
+
+  const row = await getEmailSuppression(sb, key);
   return !!row?.suppressed;
 }
 
@@ -135,7 +241,8 @@ async function upsertSuppression(
     updatedAt: now,
     ...(existing ? {} : { createdAt: now }),
   };
-  // Once permanently suppressed, never clear.
+  // Once permanently suppressed, never clear (client addresses only — account
+  // restores use clearEmailSuppression which bypasses this).
   if (existing?.permanent) {
     row.suppressed = true;
     row.permanent = true;
@@ -169,6 +276,158 @@ export async function syncClientEmailFlags(
     .eq("email", key);
 }
 
+export async function flagAccountEmailDeliveryIssue(
+  sb: SupabaseClient,
+  hits: AccountEmailHit[],
+  reason: AccountDeliveryReason,
+): Promise<void> {
+  const now = new Date().toISOString();
+  for (const hit of hits) {
+    const patch = {
+      emailDeliveryIssue: true,
+      emailDeliveryIssueReason: reason,
+      emailDeliveryIssueAt: now,
+    };
+    if (hit.kind === "tech") {
+      await sb.from("techs").update(patch).eq("id", hit.techId);
+    } else if (hit.staffId) {
+      await sb.from("staff_members").update(patch).eq("id", hit.staffId);
+    }
+  }
+}
+
+async function alertOpsAccountEmailIssue(opts: {
+  email: string;
+  reason: AccountDeliveryReason;
+  hits: AccountEmailHit[];
+  event: string;
+  force?: boolean;
+}): Promise<void> {
+  const signature = `account-email:${opts.email}:${opts.reason}`;
+  const now = Date.now();
+  if (!opts.force) {
+    const last = lastAccountAlert.get(signature) ?? 0;
+    if (now - last < ACCOUNT_ALERT_WINDOW_MS) return;
+  }
+  lastAccountAlert.set(signature, now);
+
+  const lines = [
+    `Account email delivery issue (NOT suppressed)`,
+    `Email: ${opts.email}`,
+    `Reason: ${opts.reason}`,
+    `Event: ${opts.event}`,
+    `Accounts:`,
+    ...opts.hits.map(
+      (h) =>
+        `  - ${h.kind} techId=${h.techId}` +
+        (h.staffId ? ` staffId=${h.staffId}` : "") +
+        ` (${h.label})`,
+    ),
+    ``,
+    `Glow will keep attempting delivery to this address.`,
+    `Please investigate with the salon owner.`,
+  ];
+  const body = lines.join("\n");
+
+  try {
+    const { sendEmail } = await import("@/lib/email");
+    await sendEmail({
+      to: OPS_EMAIL,
+      subject: `[Glow] Account email delivery issue: ${opts.email}`,
+      html: `<pre style="font-family:monospace;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
+      text: body,
+      kind: "ops_account_email",
+      techId: opts.hits[0]?.techId ?? null,
+    });
+  } catch (err) {
+    console.error("[email-suppression] ops alert failed:", (err as Error).message);
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Flag account + alert ops. Never writes a suppression row.
+ * Also clears any existing suppression for this address.
+ */
+export async function protectAccountEmailEvent(
+  sb: SupabaseClient,
+  opts: {
+    email: string;
+    reason: SuppressionReason;
+    event: string;
+    hits: AccountEmailHit[];
+  },
+): Promise<{ suppressed: false; accountProtected: true; accountHits: AccountEmailHit[] }> {
+  const key = normaliseEmail(opts.email);
+  const existing = await getEmailSuppression(sb, key);
+  if (existing?.suppressed) {
+    await clearEmailSuppression(sb, key, "account_unsuppress");
+  }
+  await flagAccountEmailDeliveryIssue(sb, opts.hits, opts.reason);
+  await alertOpsAccountEmailIssue({
+    email: key,
+    reason: opts.reason,
+    hits: opts.hits,
+    event: opts.event,
+  });
+  return { suppressed: false, accountProtected: true, accountHits: opts.hits };
+}
+
+/** Unsuppress a wrongly listed account address, flag, and alert ops. */
+export async function restoreSuppressedAccountEmail(
+  sb: SupabaseClient,
+  email: string,
+  hits: AccountEmailHit[],
+  opts?: { alert?: boolean },
+): Promise<void> {
+  const key = normaliseEmail(email);
+  await clearEmailSuppression(sb, key, "account_unsuppress");
+  // Clear denormalised client flags if the same address was mirrored.
+  await syncClientEmailFlags(sb, key, {
+    emailSuppressed: false,
+    emailSuppressionReason: null,
+    emailSoftBounceCount: 0,
+  });
+  await flagAccountEmailDeliveryIssue(sb, hits, "restored_from_suppression");
+  if (opts?.alert !== false) {
+    await alertOpsAccountEmailIssue({
+      email: key,
+      reason: "restored_from_suppression",
+      hits,
+      event: "reconcile_suppressed_account_email",
+      force: true,
+    });
+  }
+}
+
+/**
+ * Scan suppressions for any tech/staff addresses and restore them.
+ * Safe to call from cron; alerts ops for each restored address.
+ */
+export async function reconcileSuppressedAccountEmails(
+  sb: SupabaseClient,
+): Promise<{ restored: string[] }> {
+  const restored: string[] = [];
+  const { data: rows, error } = await sb
+    .from("email_suppressions")
+    .select("email")
+    .eq("suppressed", true);
+  if (error || !rows?.length) return { restored };
+
+  for (const row of rows) {
+    const email = normaliseEmail(String(row.email ?? ""));
+    if (!email) continue;
+    const hits = await findAccountEmailsByAddress(sb, email);
+    if (!hits.length) continue;
+    await restoreSuppressedAccountEmail(sb, email, hits, { alert: true });
+    restored.push(email);
+  }
+  return { restored };
+}
+
 /** Complaint: permanent suppress + marketing opt-out on matching clients. */
 export async function applyComplaint(
   sb: SupabaseClient,
@@ -177,7 +436,28 @@ export async function applyComplaint(
     resendEmailId?: string | null;
     outboundId?: string | null;
   },
-): Promise<EmailSuppression> {
+): Promise<{
+  suppression: EmailSuppression | null;
+  suppressed: boolean;
+  accountProtected: boolean;
+  accountHits: AccountEmailHit[];
+}> {
+  const hits = await findAccountEmailsByAddress(sb, opts.email);
+  if (hits.length > 0) {
+    await protectAccountEmailEvent(sb, {
+      email: opts.email,
+      reason: "complaint",
+      event: "email.complained",
+      hits,
+    });
+    return {
+      suppression: null,
+      suppressed: false,
+      accountProtected: true,
+      accountHits: hits,
+    };
+  }
+
   const suppression = await upsertSuppression(sb, {
     email: opts.email,
     suppressed: true,
@@ -218,7 +498,12 @@ export async function applyComplaint(
     // Audit is best-effort.
   }
 
-  return suppression;
+  return {
+    suppression,
+    suppressed: true,
+    accountProtected: false,
+    accountHits: [],
+  };
 }
 
 export async function applyHardBounce(
@@ -228,7 +513,28 @@ export async function applyHardBounce(
     resendEmailId?: string | null;
     outboundId?: string | null;
   },
-): Promise<EmailSuppression> {
+): Promise<{
+  suppression: EmailSuppression | null;
+  suppressed: boolean;
+  accountProtected: boolean;
+  accountHits: AccountEmailHit[];
+}> {
+  const hits = await findAccountEmailsByAddress(sb, opts.email);
+  if (hits.length > 0) {
+    await protectAccountEmailEvent(sb, {
+      email: opts.email,
+      reason: "hard_bounce",
+      event: "email.bounced",
+      hits,
+    });
+    return {
+      suppression: null,
+      suppressed: false,
+      accountProtected: true,
+      accountHits: hits,
+    };
+  }
+
   const suppression = await upsertSuppression(sb, {
     email: opts.email,
     suppressed: true,
@@ -244,7 +550,12 @@ export async function applyHardBounce(
     emailSuppressionReason: "hard_bounce",
     emailSoftBounceCount: 0,
   });
-  return suppression;
+  return {
+    suppression,
+    suppressed: true,
+    accountProtected: false,
+    accountHits: [],
+  };
 }
 
 export async function applySoftBounce(
@@ -254,7 +565,30 @@ export async function applySoftBounce(
     resendEmailId?: string | null;
     outboundId?: string | null;
   },
-): Promise<{ suppression: EmailSuppression; newlySuppressed: boolean }> {
+): Promise<{
+  suppression: EmailSuppression | null;
+  newlySuppressed: boolean;
+  suppressed: boolean;
+  accountProtected: boolean;
+  accountHits: AccountEmailHit[];
+}> {
+  const hits = await findAccountEmailsByAddress(sb, opts.email);
+  if (hits.length > 0) {
+    await protectAccountEmailEvent(sb, {
+      email: opts.email,
+      reason: "soft_bounce",
+      event: "email.bounced",
+      hits,
+    });
+    return {
+      suppression: null,
+      newlySuppressed: false,
+      suppressed: false,
+      accountProtected: true,
+      accountHits: hits,
+    };
+  }
+
   const existing = await getEmailSuppression(sb, opts.email);
   if (existing?.permanent && existing.suppressed) {
     await syncClientEmailFlags(sb, opts.email, {
@@ -262,7 +596,13 @@ export async function applySoftBounce(
       emailSuppressionReason: existing.reason,
       emailSoftBounceCount: existing.consecutiveSoftFailures,
     });
-    return { suppression: existing, newlySuppressed: false };
+    return {
+      suppression: existing,
+      newlySuppressed: false,
+      suppressed: true,
+      accountProtected: false,
+      accountHits: [],
+    };
   }
   const decision = applySoftBounceCount({
     consecutiveSoftFailures: existing?.consecutiveSoftFailures ?? 0,
@@ -285,7 +625,13 @@ export async function applySoftBounce(
     emailSuppressionReason: suppression.reason,
     emailSoftBounceCount: suppression.consecutiveSoftFailures,
   });
-  return { suppression, newlySuppressed };
+  return {
+    suppression,
+    newlySuppressed,
+    suppressed: suppression.suppressed,
+    accountProtected: false,
+    accountHits: [],
+  };
 }
 
 /** Update outbound_sends delivery fields by Resend email id (best-effort). */

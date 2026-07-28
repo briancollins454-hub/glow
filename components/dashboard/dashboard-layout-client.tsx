@@ -50,7 +50,13 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   return (
     <>
       <DashboardTheme preference={tech.dashboardTheme} />
-      <DashboardShell tech={tech} admin={admin} role={role} staffName={staff?.name}>
+      <DashboardShell
+        tech={tech}
+        admin={admin}
+        role={role}
+        staffName={staff?.name}
+        staff={staff}
+      >
         {mustPay && !onAllowedRoute ? <DashboardPaywall tech={tech} /> : children}
       </DashboardShell>
     </>
