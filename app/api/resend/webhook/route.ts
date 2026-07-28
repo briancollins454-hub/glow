@@ -12,10 +12,11 @@ import {
 
 /**
  * Resend delivery webhooks: bounce / complaint / delayed.
- * Configure a Resend webhook for email.bounced, email.complained, and
- * email.delivery_delayed pointing at /api/resend/webhook (same
- * RESEND_WEBHOOK_SECRET as inbound, or a dedicated secret).
+ * Configure a separate Resend webhook (its own signing secret) for
+ * email.bounced, email.complained, and email.delivery_delayed → this route.
+ * Signing secret: RESEND_EVENTS_WEBHOOK_SECRET (do NOT reuse the inbound secret).
  *
+ * Inbound mail stays on /api/resend/inbound with RESEND_WEBHOOK_SECRET.
  * Accepts email.delivered_delayed as an alias for email.delivery_delayed.
  */
 
@@ -31,14 +32,29 @@ function firstRecipient(data: DeliveryEventData): string {
   return normaliseEmail(String(raw ?? ""));
 }
 
+function unauthorized(reason: string) {
+  console.error(
+    "[resend/webhook] signature failure",
+    JSON.stringify({
+      endpoint: "/api/resend/webhook",
+      reason,
+      hint: "Use RESEND_EVENTS_WEBHOOK_SECRET from the delivery-events Resend webhook, not RESEND_WEBHOOK_SECRET (inbound).",
+    }),
+  );
+  return NextResponse.json(
+    { error: "unauthorized", reason, endpoint: "/api/resend/webhook" },
+    { status: 401 },
+  );
+}
+
 export async function POST(req: Request) {
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!webhookSecret || !apiKey) {
-    return NextResponse.json({ error: "not configured" }, { status: 503 });
+  const webhookSecret = process.env.RESEND_EVENTS_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret) {
+    return unauthorized("RESEND_EVENTS_WEBHOOK_SECRET is missing");
   }
 
-  const resend = new Resend(apiKey);
+  // verify() is local (Svix); API key is unused here but Resend's ctor expects one.
+  const resend = new Resend(process.env.RESEND_API_KEY || "re_unused_for_verify");
   const payload = await req.text();
 
   let event: { type: string; data: DeliveryEventData };
@@ -52,8 +68,10 @@ export async function POST(req: Request) {
       },
       webhookSecret,
     }) as { type: string; data: DeliveryEventData };
-  } catch {
-    return NextResponse.json({ error: "invalid signature" }, { status: 400 });
+  } catch (err) {
+    return unauthorized(
+      `invalid signature: ${(err as Error)?.message || "verification failed"}`,
+    );
   }
 
   const type = event.type;
@@ -61,6 +79,7 @@ export async function POST(req: Request) {
   const isDelayed = type === "email.delivery_delayed" || type === "email.delivered_delayed";
   const handled = type === "email.bounced" || type === "email.complained" || isDelayed;
   if (!handled) {
+    // Acknowledge unknown types so Resend does not retry forever.
     return NextResponse.json({ ok: true, skipped: type });
   }
 
@@ -132,7 +151,7 @@ export async function POST(req: Request) {
       reason: suppression.reason,
     });
   } catch (err) {
-    console.error("[resend webhook]", (err as Error).message);
+    console.error("[resend/webhook] handler failed", (err as Error).message);
     try {
       const { reportError } = await import("@/lib/monitor");
       await reportError(err, { where: "resend.webhook", context: { type, resendEmailId, email } });

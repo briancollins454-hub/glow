@@ -68,5 +68,16 @@ bookings, a patch test and reminders. Reset it anytime from
    `lib/notify.ts` to Stripe / Resend / Twilio.
 4. Deploy to Vercel; the cron in `vercel.json` runs the reminder scheduler.
 
+### Resend webhooks (two separate signing secrets)
+
+Glow uses **two** Resend webhooks — each has its own Svix signing secret:
+
+| Env var | Endpoint | Events |
+|---|---|---|
+| `RESEND_WEBHOOK_SECRET` | `/api/resend/inbound` | `email.received` (support inbox forward) |
+| `RESEND_EVENTS_WEBHOOK_SECRET` | `/api/resend/webhook` | `email.bounced`, `email.complained`, `email.delivery_delayed` |
+
+Do not reuse one secret for both. A missing or wrong events secret returns **401** and logs `[resend/webhook] signature failure`.
+
 > The local JSON store is for development/demo only - serverless filesystems are
 > ephemeral, which is why production uses Supabase.
