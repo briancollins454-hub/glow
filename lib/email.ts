@@ -89,12 +89,13 @@ async function logOutbound(opts: {
   deliveryStatus?: string | null;
 }): Promise<void> {
   try {
+    const destination = normaliseEmail(opts.destination) || opts.destination.trim();
     await supabaseService()
       .from("outbound_sends")
       .insert({
         id: randomId("out"),
         channel: "email",
-        destination: opts.destination.slice(0, 320),
+        destination: destination.slice(0, 320),
         subject: opts.subject.slice(0, 500),
         kind: opts.kind ?? null,
         ok: opts.ok,
