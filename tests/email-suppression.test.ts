@@ -76,6 +76,7 @@ describe("Resend webhook + sendEmail suppression wiring", () => {
     expect(route).toContain("applySoftBounce");
     expect(route).toContain("applyComplaint");
     expect(route).toContain("markOutboundDelivery");
+    expect(route).toContain("RESEND_EVENTS_WEBHOOK_SECRET");
   });
 
   it("migration adds suppressions table and outbound resend id", () => {
