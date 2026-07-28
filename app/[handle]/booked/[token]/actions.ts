@@ -15,7 +15,7 @@ import {
 } from "@/lib/db/queries";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import { createCardCaptureCheckout, createDepositCheckout, refundOnConnect } from "@/lib/payments";
-import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
+import { isPaymentsReady, usesCardCapture, salonTakesClientPayments } from "@/lib/subscriptions";
 import type { Booking } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -43,7 +43,9 @@ export async function payDepositAction(formData: FormData) {
   if (booking.status !== "pending" || booking.depositStatus === "paid" || booking.depositPennies <= 0) {
     redirect(`/${handle}/booked/${token}`);
   }
-  if (!isPaymentsReady(tech)) redirect(`/${handle}/booked/${token}`);
+  if (!salonTakesClientPayments(tech) || !isPaymentsReady(tech)) {
+    redirect(`/${handle}/booked/${token}`);
+  }
   const service = await getService(sb, booking.serviceId);
   if (!service) redirect(`/${handle}/booked/${token}`);
   const checkoutService =
@@ -65,7 +67,11 @@ export async function saveCardAction(formData: FormData) {
   ]);
   if (!tech || !tokenBooking || tokenBooking.techId !== tech.id) redirect(`/${handle}`);
   const { primary: booking, group } = await resolvePrimary(sb, tokenBooking!);
-  if (booking.status !== "pending" || booking.cardPaymentMethodId || !usesCardCapture(tech)) {
+  if (
+    booking.status !== "pending" ||
+    booking.cardPaymentMethodId ||
+    !usesCardCapture(tech)
+  ) {
     redirect(`/${handle}/booked/${token}`);
   }
   const service = await getService(sb, booking.serviceId);

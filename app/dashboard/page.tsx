@@ -99,7 +99,8 @@ function HomeView({
     },
     {
       title: "Set up card payments (optional)",
-      detail: "Let clients pay deposits by card, straight to your bank. Skip if you prefer cash or bank transfer.",
+      detail:
+        "Connect Stripe so money can go to your bank. Connecting alone does not start charging clients — turn on Take payments from clients in Settings when you're ready. Your first payout from a new Stripe account usually takes 7 to 14 days.",
       href: "/dashboard/payments",
       done: isPaymentsReady(tech),
       cta: "Connect",

@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import type { Booking, Service, Tech } from "@/lib/db/types";
+import { salonTakesClientPayments } from "@/lib/subscriptions";
 
 // Client payments via Stripe Connect: deposits/balances are charged as DIRECT
 // charges on the tech's connected account, so funds go straight to the tech.
@@ -11,6 +12,13 @@ export const BOOKING_CHECKOUT_EXPIRES_SECONDS = 30 * 60;
 function acct(tech: Tech): { stripeAccount: string } {
   if (!tech.stripeConnectAccountId) throw new Error("Tech has no connected account");
   return { stripeAccount: tech.stripeConnectAccountId };
+}
+
+/** Reject deposit/balance checkout builders when the salon master switch is off. */
+function assertClientPaymentsAllowed(tech: Tech): void {
+  if (!salonTakesClientPayments(tech)) {
+    throw new Error("Client payments are turned off for this salon");
+  }
 }
 
 function bookingCheckoutCancelUrl(appUrl: string, tech: Tech, booking: Booking): string {
@@ -27,6 +35,7 @@ export async function createDepositCheckout(
   booking: Booking,
   appUrl: string,
 ): Promise<string> {
+  assertClientPaymentsAllowed(tech);
   const s = stripe();
   const session = await s.checkout.sessions.create(
     {
@@ -64,6 +73,7 @@ export async function createCardCaptureCheckout(
   client: { name: string; email: string },
   appUrl: string,
 ): Promise<string> {
+  // Card capture is independent of clientPaymentsEnabled — no money moves here.
   const s = stripe();
   // Explicit customer so the saved payment method is attached and reusable.
   const customer = await s.customers.create(
@@ -112,6 +122,7 @@ export async function createBalanceCheckout(
   booking: Booking,
   appUrl: string,
 ): Promise<string> {
+  assertClientPaymentsAllowed(tech);
   const s = stripe();
   const session = await s.checkout.sessions.create(
     {

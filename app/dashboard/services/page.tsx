@@ -89,6 +89,7 @@ function ServicesView({
   const productDone = searchParams.get("product");
   const batchDone = searchParams.get("batch");
   const catById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  const clientPaymentsEnabled = tech.clientPaymentsEnabled !== false;
 
   return (
     <div className="space-y-6">
@@ -242,7 +243,11 @@ function ServicesView({
           ) : (
             <>
               <p className="mb-3 text-sm text-ink-soft">New services appear on your booking page immediately.</p>
-              <ServiceForm categories={categories} staff={staff} />
+              <ServiceForm
+                categories={categories}
+                staff={staff}
+                clientPaymentsEnabled={clientPaymentsEnabled}
+              />
             </>
           )}
         </div>
@@ -288,7 +293,11 @@ function ServicesView({
                         {(s.bufferMinutes ?? 0) > 0 ? ` + ${minutesToLabel(s.bufferMinutes ?? 0)} buffer` : ""}
                         {" · "}
                         {gbp(s.pricePennies)} ·{" "}
-                        {depositFor(s) > 0 ? `${gbp(depositFor(s))} deposit` : "no deposit"}
+                        {!clientPaymentsEnabled
+                          ? "deposits off"
+                          : depositFor(s) > 0
+                            ? `${gbp(depositFor(s))} deposit`
+                            : "no deposit"}
                       </p>
                     </div>
                   </>
@@ -299,6 +308,7 @@ function ServicesView({
                   categories={categories}
                   staff={staff}
                   staffDayRules={staffDayRulesByService[s.id] ?? {}}
+                  clientPaymentsEnabled={clientPaymentsEnabled}
                 />
 
                 <div className="mt-4 border-t border-edge pt-4">

@@ -20,6 +20,7 @@ export function ServiceForm({
   categories,
   staff = [],
   staffDayRules = {},
+  clientPaymentsEnabled = true,
 }: {
   service?: Service;
   categories: ServiceCategory[];
@@ -27,6 +28,8 @@ export function ServiceForm({
   staff?: StaffMember[];
   /** staffId -> availableWeekdays for this service (when a rule exists). */
   staffDayRules?: Record<string, number[] | null>;
+  /** Salon master switch — when false, deposit fields stay editable but inactive. */
+  clientPaymentsEnabled?: boolean;
 }) {
   const s = service;
   const restrictedDays = s?.availableWeekdays?.length
@@ -100,16 +103,26 @@ export function ServiceForm({
         </div>
       </div>
 
-      <DepositFields
-        defaultType={s?.depositType ?? "percent"}
-        defaultValue={
-          s
-            ? s.depositType === "fixed"
-              ? (s.depositValue / 100).toFixed(2)
-              : String(s.depositValue)
-            : "30"
-        }
-      />
+      <div className="sm:col-span-2 space-y-2">
+        {!clientPaymentsEnabled && (
+          <p className="rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm text-ink-soft">
+            Deposits are off for this salon. Values below are kept and will apply again when you turn
+            on &ldquo;Take payments from clients&rdquo; in Settings.
+          </p>
+        )}
+        <div className={`grid gap-4 sm:grid-cols-2 ${!clientPaymentsEnabled ? "opacity-60" : ""}`}>
+          <DepositFields
+            defaultType={s?.depositType ?? "percent"}
+            defaultValue={
+              s
+                ? s.depositType === "fixed"
+                  ? (s.depositValue / 100).toFixed(2)
+                  : String(s.depositValue)
+                : "30"
+            }
+          />
+        </div>
+      </div>
 
       <label className="flex items-center gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
         <input type="checkbox" name="requiresPatchTest" defaultChecked={s?.requiresPatchTest} className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300" />

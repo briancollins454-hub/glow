@@ -36,6 +36,18 @@ export async function createOnboardingLink(accountId: string, appUrl: string): P
   return link.url;
 }
 
+/**
+ * One-time Express dashboard login link for the connected account.
+ * Single-use and short-lived — generate fresh on every click; never cache.
+ * Only call with the current tech's own stripeConnectAccountId.
+ */
+export async function createExpressLoginLink(accountId: string): Promise<string> {
+  const s = stripe();
+  const link = await s.accounts.createLoginLink(accountId);
+  if (!link.url) throw new Error("Stripe returned no login link URL");
+  return link.url;
+}
+
 /** Pull the latest capability flags from Stripe and persist them. */
 export async function syncConnectStatus(
   sb: SupabaseClient,

@@ -40,6 +40,18 @@ describe("usesCardCapture", () => {
     ).toBe(true);
   });
 
+  it("stays on when clientPaymentsEnabled is false", () => {
+    expect(
+      usesCardCapture(
+        makeTech({
+          noShowProtection: "card_capture",
+          connectChargesEnabled: true,
+          clientPaymentsEnabled: false,
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("is off without Stripe payments ready", () => {
     expect(
       usesCardCapture(makeTech({ noShowProtection: "card_capture", connectChargesEnabled: false })),

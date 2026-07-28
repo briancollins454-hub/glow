@@ -38,4 +38,21 @@ describe("buildDmQuoteCopy", () => {
     expect(copy.instagram).toContain("Can't wait!");
     expect(copy.instagram).toContain("https://glow-uk.com/q/tok");
   });
+
+  it("omits deposit wording when client payments are off", () => {
+    const copy = buildDmQuoteCopy(
+      makeTech({ businessName: "Bella Rose", clientPaymentsEnabled: false }),
+      {
+        clientName: "Sophie Turner",
+        pricePennies: 5500,
+        depositPennies: 1650,
+        note: "",
+      },
+      makeService({ name: "Classic Full Set", durationMin: 120 }),
+      [],
+      "https://glow-uk.com/q/tok",
+    );
+    expect(copy.instagram).toContain("£55.00");
+    expect(copy.instagram).not.toMatch(/deposit/i);
+  });
 });

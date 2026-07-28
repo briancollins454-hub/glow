@@ -11,7 +11,7 @@ import { sendReminder } from "@/lib/notify";
 import { randomId, randomToken } from "@/lib/ids";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, RiskTier, Service, Tech } from "@/lib/db/types";
-import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
+import { isPaymentsReady, usesCardCapture, salonTakesClientPayments } from "@/lib/subscriptions";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -314,10 +314,13 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
   if (!tech || !service || !client) throw new Error("Booking data missing");
 
   // Card capture mode: the client saves a card (via the booked page) before
-  // the booking confirms, mirroring the deposit path.
+  // the booking confirms, mirroring the deposit path. Card capture is
+  // independent of clientPaymentsEnabled; deposits are not.
+  const takeClientPay = salonTakesClientPayments(tech);
   const needsCard = usesCardCapture(tech) && !booking.cardPaymentMethodId;
-  const needsDeposit = (booking.depositPennies > 0 && isPaymentsReady(tech)) || needsCard;
-  if (needsDeposit) {
+  const needsPaymentStep =
+    (takeClientPay && booking.depositPennies > 0 && isPaymentsReady(tech)) || needsCard;
+  if (needsPaymentStep) {
     await updateBooking(sb, booking.id, { status: "pending", approvalToken: null });
     await propagateGroupStatus(sb, booking, "pending");
     const updated = { ...booking, status: "pending" as const, approvalToken: null };
@@ -937,6 +940,7 @@ export async function createPairedPatchTestBooking({
   category,
   patchSlotIso,
   staffId = null,
+  depositOverridePennies = null,
 }: {
   sb: SupabaseClient;
   tech: Tech;
@@ -946,6 +950,7 @@ export async function createPairedPatchTestBooking({
   category: { patchTestValidityDays: number } | null;
   patchSlotIso: string;
   staffId?: string | null;
+  depositOverridePennies?: number | null;
 }): Promise<Booking> {
   const { createPatchTest } = await import("@/lib/db/queries");
   const { markRetestsTestBooked } = await import("@/lib/product-change");
@@ -961,6 +966,7 @@ export async function createPairedPatchTestBooking({
     notes: "Patch test booked online with treatment",
     addons: [],
     discountPennies: 0,
+    depositOverridePennies,
   });
 
   const performed = new Date(patchSlotIso);

@@ -1,4 +1,5 @@
 import { fmtDateTime, gbp } from "@/lib/format";
+import { salonTakesClientPayments, sendsBalanceEmails } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -20,15 +21,23 @@ export function renderReminderText({ reminder, booking, client, service, tech, s
   const biz = tech?.businessName ?? "your beauty studio";
   const svc = serviceLabel ?? service?.name ?? "your appointment";
   const payUrl = `${APP_URL}/pay/${booking.balanceToken}`;
+  const takeClientPay = salonTakesClientPayments(tech);
 
   switch (reminder.kind) {
     case "confirmation":
+      if (!takeClientPay) {
+        return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Price: ${gbp(booking.pricePennies)}.`;
+      }
       return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Deposit of ${gbp(booking.depositPennies)} received - thank you. Balance due: ${gbp(booking.balancePennies)}.`;
     case "reminder_24h":
       return `Reminder: ${name}, your ${svc} with ${biz} is tomorrow (${when}). See you then! Need to rearrange? Please give notice.`;
     case "reminder_2h":
       return `Hi ${name}, just a quick reminder your ${svc} is in a couple of hours (${when}). ${biz}`;
     case "balance_request":
+      // Payment-only message — never emit pay wording when client payments / balance emails are off.
+      if (!sendsBalanceEmails(tech)) {
+        return "";
+      }
       return `Hi ${name}, your remaining balance of ${gbp(booking.balancePennies)} for your ${svc} can be paid here before your appointment: ${payUrl}`;
     case "patch_test_retest":
       return reminder.preview || `Hi ${name}, ${biz} needs you to arrange a patch test before your appointment.`;
