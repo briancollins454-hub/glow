@@ -360,6 +360,13 @@ export interface Client {
   lastNudgeAtIso: string | null;
   // PECR: opted out of marketing emails (rebooking nudges). Service emails unaffected.
   marketingOptOut: boolean;
+  /** True when this address is on the email suppression list. Optional until 0052. */
+  emailSuppressed?: boolean | null;
+  /** hard_bounce | soft_bounce | complaint */
+  emailSuppressionReason?: string | null;
+  /** Consecutive soft bounces before suppression (0–3). */
+  emailSoftBounceCount?: number | null;
+  emailLastDeliveryEventAt?: string | null;
   createdAt: string;
 }
 

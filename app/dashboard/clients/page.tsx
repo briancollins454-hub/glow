@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2, Search } from "lucide-react";
+import { Plus, ShieldAlert, AlertTriangle, ChevronRight, Upload, CheckCircle2, Search, MailWarning } from "lucide-react";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { addClientAction } from "../actions";
 import { filterClients } from "@/lib/clients/search";
+import { clientEmailDeliveryBadge } from "@/lib/email-delivery-ui";
 import type { Client } from "@/lib/db/types";
 
 type ClientsData = {
@@ -105,6 +106,7 @@ function ClientsView({ clients, visitsByClient }: ClientsData) {
           )}
           {filtered.map((c) => {
             const visits = visitsByClient[c.id] ?? 0;
+            const emailBadge = clientEmailDeliveryBadge(c);
             return (
               <Link key={c.id} href={`/dashboard/clients/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-3 transition hover:shadow-card">
                 <div className="min-w-0">
@@ -113,6 +115,11 @@ function ClientsView({ clients, visitsByClient }: ClientsData) {
                     {c.isVip && <Badge tone="purple">VIP</Badge>}
                     {c.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blocked</Badge>}
                     {!c.isBlacklisted && c.warningNote && <Badge tone="amber"><AlertTriangle className="h-3 w-3" /> Warning</Badge>}
+                    {emailBadge && (
+                      <Badge tone={emailBadge.tone}>
+                        <MailWarning className="h-3 w-3" /> {emailBadge.label}
+                      </Badge>
+                    )}
                     {c.noShowCount > 0 && <Badge tone="neutral">{c.noShowCount} no-show{c.noShowCount > 1 ? "s" : ""}</Badge>}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-ink-faint">

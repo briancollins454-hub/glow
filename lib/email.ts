@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { randomId } from "@/lib/ids";
 import { supabaseService } from "@/lib/supabase/service";
+import { isEmailSuppressed, normaliseEmail } from "@/lib/email-suppression";
 
 // Email sending via Resend. No-ops gracefully if RESEND_API_KEY isn't set, so
 // the app (and reminder scheduler) keep working without email configured.
@@ -84,6 +85,8 @@ async function logOutbound(opts: {
   error?: string | null;
   techId?: string | null;
   idempotencyKey?: string;
+  resendEmailId?: string | null;
+  deliveryStatus?: string | null;
 }): Promise<void> {
   try {
     await supabaseService()
@@ -98,6 +101,8 @@ async function logOutbound(opts: {
         error: opts.error ?? null,
         techId: opts.techId ?? null,
         idempotencyKey: opts.idempotencyKey ?? null,
+        resendEmailId: opts.resendEmailId ?? null,
+        deliveryStatus: opts.deliveryStatus ?? null,
       });
   } catch {
     // Migration may be pending.
@@ -119,9 +124,35 @@ export async function sendEmail(params: {
     console.error("[resend] skipped invalid recipient", params.to);
     return false;
   }
+
+  // Suppression list: never retry bounced / complained addresses.
+  try {
+    const sb = supabaseService();
+    if (await isEmailSuppressed(sb, params.to)) {
+      console.warn(
+        "[resend] skipped suppressed recipient",
+        JSON.stringify({ to: normaliseEmail(params.to), kind: params.kind ?? null }),
+      );
+      await logOutbound({
+        ok: false,
+        destination: params.to,
+        subject: params.subject,
+        kind: params.kind,
+        error: "suppressed",
+        techId: params.techId,
+        idempotencyKey: params.idempotencyKey,
+        deliveryStatus: "suppressed_skip",
+      });
+      return false;
+    }
+  } catch (err) {
+    // If the suppressions table is missing, continue sending rather than blocking all mail.
+    console.warn("[resend] suppression check failed:", (err as Error).message);
+  }
+
   try {
     // The Resend SDK returns { data, error } (it does not throw on API errors).
-    const { error } = await getResend().emails.send(
+    const { data, error } = await getResend().emails.send(
       {
         from: FROM,
         to: params.to,
@@ -145,6 +176,10 @@ export async function sendEmail(params: {
       });
       return false;
     }
+    const resendEmailId =
+      data && typeof data === "object" && "id" in data
+        ? String((data as { id?: string }).id ?? "")
+        : "";
     await logOutbound({
       ok: true,
       destination: params.to,
@@ -152,6 +187,8 @@ export async function sendEmail(params: {
       kind: params.kind,
       techId: params.techId,
       idempotencyKey: params.idempotencyKey,
+      resendEmailId: resendEmailId || null,
+      deliveryStatus: "accepted",
     });
     return true;
   } catch (err) {
