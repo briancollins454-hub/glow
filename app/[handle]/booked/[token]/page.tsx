@@ -163,12 +163,16 @@ export default async function BookedPage({
             <Row label="With" value={tech.businessName} />
             <hr className="border-edge" />
             <Row label="Total" value={gbp(booking.pricePennies)} />
-            {booking.cardPaymentMethodId ? (
-              <Row label="Card saved (no deposit taken)" value="✓" />
-            ) : (
-              <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
+            {takeClientPay && (
+              <>
+                {booking.cardPaymentMethodId ? (
+                  <Row label="Card saved (no deposit taken)" value="✓" />
+                ) : (
+                  <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
+                )}
+                <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
+              </>
             )}
-            <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
             {(cancelled || booking.status === "cancelled") && (
               <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-300">
                 <XCircle className="h-4 w-4" /> This booking has been cancelled.
@@ -219,11 +223,13 @@ export default async function BookedPage({
                 <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10">
                   <XCircle className="h-4 w-4" /> Cancel booking
                 </button>
-                <p className="mt-2 text-center text-xs text-ink-faint">
-                  {usesCardCapture(tech)
-                    ? `Cancellations inside ${tech.cancellationWindowHours}h may charge your saved card.`
-                    : `Cancellations inside ${tech.cancellationWindowHours}h may forfeit your deposit.`}
-                </p>
+                {takeClientPay && (
+                  <p className="mt-2 text-center text-xs text-ink-faint">
+                    {usesCardCapture(tech)
+                      ? `Cancellations inside ${tech.cancellationWindowHours}h may charge your saved card.`
+                      : `Cancellations inside ${tech.cancellationWindowHours}h may forfeit your deposit.`}
+                  </p>
+                )}
               </form>
             )}
             <Link href={`/${tech.handle}`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-sm font-medium text-ink-soft hover:bg-fill-hover">Back to {tech.businessName}</Link>

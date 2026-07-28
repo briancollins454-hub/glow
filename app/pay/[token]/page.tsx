@@ -47,7 +47,8 @@ export default async function PayPage({
   const service = await getService(sb, booking.serviceId);
   const brand = heroBrand(tech?.brandColor || "#db2777");
   const settled = booking.balanceStatus === "paid" || booking.balancePennies === 0;
-  const canPayOnline = !!tech && salonTakesClientPayments(tech) && !!tech.stripeConnectAccountId;
+  const takeClientPay = !!tech && salonTakesClientPayments(tech);
+  const canPayOnline = takeClientPay && !!tech.stripeConnectAccountId;
 
   if (sp.err === "rate") {
     return (
@@ -73,8 +74,12 @@ export default async function PayPage({
             <Row label="Appointment" value={fmtDateTime(booking.startIso)} />
             <hr className="border-edge" />
             <Row label="Total" value={gbp(booking.pricePennies)} />
-            <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${gbp(booking.depositPennies)}` : "-"} />
-            <Row label="Balance" value={gbp(booking.balancePennies)} strong />
+            {takeClientPay ? (
+              <>
+                <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${gbp(booking.depositPennies)}` : "-"} />
+                <Row label="Balance" value={gbp(booking.balancePennies)} strong />
+              </>
+            ) : null}
             {sp.err === "unavailable" && (
               <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                 Online balance payment isn&apos;t available for this studio. Please pay on the day.
@@ -89,7 +94,9 @@ export default async function PayPage({
               </form>
             ) : (
               <p className="rounded-xl bg-fill px-4 py-3 text-center text-sm text-ink-soft">
-                Please pay the balance on the day with {tech?.businessName ?? "the studio"}.
+                {takeClientPay
+                  ? `Please pay the balance on the day with ${tech?.businessName ?? "the studio"}.`
+                  : `Please settle up on the day with ${tech?.businessName ?? "the studio"}.`}
               </p>
             )}
           </div>

@@ -21,7 +21,7 @@ export type DmQuoteCopy = {
 };
 
 export function buildDmQuoteCopy(
-  tech: Pick<Tech, "businessName" | "name">,
+  tech: Pick<Tech, "businessName" | "name"> & { clientPaymentsEnabled?: boolean | null },
   quote: Pick<DmQuoteLink, "clientName" | "pricePennies" | "depositPennies" | "note">,
   service: Pick<Service, "name" | "durationMin">,
   addons: BookingAddon[],
@@ -32,7 +32,7 @@ export function buildDmQuoteCopy(
   const addonLine =
     addons.length > 0 ? `\nIncludes: ${addons.map((a) => a.name).join(", ")}` : "";
   const depositLine =
-    quote.depositPennies > 0
+    quote.depositPennies > 0 && tech.clientPaymentsEnabled !== false
       ? `\n${gbp(quote.depositPennies)} deposit secures your slot.`
       : "";
   const noteLine = quote.note?.trim() ? `\n\n${quote.note.trim()}` : "";

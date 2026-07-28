@@ -371,3 +371,117 @@ describe("chargeCardProtectionFee respects clientPaymentsEnabled", () => {
     expect(chargeNoShowFeeMock).not.toHaveBeenCalled();
   });
 });
+
+describe("client-facing messaging when clientPaymentsEnabled is false", () => {
+  const booking = makeBooking({
+    depositPennies: 1500,
+    balancePennies: 3500,
+    pricePennies: 5000,
+    balanceToken: "tok_bal",
+  });
+  const client = makeClient({ name: "Sophie Turner" });
+  const service = makeService({ name: "Classic Full Set" });
+  const baseReminder = {
+    id: "rem_1",
+    techId: "tech_1",
+    bookingId: booking.id,
+    clientId: client.id,
+    channel: "email" as const,
+    sendAtIso: "2026-06-01T00:00:00.000Z",
+    status: "pending" as const,
+    preview: "",
+    sentAtIso: null,
+    createdAt: "2026-05-01T00:00:00.000Z",
+  };
+
+  it("confirmation has no pay link or amount-due wording when switch is off", async () => {
+    const { renderReminderText } = await import("@/lib/reminder-copy");
+    const off = makeTech({ clientPaymentsEnabled: false, businessName: "Bella Rose Beauty" });
+    const text = renderReminderText({
+      reminder: { ...baseReminder, kind: "confirmation" },
+      booking,
+      client,
+      service,
+      tech: off,
+    });
+    expect(text).toContain("Classic Full Set");
+    expect(text).toContain("Price:");
+    expect(text).toContain("£50.00");
+    expect(text).not.toMatch(/deposit|balance due|pay |\/pay\//i);
+  });
+
+  it("confirmation keeps deposit/balance wording when switch is on", async () => {
+    const { renderReminderText } = await import("@/lib/reminder-copy");
+    const on = makeTech({ clientPaymentsEnabled: true, businessName: "Bella Rose Beauty" });
+    const text = renderReminderText({
+      reminder: { ...baseReminder, kind: "confirmation" },
+      booking,
+      client,
+      service,
+      tech: on,
+    });
+    expect(text).toContain("Deposit of");
+    expect(text).toContain("Balance due:");
+  });
+
+  it("reminders contain no payment content", async () => {
+    const { renderReminderText } = await import("@/lib/reminder-copy");
+    const off = makeTech({ clientPaymentsEnabled: false });
+    for (const kind of ["reminder_24h", "reminder_2h"] as const) {
+      const text = renderReminderText({
+        reminder: { ...baseReminder, kind },
+        booking,
+        client,
+        service,
+        tech: off,
+      });
+      expect(text).not.toMatch(/deposit|balance|pay |\/pay\//i);
+    }
+  });
+
+  it("balance_request text is empty when switch is off (payment-only chaser)", async () => {
+    const { renderReminderText } = await import("@/lib/reminder-copy");
+    const off = makeTech({ clientPaymentsEnabled: false });
+    const text = renderReminderText({
+      reminder: { ...baseReminder, kind: "balance_request" },
+      booking,
+      client,
+      service,
+      tech: off,
+    });
+    expect(text).toBe("");
+  });
+
+  it("balance_request text is unchanged when switch is on", async () => {
+    const { renderReminderText } = await import("@/lib/reminder-copy");
+    const on = makeTech({ clientPaymentsEnabled: true });
+    const text = renderReminderText({
+      reminder: { ...baseReminder, kind: "balance_request" },
+      booking,
+      client,
+      service,
+      tech: on,
+    });
+    expect(text).toMatch(/remaining balance/i);
+    expect(text).toContain("/pay/");
+  });
+
+  it("notify confirmation email strips payment copy when off; sendReminder skips chasers", () => {
+    const notify = read("lib/notify.ts");
+    expect(notify).toContain("salonTakesClientPayments(tech)");
+    expect(notify).toMatch(/Price: \$\{gbp\(booking\.pricePennies\)\}/);
+    expect(notify).toContain('reminder.kind === "balance_request" && !sendsBalanceEmails(tech)');
+    expect(notify).toContain("Balance request skipped — client payments off");
+    // Approval email never asks for deposit/card when switch is off.
+    expect(notify).toMatch(/takeClientPay && booking\.status === "pending" && booking\.depositPennies > 0/);
+  });
+
+  it("requested and manage-booking pages suppress payment promises when off", () => {
+    expect(read("app/[handle]/requested/[token]/page.tsx")).toContain(
+      "You'll get an email once they've reviewed it.",
+    );
+    const booked = read("app/[handle]/booked/[token]/page.tsx");
+    expect(booked).toContain("takeClientPay && (");
+    expect(booked).toContain("Balance due on the day");
+  });
+});

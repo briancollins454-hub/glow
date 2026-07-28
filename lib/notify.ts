@@ -5,7 +5,7 @@ import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsConfigured, techAllowsSms } from "@/lib/sms";
-import { sendsBalanceEmails } from "@/lib/subscriptions";
+import { sendsBalanceEmails, salonTakesClientPayments } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 import { renderReminderText } from "@/lib/reminder-copy";
 
@@ -55,11 +55,16 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
   switch (reminder.kind) {
     case "confirmation":
       heading = "You're booked in!";
-      bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Deposit paid: ${gbp(booking.depositPennies)}<br/>Balance due on the day: <strong>${gbp(booking.balancePennies)}</strong>`;
-      // Salons that settle in person hide the pay-early button (Settings toggle).
-      if (booking.balancePennies > 0 && sendsBalanceEmails(tech)) {
-        buttonLabel = "Pay balance early";
-        buttonUrl = payUrl;
+      if (!salonTakesClientPayments(tech)) {
+        // Salon master switch off: appointment + price only — no deposit/balance/pay copy.
+        bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Price: ${gbp(booking.pricePennies)}`;
+      } else {
+        bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Deposit paid: ${gbp(booking.depositPennies)}<br/>Balance due on the day: <strong>${gbp(booking.balancePennies)}</strong>`;
+        // Salons that settle in person hide the pay-early button (Settings toggle).
+        if (booking.balancePennies > 0 && sendsBalanceEmails(tech)) {
+          buttonLabel = "Pay balance early";
+          buttonUrl = payUrl;
+        }
       }
       break;
     case "reminder_24h":
@@ -71,6 +76,13 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
       bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is in about 2 hours (${when}). See you soon!`;
       break;
     case "balance_request":
+      // Payment-only — callers / scheduler must skip when client payments are off.
+      // If we still render, keep empty so no pay wording leaks.
+      if (!sendsBalanceEmails(tech)) {
+        heading = "";
+        bodyHtml = "";
+        break;
+      }
       heading = "Your balance is ready to pay";
       bodyHtml = `Hi ${name},<br/><br/>Your remaining balance for <strong>${svc}</strong> is <strong>${gbp(booking.balancePennies)}</strong>. You can pay it securely before your appointment.`;
       buttonLabel = `Pay ${gbp(booking.balancePennies)}`;
@@ -317,6 +329,16 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
   }
 
   const ctx: Ctx = { reminder, booking, client, service, tech, serviceLabel };
+
+  // Payment-only chaser: never send when the salon switch (or balance-emails toggle) is off.
+  if (reminder.kind === "balance_request" && !sendsBalanceEmails(tech)) {
+    await markReminder(sb, reminder.id, {
+      status: "skipped",
+      preview: "Balance request skipped — client payments off",
+    });
+    return false;
+  }
+
   const text = renderReminderText(ctx);
   const { subject, html } = renderReminderEmail(ctx);
 
@@ -577,10 +599,16 @@ export async function notifyClientBookingApproved(
   const when = fmtDateTime(booking.startIso);
   const actionUrl = `${APP_URL}/${tech.handle}/booked/${booking.balanceToken}`;
 
-  const needsDeposit = booking.status === "pending" && booking.depositPennies > 0;
+  // Salon switch off: never ask for a deposit or card — confirmation only.
+  const takeClientPay = salonTakesClientPayments(tech);
+  const needsDeposit =
+    takeClientPay && booking.status === "pending" && booking.depositPennies > 0;
   // Card capture mode: approved bookings stay pending until a card is saved.
   const needsCard =
-    booking.status === "pending" && !needsDeposit && !booking.cardPaymentMethodId;
+    takeClientPay &&
+    booking.status === "pending" &&
+    !needsDeposit &&
+    !booking.cardPaymentMethodId;
   const html = brandedEmail({
     brand,
     businessName: biz,
