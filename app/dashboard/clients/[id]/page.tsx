@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ShieldAlert, ShieldCheck, Plus, ImagePlus, Trash2, MessageSquare, FileDown } from "lucide-react";
+import { ArrowLeft, ShieldAlert, ShieldCheck, Plus, ImagePlus, Trash2, MessageSquare, FileDown, MailWarning } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
 import {
   bookingsForClient,
@@ -19,6 +19,7 @@ import { signedPhotoUrls } from "@/lib/storage";
 import { RemoteImage } from "@/components/ui/remote-image";
 import { ImageFileInput } from "@/components/ui/image-file-input";
 import { isLive } from "@/lib/subscriptions";
+import { clientEmailDeliveryBadge } from "@/lib/email-delivery-ui";
 import { uploadPhotoAction, deletePhotoAction } from "../../actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ export default async function ClientDetailPage({
     })
     .filter((o): o is NonNullable<typeof o> => o != null);
   const todayStr = new Date().toISOString().slice(0, 10);
+  const emailBadge = clientEmailDeliveryBadge(client);
 
   return (
     <div className="space-y-6">
@@ -98,6 +100,11 @@ export default async function ClientDetailPage({
         <h1 className="font-display text-2xl font-semibold">{client.name}</h1>
         {client.isVip && <Badge tone="purple">VIP</Badge>}
         {client.isBlacklisted && <Badge tone="red"><ShieldAlert className="h-3 w-3" /> Blocked</Badge>}
+        {emailBadge && (
+          <Badge tone={emailBadge.tone}>
+            <MailWarning className="h-3 w-3" /> {emailBadge.label}
+          </Badge>
+        )}
         {client.noShowCount > 0 && <Badge tone="amber">{client.noShowCount} no-show{client.noShowCount > 1 ? "s" : ""}</Badge>}
         <a
           href={`/api/clients/${client.id}/evidence-pack`}
@@ -130,7 +137,17 @@ export default async function ClientDetailPage({
               <input type="hidden" name="id" value={client.id} />
               <div><Label>Name</Label><Input name="name" defaultValue={client.name} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Email</Label><Input name="email" type="email" defaultValue={client.email} /></div>
+                <div>
+                  <Label>Email</Label>
+                  <Input name="email" type="email" defaultValue={client.email} />
+                  {emailBadge && (
+                    <p className="mt-1.5 text-xs text-amber-700">
+                      {client.emailSuppressed
+                        ? "Glow has stopped emailing this address because it bounces or was marked as spam. Update it to a working inbox, then ask support if you need the block cleared."
+                        : "Recent emails to this address bounced. Check the spelling before their next booking."}
+                    </p>
+                  )}
+                </div>
                 <div><Label>Phone</Label><Input name="phone" defaultValue={client.phone} /></div>
               </div>
               <div><Label>Notes</Label><Textarea name="notes" defaultValue={client.notes} placeholder="Preferences, allergies, etc." /></div>
