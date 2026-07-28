@@ -70,7 +70,6 @@ export async function saveCardAction(formData: FormData) {
   if (
     booking.status !== "pending" ||
     booking.cardPaymentMethodId ||
-    !salonTakesClientPayments(tech) ||
     !usesCardCapture(tech)
   ) {
     redirect(`/${handle}/booked/${token}`);

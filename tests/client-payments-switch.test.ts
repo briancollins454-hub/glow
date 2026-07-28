@@ -65,20 +65,20 @@ describe("salonTakesClientPayments / clientOnlinePaymentsActive", () => {
     expect(clientOnlinePaymentsActive(noConnect)).toBe(false);
   });
 
-  it("card capture and balance emails respect the switch", () => {
+  it("card capture and balance emails: capture independent of switch; balance emails respect it", () => {
     const connectedCapture = makeTech({
       connectChargesEnabled: true,
       noShowProtection: "card_capture",
       clientPaymentsEnabled: false,
     });
-    expect(usesCardCapture(connectedCapture)).toBe(false);
+    expect(usesCardCapture(connectedCapture)).toBe(true);
     expect(sendsBalanceEmails({ balanceEmailsEnabled: true, clientPaymentsEnabled: false })).toBe(
       false,
     );
   });
 });
 
-describe("checkout builders reject when client payments are off", () => {
+describe("checkout builders reject deposit/balance when client payments are off", () => {
   const service = makeService();
   const booking = makeBooking({ depositPennies: 1500, balancePennies: 3500 });
   const client = makeClient();
@@ -101,11 +101,12 @@ describe("checkout builders reject when client payments are off", () => {
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 
-  it("createCardCaptureCheckout throws", async () => {
-    await expect(
-      createCardCaptureCheckout(off, service, booking, client, "https://app.example"),
-    ).rejects.toThrow(/Client payments are turned off/i);
-    expect(createSessionMock).not.toHaveBeenCalled();
+  it("createCardCaptureCheckout still works when switch is off", async () => {
+    createCustomerMock.mockResolvedValue({ id: "cus_1" });
+    createSessionMock.mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/cs_card" });
+    const url = await createCardCaptureCheckout(off, service, booking, client, "https://app.example");
+    expect(url).toContain("checkout.stripe.com");
+    expect(createSessionMock).toHaveBeenCalled();
   });
 
   it("createBalanceCheckout throws", async () => {
@@ -115,7 +116,8 @@ describe("checkout builders reject when client payments are off", () => {
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 
-  it("chargeNoShowFee rejects without charging", async () => {
+  it("chargeNoShowFee still charges when switch is off", async () => {
+    createPaymentIntentMock.mockResolvedValue({ status: "succeeded", id: "pi_ns" });
     const result = await chargeNoShowFee(
       off,
       {
@@ -125,9 +127,8 @@ describe("checkout builders reject when client payments are off", () => {
       },
       2500,
     );
-    expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/Client payments are turned off/i);
-    expect(createPaymentIntentMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, paymentIntentId: "pi_ns" });
+    expect(createPaymentIntentMock).toHaveBeenCalled();
   });
 
   it("with switch on, deposit checkout still creates a session", async () => {
@@ -264,20 +265,27 @@ describe("Stripe Express login link", () => {
 });
 
 describe("write-path and UI guards when client payments are off", () => {
-  it("public booking actions zero deposit and use clientOnlinePaymentsActive", () => {
+  it("public booking actions zero deposit; card capture still starts without the switch", () => {
     const actions = read("app/[handle]/actions.ts");
     expect(actions).toContain("salonTakesClientPayments");
     expect(actions).toContain("clientOnlinePaymentsActive");
-    expect(actions).toMatch(/depositOverridePennies:.*!takeClientPay|zeroClientPay \? 0/);
-    expect(actions).toContain("clientOnlinePaymentsActive(tech");
+    expect(actions).toMatch(/zeroDeposit|!takeClientPay/);
+    expect(actions).toContain("startCardCheckout");
+    expect(actions).toContain("startDepositCheckout");
   });
 
-  it("payDeposit / saveCard / payBalance reject when switch is off", () => {
-    expect(read("app/[handle]/booked/[token]/actions.ts")).toContain("salonTakesClientPayments");
+  it("payDeposit / payBalance reject when switch is off; saveCard does not", () => {
+    const bookedActions = read("app/[handle]/booked/[token]/actions.ts");
+    expect(bookedActions).toContain("salonTakesClientPayments");
+    // saveCardAction must not require the client-payments switch.
+    const saveCard = bookedActions.slice(bookedActions.indexOf("export async function saveCardAction"));
+    const saveCardBody = saveCard.slice(0, saveCard.indexOf("export async function cancelClientBookingAction"));
+    expect(saveCardBody).not.toContain("salonTakesClientPayments");
+    expect(saveCardBody).toContain("usesCardCapture");
     expect(read("app/pay/actions.ts")).toContain("salonTakesClientPayments");
   });
 
-  it("manage-booking and pay pages hide client pay CTAs when off", () => {
+  it("manage-booking and pay pages hide deposit/balance CTAs when off", () => {
     const booked = read("app/[handle]/booked/[token]/page.tsx");
     expect(booked).toContain("salonTakesClientPayments");
     expect(booked).toContain("showPayBalance");
@@ -286,21 +294,23 @@ describe("write-path and UI guards when client payments are off", () => {
     expect(pay).toContain("canPayOnline");
   });
 
-  it("approveBookingRequest does not send clients to pay when switch is off", () => {
+  it("approveBookingRequest skips deposits when switch is off but keeps card capture", () => {
     const bookings = read("lib/bookings.ts");
     expect(bookings).toContain("salonTakesClientPayments");
     expect(bookings).toMatch(/takeClientPay && booking\.depositPennies > 0/);
+    expect(bookings).toMatch(/needsCard = usesCardCapture\(tech\)/);
   });
 
-  it("card protection skips when switch is off", () => {
+  it("card protection is not gated by the client-payments switch", () => {
     const src = read("lib/card-protection.ts");
-    expect(src).toContain("client_payments_disabled");
-    expect(src).toContain("salonTakesClientPayments");
+    expect(src).not.toContain("client_payments_disabled");
+    expect(src).not.toContain("salonTakesClientPayments");
   });
 
   it("settings exposes the master switch and the action saves it", () => {
     expect(read("app/dashboard/settings/page.tsx")).toContain('name="clientPaymentsEnabled"');
     expect(read("app/dashboard/settings/page.tsx")).toContain("Take payments from clients");
+    expect(read("app/dashboard/settings/page.tsx")).toContain("Card-on-file protection");
     expect(read("app/dashboard/actions.ts")).toContain(
       'clientPaymentsEnabled: formData.get("clientPaymentsEnabled") === "on"',
     );
@@ -327,33 +337,34 @@ describe("write-path and UI guards when client payments are off", () => {
   it("migration adds the column defaulting to on", () => {
     const sql = read("supabase/migrations/0051_client_payments_enabled.sql");
     expect(sql).toMatch(/clientPaymentsEnabled" boolean not null default true/);
+    expect(sql).toMatch(/Card capture and no-show fees are independent/i);
   });
 });
 
-describe("chargeCardProtectionFee respects clientPaymentsEnabled", () => {
+describe("chargeCardProtectionFee ignores clientPaymentsEnabled", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
   });
 
-  it("skips when salon switch is off even with a saved card", async () => {
-    const chargeNoShowFeeMock = vi.fn();
+  it("still charges when salon switch is off if a card is on file", async () => {
+    const chargeNoShowFeeMock = vi.fn(async () => ({ ok: true, paymentIntentId: "pi_ns" }));
+    const createPayment = vi.fn(async () => undefined);
+    const createAuditEvent = vi.fn(async () => undefined);
     vi.doMock("@/lib/payments", () => ({ chargeNoShowFee: chargeNoShowFeeMock }));
-    vi.doMock("@/lib/db/queries", () => ({
-      createPayment: vi.fn(),
-      createAuditEvent: vi.fn(),
-    }));
+    vi.doMock("@/lib/db/queries", () => ({ createPayment, createAuditEvent }));
 
     const { chargeCardProtectionFee } = await import("@/lib/card-protection");
+    const tech = makeTech({
+      stripeConnectAccountId: "acct_1",
+      connectChargesEnabled: true,
+      clientPaymentsEnabled: false,
+      noShowFeeType: "percent",
+      noShowFeeValue: 100,
+    });
     const result = await chargeCardProtectionFee(
       {} as never,
-      makeTech({
-        stripeConnectAccountId: "acct_1",
-        connectChargesEnabled: true,
-        clientPaymentsEnabled: false,
-        noShowFeeType: "percent",
-        noShowFeeValue: 100,
-      }),
+      tech,
       {
         id: "bk_off",
         techId: "tech_1",
@@ -364,11 +375,11 @@ describe("chargeCardProtectionFee respects clientPaymentsEnabled", () => {
       "no_show",
     );
     expect(result).toEqual({
-      outcome: "skipped",
-      amountPennies: 0,
-      reason: "client_payments_disabled",
+      outcome: "charged",
+      amountPennies: 5000,
+      paymentIntentId: "pi_ns",
     });
-    expect(chargeNoShowFeeMock).not.toHaveBeenCalled();
+    expect(chargeNoShowFeeMock).toHaveBeenCalled();
   });
 });
 
@@ -472,16 +483,17 @@ describe("client-facing messaging when clientPaymentsEnabled is false", () => {
     expect(notify).toMatch(/Price: \$\{gbp\(booking\.pricePennies\)\}/);
     expect(notify).toContain('reminder.kind === "balance_request" && !sendsBalanceEmails(tech)');
     expect(notify).toContain("Balance request skipped — client payments off");
-    // Approval email never asks for deposit/card when switch is off.
+    // Approval email: deposits gated by switch; card capture independent.
     expect(notify).toMatch(/takeClientPay && booking\.status === "pending" && booking\.depositPennies > 0/);
+    expect(notify).toMatch(/needsCard =\s*usesCardCapture\(tech\)/);
   });
 
-  it("requested and manage-booking pages suppress payment promises when off", () => {
+  it("requested and manage-booking pages suppress deposit promises when off", () => {
     expect(read("app/[handle]/requested/[token]/page.tsx")).toContain(
       "You'll get an email once they've reviewed it.",
     );
     const booked = read("app/[handle]/booked/[token]/page.tsx");
-    expect(booked).toContain("takeClientPay && (");
+    expect(booked).toContain("takeClientPay ? (");
     expect(booked).toContain("Balance due on the day");
   });
 });

@@ -25,8 +25,10 @@ export function isPaymentsReady(tech: Pick<Tech, "connectChargesEnabled">): bool
 }
 
 /**
- * Salon master switch: when false, clients are never asked to pay online
- * (even if Stripe is connected and services have deposits configured).
+ * Salon master switch for client-initiated payments (deposits + balance pay).
+ * When false, clients are never asked to pay online — even if Stripe is connected
+ * and services have deposits configured. Card-on-file capture and no-show fees
+ * are independent (see usesCardCapture / card-protection settings).
  * Missing / null = on (pre-0051 migration).
  */
 export function salonTakesClientPayments(
@@ -37,25 +39,21 @@ export function salonTakesClientPayments(
 
 /**
  * True when this tech protects against no-shows by saving the client's card at
- * booking (nothing charged upfront) instead of taking a deposit. Only takes
- * effect when the salon takes client payments and Stripe is ready.
+ * booking (nothing charged upfront) instead of taking a deposit. Independent of
+ * clientPaymentsEnabled — only needs card-capture mode and Stripe ready.
  */
 export function usesCardCapture(
   tech: Pick<Tech, "connectChargesEnabled"> & {
     noShowProtection?: Tech["noShowProtection"];
-    clientPaymentsEnabled?: boolean | null;
   },
 ): boolean {
-  return (
-    tech.noShowProtection === "card_capture" &&
-    salonTakesClientPayments(tech) &&
-    isPaymentsReady(tech)
-  );
+  return tech.noShowProtection === "card_capture" && isPaymentsReady(tech);
 }
 
 /**
- * True when an online deposit / card-capture / balance checkout may run.
- * Requires both the salon switch and a charges-enabled Connect account.
+ * True when an online deposit or balance checkout may run.
+ * Requires both the salon client-payments switch and a charges-enabled Connect account.
+ * Card-capture setup checkouts are gated by usesCardCapture instead.
  */
 export function clientOnlinePaymentsActive(
   tech: Pick<Tech, "connectChargesEnabled"> & { clientPaymentsEnabled?: boolean | null },

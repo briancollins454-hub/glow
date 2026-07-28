@@ -14,7 +14,7 @@ function acct(tech: Tech): { stripeAccount: string } {
   return { stripeAccount: tech.stripeConnectAccountId };
 }
 
-/** Reject client checkout builders when the salon master switch is off. */
+/** Reject deposit/balance checkout builders when the salon master switch is off. */
 function assertClientPaymentsAllowed(tech: Tech): void {
   if (!salonTakesClientPayments(tech)) {
     throw new Error("Client payments are turned off for this salon");
@@ -73,7 +73,7 @@ export async function createCardCaptureCheckout(
   client: { name: string; email: string },
   appUrl: string,
 ): Promise<string> {
-  assertClientPaymentsAllowed(tech);
+  // Card capture is independent of clientPaymentsEnabled — no money moves here.
   const s = stripe();
   // Explicit customer so the saved payment method is attached and reusable.
   const customer = await s.customers.create(
@@ -264,9 +264,6 @@ export async function chargeNoShowFee(
   amountPennies: number,
   opts: { reason?: CardProtectionReason } = {},
 ): Promise<{ ok: boolean; paymentIntentId: string; error?: string }> {
-  if (!salonTakesClientPayments(tech)) {
-    return { ok: false, paymentIntentId: "", error: "Client payments are turned off for this salon" };
-  }
   if (!booking.cardCustomerId || !booking.cardPaymentMethodId) {
     return { ok: false, paymentIntentId: "", error: "No saved card" };
   }

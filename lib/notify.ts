@@ -5,7 +5,7 @@ import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsConfigured, techAllowsSms } from "@/lib/sms";
-import { sendsBalanceEmails, salonTakesClientPayments } from "@/lib/subscriptions";
+import { sendsBalanceEmails, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 import { renderReminderText } from "@/lib/reminder-copy";
 
@@ -599,13 +599,13 @@ export async function notifyClientBookingApproved(
   const when = fmtDateTime(booking.startIso);
   const actionUrl = `${APP_URL}/${tech.handle}/booked/${booking.balanceToken}`;
 
-  // Salon switch off: never ask for a deposit or card — confirmation only.
+  // Salon switch off: never ask for a deposit. Card capture is independent.
   const takeClientPay = salonTakesClientPayments(tech);
   const needsDeposit =
     takeClientPay && booking.status === "pending" && booking.depositPennies > 0;
   // Card capture mode: approved bookings stay pending until a card is saved.
   const needsCard =
-    takeClientPay &&
+    usesCardCapture(tech) &&
     booking.status === "pending" &&
     !needsDeposit &&
     !booking.cardPaymentMethodId;

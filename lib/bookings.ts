@@ -314,13 +314,13 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
   if (!tech || !service || !client) throw new Error("Booking data missing");
 
   // Card capture mode: the client saves a card (via the booked page) before
-  // the booking confirms, mirroring the deposit path.
-  // Salon switch off: confirm immediately — never send the client to pay.
+  // the booking confirms, mirroring the deposit path. Card capture is
+  // independent of clientPaymentsEnabled; deposits are not.
   const takeClientPay = salonTakesClientPayments(tech);
-  const needsCard = takeClientPay && usesCardCapture(tech) && !booking.cardPaymentMethodId;
-  const needsDeposit =
+  const needsCard = usesCardCapture(tech) && !booking.cardPaymentMethodId;
+  const needsPaymentStep =
     (takeClientPay && booking.depositPennies > 0 && isPaymentsReady(tech)) || needsCard;
-  if (needsDeposit) {
+  if (needsPaymentStep) {
     await updateBooking(sb, booking.id, { status: "pending", approvalToken: null });
     await propagateGroupStatus(sb, booking, "pending");
     const updated = { ...booking, status: "pending" as const, approvalToken: null };

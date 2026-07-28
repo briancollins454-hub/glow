@@ -322,9 +322,11 @@ export default function SettingsPage() {
                   <span className="font-medium">Take payments from clients</span>
                   <span className="mt-0.5 block text-xs text-ink-faint">
                     Turn this off if your team are self-employed and take their own payments.
-                    Clients still book as normal, they&apos;re just never asked to pay. Your
-                    service deposit settings are kept and come back when you turn this on again.
-                    Connecting Stripe alone does not start charging — this switch does.
+                    Clients still book as normal, they&apos;re just never asked to pay a deposit
+                    or balance online. Card-on-file protection (if you use it) still works
+                    separately. Your service deposit settings are kept and come back when you
+                    turn this on again. Connecting Stripe alone does not start charging clients
+                    — this switch does.
                   </span>
                 </span>
               </label>

@@ -140,9 +140,10 @@ export interface Tech {
    */
   balanceEmailsEnabled?: boolean | null;
   /**
-   * Master switch for client-initiated online payment (deposits, balance pay
-   * links, card-on-file, no-show fee charges). Off = clients book without paying;
-   * dashboard cash / settle-up still works. Optional until migration 0051; missing = on.
+   * Master switch for client-initiated online payment (deposits and balance
+   * pay links / emails). Off = clients book without paying online; card-on-file
+   * capture and no-show fees follow separate card-protection settings.
+   * Dashboard cash / settle-up still works. Optional until migration 0051; missing = on.
    */
   clientPaymentsEnabled?: boolean | null;
   /**

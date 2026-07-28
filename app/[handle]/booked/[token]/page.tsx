@@ -85,7 +85,6 @@ export default async function BookedPage({
     booking.depositPennies > 0 &&
     booking.depositStatus !== "paid";
   const needsCard =
-    takeClientPay &&
     booking.status === "pending" &&
     !needsDeposit &&
     usesCardCapture(tech) &&
@@ -163,7 +162,7 @@ export default async function BookedPage({
             <Row label="With" value={tech.businessName} />
             <hr className="border-edge" />
             <Row label="Total" value={gbp(booking.pricePennies)} />
-            {takeClientPay && (
+            {takeClientPay ? (
               <>
                 {booking.cardPaymentMethodId ? (
                   <Row label="Card saved (no deposit taken)" value="✓" />
@@ -172,7 +171,9 @@ export default async function BookedPage({
                 )}
                 <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
               </>
-            )}
+            ) : booking.cardPaymentMethodId ? (
+              <Row label="Card saved (no charge today)" value="✓" />
+            ) : null}
             {(cancelled || booking.status === "cancelled") && (
               <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-300">
                 <XCircle className="h-4 w-4" /> This booking has been cancelled.
@@ -223,7 +224,7 @@ export default async function BookedPage({
                 <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10">
                   <XCircle className="h-4 w-4" /> Cancel booking
                 </button>
-                {takeClientPay && (
+                {(takeClientPay || usesCardCapture(tech)) && (
                   <p className="mt-2 text-center text-xs text-ink-faint">
                     {usesCardCapture(tech)
                       ? `Cancellations inside ${tech.cancellationWindowHours}h may charge your saved card.`

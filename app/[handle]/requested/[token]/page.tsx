@@ -37,10 +37,10 @@ export default async function RequestedBookingPage({
   }
   const brand = heroBrand(tech.brandColor || "#db2777");
   const takeClientPay = salonTakesClientPayments(tech);
-  const nextStepCopy = !takeClientPay
-    ? "You'll get an email once they've reviewed it."
-    : usesCardCapture(tech)
-      ? "You'll get an email to save a card (nothing is charged) once approved."
+  const nextStepCopy = usesCardCapture(tech)
+    ? "You'll get an email to save a card (nothing is charged) once approved."
+    : !takeClientPay
+      ? "You'll get an email once they've reviewed it."
       : "You'll get an email to pay your deposit once approved.";
 
   return (
@@ -59,7 +59,7 @@ export default async function RequestedBookingPage({
             <Row label={serviceLabel.includes("+") ? "Treatments" : "Service"} value={serviceLabel} />
             <Row label="Requested time" value={fmtDateTime(booking.startIso)} />
             <p className="text-sm text-ink-soft">
-              {takeClientPay
+              {takeClientPay || usesCardCapture(tech)
                 ? `No payment has been taken yet. If you don't hear back, contact ${tech.businessName} directly.`
                 : `If you don't hear back, contact ${tech.businessName} directly.`}
             </p>
