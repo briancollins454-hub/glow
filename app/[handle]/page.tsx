@@ -45,7 +45,7 @@ import {
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { minNoticeFloorMs } from "@/lib/booking/min-notice";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
-import { acceptsOnlineBookings, usesCardCapture } from "@/lib/subscriptions";
+import { acceptsOnlineBookings, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
 import { gbp } from "@/lib/format";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
@@ -183,11 +183,12 @@ export default async function PublicBookingPage({
     listCategories(sb, tech.id),
     listServices(sb, tech.id, { activeOnly: true }),
   ]);
-  // Card capture mode: nothing is paid upfront (a card is saved at checkout
-  // instead), so the page must not advertise deposits. Zeroing them here keeps
-  // every deposit chip/amount downstream consistent; the booking actions
-  // re-read the DB and apply their own card-capture override.
-  const services = usesCardCapture(tech)
+  // Card capture / client-payments-off: nothing is paid upfront, so the page
+  // must not advertise deposits. Zeroing them here keeps every deposit
+  // chip/amount downstream consistent; the booking actions re-read the DB and
+  // apply their own overrides. Per-service deposit config is not cleared.
+  const hideDeposits = usesCardCapture(tech) || !salonTakesClientPayments(tech);
+  const services = hideDeposits
     ? allServices.map((s) => ({ ...s, depositType: "none" as const, depositValue: 0 }))
     : allServices;
   const selected = sp.service ? services.find((s) => s.id === sp.service) ?? null : null;
@@ -586,7 +587,15 @@ export default async function PublicBookingPage({
 
         {openingHours.length > 0 && <OpeningHours hours={openingHours} />}
 
-        <TrustStrip secureLabel={usesCardCapture(tech) ? "Secure card payments" : "Secure deposit"} />
+        <TrustStrip
+          secureLabel={
+            !salonTakesClientPayments(tech)
+              ? "Easy online booking"
+              : usesCardCapture(tech)
+                ? "Secure card payments"
+                : "Secure deposit"
+          }
+        />
 
         <BookingFooterCta
           brand={brand}

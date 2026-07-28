@@ -126,7 +126,12 @@ export async function joinWaitlistAction(formData: FormData) {
 }
 
 import { createCardCaptureCheckout, createDepositCheckout } from "@/lib/payments";
-import { isPaymentsReady, usesCardCapture, acceptsOnlineBookings } from "@/lib/subscriptions";
+import {
+  usesCardCapture,
+  acceptsOnlineBookings,
+  salonTakesClientPayments,
+  clientOnlinePaymentsActive,
+} from "@/lib/subscriptions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -425,6 +430,8 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         category,
         patchSlotIso,
         staffId: pairStaffId,
+        depositOverridePennies:
+          usesCardCapture(tech) || !salonTakesClientPayments(tech) ? 0 : null,
       });
     } catch (e) {
       if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -458,6 +465,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const manualApproval = needsManualApproval(tech, riskTier);
   const autoApproved = !manualApproval && tech.approvalMode === "rules";
   const cardCapture = usesCardCapture(tech);
+  const takeClientPay = salonTakesClientPayments(tech);
 
   if (manualApproval) {
     let pending;
@@ -473,7 +481,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         discountPennies,
         riskTier,
         pairedBookingId: patchBooking.id,
-        depositOverridePennies: cardCapture ? 0 : null,
+        depositOverridePennies: cardCapture || !takeClientPay ? 0 : null,
       });
     } catch (e) {
       if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -487,11 +495,12 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     redirect(`/${tech.handle}/requested/${pending.balanceToken}`);
   }
 
-  const deposit = cardCapture
-    ? 0
-    : bookingAmounts(service, tech, riskTier, addons, discountPennies).deposit;
+  const deposit =
+    cardCapture || !takeClientPay
+      ? 0
+      : bookingAmounts(service, tech, riskTier, addons, discountPennies).deposit;
 
-  if ((deposit > 0 || cardCapture) && isPaymentsReady(tech)) {
+  if ((deposit > 0 || cardCapture) && clientOnlinePaymentsActive(tech)) {
     let pending;
     try {
       pending = await createPendingOnlineBooking({
@@ -506,7 +515,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         riskTier,
         autoApproved,
         pairedBookingId: patchBooking.id,
-        depositOverridePennies: cardCapture ? 0 : null,
+        depositOverridePennies: cardCapture || !takeClientPay ? 0 : null,
       });
     } catch (e) {
       if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -544,6 +553,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
       riskTier,
       autoApproved,
       pairedBookingId: patchBooking.id,
+      depositOverridePennies: cardCapture || !takeClientPay ? 0 : null,
     });
   } catch (e) {
     if (isUniqueViolation(e)) redirect(`${base}&err=slot`);
@@ -771,7 +781,10 @@ export async function createPublicBookingAction(formData: FormData) {
 
   // Card capture mode: no deposit is taken; the client saves a card instead
   // and the tech can charge their no-show fee if the client doesn't turn up.
+  // Salon switch off: never request deposit / card capture (keep service deposit config).
   const cardCapture = usesCardCapture(tech!);
+  const takeClientPay = salonTakesClientPayments(tech!);
+  const zeroClientPay = cardCapture || !takeClientPay;
 
   // Stripe line-item label: name the whole visit, not just the first treatment.
   const checkoutService = isBasket
@@ -793,7 +806,7 @@ export async function createPublicBookingAction(formData: FormData) {
           addons,
           discountPennies,
           riskTier,
-          depositOverridePennies: cardCapture ? 0 : null,
+          depositOverridePennies: zeroClientPay ? 0 : null,
         });
         pending = created.primary;
       } else {
@@ -807,7 +820,7 @@ export async function createPublicBookingAction(formData: FormData) {
           addons,
           discountPennies,
           riskTier,
-          depositOverridePennies: cardCapture ? 0 : null,
+          depositOverridePennies: zeroClientPay ? 0 : null,
         });
       }
     } catch (e) {
@@ -821,7 +834,7 @@ export async function createPublicBookingAction(formData: FormData) {
     redirect(`/${tech!.handle}/requested/${pending.balanceToken}`);
   }
 
-  const deposit = cardCapture
+  const deposit = zeroClientPay
     ? 0
     : isBasket
       ? basketAmounts(basket, tech!, riskTier, addons, discountPennies).deposit
@@ -830,7 +843,8 @@ export async function createPublicBookingAction(formData: FormData) {
   // If money (deposit) or a saved card is needed and the tech can take card
   // payments, send the client to Stripe Checkout on the tech's connected
   // account. Otherwise confirm now (deposit settled in person).
-  if ((deposit > 0 || cardCapture) && isPaymentsReady(tech!)) {
+  // clientOnlinePaymentsActive requires the salon switch and Connect ready.
+  if ((deposit > 0 || cardCapture) && clientOnlinePaymentsActive(tech!)) {
     let pending;
     try {
       if (isBasket) {
@@ -846,7 +860,7 @@ export async function createPublicBookingAction(formData: FormData) {
           discountPennies,
           riskTier,
           autoApproved,
-          depositOverridePennies: cardCapture ? 0 : null,
+          depositOverridePennies: zeroClientPay ? 0 : null,
         });
         pending = created.primary;
       } else {
@@ -861,7 +875,7 @@ export async function createPublicBookingAction(formData: FormData) {
           discountPennies,
           riskTier,
           autoApproved,
-          depositOverridePennies: cardCapture ? 0 : null,
+          depositOverridePennies: zeroClientPay ? 0 : null,
         });
       }
     } catch (e) {
@@ -900,6 +914,7 @@ export async function createPublicBookingAction(formData: FormData) {
         discountPennies,
         riskTier,
         autoApproved,
+        depositOverridePennies: zeroClientPay ? 0 : null,
       });
       booking = created.primary;
     } else {
@@ -914,6 +929,7 @@ export async function createPublicBookingAction(formData: FormData) {
         discountPennies,
         riskTier,
         autoApproved,
+        depositOverridePennies: zeroClientPay ? 0 : null,
       });
     }
   } catch (e) {

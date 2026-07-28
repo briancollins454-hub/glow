@@ -19,6 +19,10 @@ export async function chargeCardProtectionFee(
   booking: Pick<Booking, "id" | "techId" | "pricePennies" | "cardCustomerId" | "cardPaymentMethodId">,
   reason: CardProtectionReason,
 ): Promise<CardProtectionCharge> {
+  const { salonTakesClientPayments } = await import("@/lib/subscriptions");
+  if (!salonTakesClientPayments(tech)) {
+    return { outcome: "skipped", amountPennies: 0, reason: "client_payments_disabled" };
+  }
   if (!booking.cardPaymentMethodId || !tech.stripeConnectAccountId) {
     return { outcome: "skipped", amountPennies: 0, reason: "no_saved_card" };
   }

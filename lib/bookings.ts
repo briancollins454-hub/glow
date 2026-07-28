@@ -11,7 +11,7 @@ import { sendReminder } from "@/lib/notify";
 import { randomId, randomToken } from "@/lib/ids";
 import { syncBookingToGoogle } from "@/lib/google-calendar";
 import type { Booking, BookingAddon, Client, RiskTier, Service, Tech } from "@/lib/db/types";
-import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
+import { isPaymentsReady, usesCardCapture, salonTakesClientPayments } from "@/lib/subscriptions";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -315,8 +315,11 @@ export async function approveBookingRequest(sb: SupabaseClient, booking: Booking
 
   // Card capture mode: the client saves a card (via the booked page) before
   // the booking confirms, mirroring the deposit path.
-  const needsCard = usesCardCapture(tech) && !booking.cardPaymentMethodId;
-  const needsDeposit = (booking.depositPennies > 0 && isPaymentsReady(tech)) || needsCard;
+  // Salon switch off: confirm immediately — never send the client to pay.
+  const takeClientPay = salonTakesClientPayments(tech);
+  const needsCard = takeClientPay && usesCardCapture(tech) && !booking.cardPaymentMethodId;
+  const needsDeposit =
+    (takeClientPay && booking.depositPennies > 0 && isPaymentsReady(tech)) || needsCard;
   if (needsDeposit) {
     await updateBooking(sb, booking.id, { status: "pending", approvalToken: null });
     await propagateGroupStatus(sb, booking, "pending");
@@ -937,6 +940,7 @@ export async function createPairedPatchTestBooking({
   category,
   patchSlotIso,
   staffId = null,
+  depositOverridePennies = null,
 }: {
   sb: SupabaseClient;
   tech: Tech;
@@ -946,6 +950,7 @@ export async function createPairedPatchTestBooking({
   category: { patchTestValidityDays: number } | null;
   patchSlotIso: string;
   staffId?: string | null;
+  depositOverridePennies?: number | null;
 }): Promise<Booking> {
   const { createPatchTest } = await import("@/lib/db/queries");
   const { markRetestsTestBooked } = await import("@/lib/product-change");
@@ -961,6 +966,7 @@ export async function createPairedPatchTestBooking({
     notes: "Patch test booked online with treatment",
     addons: [],
     discountPennies: 0,
+    depositOverridePennies,
   });
 
   const performed = new Date(patchSlotIso);

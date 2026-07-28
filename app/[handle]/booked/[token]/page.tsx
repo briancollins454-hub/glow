@@ -13,7 +13,7 @@ import { confirmCheckoutPaid, confirmCheckoutSetup, checkoutMatchesDeposit } fro
 import { applyCardCaptured, applyDepositPaid } from "@/lib/bookings";
 import { gbp, fmtDateTime, fmtTime } from "@/lib/format";
 import { cancelClientBookingAction, payDepositAction, saveCardAction } from "./actions";
-import { isPaymentsReady, usesCardCapture } from "@/lib/subscriptions";
+import { clientOnlinePaymentsActive, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
 import { noShowFeeFor } from "@/lib/rules";
 import type { Booking } from "@/lib/db/types";
 import { BookingThemedPage } from "@/components/theme/booking-themed-page";
@@ -77,9 +77,15 @@ export default async function BookedPage({
         )
       : [];
   const brand = heroBrand(tech.brandColor || "#db2777");
+  const takeClientPay = salonTakesClientPayments(tech);
+  const onlinePay = clientOnlinePaymentsActive(tech);
   const needsDeposit =
-    booking.status === "pending" && booking.depositPennies > 0 && booking.depositStatus !== "paid";
+    takeClientPay &&
+    booking.status === "pending" &&
+    booking.depositPennies > 0 &&
+    booking.depositStatus !== "paid";
   const needsCard =
+    takeClientPay &&
     booking.status === "pending" &&
     !needsDeposit &&
     usesCardCapture(tech) &&
@@ -91,6 +97,13 @@ export default async function BookedPage({
     booking.status !== "completed" &&
     booking.status !== "no_show" &&
     new Date(booking.startIso).getTime() > Date.now();
+  const showPayBalance =
+    takeClientPay &&
+    booking.status !== "cancelled" &&
+    booking.balancePennies > 0 &&
+    booking.balanceStatus !== "paid" &&
+    !needsDeposit &&
+    !needsCard;
 
   return (
     <BookingThemedPage preference={tech.bookingTheme}>
@@ -161,7 +174,7 @@ export default async function BookedPage({
                 <XCircle className="h-4 w-4" /> This booking has been cancelled.
               </div>
             )}
-            {needsDeposit && !awaitingStripeReturn && isPaymentsReady(tech) && (
+            {needsDeposit && !awaitingStripeReturn && onlinePay && (
               <form action={payDepositAction}>
                 <input type="hidden" name="handle" value={tech.handle} />
                 <input type="hidden" name="token" value={booking.balanceToken} />
@@ -191,7 +204,7 @@ export default async function BookedPage({
                 </p>
               </form>
             )}
-            {booking.status !== "cancelled" && booking.balancePennies > 0 && booking.balanceStatus !== "paid" && !needsDeposit && !needsCard && (
+            {showPayBalance && (
               <Link href={`/pay/${booking.balanceToken}`} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}>
                 <CreditCard className="h-4 w-4" /> Pay balance now (optional)
               </Link>

@@ -264,6 +264,7 @@ export async function updateSettingsAction(formData: FormData) {
     infillNudgesEnabled: formData.get("infillNudgesEnabled") === "on",
     preCareConfirmationsEnabled: formData.get("preCareConfirmationsEnabled") === "on",
     balanceEmailsEnabled: formData.get("balanceEmailsEnabled") === "on",
+    clientPaymentsEnabled: formData.get("clientPaymentsEnabled") === "on",
     // Only present when the Settings SMS control is shown (platform Twilio on).
     ...(formData.get("smsRemindersField") === "1"
       ? { smsRemindersEnabled: formData.get("smsRemindersEnabled") === "on" }

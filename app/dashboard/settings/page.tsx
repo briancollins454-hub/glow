@@ -311,6 +311,23 @@ export default function SettingsPage() {
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-3 sm:col-span-2">
               <input type="hidden" name="noShowProtectionField" value="1" />
+              <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="clientPaymentsEnabled"
+                  defaultChecked={tech.clientPaymentsEnabled !== false}
+                  className="mt-0.5 h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
+                />
+                <span>
+                  <span className="font-medium">Take payments from clients</span>
+                  <span className="mt-0.5 block text-xs text-ink-faint">
+                    Turn this off if your team are self-employed and take their own payments.
+                    Clients still book as normal, they&apos;re just never asked to pay. Your
+                    service deposit settings are kept and come back when you turn this on again.
+                    Connecting Stripe alone does not start charging — this switch does.
+                  </span>
+                </span>
+              </label>
               <p className="text-sm font-medium">How you&apos;re protected against no-shows</p>
               <label className="flex items-start gap-2.5 rounded-xl border border-edge bg-cream px-4 py-3 text-sm">
                 <input

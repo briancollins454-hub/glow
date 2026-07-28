@@ -5,6 +5,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechById } from "@/lib/db/queries";
 import { createBalanceCheckout } from "@/lib/payments";
 import { rateLimit } from "@/lib/rate-limit";
+import { salonTakesClientPayments } from "@/lib/subscriptions";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -23,7 +24,7 @@ export async function payBalanceAction(formData: FormData) {
     getTechById(sb, booking.techId),
     getService(sb, booking.serviceId),
   ]);
-  if (!tech || !service || !tech.stripeConnectAccountId) {
+  if (!tech || !service || !tech.stripeConnectAccountId || !salonTakesClientPayments(tech)) {
     redirect(`/pay/${token}?err=unavailable`);
   }
   const url = await createBalanceCheckout(tech!, service!, booking, APP_URL);
