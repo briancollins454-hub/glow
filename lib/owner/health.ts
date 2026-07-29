@@ -3,13 +3,21 @@
  * Never display a bare score without reasons.
  */
 
-import { randomId } from "@/lib/ids";
 import { supabaseService } from "@/lib/supabase/service";
 import { acceptsOnlineBookings, isLive } from "@/lib/subscriptions";
 import { planMrrPennies } from "@/lib/owner/mrr";
 import { filterOutInternal } from "@/lib/owner/internal-accounts";
 import type { Tech } from "@/lib/db/types";
 import type { FeatureFlags } from "@/lib/owner/adoption";
+
+function countByTechId(rows: { techId?: string | null }[] | null | undefined): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of rows ?? []) {
+    if (!row.techId) continue;
+    map.set(row.techId, (map.get(row.techId) ?? 0) + 1);
+  }
+  return map;
+}
 
 export type HealthReason = {
   factor: string;
@@ -254,61 +262,196 @@ export async function gatherHealthSignals(
   };
 }
 
-/** Recompute health for all non-internal techs and write daily snapshots. */
-export async function runHealthAndSnapshotJob(): Promise<{
+/**
+ * Recompute health for non-internal techs and write daily snapshots.
+ * Batched reads (not N+1 per account) so the Ops button and cron finish
+ * inside serverless time limits.
+ */
+export async function runHealthAndSnapshotJob(opts?: {
+  /** Soft cap for manual runs; cron can pass a higher limit. */
+  limit?: number;
+}): Promise<{
   updated: number;
   snapshotted: number;
   errors: number;
 }> {
   const sb = supabaseService();
-  const { data } = await sb.from("techs").select("*").limit(5000);
+  const limit = opts?.limit ?? 500;
+  const { data, error: techErr } = await sb
+    .from("techs")
+    .select(
+      "id, handle, businessName, email, plan, subscriptionStatus, bookingPageLive, blockedAt, connectChargesEnabled, lastOwnerLoginAt, emailDeliveryIssue, atRiskManual, isInternal, tagline, coverPhotoPath, profilePhotoPath, brandColor, smsRemindersEnabled, loyaltyVisitThreshold, minNoticeHours, googleConnectedAt, googleRefreshToken, noShowProtection, clientPaymentsEnabled, createdAt",
+    )
+    .order("createdAt", { ascending: false })
+    .limit(limit);
+  if (techErr) throw new Error(techErr.message);
+
   const techs = filterOutInternal((data ?? []) as Tech[], false);
-  const today = new Date().toISOString().slice(0, 10);
+  if (techs.length === 0) {
+    return { updated: 0, snapshotted: 0, errors: 0 };
+  }
+
+  const now = Date.now();
+  const d14 = new Date(now - 14 * DAY).toISOString();
+  const d28 = new Date(now - 28 * DAY).toISOString();
+  const today = new Date(now).toISOString().slice(0, 10);
+  const techIds = techs.map((t) => t.id);
+
+  // Batched signal loads (chunk .in() to stay under PostgREST URL limits).
+  const bookings14 = new Map<string, number>();
+  const bookingsPrev = new Map<string, number>();
+  const serviceCounts = new Map<string, number>();
+  const staffCounts = new Map<string, number>();
+  const hourCounts = new Map<string, number>();
+  const rotaCounts = new Map<string, number>();
+  const clientCounts = new Map<string, number>();
+
+  for (let i = 0; i < techIds.length; i += 100) {
+    const chunk = techIds.slice(i, i + 100);
+    const [b28, services, staff, hours, rota, clients] = await Promise.all([
+      sb
+        .from("bookings")
+        .select("techId, createdAt")
+        .in("techId", chunk)
+        .gte("createdAt", d28)
+        .limit(20_000),
+      sb.from("services").select("techId").in("techId", chunk).limit(20_000),
+      sb
+        .from("staff_members")
+        .select("techId")
+        .in("techId", chunk)
+        .eq("active", true)
+        .limit(20_000),
+      sb
+        .from("working_hours")
+        .select("techId")
+        .in("techId", chunk)
+        .eq("enabled", true)
+        .limit(20_000),
+      sb.from("rota_hours").select("techId").in("techId", chunk).limit(20_000),
+      sb.from("clients").select("techId").in("techId", chunk).limit(50_000),
+    ]);
+
+    for (const row of b28.data ?? []) {
+      if (!row.techId) continue;
+      if (row.createdAt >= d14) {
+        bookings14.set(row.techId, (bookings14.get(row.techId) ?? 0) + 1);
+      } else {
+        bookingsPrev.set(row.techId, (bookingsPrev.get(row.techId) ?? 0) + 1);
+      }
+    }
+    for (const [k, v] of countByTechId(services.data)) {
+      serviceCounts.set(k, (serviceCounts.get(k) ?? 0) + v);
+    }
+    for (const [k, v] of countByTechId(staff.data)) {
+      staffCounts.set(k, (staffCounts.get(k) ?? 0) + v);
+    }
+    for (const [k, v] of countByTechId(hours.data)) {
+      hourCounts.set(k, (hourCounts.get(k) ?? 0) + v);
+    }
+    for (const [k, v] of countByTechId(rota.data)) {
+      rotaCounts.set(k, (rotaCounts.get(k) ?? 0) + v);
+    }
+    for (const [k, v] of countByTechId(clients.data)) {
+      clientCounts.set(k, (clientCounts.get(k) ?? 0) + v);
+    }
+  }
+
   let updated = 0;
   let snapshotted = 0;
   let errors = 0;
 
-  const { probeFeatureFlags } = await import("@/lib/owner/adoption");
+  // Persist in small parallel batches (writes only — signals already in memory).
+  for (let i = 0; i < techs.length; i += 10) {
+    const batch = techs.slice(i, i + 10);
+    await Promise.all(
+      batch.map(async (tech) => {
+        try {
+          const serviceCount = serviceCounts.get(tech.id) ?? 0;
+          const staffCount = staffCounts.get(tech.id) ?? 0;
+          const hasRota = (rotaCounts.get(tech.id) ?? 0) > 0;
+          const hasOpeningHours = (hourCounts.get(tech.id) ?? 0) > 0;
+          const hasBranding = !!(
+            tech.tagline ||
+            tech.coverPhotoPath ||
+            tech.profilePhotoPath ||
+            (tech.brandColor && tech.brandColor !== "#C4785A" && tech.brandColor !== "#c4785a")
+          );
 
-  for (const tech of techs) {
-    try {
-      const flags = await probeFeatureFlags(tech);
-      const signals = await gatherHealthSignals(tech, { featureFlags: flags });
-      const health = computeHealthFromSignals(signals);
-      await sb
-        .from("techs")
-        .update({
-          healthScore: health.score,
-          healthBand: health.band,
-          healthReasons: health.reasons.slice(0, 8),
-        })
-        .eq("id", tech.id);
-      updated++;
+          // Lightweight adoption proxy for daily job (full matrix is on /adoption).
+          const lightFlags: FeatureFlags = {
+            deposits: false,
+            card_capture: tech.noShowProtection === "card_capture" && !!tech.connectChargesEnabled,
+            sms_reminders: !!tech.smsRemindersEnabled,
+            loyalty: (tech.loyaltyVisitThreshold ?? 0) > 0,
+            min_notice: (tech.minNoticeHours ?? 0) > 0,
+            multi_staff: staffCount > 1,
+            rota: hasRota,
+            client_payments: tech.clientPaymentsEnabled !== false && !!tech.connectChargesEnabled,
+            google_calendar: !!(tech.googleConnectedAt || tech.googleRefreshToken),
+          };
+          const flagVals = Object.values(lightFlags).filter((v) => typeof v === "boolean");
+          const featureAdoptionCount = flagVals.filter(Boolean).length;
+          const featureAdoptionTotal = flagVals.length || 1;
 
-      const snapId = `asnp_${tech.id}_${today}`;
-      const { error } = await sb.from("account_snapshots").upsert(
-        {
-          id: snapId,
-          techId: tech.id,
-          snapshotDate: today,
-          subscriptionStatus: tech.subscriptionStatus,
-          mrrPennies:
-            tech.subscriptionStatus === "active" ? planMrrPennies(tech.plan) : 0,
-          bookings14d: signals.bookings14d,
-          bookingsPrev14d: signals.bookingsPrev14d,
-          clientCount: signals.clientsNow,
-          staffCount: signals.staffCount,
-          servicesCount: signals.serviceCount,
-          bookingPageLive: signals.bookingPageLive,
-          healthScore: health.score,
-          featureFlags: flags,
-        },
-        { onConflict: "techId,snapshotDate" },
-      );
-      if (!error) snapshotted++;
-    } catch {
-      errors++;
-    }
+          const signals: HealthSignals = {
+            lastOwnerLoginAt: tech.lastOwnerLoginAt ?? null,
+            bookings14d: bookings14.get(tech.id) ?? 0,
+            bookingsPrev14d: bookingsPrev.get(tech.id) ?? 0,
+            bookingPageLive: tech.bookingPageLive !== false && acceptsOnlineBookings(tech),
+            serviceCount,
+            staffCount,
+            hasRota,
+            hasOpeningHours,
+            stripeConnected: !!tech.connectChargesEnabled,
+            hasBranding,
+            featureAdoptionCount,
+            featureAdoptionTotal,
+            emailDeliveryIssue: !!tech.emailDeliveryIssue,
+            subscriptionStatus: tech.subscriptionStatus,
+            atRiskManual: !!tech.atRiskManual,
+            clientsNow: clientCounts.get(tech.id) ?? 0,
+            clientsPrevApprox: clientCounts.get(tech.id) ?? 0,
+            nowMs: now,
+          };
+
+          const health = computeHealthFromSignals(signals);
+          const { error: upErr } = await sb
+            .from("techs")
+            .update({
+              healthScore: health.score,
+              healthBand: health.band,
+              healthReasons: health.reasons.slice(0, 8),
+            })
+            .eq("id", tech.id);
+          if (upErr) throw new Error(upErr.message);
+          updated++;
+
+          const { error: snapErr } = await sb.from("account_snapshots").upsert(
+            {
+              id: `asnp_${tech.id}_${today}`,
+              techId: tech.id,
+              snapshotDate: today,
+              subscriptionStatus: tech.subscriptionStatus,
+              mrrPennies:
+                tech.subscriptionStatus === "active" ? planMrrPennies(tech.plan) : 0,
+              bookings14d: signals.bookings14d,
+              bookingsPrev14d: signals.bookingsPrev14d,
+              clientCount: signals.clientsNow,
+              staffCount: signals.staffCount,
+              servicesCount: signals.serviceCount,
+              bookingPageLive: signals.bookingPageLive,
+              healthScore: health.score,
+              featureFlags: lightFlags,
+            },
+            { onConflict: "techId,snapshotDate" },
+          );
+          if (!snapErr) snapshotted++;
+        } catch {
+          errors++;
+        }
+      }),
+    );
   }
 
   return { updated, snapshotted, errors };

@@ -223,11 +223,46 @@ export async function setFeedbackStatusAction(formData: FormData) {
   redirect("/dashboard/admin/feedback?ok=status");
 }
 
-export async function runOwnerDailyAction() {
-  await assertNotViewAs();
-  await requireOwner();
-  const result = await runOwnerDailyJob("manual");
-  revalidatePath("/dashboard/admin");
-  revalidatePath("/dashboard/admin/ops");
-  redirect(result.ok ? "/dashboard/admin/ops?ok=owner_daily" : "/dashboard/admin/ops?err=owner_daily");
+function isNextRedirect(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "digest" in e &&
+    String((e as { digest?: unknown }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+/** Manual owner-daily from Ops. Always redirects with ok/err so the button never "does nothing". */
+export async function runOwnerDailyAction(formData: FormData) {
+  try {
+    await assertNotViewAs();
+    const { tech: admin } = await requireOwner();
+    if (String(formData.get("confirm") ?? "") !== "yes") {
+      redirect("/dashboard/admin/ops?err=confirm");
+    }
+    const result = await runOwnerDailyJob("manual");
+    await writeOwnerAudit({
+      actorEmail: admin.email,
+      action: "owner_daily_manual",
+      metadata: !result.ok
+        ? { error: result.error }
+        : "skipped" in result && result.skipped
+          ? { skipped: true, reason: result.reason }
+          : {
+              updated: "health" in result ? result.health.updated : 0,
+              snapshotted: "health" in result ? result.health.snapshotted : 0,
+              errors: "health" in result ? result.health.errors : 0,
+              smsRows: "smsRows" in result ? result.smsRows : 0,
+              durationMs: "durationMs" in result ? result.durationMs : 0,
+            },
+    });
+    revalidatePath("/dashboard/admin");
+    revalidatePath("/dashboard/admin/ops");
+    revalidatePath("/dashboard/admin/accounts");
+    redirect(result.ok ? "/dashboard/admin/ops?ok=owner_daily" : "/dashboard/admin/ops?err=owner_daily");
+  } catch (e) {
+    if (isNextRedirect(e)) throw e;
+    console.error("[runOwnerDailyAction]", (e as Error).message);
+    redirect("/dashboard/admin/ops?err=owner_daily");
+  }
 }
