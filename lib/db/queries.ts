@@ -598,7 +598,9 @@ export async function listBookings(sb: SB, techId: string): Promise<Booking[]> {
 export type RebookNudgeBooking = Pick<
   Booking,
   "id" | "clientId" | "serviceId" | "startIso" | "status"
->;
+> & {
+  importedAt?: string | null;
+};
 
 /**
  * Bookings the rebook cron needs: startIso in [fromIso, toIso], slim columns only.
@@ -616,7 +618,7 @@ export async function listRebookNudgeBookings(
   for (;;) {
     const { data, error } = await sb
       .from("bookings")
-      .select("id, clientId, serviceId, startIso, status")
+      .select("id, clientId, serviceId, startIso, status, importedAt")
       .eq("techId", techId)
       .gte("startIso", fromIso)
       .lte("startIso", toIso)
@@ -694,7 +696,7 @@ export async function listClientBookingsInRange(
   for (;;) {
     const { data, error } = await sb
       .from("bookings")
-      .select("id, clientId, serviceId, startIso, status")
+      .select("id, clientId, serviceId, startIso, status, importedAt")
       .eq("techId", techId)
       .eq("clientId", clientId)
       .gte("startIso", fromIso)
@@ -1079,13 +1081,26 @@ type BookingInsert = Omit<
   | "groupId"
   | "staffId"
   | "allowOverlap"
+  | "importedAt"
+  | "importedBalanceRequestEnabled"
 > &
-  Partial<Pick<Booking, "googleEventId" | "approvalToken" | "groupId" | "staffId" | "allowOverlap">>;
+  Partial<
+    Pick<
+      Booking,
+      | "googleEventId"
+      | "approvalToken"
+      | "groupId"
+      | "staffId"
+      | "allowOverlap"
+      | "importedAt"
+      | "importedBalanceRequestEnabled"
+    >
+  >;
 
 function prepareBookingRow(b: BookingInsert): Record<string, unknown> {
-  // groupId/staffId/allowOverlap are only included when set so bookings keep
-  // working while the matching migrations are still pending on an environment.
-  const { groupId, staffId, allowOverlap, ...rest } = b;
+  // Optional columns are only included when set so bookings keep working while
+  // matching migrations are still pending on an environment.
+  const { groupId, staffId, allowOverlap, importedAt, importedBalanceRequestEnabled, ...rest } = b;
   const row: Record<string, unknown> = {
     ...rest,
     approvalToken: b.approvalToken ?? null,
@@ -1094,6 +1109,8 @@ function prepareBookingRow(b: BookingInsert): Record<string, unknown> {
   if (groupId != null) row.groupId = groupId;
   if (staffId != null) row.staffId = staffId;
   if (allowOverlap) row.allowOverlap = true;
+  if (importedAt != null) row.importedAt = importedAt;
+  if (importedBalanceRequestEnabled) row.importedBalanceRequestEnabled = true;
   return row;
 }
 

@@ -567,6 +567,7 @@ export async function importBookingsForTech(
   let skipNoClient = 0;
   let skipDuplicate = 0;
   let staffLinked = 0;
+  let upcomingImported = 0;
   const nowMs = Date.now();
 
   type PendingBooking = Parameters<typeof createBookingsBatch>[1][number];
@@ -726,12 +727,15 @@ export async function importBookingsForTech(
       autoApproved: false,
       isPatchTest: false,
       notes: "Imported",
+      importedAt: new Date().toISOString(),
+      importedBalanceRequestEnabled: false,
       lashMap: "",
       lashCurl: "",
       lashLength: "",
       addons: [],
       discountPennies: 0,
     });
+    if (!isPast && status === "confirmed") upcomingImported++;
     queuedExact.add(exactKey);
     if (ACTIVE_SLOT_STATUSES.has(status)) queuedStaffSlot.add(staffSlotKey);
 
@@ -778,6 +782,7 @@ export async function importBookingsForTech(
     what: "appointments",
     n: imported,
     s: skipped,
+    upcoming: upcomingImported || undefined,
     skipServices: skipNoService || undefined,
     skipDupes: skipDuplicate || undefined,
   });

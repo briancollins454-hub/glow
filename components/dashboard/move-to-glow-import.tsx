@@ -5,6 +5,7 @@ import { Users, Scissors, CalendarDays, CheckCircle2, FolderInput } from "lucide
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ImportPreview } from "@/components/dashboard/import-preview";
+import { ImportedRemindersOptIn } from "@/components/dashboard/imported-reminders-opt-in";
 import { prepareCsvImportUploadAction } from "@/app/dashboard/csv-import-actions";
 import { CSV_DIRECT_UPLOAD_MAX_BYTES } from "@/lib/import/csv-source";
 import { importResultUrl } from "@/lib/import/import-url";
@@ -77,6 +78,9 @@ export function MoveToGlowImport({
   skipServices,
   skipDupes,
   noEmail,
+  upcoming,
+  remindersOptIn,
+  alreadyOptedInReminders,
 }: {
   actions: MoveToGlowImportActions;
   returnTo: string;
@@ -90,12 +94,16 @@ export function MoveToGlowImport({
   skipServices?: string | null;
   skipDupes?: string | null;
   noEmail?: string | null;
+  upcoming?: string | null;
+  remindersOptIn?: string | null;
+  alreadyOptedInReminders?: boolean;
 }) {
   const router = useRouter();
   const hidden = Object.entries(hiddenFields ?? {});
   const skipServicesN = Number(skipServices) || 0;
   const skipDupesN = Number(skipDupes) || 0;
   const noEmailN = noEmailSummary(noEmail);
+  const upcomingN = Number(upcoming) || 0;
 
   const wrap = (action: (formData: FormData) => Promise<void>) => {
     return async (formData: FormData) => {
@@ -151,6 +159,18 @@ export function MoveToGlowImport({
             </p>
           )}
         </div>
+      )}
+      {importStatus === "done" && what === "appointments" && remindersOptIn === "on" && (
+        <div className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
+          Reminder emails are on for your imported upcoming bookings. Glow will still never send
+          balance payment requests for imported bookings unless you enable them on a booking.
+        </div>
+      )}
+      {importStatus === "done" && what === "appointments" && remindersOptIn !== "on" && (
+        <ImportedRemindersOptIn
+          upcomingCount={upcoming != null && upcoming !== "" ? upcomingN : Number(n) || 0}
+          alreadyOptedIn={alreadyOptedInReminders}
+        />
       )}
       {importStatus === "badformat" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">

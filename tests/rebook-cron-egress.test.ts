@@ -87,7 +87,7 @@ describe("rebook nudge bounded queries", () => {
     await listRebookNudgeBookings(sb, "tech_1", fromIso, toIso);
 
     expect(from).toHaveBeenCalledWith("bookings");
-    expect(calls[0]?.select).toBe("id, clientId, serviceId, startIso, status");
+    expect(calls[0]?.select).toBe("id, clientId, serviceId, startIso, status, importedAt");
     expect(calls[0]?.gte).toBe(fromIso);
     expect(calls[0]?.lte).toBe(toIso);
     expect(new Date(fromIso).getTime()).toBe(now - REBOOK_MAX_GAP_DAYS * DAY);

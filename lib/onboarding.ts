@@ -78,6 +78,8 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
       `${tech.signupHeardAbout ? `Heard about us: ${tech.signupHeardAbout}\n` : ""}` +
       `\nThey have not paid yet. Owner dashboard: ${dash("/dashboard/admin")}`,
     idempotencyKey: `owner-signup/${tech.id}`,
+    techId: tech.id,
+    kind: "owner_signup_alert",
   });
 }
 
@@ -111,6 +113,8 @@ export async function sendWelcomeEmail(tech: Tech): Promise<void> {
     html,
     text: `Welcome to Glow! Your booking page: ${APP_URL}/${tech.handle}. First, activate your plan (${price} first month, then £19/mo) to unlock your tools and switch on bookings: ${APP_URL}/dashboard/billing`,
     idempotencyKey: `welcome/${tech.id}`,
+    techId: tech.id,
+    kind: "welcome",
   });
 }
 
@@ -166,6 +170,8 @@ export async function processDueOnboardingEmails(sb: SupabaseClient): Promise<nu
           html,
           text: `Your Glow page ${APP_URL}/${tech.handle} is nearly ready. Finish setting up: ${APP_URL}/dashboard`,
           idempotencyKey: `onboarding/${row.id}`,
+          techId: tech.id,
+          kind: "onboarding_nudge",
         });
         sent++;
       }

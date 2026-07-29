@@ -42,6 +42,8 @@ export async function requestPasswordReset(email: string): Promise<void> {
     html,
     text: `Reset your Glow password: ${url}\nThis link works once and expires in 1 hour. If you didn't ask for this, ignore this email.`,
     idempotencyKey: `pwreset/${tech.id}/${Date.now()}`,
+    techId: tech.id,
+    kind: "password_reset",
   });
 }
 

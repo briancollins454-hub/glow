@@ -28,7 +28,11 @@ export function normalisePhone(raw: string): string {
   return "";
 }
 
-export async function sendSms(to: string, body: string): Promise<boolean> {
+export async function sendSms(
+  to: string,
+  body: string,
+  opts?: { techId?: string | null; kind?: string | null },
+): Promise<boolean> {
   if (!smsConfigured()) return false;
   const phone = normalisePhone(to);
   if (!phone) return false;
@@ -47,10 +51,10 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
           channel: "sms",
           destination: phone.slice(0, 32),
           subject: null,
-          kind: "sms",
+          kind: opts?.kind ?? "sms",
           ok,
           error: error ?? null,
-          techId: null,
+          techId: opts?.techId ?? null,
           idempotencyKey: null,
         });
     } catch {

@@ -628,24 +628,25 @@ export async function applyBalancePaid(
 
 /** After a reschedule: drop pending reminders and re-create the timed ones. */
 export async function rescheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
-  const { skipScheduledReminders } = await import("@/lib/db/queries");
+  const { skipScheduledReminders, getTechById } = await import("@/lib/db/queries");
   await skipScheduledReminders(sb, booking.id);
   try {
     const { reschedulePreCareConfirmation } = await import("@/lib/pre-care");
-    const { getTechById } = await import("@/lib/db/queries");
     const tech = await getTechById(sb, booking.techId);
     if (tech) await reschedulePreCareConfirmation(sb, tech, booking);
   } catch {
     // Migration may be pending.
   }
+  const tech = await getTechById(sb, booking.techId).catch(() => null);
+  const { maySendClientReminder } = await import("@/lib/client-messaging");
   const startMs = new Date(booking.startIso).getTime();
 
   const remind24 = startMs - 24 * HOUR;
-  if (remind24 > Date.now()) {
+  if (remind24 > Date.now() && maySendClientReminder(tech, booking, "reminder_24h")) {
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
-      clientId: null,
+      clientId: booking.clientId,
       channel: "email",
       kind: "reminder_24h",
       sendAtIso: new Date(remind24).toISOString(),
@@ -654,25 +655,27 @@ export async function rescheduleReminders(sb: SupabaseClient, booking: Booking):
       sentAtIso: null,
     });
   }
-  if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
-    if (await balanceEmailsOnFor(sb, booking.techId)) {
-      const balanceAt = startMs - 48 * HOUR;
-      await createReminder(sb, {
-        techId: booking.techId,
-        bookingId: booking.id,
-        clientId: null,
-        channel: "email",
-        kind: "balance_request",
-        sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
-        status: "scheduled",
-        preview: "",
-        sentAtIso: null,
-      });
-    }
+  if (
+    booking.balancePennies > 0 &&
+    booking.balanceStatus !== "paid" &&
+    maySendClientReminder(tech, booking, "balance_request") &&
+    (await balanceEmailsOnFor(sb, booking.techId))
+  ) {
+    const balanceAt = startMs - 48 * HOUR;
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      clientId: booking.clientId,
+      channel: "email",
+      kind: "balance_request",
+      sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
   }
   try {
-    const { getTechById } = await import("@/lib/db/queries");
-    await syncBookingToGoogle(sb, await getTechById(sb, booking.techId), booking);
+    await syncBookingToGoogle(sb, tech, booking);
   } catch {
     // Calendar sync is best-effort.
   }
@@ -690,27 +693,34 @@ async function balanceEmailsOnFor(sb: SupabaseClient, techId: string): Promise<b
 }
 
 export async function scheduleReminders(sb: SupabaseClient, booking: Booking): Promise<void> {
+  const { getTechById } = await import("@/lib/db/queries");
+  const { maySendClientReminder } = await import("@/lib/client-messaging");
+  const tech = await getTechById(sb, booking.techId).catch(() => null);
   const startMs = new Date(booking.startIso).getTime();
 
-  const confirmation = await createReminder(sb, {
-    techId: booking.techId,
-    bookingId: booking.id,
-    clientId: null,
-    channel: "email",
-    kind: "confirmation",
-    sendAtIso: new Date().toISOString(),
-    status: "scheduled",
-    preview: "",
-    sentAtIso: null,
-  });
-  await sendReminder(sb, confirmation);
+  // Imported bookings never get an automatic confirmation (client already knew
+  // from the previous system). Opt-in only schedules timed reminders.
+  if (maySendClientReminder(tech, booking, "confirmation") && !booking.importedAt) {
+    const confirmation = await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      clientId: booking.clientId,
+      channel: "email",
+      kind: "confirmation",
+      sendAtIso: new Date().toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
+    await sendReminder(sb, confirmation);
+  }
 
   const remind24 = startMs - 24 * HOUR;
-  if (remind24 > Date.now()) {
+  if (remind24 > Date.now() && maySendClientReminder(tech, booking, "reminder_24h")) {
     await createReminder(sb, {
       techId: booking.techId,
       bookingId: booking.id,
-      clientId: null,
+      clientId: booking.clientId,
       channel: "email",
       kind: "reminder_24h",
       sendAtIso: new Date(remind24).toISOString(),
@@ -720,30 +730,73 @@ export async function scheduleReminders(sb: SupabaseClient, booking: Booking): P
     });
   }
 
-  if (booking.balancePennies > 0 && booking.balanceStatus !== "paid") {
-    if (await balanceEmailsOnFor(sb, booking.techId)) {
-      const balanceAt = startMs - 48 * HOUR;
-      await createReminder(sb, {
-        techId: booking.techId,
-        bookingId: booking.id,
-        clientId: null,
-        channel: "email",
-        kind: "balance_request",
-        sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
-        status: "scheduled",
-        preview: "",
-        sentAtIso: null,
-      });
-    }
+  if (
+    booking.balancePennies > 0 &&
+    booking.balanceStatus !== "paid" &&
+    maySendClientReminder(tech, booking, "balance_request") &&
+    (await balanceEmailsOnFor(sb, booking.techId))
+  ) {
+    const balanceAt = startMs - 48 * HOUR;
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      clientId: booking.clientId,
+      channel: "email",
+      kind: "balance_request",
+      sendAtIso: new Date(Math.max(balanceAt, Date.now())).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
   }
   try {
     const { schedulePreCareConfirmation } = await import("@/lib/pre-care");
-    const { getTechById } = await import("@/lib/db/queries");
-    const tech = await getTechById(sb, booking.techId);
-    if (tech) await schedulePreCareConfirmation(sb, tech, booking);
+    if (tech && maySendClientReminder(tech, booking, "reminder_24h")) {
+      await schedulePreCareConfirmation(sb, tech, booking);
+    }
   } catch {
     // Migration may be pending.
   }
+}
+
+/**
+ * After a tech opts in to reminders for imported bookings: schedule 24h
+ * reminders for upcoming imported appointments. Never schedules balance
+ * requests (those need per-booking enable).
+ */
+export async function scheduleRemindersForImportedOptIn(
+  sb: SupabaseClient,
+  techId: string,
+): Promise<number> {
+  const { listBookings, remindersForBooking } = await import("@/lib/db/queries");
+  const now = Date.now();
+  const bookings = await listBookings(sb, techId);
+  let scheduled = 0;
+  for (const booking of bookings) {
+    if (!booking.importedAt) continue;
+    if (booking.status === "cancelled" || booking.status === "no_show") continue;
+    if (new Date(booking.startIso).getTime() <= now) continue;
+    const existing = await remindersForBooking(sb, booking.id);
+    const has24 = existing.some(
+      (r) => r.kind === "reminder_24h" && r.status === "scheduled",
+    );
+    if (has24) continue;
+    const remind24 = new Date(booking.startIso).getTime() - 24 * HOUR;
+    if (remind24 <= now) continue;
+    await createReminder(sb, {
+      techId: booking.techId,
+      bookingId: booking.id,
+      clientId: booking.clientId,
+      channel: "email",
+      kind: "reminder_24h",
+      sendAtIso: new Date(remind24).toISOString(),
+      status: "scheduled",
+      preview: "",
+      sentAtIso: null,
+    });
+    scheduled++;
+  }
+  return scheduled;
 }
 
 // ---------------- Basket (multiple treatments, one visit) ----------------

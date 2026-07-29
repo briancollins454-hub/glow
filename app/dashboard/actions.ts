@@ -1894,6 +1894,26 @@ export async function importBookingsAction(formData: FormData) {
   }, "importBookingsAction");
 }
 
+/**
+ * After importing appointments: tech opts in to reminder emails for imported
+ * upcoming bookings. Never enables balance requests for those bookings.
+ */
+export async function optInImportedBookingRemindersAction() {
+  const { sb, tech } = await ctx();
+  const now = new Date().toISOString();
+  await updateTech(sb, tech.id, {
+    importedBookingRemindersOptIn: true,
+    importedBookingRemindersOptInAt: now,
+    clientMessagingConfirmedAt: tech.clientMessagingConfirmedAt ?? now,
+  });
+  invalidateDashboardTech();
+  const { scheduleRemindersForImportedOptIn } = await import("@/lib/bookings");
+  await scheduleRemindersForImportedOptIn(sb, tech.id);
+  revalidatePath("/dashboard/import");
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/import?import=done&what=appointments&reminders=on");
+}
+
 // ---------------- Client photos ----------------
 export async function uploadPhotoAction(formData: FormData) {
   const { sb, tech } = await ctx();

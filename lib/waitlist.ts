@@ -54,6 +54,8 @@ export async function notifyWaitlistForCancelledBooking(
       }),
       text: `Hi ${name}, a slot on ${niceWhen} just opened up at ${biz}. Book: ${url}`,
       idempotencyKey: `waitlist/${entry.id}/${booking.id}`,
+      techId: tech.id,
+      kind: "waitlist",
     });
     if (ok) {
       await updateWaitlistEntry(sb, entry.id, { notifiedAtIso: new Date().toISOString() });
