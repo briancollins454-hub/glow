@@ -268,6 +268,22 @@ describe("Phase 2 feedback board", () => {
   });
 });
 
+describe("Phase 2 owner daily action", () => {
+  it("manual action requires confirm and always redirects", () => {
+    const actions = readFileSync(
+      join(process.cwd(), "app/dashboard/admin/phase2-actions.ts"),
+      "utf8",
+    );
+    expect(actions).toContain("runOwnerDailyAction");
+    expect(actions).toContain('err=confirm');
+    expect(actions).toContain("isNextRedirect");
+    expect(actions).toContain("owner_daily_manual");
+    const health = readFileSync(join(process.cwd(), "lib/owner/health.ts"), "utf8");
+    expect(health).toContain("Batched reads");
+    expect(health).not.toContain("probeFeatureFlags(tech)");
+  });
+});
+
 describe("Phase 2 schema and routes", () => {
   it("migration 0059 and routes exist", () => {
     const mig = readFileSync(

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { runOwnerDailyJob } from "@/lib/owner/daily-job";
 
+export const maxDuration = 60;
+
 /** Daily health scores, account snapshots, SMS usage rollup. */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;

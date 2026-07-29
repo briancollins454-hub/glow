@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { fmtDateTime } from "@/lib/format";
 import { ownerRunCronAction } from "../owner-actions";
 import { runOwnerDailyAction } from "../phase2-actions";
+import { PendingSubmitButton } from "@/components/owner/pending-submit-button";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -42,16 +43,22 @@ export default async function OwnerOpsPage({
 
       {sp.ok === "cron" || sp.ok === "owner_daily" ? (
         <p className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
-          {sp.ok === "owner_daily" ? "Owner daily job finished." : "Cron run finished."}
+          {sp.ok === "owner_daily"
+            ? "Owner daily finished. Check the cron log below for updated / snapshotted counts, then open Accounts to see health scores."
+            : "Cron run finished."}
         </p>
       ) : null}
       {sp.err === "confirm" ? (
         <p className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-warning-text">
-          Type <strong>yes</strong> to confirm Run now.
+          Type <strong>yes</strong> to confirm before running.
         </p>
       ) : null}
-      {sp.err === "cron" ? (
-        <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">Cron run failed. See log below.</p>
+      {sp.err === "cron" || sp.err === "owner_daily" ? (
+        <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+          {sp.err === "owner_daily"
+            ? "Owner daily failed. See the cron log below (job: owner_daily) for the error."
+            : "Cron run failed. See log below."}
+        </p>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -80,13 +87,26 @@ export default async function OwnerOpsPage({
               Run now
             </button>
           </form>
-          <form action={runOwnerDailyAction} className="flex flex-wrap items-center gap-2 border-t border-edge pt-3">
-            <p className="text-sm text-ink-soft">
-              Owner daily (health + snapshots + SMS rollup) — scheduled 03:15 UTC.
-            </p>
-            <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
-              Run owner daily now
-            </button>
+          <form action={runOwnerDailyAction} className="flex flex-wrap items-end gap-2 border-t border-edge pt-3">
+            <div className="min-w-[220px] flex-1">
+              <p className="text-sm text-ink-soft">
+                Owner daily (health + snapshots + SMS rollup) — scheduled 03:15 UTC. Scores up to 200
+                accounts per manual run.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-ink-faint">Type yes to confirm</label>
+              <input
+                name="confirm"
+                className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <PendingSubmitButton
+              idleLabel="Run owner daily now"
+              pendingLabel="Running… this can take a minute"
+              className="rounded-lg border border-edge bg-cream px-3 py-2 text-sm font-medium disabled:opacity-60"
+            />
           </form>
 
           <div className="overflow-x-auto">

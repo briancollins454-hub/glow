@@ -21,7 +21,10 @@ async function isCronPaused(): Promise<boolean> {
   }
 }
 
-export async function runOwnerDailyJob(trigger: "cron" | "manual" = "manual") {
+export async function runOwnerDailyJob(
+  trigger: "cron" | "manual" = "manual",
+  opts?: { limit?: number },
+) {
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
   if (await isCronPaused()) {
@@ -35,14 +38,27 @@ export async function runOwnerDailyJob(trigger: "cron" | "manual" = "manual") {
       finishedAt,
       durationMs: Date.now() - t0,
     });
-    return { ok: true as const, skipped: true, reason: "cronPaused" };
+    return { ok: true as const, skipped: true as const, reason: "cronPaused" };
   }
 
   try {
-    const health = await runHealthAndSnapshotJob();
-    const smsRows = await rollupSmsUsage(currentPeriodMonth());
+    // Manual runs stay inside serverless limits; cron can score more accounts.
+    const limit = opts?.limit ?? (trigger === "manual" ? 200 : 500);
+    const health = await runHealthAndSnapshotJob({ limit });
+    let smsRows = 0;
+    try {
+      smsRows = await rollupSmsUsage(currentPeriodMonth());
+    } catch (err) {
+      console.error("[owner daily] sms rollup failed:", (err as Error).message);
+    }
     const finishedAt = new Date().toISOString();
-    const result = { health, smsRows, periodMonth: currentPeriodMonth() };
+    const result = {
+      health,
+      smsRows,
+      periodMonth: currentPeriodMonth(),
+      limit,
+      durationMs: Date.now() - t0,
+    };
     await recordCronRun({
       job: "owner_daily",
       trigger,
@@ -55,15 +71,17 @@ export async function runOwnerDailyJob(trigger: "cron" | "manual" = "manual") {
     return { ok: true as const, ...result };
   } catch (err) {
     const finishedAt = new Date().toISOString();
+    const message = (err as Error).message || "owner daily failed";
+    console.error("[owner daily]", message);
     await recordCronRun({
       job: "owner_daily",
       trigger,
       ok: false,
-      error: (err as Error).message,
+      error: message,
       startedAt,
       finishedAt,
       durationMs: Date.now() - t0,
     });
-    return { ok: false as const, error: (err as Error).message };
+    return { ok: false as const, error: message };
   }
 }
