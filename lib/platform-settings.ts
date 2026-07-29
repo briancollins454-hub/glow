@@ -55,7 +55,7 @@ export async function setSignupOfferMode(
   if (previous !== opts.mode) {
     await createAuditEvent(sb, {
       techId: opts.actorTechId,
-      actor: "admin",
+      actor: "tech",
       action: "signup_offer_mode_changed",
       entityType: "platform_settings",
       entityId: SIGNUP_OFFER_MODE_KEY,
@@ -64,6 +64,7 @@ export async function setSignupOfferMode(
         to: opts.mode,
         by: opts.actorEmail,
         at: now,
+        as: "owner",
       },
     }).catch(() => undefined);
   }
