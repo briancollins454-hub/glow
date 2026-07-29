@@ -3,7 +3,7 @@ import { ownerSb } from "@/lib/owner/require-owner";
 import { getSignupOfferMode } from "@/lib/platform-settings";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { setSignupOfferModeAction } from "./offers-actions";
+import { setSignupOfferModeAction } from "../offers-actions";
 import { publicOfferCopy } from "@/lib/offers";
 
 export const dynamic = "force-dynamic";
