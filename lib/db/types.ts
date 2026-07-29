@@ -188,6 +188,17 @@ export interface Tech {
   emailDeliveryIssue?: boolean | null;
   emailDeliveryIssueReason?: string | null;
   emailDeliveryIssueAt?: string | null;
+  /**
+   * Opt-in to send reminders for imported upcoming bookings.
+   * Optional until migration 0055; missing = false.
+   */
+  importedBookingRemindersOptIn?: boolean | null;
+  importedBookingRemindersOptInAt?: string | null;
+  /**
+   * Never-subscribed accounts must confirm before any client-facing messaging.
+   * Optional until migration 0055.
+   */
+  clientMessagingConfirmedAt?: string | null;
   createdAt: string;
 }
 
@@ -460,6 +471,16 @@ export interface Booking {
   // account). Optional while the 0031 migration rolls out.
   cardCustomerId?: string | null;
   cardPaymentMethodId?: string | null;
+  /**
+   * Set when created via Move to Glow / CSV import. Null = native Glow booking.
+   * Optional until migration 0055.
+   */
+  importedAt?: string | null;
+  /**
+   * Imported bookings never get balance-request emails unless this is true.
+   * Optional until migration 0055; missing = false.
+   */
+  importedBalanceRequestEnabled?: boolean | null;
   createdAt: string;
 }
 

@@ -134,6 +134,8 @@ export async function notifyClientOfMessage(
     html,
     text: `${biz} sent you a message: "${truncate(body)}"\n\nView & reply: ${url}`,
     idempotencyKey: `message-notify/client/${messageId}`,
+    techId: tech.id,
+    kind: "client_message",
   });
 }
 
@@ -162,6 +164,8 @@ export async function notifyTechOfMessage(
     html,
     text: `${client.name} replied: "${truncate(body)}"\n\nOpen: ${url}`,
     idempotencyKey: `message-notify/tech/${messageId}`,
+    techId: tech.id,
+    kind: "tech_message",
   });
 }
 
@@ -217,6 +221,8 @@ export async function notifyClientOfPatchTestRetest(opts: {
       html,
       text,
       idempotencyKey: `patch-retest/${client.id}/${categoryId}/${nowIso.slice(0, 10)}`,
+      techId: tech.id,
+      kind: "patch_retest",
     });
   }
 
@@ -296,6 +302,8 @@ export async function sendAftercareEmail(
     html,
     text: `Hi ${name}, aftercare for your ${service.name}:\n\n${service.aftercareText}\n\nBook your next appointment: ${rebookUrl}`,
     idempotencyKey: `aftercare/${booking.id}`,
+    techId: booking.techId,
+    kind: "aftercare",
   });
 }
 
@@ -330,6 +338,15 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
 
   const ctx: Ctx = { reminder, booking, client, service, tech, serviceLabel };
 
+  const { maySendClientReminder } = await import("@/lib/client-messaging");
+  if (!maySendClientReminder(tech, booking, reminder.kind)) {
+    await markReminder(sb, reminder.id, {
+      status: "skipped",
+      preview: "Skipped — imported booking / messaging not enabled for this account",
+    });
+    return false;
+  }
+
   // Payment-only chaser: never send when the salon switch (or balance-emails toggle) is off.
   if (reminder.kind === "balance_request" && !sendsBalanceEmails(tech)) {
     await markReminder(sb, reminder.id, {
@@ -356,12 +373,14 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
       html,
       text,
       idempotencyKey: `reminder/${reminder.id}`,
+      kind: reminder.kind,
+      techId: booking.techId,
     });
   }
 
   let smsOk = false;
   if (smsConfigured() && tech && techAllowsSms(tech) && client?.phone && canSms) {
-    smsOk = await sendSms(client.phone, text);
+    smsOk = await sendSms(client.phone, text, { techId: booking.techId, kind: reminder.kind });
   }
 
   if (emailOk || smsOk) {
@@ -416,6 +435,197 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
 }
 
 /**
+ * Send one email/SMS covering several same-client reminders (same-day 24h/2h,
+ * or all outstanding balance requests). Marks every reminder in the group.
+ */
+export async function sendBatchedReminders(
+  sb: SupabaseClient,
+  items: Array<{ reminder: Reminder; booking: Booking }>,
+): Promise<boolean> {
+  if (items.length === 0) return false;
+  if (items.length === 1) return sendReminder(sb, items[0].reminder);
+
+  const primary = items[0];
+  const kind = primary.reminder.kind;
+  const [client, tech] = await Promise.all([
+    getClient(sb, primary.booking.clientId),
+    getTechById(sb, primary.booking.techId),
+  ]);
+
+  const { maySendClientReminder } = await import("@/lib/client-messaging");
+  const allowed = items.filter((item) => maySendClientReminder(tech, item.booking, kind));
+  for (const item of items) {
+    if (!allowed.includes(item)) {
+      await markReminder(sb, item.reminder.id, {
+        status: "skipped",
+        preview: "Skipped — imported booking / messaging not enabled for this account",
+      });
+    }
+  }
+  if (allowed.length === 0) return false;
+
+  if (kind === "balance_request" && !sendsBalanceEmails(tech)) {
+    for (const item of allowed) {
+      await markReminder(sb, item.reminder.id, {
+        status: "skipped",
+        preview: "Balance request skipped — client payments off",
+      });
+    }
+    return false;
+  }
+
+  const services = await Promise.all(allowed.map((i) => getService(sb, i.booking.serviceId)));
+  const name = client?.name?.split(" ")[0] ?? "there";
+  const biz = tech?.businessName ?? "your beauty studio";
+  const brand = tech?.brandColor || "#db2777";
+
+  let subject: string;
+  let text: string;
+  let html: string;
+  let buttonLabel: string | undefined;
+  let buttonUrl: string | undefined;
+
+  if (kind === "balance_request") {
+    const total = allowed.reduce((sum, i) => sum + i.booking.balancePennies, 0);
+    const lines = allowed.map((item, idx) => {
+      const svc = services[idx]?.name ?? "appointment";
+      const when = fmtDateTime(item.booking.startIso);
+      const payUrl = `${APP_URL}/pay/${item.booking.balanceToken}`;
+      return `• ${svc} on ${when}: ${gbp(item.booking.balancePennies)} — ${payUrl}`;
+    });
+    const linesHtml = allowed
+      .map((item, idx) => {
+        const svc = services[idx]?.name ?? "appointment";
+        const when = fmtDateTime(item.booking.startIso);
+        const payUrl = `${APP_URL}/pay/${item.booking.balanceToken}`;
+        return `<li><strong>${svc}</strong> on ${when}: <strong>${gbp(item.booking.balancePennies)}</strong> — <a href="${payUrl}">Pay</a></li>`;
+      })
+      .join("");
+    subject = `Your remaining balance for ${biz}`;
+    text = `Hi ${name}, you have outstanding balances totalling ${gbp(total)} with ${biz}:\n\n${lines.join("\n")}`;
+    html = brandedEmail({
+      brand,
+      businessName: biz,
+      heading: "Your balances are ready to pay",
+      bodyHtml: `Hi ${name},<br/><br/>You have outstanding balances totalling <strong>${gbp(total)}</strong>:<ul style="padding-left:18px">${linesHtml}</ul>`,
+      buttonLabel: allowed.length === 1 ? `Pay ${gbp(total)}` : undefined,
+      buttonUrl: allowed.length === 1 ? `${APP_URL}/pay/${allowed[0].booking.balanceToken}` : undefined,
+    });
+  } else {
+    // reminder_24h / reminder_2h — list all appointments that day
+    const lines = allowed.map((item, idx) => {
+      const svc = services[idx]?.name ?? "appointment";
+      return `• ${svc} at ${fmtTime(item.booking.startIso)}`;
+    });
+    const linesHtml = allowed
+      .map((item, idx) => {
+        const svc = services[idx]?.name ?? "appointment";
+        return `<li><strong>${svc}</strong> at ${fmtTime(item.booking.startIso)}</li>`;
+      })
+      .join("");
+    const dayLabel = fmtDate(allowed[0].booking.startIso);
+    subject =
+      kind === "reminder_2h"
+        ? `See you soon - your appointments today`
+        : `Reminder: your appointments ${dayLabel === fmtDate(new Date().toISOString()) ? "tomorrow" : `on ${dayLabel}`}`;
+    text = `Hi ${name}, reminder of your appointments with ${biz} on ${dayLabel}:\n\n${lines.join("\n")}\n\nSee you then!`;
+    html = brandedEmail({
+      brand,
+      businessName: biz,
+      heading: kind === "reminder_2h" ? "Almost time" : "See you soon",
+      bodyHtml: `Hi ${name},<br/><br/>Just a reminder of your appointments on <strong>${dayLabel}</strong>:<ul style="padding-left:18px">${linesHtml}</ul>`,
+      buttonLabel,
+      buttonUrl,
+    });
+  }
+
+  const emailTo = client?.email?.trim() ?? "";
+  const canSms = kind === "reminder_24h" || kind === "reminder_2h" || kind === "balance_request";
+  const batchKey = allowed
+    .map((i) => i.reminder.id)
+    .sort()
+    .join("+");
+
+  let emailOk = false;
+  if (emailTo) {
+    emailOk = await sendEmail({
+      to: emailTo,
+      subject,
+      html,
+      text,
+      idempotencyKey: `reminder-batch/${batchKey}`,
+      kind,
+      techId: primary.booking.techId,
+    });
+  }
+
+  let smsOk = false;
+  if (smsConfigured() && tech && techAllowsSms(tech) && client?.phone && canSms) {
+    smsOk = await sendSms(client.phone, text, { techId: primary.booking.techId, kind });
+  }
+
+  if (emailOk || smsOk) {
+    const now = new Date().toISOString();
+    for (const item of allowed) {
+      await markReminder(sb, item.reminder.id, {
+        status: "sent",
+        sentAtIso: now,
+        preview: text,
+      });
+    }
+    return true;
+  }
+
+  for (const item of allowed) {
+    await markReminder(sb, item.reminder.id, { preview: text });
+  }
+  return false;
+}
+
+/**
+ * True when this client already received a balance_request in the last 48 hours
+ * (any booking for the same tech). Used to rate-limit balance emails.
+ */
+export async function hasRecentBalanceRequest(
+  sb: SupabaseClient,
+  techId: string,
+  clientId: string,
+  nowMs = Date.now(),
+  windowMs = 48 * 60 * 60 * 1000,
+): Promise<boolean> {
+  const since = new Date(nowMs - windowMs).toISOString();
+  const { data, error } = await sb
+    .from("reminders")
+    .select("id, bookingId, sentAtIso")
+    .eq("techId", techId)
+    .eq("kind", "balance_request")
+    .eq("status", "sent")
+    .gte("sentAtIso", since)
+    .limit(40);
+  if (error || !data?.length) {
+    // Fallback: clientId stamped on newer reminders
+    const { data: byClient } = await sb
+      .from("reminders")
+      .select("id")
+      .eq("techId", techId)
+      .eq("clientId", clientId)
+      .eq("kind", "balance_request")
+      .eq("status", "sent")
+      .gte("sentAtIso", since)
+      .limit(1);
+    return !!byClient?.length;
+  }
+  for (const row of data) {
+    if ((row as { clientId?: string }).clientId === clientId) return true;
+    const bookingId = (row as { bookingId?: string | null }).bookingId;
+    if (!bookingId) continue;
+    const booking = await getBooking(sb, bookingId);
+    if (booking?.clientId === clientId) return true;
+  }
+  return false;
+}
+
+/**
  * One-off review request sent when an appointment is completed. Uses the
  * booking's private token so the client never needs an account.
  */
@@ -444,6 +654,8 @@ export async function sendReviewRequestEmail(sb: SupabaseClient, booking: Bookin
     html,
     text: `Hi ${name}, thanks for visiting ${biz}! Leave a quick review: ${url}`,
     idempotencyKey: `review-request/${booking.id}`,
+    techId: booking.techId,
+    kind: "review_request",
   });
 }
 
@@ -520,6 +732,8 @@ export async function notifySalonOfNewBooking(
         html,
         text,
         idempotencyKey: `booking-notify/${booking.id}/${to}`,
+        techId: booking.techId,
+        kind: "booking_notify",
       }),
     ),
   );
@@ -582,6 +796,8 @@ export async function notifyTechOfBookingRequest(
     html,
     text: `${client.name} requested ${serviceLabel} on ${when}. Deposit: ${gbp(booking.depositPennies)}. Approve: ${approveUrl}`,
     idempotencyKey: `booking-request/${booking.id}`,
+    techId: tech.id,
+    kind: "booking_request",
   });
 }
 
@@ -643,6 +859,8 @@ export async function notifyClientBookingApproved(
         ? `Hi ${name}, ${biz} approved your ${service.name} on ${when}. Save a card (nothing charged) to secure it: ${actionUrl}`
         : `Hi ${name}, your ${service.name} with ${biz} on ${when} is confirmed. ${actionUrl}`,
     idempotencyKey: `booking-approved/${booking.id}`,
+    techId: booking.techId,
+    kind: "booking_approved",
   });
 }
 
@@ -672,6 +890,8 @@ export async function notifyClientBookingDeclined(
     html,
     text: `Hi ${name}, ${biz} couldn't take your ${service.name} request for ${when}. Pick another time: ${rebookUrl}`,
     idempotencyKey: `booking-declined/${booking.id}`,
+    techId: booking.techId,
+    kind: "booking_declined",
   });
 }
 
@@ -722,6 +942,8 @@ export async function notifyClientOfReactionCheckin(
       html,
       text,
       idempotencyKey: `reaction-checkin/${checkin.id}`,
+      techId: tech.id,
+      kind: "reaction_checkin",
     });
   }
 
@@ -729,7 +951,7 @@ export async function notifyClientOfReactionCheckin(
     const smsBody =
       `Hi ${name}, ${biz} checking in 48h after your ${catName} appointment. ` +
       `Any redness or irritation? Reply here: ${url}`;
-    sent = await sendSms(client.phone, smsBody);
+    sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "reaction_checkin" });
   }
 
   return sent;
@@ -766,6 +988,8 @@ export async function notifyTechOfReactionReport(
     html,
     text: `${client.name} reported a reaction via the 48-hour check-in: "${truncate(symptoms)}"\n\nView: ${url}`,
     idempotencyKey: `reaction-checkin-report/${checkin.id}`,
+    techId: tech.id,
+    kind: "reaction_checkin_report",
   });
 }
 
@@ -810,6 +1034,8 @@ export async function notifyClientOfInfillDeadline(
       `Hi ${name}, your infill window at ${biz} closes on ${deadline}. ` +
       `Book ${infillService.name}: ${url}\n\nUnsubscribe: ${unsubUrl}`,
     idempotencyKey: `infill-deadline/${client.id}/${deadlineIso.slice(0, 10)}`,
+    techId: tech.id,
+    kind: "infill_nudge",
   });
 }
 
@@ -858,6 +1084,8 @@ export async function notifyClientRunningLate(opts: {
       html,
       text,
       idempotencyKey: `late-cascade/${eventId}/${booking.id}/email`,
+      techId: booking.techId,
+      kind: "late_cascade",
     });
   }
 
@@ -865,6 +1093,7 @@ export async function notifyClientRunningLate(opts: {
     sms = await sendSms(
       client.phone,
       `${biz}: running ~${minutesLate} min late today. Your ${svc} at ${fmtTime(booking.startIso)} may start later. Sorry!${lateNoteText}`,
+      { techId: booking.techId, kind: "late_cascade" },
     );
   }
 
@@ -925,6 +1154,8 @@ export async function notifyClientOfPreCare(
       html,
       text,
       idempotencyKey: `precare/${row.id}`,
+      techId: tech.id,
+      kind: "precare",
     });
   }
 
@@ -932,7 +1163,7 @@ export async function notifyClientOfPreCare(
     const smsBody =
       `Hi ${name}, ${biz}: prep for your ${service.name} on ${fmtTime(booking.startIso)}. ` +
       `Please read and confirm: ${url}`;
-    sent = await sendSms(client.phone, smsBody);
+    sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "precare" });
   }
 
   return sent;

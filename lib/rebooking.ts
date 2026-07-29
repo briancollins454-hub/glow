@@ -27,6 +27,7 @@ const MAX_PER_RUN = 25;
 export type RebookNudgeCandidate = {
   client: RebookNudgeClient;
   lastServiceId: string;
+  lastVisitImported: boolean;
 };
 
 /** Date window the cron loads from bookings (120d back → 60d ahead). */
@@ -69,6 +70,7 @@ export function selectRebookNudgeCandidates(
   clients: RebookNudgeClient[],
   bookings: RebookNudgeBooking[],
   nowMs: number,
+  opts?: { allowImportedLastVisit?: boolean },
 ): RebookNudgeCandidate[] {
   const out: RebookNudgeCandidate[] = [];
   for (const client of clients) {
@@ -88,11 +90,13 @@ export function selectRebookNudgeCandidates(
 
     const last = lastCompletedVisit(bookings, client.id);
     if (!last) continue;
+    const lastVisitImported = !!last.importedAt;
+    if (lastVisitImported && !opts?.allowImportedLastVisit) continue;
     const gap = nowMs - new Date(last.startIso).getTime();
     if (gap < REBOOK_MIN_GAP_DAYS * DAY || gap > REBOOK_MAX_GAP_DAYS * DAY) continue;
     if (hasUpcomingBooking(bookings, client.id, nowMs)) continue;
 
-    out.push({ client, lastServiceId: last.serviceId });
+    out.push({ client, lastServiceId: last.serviceId, lastVisitImported });
   }
   return out;
 }
@@ -124,6 +128,8 @@ async function sendNudge(
     html,
     text: `Hi ${name}, it's been a while since your last visit at ${biz}. Book your next appointment: ${url}\n\nUnsubscribe from these emails: ${unsubUrl}`,
     idempotencyKey: `rebook-nudge/${client.id}/${new Date().toISOString().slice(0, 10)}`,
+    kind: "rebook_nudge",
+    techId: tech.id,
   });
 }
 
@@ -135,17 +141,21 @@ export async function processRebookNudges(sb: SupabaseClient): Promise<number> {
   const cooldownBeforeIso = new Date(now - REBOOK_NUDGE_COOLDOWN_DAYS * DAY).toISOString();
 
   const techs = await listLiveTechs(sb);
+  const { allowsClientFacingMessaging } = await import("@/lib/client-messaging");
   for (const tech of techs) {
     if (sent >= MAX_PER_RUN) break;
     if (!tech.rebookNudgesEnabled) continue;
-
+    if (!allowsClientFacingMessaging(tech)) continue;
+    const allowImported = !!tech.importedBookingRemindersOptIn;
     const [clients, bookings, services] = await Promise.all([
       listRebookNudgeClients(sb, tech.id, cooldownBeforeIso),
       listRebookNudgeBookings(sb, tech.id, fromIso, toIso),
       listServices(sb, tech.id),
     ]);
     const serviceName = new Map(services.map((s) => [s.id, s.name]));
-    const candidates = selectRebookNudgeCandidates(clients, bookings, now);
+    const candidates = selectRebookNudgeCandidates(clients, bookings, now, {
+      allowImportedLastVisit: allowImported,
+    });
 
     for (const { client, lastServiceId } of candidates) {
       if (sent >= MAX_PER_RUN) break;

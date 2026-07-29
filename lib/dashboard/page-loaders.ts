@@ -405,6 +405,9 @@ export async function loadDashboardPageData(
       return { referredCount, stripeConfigured: stripeConfigured() };
     }
     case "import":
+      return {
+        importedBookingRemindersOptIn: tech.importedBookingRemindersOptIn ?? false,
+      };
     case "feedback":
       return {};
     case "admin": {

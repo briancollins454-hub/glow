@@ -7,13 +7,13 @@ import { importClientsAction, importServicesAction, importBookingsAction } from 
 
 export default function ImportPage() {
   return (
-    <AsyncDashboardPage<Record<string, never>> pageKey="import">
-      {() => <ImportView />}
+    <AsyncDashboardPage<{ importedBookingRemindersOptIn?: boolean | null }> pageKey="import">
+      {(data) => <ImportView alreadyOptedInReminders={!!data?.importedBookingRemindersOptIn} />}
     </AsyncDashboardPage>
   );
 }
 
-function ImportView() {
+function ImportView({ alreadyOptedInReminders }: { alreadyOptedInReminders: boolean }) {
   const searchParams = useSearchParams();
   return (
     <MoveToGlowImport
@@ -30,6 +30,9 @@ function ImportView() {
       skipServices={searchParams.get("skipServices")}
       skipDupes={searchParams.get("skipDupes")}
       noEmail={searchParams.get("ne")}
+      upcoming={searchParams.get("upcoming")}
+      remindersOptIn={searchParams.get("reminders")}
+      alreadyOptedInReminders={alreadyOptedInReminders}
     />
   );
 }
