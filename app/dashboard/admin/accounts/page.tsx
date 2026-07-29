@@ -16,6 +16,7 @@ const FLAG_LABEL: Record<string, string> = {
   trialing: "Trialing",
   signup_trial: "Signup trial",
   blocked: "Blocked",
+  internal: "Internal",
   closure_requested: "Closure requested",
 };
 

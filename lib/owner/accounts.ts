@@ -27,6 +27,7 @@ function flagsFor(tech: Tech, bookingCount: number, serviceCount: number): strin
   if (tech.subscriptionStatus === "trialing") flags.push("trialing");
   if (tech.signupOffer === "trial") flags.push("signup_trial");
   if (tech.blockedAt) flags.push("blocked");
+  if (tech.isInternal) flags.push("internal");
   if (tech.closureRequestedAt) flags.push("closure_requested");
   return flags;
 }
@@ -72,6 +73,9 @@ export async function listOwnerAccounts(opts: {
     .eq("signupOffer", "trial");
 
   let query = sb.from("techs").select("*", { count: "exact" });
+  const { shouldIncludeInternal } = await import("@/lib/owner/internal-accounts");
+  const includeInternal = await shouldIncludeInternal(sb);
+  if (!includeInternal) query = query.eq("isInternal", false);
   const q = opts.q?.trim();
   if (q) {
     // PostgREST or filter across common fields.
@@ -126,6 +130,7 @@ export async function getOwnerAccountDetail(techId: string) {
   if (error) throw new Error(error.message);
   if (!tech) return null;
 
+  const since30d = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
   const [
     staff,
     services,
@@ -134,6 +139,7 @@ export async function getOwnerAccountDetail(techId: string) {
     audits,
     traffic,
     clientCount,
+    outbound30d,
   ] = await Promise.all([
     sb.from("staff_members").select("*").eq("techId", techId).order("sortOrder", { ascending: true }),
     sb.from("services").select("id, name, active, pricePennies").eq("techId", techId).order("sortOrder", { ascending: true }).limit(100),
@@ -160,6 +166,14 @@ export async function getOwnerAccountDetail(techId: string) {
       .select("id", { count: "exact", head: true })
       .eq("techId", techId),
     sb.from("clients").select("id", { count: "exact", head: true }).eq("techId", techId),
+    sb
+      .from("outbound_sends")
+      .select("id, kind, destination, deliveryStatus, ok, createdAt")
+      .eq("techId", techId)
+      .eq("channel", "email")
+      .gte("createdAt", since30d)
+      .order("createdAt", { ascending: false })
+      .limit(40),
   ]);
 
   return {
@@ -171,5 +185,6 @@ export async function getOwnerAccountDetail(techId: string) {
     audits: audits.data ?? [],
     pageViews: traffic.count ?? 0,
     clientCount: clientCount.count ?? 0,
+    outbound30d: outbound30d.data ?? [],
   };
 }

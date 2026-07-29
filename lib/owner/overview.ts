@@ -13,6 +13,9 @@ export type MetricValue =
 
 export type OverviewCounts = {
   accountsTotal: number;
+  /** Internal accounts excluded from the totals above (shown separately). */
+  internalExcluded: number;
+  includeInternal: boolean;
   paying: number;
   trialing: number;
   cancelled: number;
@@ -171,10 +174,14 @@ async function computeOverview(): Promise<OverviewCounts> {
   const { data: techs, error: techErr } = await sb
     .from("techs")
     .select(
-      "id, subscriptionStatus, plan, signupOffer, createdAt, bookingPageLive, connectChargesEnabled",
+      "id, subscriptionStatus, plan, signupOffer, createdAt, bookingPageLive, connectChargesEnabled, isInternal",
     );
   if (techErr) throw new Error(techErr.message);
-  const list = techs ?? [];
+  const { filterOutInternal, shouldIncludeInternal } = await import("@/lib/owner/internal-accounts");
+  const includeInternal = await shouldIncludeInternal(sb);
+  const allTechs = techs ?? [];
+  const internalExcluded = allTechs.filter((t) => t.isInternal).length;
+  const list = filterOutInternal(allTechs, includeInternal);
 
   const paying = list.filter((t) => t.subscriptionStatus === "active").length;
   const trialing = list.filter((t) => t.subscriptionStatus === "trialing").length;
@@ -250,6 +257,8 @@ async function computeOverview(): Promise<OverviewCounts> {
 
   return {
     accountsTotal: list.length,
+    internalExcluded: includeInternal ? 0 : internalExcluded,
+    includeInternal,
     paying,
     trialing,
     cancelled,

@@ -47,11 +47,13 @@ export async function getRevenueSnapshot(opts?: { reconcileStripe?: boolean }): 
   const { data, error } = await sb
     .from("techs")
     .select(
-      "id, businessName, handle, email, plan, subscriptionStatus, signupOffer, currentPeriodEnd, stripeSubscriptionId, stripeCustomerId, createdAt",
+      "id, businessName, handle, email, plan, subscriptionStatus, signupOffer, currentPeriodEnd, stripeSubscriptionId, stripeCustomerId, createdAt, isInternal",
     )
     .order("createdAt", { ascending: false });
   if (error) throw new Error(error.message);
-  const techs = (data ?? []) as Tech[];
+  const { filterOutInternal, shouldIncludeInternal } = await import("@/lib/owner/internal-accounts");
+  const includeInternal = await shouldIncludeInternal(sb);
+  const techs = filterOutInternal((data ?? []) as Tech[], includeInternal);
   const mrr = computeMrrFromTechs(techs);
 
   const rows: SubscriptionRow[] = techs.map((tech) => ({

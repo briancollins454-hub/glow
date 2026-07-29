@@ -14,8 +14,10 @@ import {
 import { supabaseService } from "@/lib/supabase/service";
 import { createAuditEvent, getTechById, updateTech } from "@/lib/db/queries";
 import type { Tech } from "@/lib/db/types";
+import { assertNotViewAs } from "@/lib/owner/view-as";
 
 async function adminCtx() {
+  await assertNotViewAs();
   const c = await getDashboardContext();
   if (!c) redirect("/login");
   if (!isAdminTech(c!.tech)) notFound();

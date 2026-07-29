@@ -58,6 +58,23 @@ export async function middleware(request: NextRequest) {
     return updateSession(request);
   }
 
+  // View-as (read-only impersonation): block mutating requests except exit.
+  const viewAs = request.cookies.get("glow_view_as")?.value;
+  if (viewAs && request.method !== "GET" && request.method !== "HEAD") {
+    const path = request.nextUrl.pathname;
+    const allowed =
+      path === "/dashboard/admin/accounts/view-as-exit" ||
+      path.endsWith("/view-as-exit") ||
+      // Next.js server actions post to the current URL; allow only the exit action page.
+      path.includes("/view-as/exit");
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Read-only view-as session: mutations are blocked" },
+        { status: 403 },
+      );
+    }
+  }
+
   return NextResponse.next();
 }
 
