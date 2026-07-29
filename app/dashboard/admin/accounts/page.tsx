@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
-import { listOwnerAccounts } from "@/lib/owner/accounts";
+import { listOwnerAccounts, signupOfferLabel, trialDaysLeft } from "@/lib/owner/accounts";
 import { gbpFromPennies } from "@/lib/owner/mrr";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ const FLAG_LABEL: Record<string, string> = {
   no_services: "No services",
   no_bookings: "No bookings",
   past_due: "Past due",
+  trialing: "Trialing",
+  signup_trial: "Signup trial",
   closure_requested: "Closure requested",
 };
 
@@ -36,6 +38,10 @@ export default async function OwnerAccountsPage({
         <p className="text-sm text-ink-soft">Searchable directory. Drill in for support actions.</p>
       </div>
       <OwnerNav />
+
+      <p className="rounded-xl border border-edge bg-surface px-4 py-3 text-sm">
+        Accounts currently in trial: <strong>{data.trialingCount}</strong>
+      </p>
 
       {sp.err === "confirm" ? (
         <p className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-warning-text">
@@ -65,11 +71,15 @@ export default async function OwnerAccountsPage({
       </form>
 
       <div className="overflow-x-auto rounded-xl border border-edge">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[1100px] text-left text-sm">
           <thead className="bg-fill text-xs text-ink-faint">
             <tr>
               <th className="px-3 py-2">Account</th>
+              <th className="px-3 py-2">Offer</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Trial end</th>
+              <th className="px-3 py-2">Days left</th>
+              <th className="px-3 py-2">First charge</th>
               <th className="px-3 py-2">MRR</th>
               <th className="px-3 py-2">Staff</th>
               <th className="px-3 py-2">Clients</th>
@@ -80,7 +90,13 @@ export default async function OwnerAccountsPage({
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((row) => (
+            {data.rows.map((row) => {
+              const days = trialDaysLeft(row.tech.trialEndsAt);
+              const firstCharge =
+                row.tech.signupOffer === "trial" && row.tech.trialEndsAt
+                  ? fmtDate(row.tech.trialEndsAt)
+                  : "—";
+              return (
               <tr key={row.tech.id} className="border-t border-edge">
                 <td className="px-3 py-2">
                   <Link href={`/dashboard/admin/accounts/${row.tech.id}`} className="font-medium hover:underline">
@@ -91,9 +107,19 @@ export default async function OwnerAccountsPage({
                   </p>
                 </td>
                 <td className="px-3 py-2">
-                  <Badge tone="neutral">{row.tech.subscriptionStatus}</Badge>
+                  <Badge tone="neutral">{signupOfferLabel(row.tech)}</Badge>
+                </td>
+                <td className="px-3 py-2">
+                  <Badge tone={row.tech.subscriptionStatus === "trialing" ? "amber" : "neutral"}>
+                    {row.tech.subscriptionStatus}
+                  </Badge>
                   {row.tech.plan ? <span className="ml-1 text-xs text-ink-faint">{row.tech.plan}</span> : null}
                 </td>
+                <td className="px-3 py-2">
+                  {row.tech.trialEndsAt ? fmtDate(row.tech.trialEndsAt) : "—"}
+                </td>
+                <td className="px-3 py-2">{days == null ? "—" : days}</td>
+                <td className="px-3 py-2">{firstCharge}</td>
                 <td className="px-3 py-2">{row.mrrPennies ? gbpFromPennies(row.mrrPennies) : "—"}</td>
                 <td className="px-3 py-2">{row.staffCount}</td>
                 <td className="px-3 py-2">{row.clientCount}</td>
@@ -116,28 +142,29 @@ export default async function OwnerAccountsPage({
                   </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
-        <p className="text-ink-faint">
-          {data.total} account{data.total === 1 ? "" : "s"} · page {data.page} of {totalPages}
-        </p>
+      <div className="flex items-center justify-between text-sm text-ink-soft">
+        <span>
+          Page {data.page} of {totalPages} · {data.total} accounts
+        </span>
         <div className="flex gap-2">
-          {page > 1 ? (
+          {data.page > 1 ? (
             <Link
-              className="rounded-lg border border-edge px-3 py-1.5"
-              href={`/dashboard/admin/accounts?q=${encodeURIComponent(sp.q ?? "")}&sort=${sort}&page=${page - 1}`}
+              href={`/dashboard/admin/accounts?page=${data.page - 1}&sort=${sort}${sp.q ? `&q=${encodeURIComponent(sp.q)}` : ""}`}
+              className="rounded-lg border border-edge px-3 py-1.5 hover:bg-fill-hover"
             >
               Previous
             </Link>
           ) : null}
-          {page < totalPages ? (
+          {data.page < totalPages ? (
             <Link
-              className="rounded-lg border border-edge px-3 py-1.5"
-              href={`/dashboard/admin/accounts?q=${encodeURIComponent(sp.q ?? "")}&sort=${sort}&page=${page + 1}`}
+              href={`/dashboard/admin/accounts?page=${data.page + 1}&sort=${sort}${sp.q ? `&q=${encodeURIComponent(sp.q)}` : ""}`}
+              className="rounded-lg border border-edge px-3 py-1.5 hover:bg-fill-hover"
             >
               Next
             </Link>

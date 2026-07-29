@@ -24,8 +24,28 @@ function flagsFor(tech: Tech, bookingCount: number, serviceCount: number): strin
   if (serviceCount === 0) flags.push("no_services");
   if (bookingCount === 0) flags.push("no_bookings");
   if (tech.subscriptionStatus === "past_due") flags.push("past_due");
+  if (tech.subscriptionStatus === "trialing") flags.push("trialing");
+  if (tech.signupOffer === "trial") flags.push("signup_trial");
   if (tech.closureRequestedAt) flags.push("closure_requested");
   return flags;
+}
+
+export function countTrialingAccounts(techs: Pick<Tech, "subscriptionStatus" | "signupOffer">[]): number {
+  return techs.filter((t) => t.subscriptionStatus === "trialing" && t.signupOffer === "trial").length;
+}
+
+export function signupOfferLabel(tech: Pick<Tech, "signupOffer" | "signupPartnerSlug">): string {
+  if (tech.signupOffer === "tester") return "tester";
+  if (tech.signupPartnerSlug) return "partner";
+  if (tech.signupOffer === "trial") return "trial";
+  if (tech.signupOffer === "half_price") return "half_price";
+  return tech.signupOffer || "half_price";
+}
+
+export function trialDaysLeft(trialEndsAt: string | null | undefined, nowMs = Date.now()): number | null {
+  if (!trialEndsAt) return null;
+  const DAY = 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - nowMs) / DAY));
 }
 
 /**
@@ -37,12 +57,18 @@ export async function listOwnerAccounts(opts: {
   sort?: "createdAt" | "businessName" | "status";
   page?: number;
   pageSize?: number;
-}): Promise<AccountListResult> {
+}): Promise<AccountListResult & { trialingCount: number }> {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = Math.min(50, Math.max(10, opts.pageSize ?? 25));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   const sb = supabaseService();
+
+  const { count: trialingCount } = await sb
+    .from("techs")
+    .select("id", { count: "exact", head: true })
+    .eq("subscriptionStatus", "trialing")
+    .eq("signupOffer", "trial");
 
   let query = sb.from("techs").select("*", { count: "exact" });
   const q = opts.q?.trim();
@@ -84,7 +110,13 @@ export async function listOwnerAccounts(opts: {
     });
   }
 
-  return { rows, total: count ?? rows.length, page, pageSize };
+  return {
+    rows,
+    total: count ?? rows.length,
+    page,
+    pageSize,
+    trialingCount: trialingCount ?? 0,
+  };
 }
 
 export async function getOwnerAccountDetail(techId: string) {

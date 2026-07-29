@@ -11,7 +11,9 @@ import { Input, Label } from "@/components/ui/input";
 import { isLive, planLabel } from "@/lib/subscriptions";
 import { startCheckoutAction, manageBillingAction } from "./actions";
 import type { Tech } from "@/lib/db/types";
-import { launchOfferCopy, launchOfferEnabled, partnerOfferEnabled } from "@/lib/offers";
+import { frozenOfferCopy, partnerOfferEnabled } from "@/lib/offers";
+import { fmtDate } from "@/lib/format";
+import { trialDaysRemaining } from "@/lib/trial-lifecycle";
 
 const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
 
@@ -52,36 +54,28 @@ function BillingView({
   const live = isLive(tech);
   const isTester = tech.signupOffer === "tester";
   const isPartner = !!tech.signupPartnerSlug && partnerOfferEnabled();
-  const offer = launchOfferCopy(isTester);
-  const monthlyPrice = isTester ? "£1" : isPartner ? "£0" : launchOfferEnabled() ? "£9.50" : "£19";
-  const monthlyCadence = isTester
-    ? " first month, then £19/mo"
+  const isTrial = tech.signupOffer === "trial";
+  const offer = frozenOfferCopy({
+    signupOffer: tech.signupOffer,
+    signupPartnerSlug: tech.signupPartnerSlug,
+  });
+  const monthlyPrice = isTrial ? "Free" : offer.firstMonthLabel;
+  const monthlyCadence = isTrial
+    ? " for 14 days, then £19/mo"
     : isPartner
       ? " for 3 months, then £19/mo"
-      : launchOfferEnabled()
-        ? " first month, then £19/mo"
-        : "/mo";
-  const monthlyNote = isTester
-    ? "Tester offer"
+      : " first month, then £19/mo";
+  const monthlyNote = isTrial
+    ? "14-day free trial"
     : isPartner
       ? "Partner: 3 months free"
-      : launchOfferEnabled()
-        ? "50% off first month"
-        : "Everything included";
-  const monthlyButton = isTester
-    ? "Go live for £1"
-    : isPartner
-      ? "Go live — 3 months free"
-      : launchOfferEnabled()
-        ? "Go live for £9.50"
-        : "Go live for £19";
-  const footerNote = isTester
-    ? "Tester offer: first month £1, then £19/mo. Cancel anytime."
-    : isPartner
-      ? "Partner offer: 3 months free, then £19/mo. Cancel anytime."
-      : launchOfferEnabled()
-        ? "50% off your first month on the monthly plan, then £19/mo. Cancel anytime."
-        : "£19/mo on the monthly plan. Cancel anytime.";
+      : isTester
+        ? "Tester offer"
+        : offer.firstMonthLabel === "£9.50"
+          ? "50% off first month"
+          : "Everything included";
+  const monthlyButton = offer.ctaLabel;
+  const footerNote = offer.supporting;
 
   return (
     <div className="space-y-6">
@@ -97,7 +91,19 @@ function BillingView({
       )}
       {status === "started" && (
         <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
-          <CheckCircle2 className="h-4 w-4" /> Card saved - your subscription is being activated. This can take a few seconds.
+          <CheckCircle2 className="h-4 w-4" />{" "}
+          {isTrial
+            ? "Card saved — your 14-day trial is starting. This can take a few seconds."
+            : "Card saved - your subscription is being activated. This can take a few seconds."}
+        </div>
+      )}
+      {tech.subscriptionStatus === "trialing" && tech.trialEndsAt && (
+        <div className="rounded-2xl border border-brand-400/40 bg-brand-500/10 p-5 text-sm text-brand-text">
+          <p className="font-display text-lg font-semibold">You&apos;re on a free trial</p>
+          <p className="mt-1">
+            {trialDaysRemaining(tech.trialEndsAt)} day(s) remaining. First charge of £19 on{" "}
+            <strong>{fmtDate(tech.trialEndsAt)}</strong>. Cancel any time before then and you won&apos;t be charged.
+          </p>
         </div>
       )}
       {isTester && !live && (
@@ -118,6 +124,12 @@ function BillingView({
           </p>
         </div>
       )}
+      {isTrial && !isTester && !isPartner && !live && (
+        <div className="rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
+          <p className="font-display text-lg font-semibold">14-day free trial</p>
+          <p className="mt-1 text-sm text-white/85">{offer.supporting}</p>
+        </div>
+      )}
       {status === "cancelled" && (
         <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">Checkout cancelled - no charge was made.</div>
       )}
@@ -125,7 +137,14 @@ function BillingView({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            Current plan {live ? <Badge tone="green">Active</Badge> : <Badge tone="amber">Not live</Badge>}
+            Current plan{" "}
+            {tech.subscriptionStatus === "trialing" ? (
+              <Badge tone="amber">Trialing</Badge>
+            ) : live ? (
+              <Badge tone="green">Active</Badge>
+            ) : (
+              <Badge tone="amber">Not live</Badge>
+            )}
           </CardTitle>
           <CardDescription>{planLabel(tech)}</CardDescription>
         </CardHeader>
@@ -171,7 +190,7 @@ function BillingView({
             />
           </div>
           <p className="text-center text-xs text-ink-faint">{footerNote}</p>
-          {!isTester && !isPartner && launchOfferEnabled() ? (
+          {!isTester && !isPartner && !isTrial && offer.firstMonthLabel === "£9.50" ? (
             <p className="text-center text-xs text-ink-faint">
               Launch offer: {offer.firstMonthLabel} {offer.thenLabel}. Referral free-month credits apply from invoice 2 onward for the referrer.
             </p>

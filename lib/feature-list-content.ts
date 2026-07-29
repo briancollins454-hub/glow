@@ -31,7 +31,7 @@ export const POSITIONING = {
   elevator:
     "A flat-fee (£19/mo), branded booking platform with beauty-specific rules built in: patch test gating, infill timing, deposits straight to your bank via Stripe Connect, automatic reminders, compliance records, and tools that protect your diary — without a marketplace poaching your regulars.",
   audience: "Self-employed lash, nail and brow technicians in the UK",
-  pricing: "£9.50 first month, then £19/mo (or £180/year). 0% commission on all client payments.",
+  pricing: "£19/mo (or £180/year). Intro offer at signup: half-price first month or 14-day free trial. 0% commission on all client payments.",
   pillars: [
     {
       title: "Your money, your clients",

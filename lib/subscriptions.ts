@@ -9,12 +9,18 @@ export function isLive(tech: Pick<Tech, "subscriptionStatus">): boolean {
 
 /**
  * True when the public booking page can take new appointments.
- * Needs an active plan AND bookingPageLive (Settings toggle).
- * Missing/null bookingPageLive is treated as on (pre-migration).
+ * Needs an active plan (or past_due during Stripe smart retries) AND
+ * bookingPageLive (Settings toggle). Missing/null bookingPageLive = on.
+ *
+ * past_due keeps the page online until dunning exhausts retries and we set
+ * bookingPageLive=false after a prior warning email (never offline without warning).
  */
 export function acceptsOnlineBookings(
   tech: Pick<Tech, "subscriptionStatus"> & { bookingPageLive?: boolean | null },
 ): boolean {
+  if (tech.subscriptionStatus === "past_due") {
+    return tech.bookingPageLive !== false;
+  }
   if (!isLive(tech)) return false;
   return tech.bookingPageLive !== false;
 }

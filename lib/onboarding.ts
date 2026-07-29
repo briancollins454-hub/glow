@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, brandedEmail, isValidEmail } from "@/lib/email";
 import { randomId } from "@/lib/ids";
+import { frozenOfferCopy } from "@/lib/offers";
 import type { Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -34,12 +35,18 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
   const heardLine = tech.signupHeardAbout
     ? `Heard about us: <strong>${tech.signupHeardAbout}</strong><br/>`
     : "";
+  const offer = frozenOfferCopy({
+    signupOffer: tech.signupOffer,
+    signupPartnerSlug: tech.signupPartnerSlug,
+  });
   const offerLine =
     tech.signupOffer === "tester"
       ? "Tester (£1 first month)"
       : tech.signupPartnerSlug
         ? "Partner (3 months free)"
-        : "Standard (£9.50 first month)";
+        : tech.signupOffer === "trial"
+          ? "Trial (14 days free)"
+          : `Standard (${offer.firstMonthLabel} first month)`;
 
   const html = brandedEmail({
     brand: BRAND,
@@ -87,12 +94,14 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
 export async function sendWelcomeEmail(tech: Tech): Promise<void> {
   if (!isValidEmail(tech.email)) return;
   const url = (p: string) => `${APP_URL}${p}`;
-  const price =
-    tech.signupOffer === "tester"
-      ? "£1"
-      : tech.signupPartnerSlug
-        ? "£0 (3 months free)"
-        : "£9.50";
+  const offer = frozenOfferCopy({
+    signupOffer: tech.signupOffer,
+    signupPartnerSlug: tech.signupPartnerSlug,
+  });
+  const isTrial = tech.signupOffer === "trial";
+  const activateLine = isTrial
+    ? `Start your 14-day free trial (card details now, ${offer.thenLabel} when the trial ends)`
+    : `${offer.firstMonthLabel} for your first month, ${offer.thenLabel}`;
   const html = brandedEmail({
     brand: BRAND,
     businessName: "Glow",
@@ -100,18 +109,25 @@ export async function sendWelcomeEmail(tech: Tech): Promise<void> {
     bodyHtml:
       `Your booking page is reserved at <strong>${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}</strong>.<br/><br/>` +
       `Three steps to your first booking:<br/><br/>` +
-      `1. <a href="${url("/dashboard/billing")}" style="color:${BRAND}">Activate your plan</a> (${price} for your first month, then £19/mo)<br/>` +
+      `1. <a href="${url("/dashboard/billing")}" style="color:${BRAND}">Activate your plan</a> (${activateLine})<br/>` +
       `2. <a href="${url("/dashboard/services")}" style="color:${BRAND}">Add your services and prices</a><br/>` +
       `3. Set your hours and put your link in your Instagram and TikTok bio<br/><br/>` +
+      (isTrial
+        ? `${offer.supporting}<br/><br/>`
+        : "") +
       `Activating unlocks your services, availability, deposits and client messaging - and switches your booking page on so clients can book.`,
-    buttonLabel: tech.signupPartnerSlug ? "Activate — 3 months free" : `Activate for ${price}`,
+    buttonLabel: isTrial
+      ? offer.ctaLabel
+      : tech.signupPartnerSlug
+        ? "Activate — 3 months free"
+        : `Activate for ${offer.firstMonthLabel}`,
     buttonUrl: url("/dashboard/billing"),
   });
   await sendEmail({
     to: tech.email,
     subject: "Welcome to Glow - activate your booking page",
     html,
-    text: `Welcome to Glow! Your booking page: ${APP_URL}/${tech.handle}. First, activate your plan (${price} first month, then £19/mo) to unlock your tools and switch on bookings: ${APP_URL}/dashboard/billing`,
+    text: `Welcome to Glow! Your booking page: ${APP_URL}/${tech.handle}. First, activate your plan (${activateLine}) to unlock your tools and switch on bookings: ${APP_URL}/dashboard/billing`,
     idempotencyKey: `welcome/${tech.id}`,
     techId: tech.id,
     kind: "welcome",
@@ -159,7 +175,11 @@ export async function processDueOnboardingEmails(sb: SupabaseClient): Promise<nu
             `Your page <strong>${APP_URL.replace(/^https?:\/\//, "")}/${tech.handle}</strong> is one or two steps from taking bookings:` +
             `<br/><br/>` +
             `${(serviceCount ?? 0) === 0 ? `&bull; Add at least one service<br/>` : ""}` +
-            `${!live ? `&bull; Start your plan so clients can book online (50% off your first month)<br/>` : ""}` +
+            `${!live
+              ? tech.signupOffer === "trial"
+                ? `&bull; Start your 14-day free trial so clients can book online<br/>`
+                : `&bull; Start your plan so clients can book online (${frozenOfferCopy({ signupOffer: tech.signupOffer, signupPartnerSlug: tech.signupPartnerSlug }).headline})<br/>`
+              : ""}` +
             `<br/>It takes about five minutes. Reply to this email if you're stuck and a human will help.`,
           buttonLabel: "Finish setting up",
           buttonUrl: `${APP_URL}/dashboard`,

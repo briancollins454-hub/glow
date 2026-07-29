@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { gbp, fmtTime, fmtRelativeDays } from "@/lib/format";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
+import { frozenOfferCopy } from "@/lib/offers";
 import { OnboardingChecklist, type SetupStep } from "@/components/dashboard/onboarding-checklist";
 import type { BusinessInsight } from "@/lib/insights";
 import type { Booking, Client, Service, Tech } from "@/lib/db/types";
@@ -73,6 +74,10 @@ function HomeView({
   const minutes = searchParams.get("minutes");
   const live = isLive(tech);
   const isTester = tech.signupOffer === "tester";
+  const offer = frozenOfferCopy({
+    signupOffer: tech.signupOffer,
+    signupPartnerSlug: tech.signupPartnerSlug,
+  });
   const setupSteps: SetupStep[] = [
     {
       title: "Add your first service",
@@ -89,13 +94,19 @@ function HomeView({
       cta: "Check hours",
     },
     {
-      title: isTester ? "Go live - your first month is just £1" : "Go live - 50% off your first month",
+      title: isTester
+        ? "Go live - your first month is just £1"
+        : tech.signupOffer === "trial"
+          ? "Start your 14-day free trial"
+          : "Go live - 50% off your first month",
       detail: isTester
         ? "Tester offer: £1 for month one, then £19/mo, cancel anytime."
-        : "Switches on online bookings. £19/mo, cancel anytime.",
+        : tech.signupOffer === "trial"
+          ? offer.supporting
+          : "Switches on online bookings. £19/mo, cancel anytime.",
       href: "/dashboard/billing",
       done: live,
-      cta: isTester ? "Go live for £1" : "Go live",
+      cta: isTester ? "Go live for £1" : tech.signupOffer === "trial" ? "Start free trial" : "Go live",
     },
     {
       title: "Set up card payments (optional)",

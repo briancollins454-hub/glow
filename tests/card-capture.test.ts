@@ -80,6 +80,15 @@ describe("acceptsOnlineBookings", () => {
     );
   });
 
+  it("past_due keeps booking page online until taken offline after warning", () => {
+    expect(
+      acceptsOnlineBookings(makeTech({ subscriptionStatus: "past_due", bookingPageLive: true })),
+    ).toBe(true);
+    expect(
+      acceptsOnlineBookings(makeTech({ subscriptionStatus: "past_due", bookingPageLive: false })),
+    ).toBe(false);
+  });
+
   it("treats missing bookingPageLive as on (pre-migration)", () => {
     expect(
       acceptsOnlineBookings(makeTech({ subscriptionStatus: "active", bookingPageLive: undefined })),

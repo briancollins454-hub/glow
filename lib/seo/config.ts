@@ -62,36 +62,44 @@ export const SOFTWARE_APPLICATION = {
 
 export type PricingFaq = { question: string; answer: string };
 
-export const PRICING_FAQS: PricingFaq[] = [
-  {
-    question: "How much does Glow cost?",
-    answer:
-      "Glow is £19 a month flat, everything included. No per-staff fees, no marketplace commission, no bolt-ons. First month is half price (£9.50) while the launch offer is on.",
-  },
-  {
-    question: "Is there commission on bookings?",
-    answer:
-      "No. Glow takes 0% of what your clients pay you. Deposits and balances go straight into your own Stripe account.",
-  },
-  {
-    question: "Are staff seats extra?",
-    answer: "No. Unlimited staff are included in the £19 monthly plan.",
-  },
-  {
-    question: "Can I cancel anytime?",
-    answer: "Yes. There are no contracts. Cancel from Billing whenever you like.",
-  },
-  {
-    question: "Is migration free?",
-    answer:
-      "Yes. If you are switching from Fresha, Booksy or another system, we import your clients, services and bookings for free.",
-  },
-  {
-    question: "What is included for £19?",
-    answer:
-      "Your booking page, deposits and card on file, reminders, waitlists, loyalty, vouchers, reviews, patch tests, infills, consent and aftercare, multi-staff and reports.",
-  },
-];
+export function pricingFaqsForMode(mode: "trial" | "half_price_first_month"): PricingFaq[] {
+  const costAnswer =
+    mode === "trial"
+      ? "Glow is £19 a month flat, everything included. New signups get a 14-day free trial (card details taken at signup; first charge of £19 when the trial ends). No per-staff fees, no marketplace commission, no bolt-ons."
+      : "Glow is £19 a month flat, everything included. No per-staff fees, no marketplace commission, no bolt-ons. First month is half price (£9.50) while the launch offer is on.";
+  return [
+    {
+      question: "How much does Glow cost?",
+      answer: costAnswer,
+    },
+    {
+      question: "Is there commission on bookings?",
+      answer:
+        "No. Glow takes 0% of what your clients pay you. Deposits and balances go straight into your own Stripe account.",
+    },
+    {
+      question: "Are staff seats extra?",
+      answer: "No. Unlimited staff are included in the £19 monthly plan.",
+    },
+    {
+      question: "Can I cancel anytime?",
+      answer: "Yes. There are no contracts. Cancel from Billing whenever you like.",
+    },
+    {
+      question: "Is migration free?",
+      answer:
+        "Yes. If you are switching from Fresha, Booksy or another system, we import your clients, services and bookings for free.",
+    },
+    {
+      question: "What is included for £19?",
+      answer:
+        "Your booking page, deposits and card on file, reminders, waitlists, loyalty, vouchers, reviews, patch tests, infills, consent and aftercare, multi-staff and reports.",
+    },
+  ];
+}
+
+/** @deprecated Prefer pricingFaqsForMode(liveMode). Default half-price copy for static SEO. */
+export const PRICING_FAQS: PricingFaq[] = pricingFaqsForMode("half_price_first_month");
 
 const CATEGORY_SKIP =
   /^(other|imported|patch\s*test|consultations?|courses?|aftercare|add[- ]?ons?)$/i;

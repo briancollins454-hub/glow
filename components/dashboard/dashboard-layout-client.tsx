@@ -42,7 +42,8 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   if (!tech) return null;
 
   const isTester = tech.signupOffer === "tester";
-  const mustPay = !admin && !isLive(tech) && !isTester;
+  const pastDue = tech.subscriptionStatus === "past_due";
+  const mustPay = !admin && !isLive(tech) && !isTester && !pastDue;
   const onAllowedRoute = PAYWALL_ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname?.startsWith(`${prefix}/`),
   );

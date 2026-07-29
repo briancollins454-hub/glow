@@ -9,6 +9,8 @@ import { randomId, randomToken } from "@/lib/ids";
 import { isLive } from "@/lib/subscriptions";
 import { slugify } from "@/lib/utils";
 import type { Tech } from "@/lib/db/types";
+import { freezeSignupOffer } from "@/lib/offers";
+import { getSignupOfferMode } from "@/lib/platform-settings";
 
 /**
  * Create the Glow account row + starter setup for a brand-new Auth user.
@@ -43,6 +45,10 @@ export async function provisionNewTechAccount(
   const referrer =
     opts.refRaw && opts.refRaw !== candidate ? await getTechByHandle(admin, opts.refRaw) : null;
 
+  // Freeze the live platform mode onto this tech at signup time.
+  const mode = await getSignupOfferMode(admin);
+  const signupOffer = freezeSignupOffer({ mode, isTester: opts.isTester });
+
   const techId = randomId("tech");
   let tech: Tech;
   try {
@@ -71,7 +77,7 @@ export async function provisionNewTechAccount(
       noShowFeeValue: 100,
       referredBy: referrer?.handle ?? null,
       calendarToken: randomToken(),
-      signupOffer: opts.isTester ? "tester" : "",
+      signupOffer,
       signupUtmSource: opts.signupUtmSource ?? null,
       signupUtmMedium: opts.signupUtmMedium ?? null,
       signupUtmCampaign: opts.signupUtmCampaign ?? null,

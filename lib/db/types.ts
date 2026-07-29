@@ -199,6 +199,16 @@ export interface Tech {
    * Optional until migration 0055.
    */
   clientMessagingConfirmedAt?: string | null;
+  /**
+   * When a frozen trial ends (signupOffer === "trial"). Optional until 0056.
+   */
+  trialEndsAt?: string | null;
+  trialWarningDay7SentAt?: string | null;
+  trialWarningDay11SentAt?: string | null;
+  trialWarningDay13SentAt?: string | null;
+  trialFirstChargeEmailSentAt?: string | null;
+  trialPastDueWarnedAt?: string | null;
+  bookingPageOfflineWarnedAt?: string | null;
   createdAt: string;
 }
 

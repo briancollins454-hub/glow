@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { Lock, Sparkles, CheckCircle2, Clock } from "lucide-react";
 import type { Tech } from "@/lib/db/types";
+import { frozenOfferCopy } from "@/lib/offers";
 
 /**
  * Full-screen gate shown across the dashboard until a tech activates a plan.
- * New accounts must pay their first month (£9.50, or £1 for invited testers)
- * before they can use the booking tools. The owner and comped/active/trialing
- * accounts never see this - they're already "live".
+ * Copy follows the offer frozen on the tech at signup (trial / half-price / tester).
  */
 export function DashboardPaywall({ tech }: { tech: Tech }) {
-  const isTester = tech.signupOffer === "tester";
-  const price = isTester ? "£1" : "£9.50";
+  const offer = frozenOfferCopy({
+    signupOffer: tech.signupOffer,
+    signupPartnerSlug: tech.signupPartnerSlug,
+  });
+  const isTrial = tech.signupOffer === "trial";
 
   return (
     <div className="mx-auto max-w-lg">
@@ -28,13 +30,14 @@ export function DashboardPaywall({ tech }: { tech: Tech }) {
           </p>
         </div>
 
-        <p className="mt-1">
-          <span className="text-3xl font-semibold">{price}</span>
-          <span className="text-ink-faint">
-            {" "}
-            first month, then £19/mo
-          </span>
-        </p>
+        {isTrial ? (
+          <p className="mt-1 max-w-sm text-sm text-ink-soft">{offer.supporting}</p>
+        ) : (
+          <p className="mt-1">
+            <span className="text-3xl font-semibold">{offer.firstMonthLabel}</span>
+            <span className="text-ink-faint"> first month, then £19/mo</span>
+          </p>
+        )}
 
         <ul className="space-y-2 text-left text-sm text-ink-soft">
           <li className="flex items-center gap-2">
@@ -54,7 +57,7 @@ export function DashboardPaywall({ tech }: { tech: Tech }) {
           href="/dashboard/billing"
           className="mt-2 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700"
         >
-          <Sparkles className="h-4 w-4" /> Go live for {price}
+          <Sparkles className="h-4 w-4" /> {offer.ctaLabel}
         </Link>
         <p className="text-xs text-ink-faint">
           0% commission, ever. Cancel anytime.
