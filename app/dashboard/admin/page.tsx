@@ -40,6 +40,22 @@ export default async function OwnerOverviewPage() {
 
       <OwnerNav />
 
+      {!o.includeInternal && o.internalExcluded > 0 ? (
+        <p className="rounded-xl border border-edge bg-surface px-4 py-3 text-sm text-ink-soft">
+          Excluding <strong>{o.internalExcluded}</strong> internal account{o.internalExcluded === 1 ? "" : "s"} from
+          metrics.{" "}
+          <Link href="/dashboard/admin/internal" className="text-brand-text underline-offset-2 hover:underline">
+            Manage internal flags
+          </Link>
+        </p>
+      ) : (
+        <p className="text-sm text-ink-soft">
+          <Link href="/dashboard/admin/internal" className="text-brand-text underline-offset-2 hover:underline">
+            Internal accounts
+          </Link>
+        </p>
+      )}
+
       <section className="space-y-3">
         <h2 className="font-display text-lg font-semibold">Accounts</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

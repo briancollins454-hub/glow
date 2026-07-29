@@ -216,6 +216,16 @@ export interface Tech {
   blockedAt?: string | null;
   blockedReason?: string;
   blockedByEmail?: string | null;
+  /** Test/staff account excluded from owner metrics. Optional until 0058. */
+  isInternal?: boolean | null;
+  healthScore?: number | null;
+  healthBand?: string | null;
+  healthReasons?: unknown;
+  lastOwnerLoginAt?: string | null;
+  atRiskManual?: boolean | null;
+  ownerTags?: string[] | null;
+  outboundPausedAt?: string | null;
+  outboundPausedReason?: string | null;
   createdAt: string;
 }
 

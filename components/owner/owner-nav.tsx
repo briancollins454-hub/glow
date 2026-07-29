@@ -6,8 +6,13 @@ import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/dashboard/admin", label: "Overview", exact: true },
+  { href: "/dashboard/admin/search", label: "Search" },
   { href: "/dashboard/admin/traffic", label: "Traffic" },
   { href: "/dashboard/admin/accounts", label: "Accounts" },
+  { href: "/dashboard/admin/money", label: "Money" },
+  { href: "/dashboard/admin/deliverability", label: "Deliverability" },
+  { href: "/dashboard/admin/conflicts", label: "Conflicts" },
+  { href: "/dashboard/admin/internal", label: "Internal" },
   { href: "/dashboard/admin/offers", label: "Signup offer" },
   { href: "/dashboard/admin/partners", label: "Partners" },
   { href: "/dashboard/admin/revenue", label: "Revenue" },

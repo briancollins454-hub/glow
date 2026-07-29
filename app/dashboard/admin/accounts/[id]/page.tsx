@@ -15,6 +15,8 @@ import {
   ownerUnblockAccountAction,
   ownerDeleteAccountAction,
 } from "../../owner-actions";
+import { startViewAsAction } from "../view-as-actions";
+import { setInternalFlagAction } from "../../internal-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +115,9 @@ export default async function OwnerAccountDetailPage({
       <Card>
         <CardHeader>
           <CardTitle>Owner actions</CardTitle>
-          <CardDescription>Confirmation required. Every action is audited. View-only data; no impersonation.</CardDescription>
+          <CardDescription>
+            Confirmation required. Every action is audited. View-as is read-only (mutations blocked).
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ActionForm
@@ -139,6 +143,27 @@ export default async function OwnerAccountDetailPage({
             id={tech.id}
             label="Email password reset link"
           />
+          <form action={startViewAsAction} className="flex flex-wrap items-end gap-2 rounded-xl border border-edge bg-cream p-3">
+            <input type="hidden" name="id" value={tech.id} />
+            <button type="submit" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white">
+              View as account (read only)
+            </button>
+          </form>
+          <form action={setInternalFlagAction} className="flex flex-wrap items-end gap-2 rounded-xl border border-edge bg-cream p-3">
+            <input type="hidden" name="id" value={tech.id} />
+            <input type="hidden" name="internal" value={tech.isInternal ? "0" : "1"} />
+            <div>
+              <label className="block text-xs text-ink-faint">Type yes to confirm</label>
+              <input
+                name="confirm"
+                className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
+              {tech.isInternal ? "Unmark internal" : "Mark as internal"}
+            </button>
+          </form>
           <Link
             href={`/dashboard/admin/support-import?tech=${encodeURIComponent(tech.id)}`}
             className="inline-flex rounded-xl border border-edge px-3 py-2 text-sm font-medium hover:border-brand-400/40"
@@ -334,6 +359,44 @@ export default async function OwnerAccountDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Email sends (last 30 days)</CardTitle>
+          <CardDescription>
+            Per-account outbound volume. Full breakdown on{" "}
+            <Link href="/dashboard/admin/deliverability" className="underline-offset-2 hover:underline">
+              Deliverability
+            </Link>
+            .
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {detail.outbound30d.length === 0 ? (
+            <p className="text-ink-faint">No sends in the last 30 days.</p>
+          ) : (
+            detail.outbound30d.map(
+              (s: {
+                id: string;
+                kind: string;
+                destination: string;
+                deliveryStatus: string | null;
+                ok: boolean;
+                createdAt: string;
+              }) => (
+                <div key={s.id} className="rounded-lg border border-edge px-3 py-2">
+                  <span className="font-medium">{s.kind}</span>
+                  <span className="text-ink-faint">
+                    {" "}
+                    · {s.destination} · {s.deliveryStatus || (s.ok ? "sent" : "failed")} ·{" "}
+                    {fmtDateTime(s.createdAt)}
+                  </span>
+                </div>
+              ),
+            )
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

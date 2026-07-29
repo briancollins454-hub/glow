@@ -9,9 +9,11 @@ import {
   setSignupOfferMode,
   type SignupOfferMode,
 } from "@/lib/platform-settings";
+import { assertNotViewAs } from "@/lib/owner/view-as";
 
 /** Owner-only: switch platform signup offer mode. */
 export async function setSignupOfferModeAction(formData: FormData) {
+  await assertNotViewAs();
   const { tech } = await requireOwner();
   const confirm = String(formData.get("confirm") ?? "").trim().toLowerCase();
   if (confirm !== "yes") {
