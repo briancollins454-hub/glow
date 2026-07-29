@@ -114,6 +114,40 @@ function supportAuditWriter(admin: Tech, target: Tech) {
           source: info.source,
         }),
       });
+      // Also attribute on the target account + immutable owner_audit (Phase 2.7).
+      await createAuditEvent(supabaseService(), {
+        techId: target.id,
+        actor: "tech",
+        action: info.action,
+        entityType: "import",
+        entityId: target.id,
+        metadata: {
+          ...buildSupportImportAuditMeta({
+            adminTechId: admin.id,
+            targetTechId: target.id,
+            fileName: info.fileName,
+            imported: info.imported,
+            skipped: info.skipped,
+            rows: info.rows,
+            excludedCalendars: info.excludedCalendars,
+            source: info.source,
+          }),
+          attributedToOwnerEmail: admin.email,
+        },
+      });
+      const { writeOwnerAudit } = await import("@/lib/owner/owner-audit-log");
+      await writeOwnerAudit({
+        actorEmail: admin.email,
+        action: `support_${info.action}`,
+        targetType: "tech",
+        targetId: target.id,
+        metadata: {
+          fileName: info.fileName,
+          imported: info.imported,
+          skipped: info.skipped,
+          rows: info.rows,
+        },
+      });
     } catch {
       // Audit is best-effort.
     }

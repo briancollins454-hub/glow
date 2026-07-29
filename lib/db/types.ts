@@ -226,6 +226,10 @@ export interface Tech {
   ownerTags?: string[] | null;
   outboundPausedAt?: string | null;
   outboundPausedReason?: string | null;
+  /** Soft fraud signals (Phase 2.8); optional until captured at signup. */
+  signupIp?: string | null;
+  signupUserAgent?: string | null;
+  signupCardFingerprint?: string | null;
   createdAt: string;
 }
 

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtDateTime } from "@/lib/format";
 import { ownerRunCronAction } from "../owner-actions";
+import { runOwnerDailyAction } from "../phase2-actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +40,10 @@ export default async function OwnerOpsPage({
       </div>
       <OwnerNav />
 
-      {sp.ok === "cron" ? (
-        <p className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">Cron run finished.</p>
+      {sp.ok === "cron" || sp.ok === "owner_daily" ? (
+        <p className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
+          {sp.ok === "owner_daily" ? "Owner daily job finished." : "Cron run finished."}
+        </p>
       ) : null}
       {sp.err === "confirm" ? (
         <p className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-warning-text">
@@ -75,6 +78,14 @@ export default async function OwnerOpsPage({
             </div>
             <button type="submit" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white">
               Run now
+            </button>
+          </form>
+          <form action={runOwnerDailyAction} className="flex flex-wrap items-center gap-2 border-t border-edge pt-3">
+            <p className="text-sm text-ink-soft">
+              Owner daily (health + snapshots + SMS rollup) — scheduled 03:15 UTC.
+            </p>
+            <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
+              Run owner daily now
             </button>
           </form>
 
