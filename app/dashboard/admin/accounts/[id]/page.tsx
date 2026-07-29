@@ -149,7 +149,7 @@ export default async function OwnerAccountDetailPage({
       </Card>
 
       {canModerate && !isSelf ? (
-        <Card className="border-danger/40">
+        <Card className="border-red-500/40">
           <CardHeader>
             <CardTitle>Block or delete</CardTitle>
             <CardDescription>
@@ -211,7 +211,7 @@ export default async function OwnerAccountDetailPage({
 
             <form
               action={ownerDeleteAccountAction}
-              className="space-y-3 rounded-xl border border-danger/40 bg-danger-soft/40 p-3"
+              className="space-y-3 rounded-xl border border-red-500/40 bg-danger-soft p-3"
             >
               <input type="hidden" name="id" value={tech.id} />
               <p className="text-sm font-medium text-danger-text">Permanently delete this account</p>
@@ -239,7 +239,7 @@ export default async function OwnerAccountDetailPage({
                 </div>
                 <button
                   type="submit"
-                  className="rounded-lg bg-danger px-3 py-2 text-sm font-medium text-white"
+                  className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white"
                 >
                   Delete forever
                 </button>
