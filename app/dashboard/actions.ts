@@ -1906,7 +1906,7 @@ export async function optInImportedBookingRemindersAction() {
     importedBookingRemindersOptInAt: now,
     clientMessagingConfirmedAt: tech.clientMessagingConfirmedAt ?? now,
   });
-  invalidateDashboardTech();
+  invalidateDashboardTech(tech.authUserId);
   const { scheduleRemindersForImportedOptIn } = await import("@/lib/bookings");
   await scheduleRemindersForImportedOptIn(sb, tech.id);
   revalidatePath("/dashboard/import");
