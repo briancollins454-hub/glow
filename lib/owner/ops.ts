@@ -14,6 +14,42 @@ export type CronRunRow = {
   finishedAt: string | null;
 };
 
+/** Known scheduled jobs for the cron console (Phase 3.7). */
+export const CRON_JOB_CATALOG: {
+  job: string;
+  schedule: string;
+  expectedMaxGapMinutes: number;
+  description: string;
+}[] = [
+  {
+    job: "reminders",
+    schedule: "*/15 * * * *",
+    expectedMaxGapMinutes: 25,
+    description: "Due reminders, onboarding, rebook, infill, trial emails",
+  },
+  {
+    job: "owner_daily",
+    schedule: "15 3 * * *",
+    expectedMaxGapMinutes: 36 * 60,
+    description: "Health scores, snapshots, SMS rollup, anomaly alerts",
+  },
+];
+
+export function cronJobOverdue(
+  lastStartedAt: string | null,
+  expectedMaxGapMinutes: number,
+  nowMs = Date.now(),
+): boolean {
+  if (!lastStartedAt) return true;
+  return nowMs - new Date(lastStartedAt).getTime() > expectedMaxGapMinutes * 60_000;
+}
+
+export function averageDurationMs(runs: CronRunRow[]): number | null {
+  const withDur = runs.filter((r) => typeof r.durationMs === "number");
+  if (!withDur.length) return null;
+  return Math.round(withDur.reduce((s, r) => s + (r.durationMs ?? 0), 0) / withDur.length);
+}
+
 export async function listCronRuns(limit = 40): Promise<CronRunRow[]> {
   const sb = supabaseService();
   const { data, error } = await sb
@@ -83,6 +119,24 @@ export async function recordCronRun(opts: {
 export async function runRemindersJobNow(trigger: "cron" | "manual" = "manual") {
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
+  try {
+    const { cronJobsPaused } = await import("@/lib/owner/controls");
+    if (await cronJobsPaused()) {
+      const finishedAt = new Date().toISOString();
+      await recordCronRun({
+        job: "reminders",
+        trigger,
+        ok: true,
+        result: { skipped: true, reason: "cronPaused" },
+        startedAt,
+        finishedAt,
+        durationMs: Date.now() - t0,
+      });
+      return { ok: true as const, skipped: true as const, reason: "cronPaused" };
+    }
+  } catch {
+    // controls helper may be unavailable; continue
+  }
   const sb = supabaseService();
   try {
     const result = await processDueReminders(sb);

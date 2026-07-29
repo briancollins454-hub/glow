@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseService } from "@/lib/supabase/service";
+import { randomId } from "@/lib/ids";
 import {
   applyComplaint,
   applyHardBounce,
@@ -9,6 +10,35 @@ import {
   markOutboundDelivery,
   normaliseEmail,
 } from "@/lib/email-suppression";
+
+async function logResendWebhookEvent(opts: {
+  svixId: string | null;
+  type: string;
+  emailId: string | null;
+  ok: boolean;
+  error?: string | null;
+  payload: unknown;
+}): Promise<void> {
+  try {
+    const id = opts.svixId ? `rwh_${opts.svixId}` : randomId("rwh");
+    await supabaseService().from("resend_webhook_events").upsert(
+      {
+        id,
+        svixId: opts.svixId,
+        type: opts.type,
+        emailId: opts.emailId,
+        ok: opts.ok,
+        error: opts.error ?? null,
+        payload: opts.payload ?? {},
+        receivedAt: new Date().toISOString(),
+        processedAt: new Date().toISOString(),
+      },
+      { onConflict: "svixId" },
+    );
+  } catch {
+    // Table may be missing until migration 0060.
+  }
+}
 
 /**
  * Resend delivery webhooks: bounce / complaint / delayed.
@@ -75,10 +105,19 @@ export async function POST(req: Request) {
   }
 
   const type = event.type;
+  const svixId = req.headers.get("svix-id");
   // Official Resend name is email.delivery_delayed; accept the alias too.
   const isDelayed = type === "email.delivery_delayed" || type === "email.delivered_delayed";
   const handled = type === "email.bounced" || type === "email.complained" || isDelayed;
   if (!handled) {
+    await logResendWebhookEvent({
+      svixId,
+      type,
+      emailId: null,
+      ok: true,
+      payload: event,
+      error: "skipped",
+    });
     // Acknowledge unknown types so Resend does not retry forever.
     return NextResponse.json({ ok: true, skipped: type });
   }
@@ -98,6 +137,13 @@ export async function POST(req: Request) {
         deliveryStatus: "delivery_delayed",
         destination: email,
       });
+      await logResendWebhookEvent({
+        svixId,
+        type,
+        emailId: resendEmailId || null,
+        ok: true,
+        payload: event,
+      });
       return NextResponse.json({ ok: true, event: type });
     }
 
@@ -114,6 +160,13 @@ export async function POST(req: Request) {
           resendEmailId,
           outboundId: outbound?.id ?? null,
         });
+        await logResendWebhookEvent({
+          svixId,
+          type,
+          emailId: resendEmailId || null,
+          ok: true,
+          payload: event,
+        });
         return NextResponse.json({
           ok: true,
           event: type,
@@ -121,6 +174,13 @@ export async function POST(req: Request) {
           accountProtected: result.accountProtected,
         });
       }
+      await logResendWebhookEvent({
+        svixId,
+        type,
+        emailId: resendEmailId || null,
+        ok: true,
+        payload: event,
+      });
       return NextResponse.json({ ok: true, event: type, suppressed: false });
     }
 
@@ -134,6 +194,13 @@ export async function POST(req: Request) {
     });
 
     if (!email) {
+      await logResendWebhookEvent({
+        svixId,
+        type,
+        emailId: resendEmailId || null,
+        ok: true,
+        payload: event,
+      });
       return NextResponse.json({ ok: true, event: type, note: "no recipient" });
     }
 
@@ -142,6 +209,13 @@ export async function POST(req: Request) {
         email,
         resendEmailId,
         outboundId: outbound?.id ?? null,
+      });
+      await logResendWebhookEvent({
+        svixId,
+        type,
+        emailId: resendEmailId || null,
+        ok: true,
+        payload: event,
       });
       return NextResponse.json({
         ok: true,
@@ -160,6 +234,13 @@ export async function POST(req: Request) {
         outboundId: outbound?.id ?? null,
       },
     );
+    await logResendWebhookEvent({
+      svixId,
+      type,
+      emailId: resendEmailId || null,
+      ok: true,
+      payload: event,
+    });
     return NextResponse.json({
       ok: true,
       event: type,
@@ -171,6 +252,14 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("[resend/webhook] handler failed", (err as Error).message);
+    await logResendWebhookEvent({
+      svixId,
+      type,
+      emailId: resendEmailId || null,
+      ok: false,
+      error: (err as Error).message,
+      payload: event,
+    });
     try {
       const { reportError } = await import("@/lib/monitor");
       await reportError(err, { where: "resend.webhook", context: { type, resendEmailId, email } });

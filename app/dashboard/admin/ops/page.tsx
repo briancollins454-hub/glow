@@ -1,5 +1,13 @@
 import { requireOwner } from "@/lib/owner/require-owner";
-import { listCronRuns, listOutboundSends, listPlatformErrors, runIntegrityChecks } from "@/lib/owner/ops";
+import {
+  averageDurationMs,
+  CRON_JOB_CATALOG,
+  cronJobOverdue,
+  listCronRuns,
+  listOutboundSends,
+  listPlatformErrors,
+  runIntegrityChecks,
+} from "@/lib/owner/ops";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { MetricTile } from "@/components/owner/metric-tile";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +79,41 @@ export default async function OwnerOpsPage({
         <MetricTile label="Send failures (sample)" value={String(sendFail24)} tone="amber" />
         <MetricTile label="Recent errors listed" value={String(errors.length)} tone="red" />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Job console</CardTitle>
+          <CardDescription>
+            Schedule, last run, average duration, and overdue window alerts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {CRON_JOB_CATALOG.map((job) => {
+            const runs = crons.filter((c) => c.job === job.job);
+            const latest = runs[0] ?? null;
+            const avg = averageDurationMs(runs.slice(0, 20));
+            const overdue = cronJobOverdue(latest?.startedAt ?? null, job.expectedMaxGapMinutes);
+            return (
+              <div
+                key={job.job}
+                className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-edge px-3 py-2"
+              >
+                <div>
+                  <p className="font-medium">
+                    {job.job}{" "}
+                    {overdue ? <Badge tone="amber">overdue / never</Badge> : <Badge tone="green">on schedule</Badge>}
+                  </p>
+                  <p className="text-ink-soft">{job.description}</p>
+                  <p className="text-xs text-ink-faint">
+                    cron: {job.schedule} · last{" "}
+                    {latest ? fmtDateTime(latest.startedAt) : "—"} · avg {avg != null ? `${avg}ms` : "—"}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

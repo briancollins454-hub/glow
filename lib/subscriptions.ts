@@ -73,6 +73,17 @@ export function clientOnlinePaymentsActive(
 }
 
 /**
+ * Platform emergency pause for client online payments (Phase 3.2).
+ * Call from async checkout paths; sync helpers above stay pure.
+ */
+export async function assertClientPaymentsNotPaused(): Promise<void> {
+  const { clientPaymentsPaused } = await import("@/lib/owner/controls");
+  if (await clientPaymentsPaused()) {
+    throw new Error("Client online payments are temporarily paused by Glow");
+  }
+}
+
+/**
  * True when clients should get "pay your balance" emails/SMS (the 48h balance
  * request and the pay-early button on confirmations). Salons that settle in
  * person turn this off in Settings. Also off when client payments are disabled.

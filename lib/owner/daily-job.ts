@@ -51,10 +51,18 @@ export async function runOwnerDailyJob(
     } catch (err) {
       console.error("[owner daily] sms rollup failed:", (err as Error).message);
     }
+    let alertsCreated = 0;
+    try {
+      const { evaluateAnomalyAlerts } = await import("@/lib/owner/alerts");
+      alertsCreated = (await evaluateAnomalyAlerts()).created;
+    } catch (err) {
+      console.error("[owner daily] alerts failed:", (err as Error).message);
+    }
     const finishedAt = new Date().toISOString();
     const result = {
       health,
       smsRows,
+      alertsCreated,
       periodMonth: currentPeriodMonth(),
       limit,
       durationMs: Date.now() - t0,

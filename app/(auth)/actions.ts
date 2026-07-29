@@ -63,6 +63,14 @@ export async function signupAction(formData: FormData) {
   if (!(await rateLimit("signup", { limit: 5, windowMinutes: 15 })).ok) {
     redirect("/signup?error=missing");
   }
+  try {
+    const { signupsPaused } = await import("@/lib/owner/controls");
+    if (await signupsPaused()) {
+      redirect("/signup?error=paused");
+    }
+  } catch {
+    // controls unavailable — allow signup
+  }
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const businessName = String(formData.get("businessName") ?? "").trim();

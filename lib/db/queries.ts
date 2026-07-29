@@ -1883,7 +1883,15 @@ export async function remindersForBooking(sb: SB, bookingId: string): Promise<Re
 }
 export async function createReminder(sb: SB, r: Omit<Reminder, "id" | "createdAt">): Promise<Reminder> {
   const { data, error } = await sb.from("reminders").insert({ ...r, id: randomId("rem") }).select("*").single();
-  return must(data as Reminder, error, "createReminder");
+  const reminder = must(data as Reminder, error, "createReminder");
+  // Best-effort mirror for owner outbound preview (Phase 3.1).
+  try {
+    const { mirrorReminderToScheduledSends } = await import("@/lib/owner/outbound");
+    await mirrorReminderToScheduledSends(reminder);
+  } catch {
+    // scheduled_sends may be missing pre-0060
+  }
+  return reminder;
 }
 export async function dueReminders(sb: SB, nowIso: string): Promise<Reminder[]> {
   const { data, error } = await sb.from("reminders").select("*").eq("status", "scheduled").lte("sendAtIso", nowIso);
