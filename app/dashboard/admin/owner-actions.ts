@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import { requireOwner } from "@/lib/owner/require-owner";
+import { requireOwner, requirePlatformOwner } from "@/lib/owner/require-owner";
 import { ownerAudit } from "@/lib/owner/audit";
 import { cachedInvalidate } from "@/lib/owner/cache";
 import { updateTech, getTechById } from "@/lib/db/queries";
@@ -176,4 +176,119 @@ export async function ownerCreatePartnerAction(formData: FormData) {
   } catch {
     redirect("/dashboard/admin/partners?err=save");
   }
+}
+
+/** Block an account (T&Cs / abuse). Exclusive to brian@thesupportsdesk.com. */
+export async function ownerBlockAccountAction(formData: FormData) {
+  const { tech: admin } = await requirePlatformOwner();
+  if (!confirm(formData, "yes")) {
+    redirect(`/dashboard/admin/accounts/${String(formData.get("id") ?? "")}?err=confirm`);
+  }
+  const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  const sb = supabaseService();
+  const target = await getTechById(sb, id);
+  if (!target) notFound();
+  if (target.id === admin.id) {
+    redirect(`/dashboard/admin/accounts/${id}?err=self`);
+  }
+  try {
+    const { blockTechAccount } = await import("@/lib/owner/account-moderation");
+    await blockTechAccount(sb, {
+      target,
+      reason,
+      actorEmail: admin.email,
+    });
+  } catch (err) {
+    const msg = (err as Error).message || "block";
+    redirect(
+      `/dashboard/admin/accounts/${id}?err=${msg.includes("reason") ? "reason" : "block"}`,
+    );
+  }
+  await ownerAudit({
+    actorTechId: admin.id,
+    action: "admin_blocked_account",
+    targetTechId: id,
+    before: { blockedAt: target.blockedAt ?? null },
+    after: { blockedAt: "set", reason },
+    metadata: { reason, email: target.email, handle: target.handle },
+  });
+  cachedInvalidate("owner:");
+  revalidatePath("/dashboard/admin/accounts");
+  revalidatePath(`/dashboard/admin/accounts/${id}`);
+  redirect(`/dashboard/admin/accounts/${id}?ok=blocked`);
+}
+
+/** Unblock a previously blocked account. Exclusive to brian@thesupportsdesk.com. */
+export async function ownerUnblockAccountAction(formData: FormData) {
+  const { tech: admin } = await requirePlatformOwner();
+  if (!confirm(formData, "yes")) {
+    redirect(`/dashboard/admin/accounts/${String(formData.get("id") ?? "")}?err=confirm`);
+  }
+  const id = String(formData.get("id") ?? "");
+  const sb = supabaseService();
+  const target = await getTechById(sb, id);
+  if (!target) notFound();
+  const { unblockTechAccount } = await import("@/lib/owner/account-moderation");
+  await unblockTechAccount(sb, { target });
+  await ownerAudit({
+    actorTechId: admin.id,
+    action: "admin_unblocked_account",
+    targetTechId: id,
+    before: {
+      blockedAt: target.blockedAt ?? null,
+      blockedReason: target.blockedReason ?? "",
+    },
+    after: { blockedAt: null },
+    metadata: { email: target.email, handle: target.handle },
+  });
+  cachedInvalidate("owner:");
+  revalidatePath("/dashboard/admin/accounts");
+  revalidatePath(`/dashboard/admin/accounts/${id}`);
+  redirect(`/dashboard/admin/accounts/${id}?ok=unblocked`);
+}
+
+/**
+ * Permanently delete an account. Confirm by typing the handle.
+ * Exclusive to brian@thesupportsdesk.com.
+ */
+export async function ownerDeleteAccountAction(formData: FormData) {
+  const { tech: admin } = await requirePlatformOwner();
+  const id = String(formData.get("id") ?? "");
+  const sb = supabaseService();
+  const target = await getTechById(sb, id);
+  if (!target) notFound();
+  if (target.id === admin.id) {
+    redirect(`/dashboard/admin/accounts/${id}?err=self`);
+  }
+  const typed = String(formData.get("confirm") ?? "").trim().toLowerCase();
+  if (typed !== target.handle.trim().toLowerCase()) {
+    redirect(`/dashboard/admin/accounts/${id}?err=confirm_handle`);
+  }
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const snapshot = {
+    email: target.email,
+    handle: target.handle,
+    businessName: target.businessName,
+    stripeCustomerId: target.stripeCustomerId,
+    stripeSubscriptionId: target.stripeSubscriptionId,
+    reason,
+  };
+  // Audit before delete so the trail survives even if target techId rows go.
+  await ownerAudit({
+    actorTechId: admin.id,
+    action: "admin_deleted_account",
+    targetTechId: id,
+    metadata: snapshot,
+  });
+  try {
+    const { deleteTechAccount } = await import("@/lib/owner/account-moderation");
+    await deleteTechAccount(sb, { target, actorEmail: admin.email });
+  } catch (err) {
+    console.error("[owner delete]", (err as Error).message);
+    redirect(`/dashboard/admin/accounts/${id}?err=delete`);
+  }
+  cachedInvalidate("owner:");
+  revalidatePath("/dashboard/admin/accounts");
+  redirect("/dashboard/admin/accounts?ok=deleted");
 }

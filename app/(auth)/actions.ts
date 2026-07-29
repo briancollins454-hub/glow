@@ -21,6 +21,30 @@ export async function loginAction(formData: FormData) {
   if (error) {
     redirect("/login?error=invalid");
   }
+
+  // Platform-blocked accounts: sign out immediately with a clear error.
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (user) {
+    const tech = await getTechByAuthUserId(supabaseService(), user.id);
+    if (tech?.blockedAt) {
+      await sb.auth.signOut();
+      redirect("/login?error=blocked");
+    }
+    if (!tech) {
+      const { getStaffByAuthUserId, getTechById } = await import("@/lib/db/queries");
+      const staff = await getStaffByAuthUserId(supabaseService(), user.id).catch(() => null);
+      if (staff) {
+        const salon = await getTechById(supabaseService(), staff.techId);
+        if (salon?.blockedAt) {
+          await sb.auth.signOut();
+          redirect("/login?error=blocked");
+        }
+      }
+    }
+  }
+
   redirect("/dashboard");
 }
 

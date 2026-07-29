@@ -26,6 +26,7 @@ function flagsFor(tech: Tech, bookingCount: number, serviceCount: number): strin
   if (tech.subscriptionStatus === "past_due") flags.push("past_due");
   if (tech.subscriptionStatus === "trialing") flags.push("trialing");
   if (tech.signupOffer === "trial") flags.push("signup_trial");
+  if (tech.blockedAt) flags.push("blocked");
   if (tech.closureRequestedAt) flags.push("closure_requested");
   return flags;
 }

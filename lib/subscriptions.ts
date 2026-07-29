@@ -14,10 +14,15 @@ export function isLive(tech: Pick<Tech, "subscriptionStatus">): boolean {
  *
  * past_due keeps the page online until dunning exhausts retries and we set
  * bookingPageLive=false after a prior warning email (never offline without warning).
+ * Blocked accounts never accept bookings.
  */
 export function acceptsOnlineBookings(
-  tech: Pick<Tech, "subscriptionStatus"> & { bookingPageLive?: boolean | null },
+  tech: Pick<Tech, "subscriptionStatus"> & {
+    bookingPageLive?: boolean | null;
+    blockedAt?: string | null;
+  },
 ): boolean {
+  if (tech.blockedAt) return false;
   if (tech.subscriptionStatus === "past_due") {
     return tech.bookingPageLive !== false;
   }

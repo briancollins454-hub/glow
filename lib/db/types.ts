@@ -209,6 +209,13 @@ export interface Tech {
   trialFirstChargeEmailSentAt?: string | null;
   trialPastDueWarnedAt?: string | null;
   bookingPageOfflineWarnedAt?: string | null;
+  /**
+   * When set, the account is blocked by the platform owner (T&Cs / abuse).
+   * Optional until migration 0057.
+   */
+  blockedAt?: string | null;
+  blockedReason?: string;
+  blockedByEmail?: string | null;
   createdAt: string;
 }
 
