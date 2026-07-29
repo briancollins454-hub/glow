@@ -83,6 +83,12 @@ describe("selectCheckoutOffer", () => {
     }
   });
 
+  it("never stacks coupon with trial signupOffer", () => {
+    expect(
+      selectCheckoutOffer({ plan: "monthly", signupOffer: "trial", signupPartnerSlug: null }),
+    ).toBe("");
+  });
+
   it("applies first-month-50 once for public monthly signups", () => {
     expect(
       selectCheckoutOffer({ plan: "monthly", signupOffer: "", signupPartnerSlug: null }),

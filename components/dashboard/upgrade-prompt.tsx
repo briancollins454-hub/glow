@@ -10,7 +10,7 @@ export function UpgradePrompt({ feature }: { feature: string }) {
       </span>
       <h2 className="font-display text-xl font-semibold">{feature} is a plan feature</h2>
       <p className="max-w-sm text-sm text-ink-soft">
-        Subscribe to unlock {feature.toLowerCase()} and take live bookings - 50% off your first month. Cancel anytime, no commission ever.
+        Subscribe to unlock {feature.toLowerCase()} and take live bookings. Cancel anytime, no commission ever.
       </p>
       <Link
         href="/dashboard/billing"

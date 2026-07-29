@@ -115,8 +115,22 @@ export async function runRemindersJobNow(trigger: "cron" | "manual" = "manual") 
     } catch (err) {
       console.error("[owner cron] account email reconcile failed:", (err as Error).message);
     }
+    let trialEmails = { sent: 0 };
+    try {
+      const { processTrialLifecycleEmails } = await import("@/lib/trial-lifecycle");
+      trialEmails = await processTrialLifecycleEmails(sb);
+    } catch (err) {
+      console.error("[owner cron] trial lifecycle failed:", (err as Error).message);
+    }
     const finishedAt = new Date().toISOString();
-    const payload = { ...result, onboarding, rebookNudges, infillNudges, accountEmailRestored };
+    const payload = {
+      ...result,
+      onboarding,
+      rebookNudges,
+      infillNudges,
+      accountEmailRestored,
+      trialEmails,
+    };
     await recordCronRun({
       job: "reminders",
       trigger,

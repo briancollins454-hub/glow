@@ -276,6 +276,6 @@ describe("sitemap + robots + brand SERP", () => {
   it("pricing page renders FAQPage schema", () => {
     const pricing = readFileSync(join(process.cwd(), "app/pricing/page.tsx"), "utf8");
     expect(pricing).toContain("faqPageJsonLd");
-    expect(pricing).toContain("PRICING_FAQS");
+    expect(pricing).toContain("pricingFaqsForMode");
   });
 });

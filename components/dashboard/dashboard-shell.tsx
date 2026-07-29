@@ -14,6 +14,7 @@ import { invalidateDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { clearDashboardCache } from "@/lib/dashboard/client-cache";
 import { ensureInstallCapture } from "@/lib/pwa-install";
 import { accountEmailDeliveryWarning } from "@/lib/email-delivery-ui";
+import { TrialBanner, PastDueBanner } from "@/components/dashboard/trial-banner";
 
 export function DashboardShell({
   tech,
@@ -105,6 +106,9 @@ export function DashboardShell({
           </div>
         </div>
       </header>
+
+      <TrialBanner tech={tech} />
+      <PastDueBanner tech={tech} />
 
       {deliveryWarning ? (
         <div

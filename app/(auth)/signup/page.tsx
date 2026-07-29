@@ -11,8 +11,10 @@ import { SignupAttributionFields } from "@/components/auth/signup-attribution-fi
 import { signupAction } from "../actions";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { HEAR_ABOUT_OPTIONS } from "@/lib/signup-attribution";
-import { launchOfferEnabled, partnerOfferEnabled } from "@/lib/offers";
+import { launchOfferEnabled, partnerOfferEnabled, publicOfferCopy } from "@/lib/offers";
+import { getSignupOfferMode } from "@/lib/platform-settings";
 import { getPartnerBySlug } from "@/lib/partners";
+import { supabaseService } from "@/lib/supabase/service";
 
 const errors: Record<string, ReactNode> = {
   email: (
@@ -49,6 +51,19 @@ export default async function SignupPage({
   const partnerSlug = (partnerParam ?? "").trim().toLowerCase() || null;
   const partner =
     partnerSlug && partnerOfferEnabled() ? await getPartnerBySlug(partnerSlug).catch(() => null) : null;
+  const mode = await getSignupOfferMode(supabaseService());
+  const offer = isTester
+    ? publicOfferCopy(mode, { isTester: true })
+    : publicOfferCopy(mode);
+  const subtitle = isTester
+    ? "£1 your first month, then £19. No commission, ever."
+    : partner
+      ? "3 months free via your academy, then £19/mo. No commission, ever."
+      : offer.mode === "trial"
+        ? "Try free for 14 days, then £19/mo. No commission, ever."
+        : launchOfferEnabled()
+          ? "£9.50 your first month, then £19. No commission, ever."
+          : "£19/mo when you go live. No commission, ever.";
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
@@ -104,13 +119,7 @@ export default async function SignupPage({
             Create your booking page
           </h1>
           <p className="mt-1 text-sm text-ink-soft">
-            {isTester
-              ? "£1 your first month, then £19. No commission, ever."
-              : partner
-                ? "3 months free via your academy, then £19/mo. No commission, ever."
-                : launchOfferEnabled()
-                  ? "£9.50 your first month, then £19. No commission, ever."
-                  : "£19/mo when you go live. No commission, ever."}
+            {subtitle}
           </p>
 
           {error && (

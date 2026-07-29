@@ -50,6 +50,8 @@ export default async function OwnerAccountDetailPage({
         <Badge tone="neutral">{tech.subscriptionStatus}</Badge>
         {tech.plan ? <Badge tone="neutral">{tech.plan}</Badge> : null}
         {tech.signupOffer === "tester" ? <Badge tone="brand">Tester</Badge> : null}
+        {tech.signupOffer === "trial" ? <Badge tone="brand">Trial signup</Badge> : null}
+        {tech.signupOffer === "half_price" ? <Badge tone="neutral">Half-price signup</Badge> : null}
         {tech.signupPartnerSlug ? <Badge tone="brand">Partner: {tech.signupPartnerSlug}</Badge> : null}
         {tech.connectChargesEnabled ? (
           <Badge tone="green">Connect ready</Badge>
@@ -69,6 +71,8 @@ export default async function OwnerAccountDetailPage({
           <p>UTM campaign: {tech.signupUtmCampaign || "—"}</p>
           <p>Heard about: {tech.signupHeardAbout || "—"}</p>
           <p>Partner slug: {tech.signupPartnerSlug || "—"}</p>
+          <p>Signup offer (frozen): {tech.signupOffer || "—"}</p>
+          <p>Trial ends: {tech.trialEndsAt ? fmtDate(tech.trialEndsAt) : "—"}</p>
           <p>Referred by: {tech.referredBy || "—"}</p>
           <p>Referral credit granted: {tech.referralCreditGrantedAt ? fmtDate(tech.referralCreditGrantedAt) : "—"}</p>
         </CardContent>

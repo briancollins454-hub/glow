@@ -5,9 +5,11 @@ import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { ButtonLink } from "@/components/ui/button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { marketingMetadata } from "@/lib/marketing/types";
-import { PRICING_FAQS } from "@/lib/seo/config";
+import { pricingFaqsForMode } from "@/lib/seo/config";
 import { faqPageJsonLd } from "@/lib/seo/json-ld";
-import { launchOfferCopy, launchOfferEnabled } from "@/lib/offers";
+import { publicOfferCopy } from "@/lib/offers";
+import { getSignupOfferMode } from "@/lib/platform-settings";
+import { supabaseService } from "@/lib/supabase/service";
 
 export const revalidate = 3600;
 
@@ -15,16 +17,18 @@ const page = {
   path: "/pricing",
   title: "Glow pricing — £19/mo everything included",
   description:
-    "Glow costs £19 a month flat for UK lash, brow and nail techs. Unlimited staff, 0% commission, free migration. First month half price while the launch offer is on.",
+    "Glow costs £19 a month flat for UK lash, brow and nail techs. Unlimited staff, 0% commission, free migration. Offer at signup depends on the current launch mode.",
 };
 
 export const metadata: Metadata = marketingMetadata(page);
 
-export default function PricingPage() {
-  const offer = launchOfferCopy(false);
+export default async function PricingPage() {
+  const mode = await getSignupOfferMode(supabaseService());
+  const offer = publicOfferCopy(mode);
+  const faqs = pricingFaqsForMode(mode);
   return (
     <MarketingShell>
-      <JsonLd data={faqPageJsonLd(PRICING_FAQS)} />
+      <JsonLd data={faqPageJsonLd(faqs)} />
       <PageViewBeacon path="/pricing" />
       <article className="container-page pb-12 pt-4 lg:pb-16">
         <p className="text-sm text-ink-faint">
@@ -45,7 +49,12 @@ export default function PricingPage() {
         <div className="mt-10 max-w-xl rounded-2xl border border-brand-500/30 bg-gradient-to-br from-brand-500/15 to-transparent p-6 sm:p-8">
           <p className="text-sm font-medium text-brand-text">Monthly plan</p>
           <p className="mt-2 font-display text-4xl font-semibold text-ink">
-            {launchOfferEnabled() ? (
+            {offer.mode === "trial" ? (
+              <>
+                <span className="text-brand-text">Free</span>
+                <span className="ml-2 text-lg font-medium text-ink-soft">for 14 days, then £19</span>
+              </>
+            ) : offer.firstMonthLabel === "£9.50" ? (
               <>
                 <span className="text-brand-text">{offer.firstMonthLabel}</span>
                 <span className="ml-2 text-lg font-medium text-ink-soft">first month, then £19</span>
@@ -56,7 +65,7 @@ export default function PricingPage() {
               </>
             )}
           </p>
-          <p className="mt-3 text-sm text-ink-soft">{offer.trustLine}</p>
+          <p className="mt-3 text-sm text-ink-soft">{offer.supporting}</p>
           <ButtonLink href="/signup" size="lg" className="mt-6 min-h-12">
             {offer.ctaLabel}
           </ButtonLink>
@@ -67,7 +76,7 @@ export default function PricingPage() {
             Pricing FAQs
           </h2>
           <div className="mt-6 space-y-4">
-            {PRICING_FAQS.map((faq) => (
+            {faqs.map((faq) => (
               <details
                 key={faq.question}
                 className="group rounded-xl border border-edge bg-cream/40 px-4 py-3 open:bg-cream/70"

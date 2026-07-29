@@ -9,6 +9,9 @@ import {
   SWITCH_LINKS,
   type MarketingPageContent,
 } from "@/lib/marketing/types";
+import { publicOfferCopy, rewriteOfferMentions } from "@/lib/offers";
+import { getSignupOfferMode } from "@/lib/platform-settings";
+import { supabaseService } from "@/lib/supabase/service";
 
 function breadcrumbItems(page: MarketingPageContent): { name: string; path: string }[] | null {
   if (page.breadcrumbs?.length) {
@@ -33,8 +36,11 @@ function breadcrumbItems(page: MarketingPageContent): { name: string; path: stri
   return null;
 }
 
-export function MarketingArticle({ page }: { page: MarketingPageContent }) {
+export async function MarketingArticle({ page }: { page: MarketingPageContent }) {
   const crumbs = breadcrumbItems(page);
+  const mode = await getSignupOfferMode(supabaseService());
+  const offer = publicOfferCopy(mode);
+  const t = (s: string) => rewriteOfferMentions(s, offer);
 
   return (
     <MarketingShell>
@@ -65,21 +71,21 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
           </ol>
         </nav>
         <h1 className="mt-4 max-w-3xl font-display text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl lg:text-[2.75rem]">
-          {page.h1}
+          {t(page.h1)}
         </h1>
-        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink-soft">{page.intro}</p>
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink-soft">{t(page.intro)}</p>
 
         <div className="mt-10 space-y-10">
           {page.sections.map((section, i) => (
             <section key={section.heading ?? i} className="max-w-3xl">
               {section.heading && (
                 <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-                  {section.heading}
+                  {t(section.heading)}
                 </h2>
               )}
               {section.paragraphs?.map((p) => (
                 <p key={p.slice(0, 48)} className="mt-3 leading-relaxed text-ink-soft">
-                  {p}
+                  {t(p)}
                 </p>
               ))}
               {section.bullets && (
@@ -87,7 +93,7 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
                   {section.bullets.map((b) => (
                     <li key={b} className="flex gap-2 text-ink-soft">
                       <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
-                      <span>{b}</span>
+                      <span>{t(b)}</span>
                     </li>
                   ))}
                 </ul>
@@ -96,7 +102,7 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
                 <ol className="mt-4 list-decimal space-y-3 pl-5 text-ink-soft">
                   {section.numbered.map((n) => (
                     <li key={n} className="leading-relaxed pl-1">
-                      {n}
+                      {t(n)}
                     </li>
                   ))}
                 </ol>
@@ -117,7 +123,7 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
                       <tr>
                         {section.table.headers.map((h) => (
                           <th key={h || "blank"} className="px-3 py-2.5 font-semibold text-ink">
-                            {h}
+                            {t(h)}
                           </th>
                         ))}
                       </tr>
@@ -130,7 +136,7 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
                               key={`${row[0]}-${idx}`}
                               className={`px-3 py-3 text-ink-soft ${idx === 0 ? "font-medium text-ink" : ""}`}
                             >
-                              {cell}
+                              {t(cell)}
                             </td>
                           ))}
                         </tr>
@@ -144,9 +150,9 @@ export function MarketingArticle({ page }: { page: MarketingPageContent }) {
         </div>
 
         <div className="mt-12 max-w-3xl rounded-2xl border border-brand-500/30 bg-gradient-to-br from-brand-500/15 to-transparent p-6 sm:p-8">
-          {page.cta.note && <p className="text-ink-soft">{page.cta.note}</p>}
+          <p className="text-ink-soft">{t(page.cta.note ?? offer.supporting)}</p>
           <ButtonLink href={page.cta.href ?? "/signup"} size="lg" className="mt-4 min-h-12">
-            {page.cta.label}
+            {offer.ctaLabel}
           </ButtonLink>
         </div>
       </article>

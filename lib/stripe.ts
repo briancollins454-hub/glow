@@ -6,7 +6,13 @@ export {
   launchOfferEnabled,
   partnerOfferEnabled,
   launchOfferCopy,
+  publicOfferCopy,
+  frozenOfferCopy,
   selectCheckoutOffer,
+  usesStripeTrial,
+  freezeSignupOffer,
+  rewriteOfferMentions,
+  TRIAL_DAYS,
 } from "@/lib/offers";
 
 // Platform Stripe client for BILLING (techs subscribing to Glow). This is

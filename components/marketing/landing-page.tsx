@@ -12,7 +12,9 @@ import { ButtonLink } from "@/components/ui/button";
 import { StickyMobileCta } from "@/components/marketing/sticky-mobile-cta";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { COMPARE_LINKS, SWITCH_LINKS, GUIDE_LINKS } from "@/lib/marketing/types";
-import { launchOfferCopy, launchOfferEnabled } from "@/lib/offers";
+import { publicOfferCopy } from "@/lib/offers";
+import { getSignupOfferMode } from "@/lib/platform-settings";
+import { supabaseService } from "@/lib/supabase/service";
 import { AttributionCapture } from "@/components/marketing/attribution-capture";
 import { JsonLd } from "@/components/seo/json-ld";
 import { softwareApplicationJsonLd } from "@/lib/seo/json-ld";
@@ -21,7 +23,6 @@ import { APP_URL } from "@/lib/seo/config";
 export const revalidate = 3600;
 
 const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
-const offer = launchOfferCopy(false);
 
 const META_DESCRIPTION =
   "Glow is the booking platform built for lash, brow and nail techs. £19 a month, everything included, 0% commission. Made by a working lash tech.";
@@ -46,7 +47,16 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const mode = await getSignupOfferMode(supabaseService());
+  const offer = publicOfferCopy(mode);
+  const bottomHeadline =
+    offer.mode === "trial"
+      ? "Try Glow free for 14 days. Everything included. Then £19."
+      : offer.firstMonthLabel === "£9.50"
+        ? "First month half price. Everything included. £9.50, then £19."
+        : "Everything included. £19 a month.";
+
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
       <JsonLd data={softwareApplicationJsonLd()} />
@@ -280,9 +290,7 @@ export default function LandingPage() {
       <section className="container-page py-12 pb-8 lg:py-16">
         <div className="card overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 p-8 text-center text-white sm:p-12">
           <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-            {launchOfferEnabled()
-              ? "First month half price. Everything included. £9.50, then £19."
-              : "Everything included. £19 a month."}
+            {bottomHeadline}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-white/90 sm:text-lg">
             Set up in minutes. Free migration. Cancel anytime.
@@ -369,7 +377,7 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      <StickyMobileCta />
+      <StickyMobileCta offer={offer} />
     </div>
   );
 }
