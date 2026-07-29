@@ -51,11 +51,15 @@ export const getDashboardContext = cache(async (): Promise<DashboardContext | nu
   if (!user) return null;
 
   const tech = await cachedTechForAuthUser(user.id);
-  if (tech) return { sb, tech, staff: null, role: "owner" };
+  if (tech) {
+    if (tech.blockedAt) return null;
+    return { sb, tech, staff: null, role: "owner" };
+  }
 
   // Staff login (salon mode): resolve their account via the staff record.
   const viaStaff = await cachedStaffForAuthUser(user.id);
   if (viaStaff) {
+    if (viaStaff.tech.blockedAt) return null;
     return { sb: supabaseService(), tech: viaStaff.tech, staff: viaStaff.staff, role: "staff" };
   }
   return null;

@@ -37,11 +37,19 @@ export default async function LoginPage({
               Your account is ready. Log in with the password you just chose.
             </p>
           )}
-          {error && (
+          {error === "blocked" ? (
+            <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+              This account has been blocked. If you think this is a mistake, email{" "}
+              <a className="underline underline-offset-2" href="mailto:support@glow-uk.com">
+                support@glow-uk.com
+              </a>
+              .
+            </p>
+          ) : error ? (
             <p className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
               That email and password don&apos;t match. Try again.
             </p>
-          )}
+          ) : null}
 
           <form action={loginAction} className="mt-6 space-y-4">
             <div>

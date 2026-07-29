@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireOwner } from "@/lib/owner/require-owner";
+import { isPlatformOwner } from "@/lib/admin";
 import { getOwnerAccountDetail } from "@/lib/owner/accounts";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,9 @@ import {
   ownerSetTesterAction,
   ownerSetCompAction,
   ownerPasswordResetAction,
+  ownerBlockAccountAction,
+  ownerUnblockAccountAction,
+  ownerDeleteAccountAction,
 } from "../../owner-actions";
 
 export const dynamic = "force-dynamic";
@@ -19,15 +23,18 @@ export default async function OwnerAccountDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ok?: string }>;
+  searchParams: Promise<{ ok?: string; err?: string }>;
 }) {
-  await requireOwner();
+  const { tech: admin } = await requireOwner();
   const { id } = await params;
   const sp = await searchParams;
   const detail = await getOwnerAccountDetail(id);
   if (!detail) notFound();
   const { tech } = detail;
   const isLive = ["trialing", "active", "comped"].includes(tech.subscriptionStatus);
+  const canModerate = isPlatformOwner(admin);
+  const isBlocked = !!tech.blockedAt;
+  const isSelf = admin.id === tech.id;
 
   return (
     <div className="space-y-6">
@@ -45,9 +52,27 @@ export default async function OwnerAccountDetailPage({
       {sp.ok ? (
         <p className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">Action saved ({sp.ok}).</p>
       ) : null}
+      {sp.err === "confirm" || sp.err === "confirm_handle" ? (
+        <p className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-warning-text">
+          {sp.err === "confirm_handle"
+            ? "Type the account handle exactly to confirm permanent delete."
+            : "Type yes to confirm before running this action."}
+        </p>
+      ) : null}
+      {sp.err === "reason" ? (
+        <p className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-warning-text">
+          A reason is required to block an account.
+        </p>
+      ) : null}
+      {sp.err === "self" ? (
+        <p className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-warning-text">
+          You cannot block or delete your own platform owner account.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <Badge tone="neutral">{tech.subscriptionStatus}</Badge>
+        {isBlocked ? <Badge tone="amber">Blocked</Badge> : null}
         {tech.plan ? <Badge tone="neutral">{tech.plan}</Badge> : null}
         {tech.signupOffer === "tester" ? <Badge tone="brand">Tester</Badge> : null}
         {tech.signupOffer === "trial" ? <Badge tone="brand">Trial signup</Badge> : null}
@@ -122,6 +147,107 @@ export default async function OwnerAccountDetailPage({
           </Link>
         </CardContent>
       </Card>
+
+      {canModerate && !isSelf ? (
+        <Card className="border-red-500/40">
+          <CardHeader>
+            <CardTitle>Block or delete</CardTitle>
+            <CardDescription>
+              Exclusive to {admin.email}. Blocking stops login and public bookings. Delete is permanent
+              (Stripe subscription cancelled, auth users removed, salon data wiped).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isBlocked ? (
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+                <p className="font-medium text-warning-text">Blocked</p>
+                <p className="mt-1 text-ink-soft">
+                  Since {tech.blockedAt ? fmtDateTime(tech.blockedAt) : "—"}
+                  {tech.blockedByEmail ? ` by ${tech.blockedByEmail}` : ""}.
+                </p>
+                <p className="mt-1 text-ink-soft">Reason: {tech.blockedReason || "—"}</p>
+                <div className="mt-3">
+                  <ActionForm
+                    action={ownerUnblockAccountAction}
+                    id={tech.id}
+                    label="Unblock account"
+                  />
+                </div>
+              </div>
+            ) : (
+              <form
+                action={ownerBlockAccountAction}
+                className="space-y-3 rounded-xl border border-edge bg-cream p-3"
+              >
+                <input type="hidden" name="id" value={tech.id} />
+                <div>
+                  <label className="block text-xs text-ink-faint">Reason (required)</label>
+                  <input
+                    name="reason"
+                    required
+                    placeholder="e.g. T&Cs breach — spam bookings"
+                    className="mt-1 w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <label className="block text-xs text-ink-faint">Type yes to confirm</label>
+                    <input
+                      name="confirm"
+                      className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white"
+                  >
+                    Block account
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <form
+              action={ownerDeleteAccountAction}
+              className="space-y-3 rounded-xl border border-red-500/40 bg-danger-soft p-3"
+            >
+              <input type="hidden" name="id" value={tech.id} />
+              <p className="text-sm font-medium text-danger-text">Permanently delete this account</p>
+              <p className="text-xs text-ink-soft">
+                Type the handle <strong>{tech.handle}</strong> to confirm. This cannot be undone.
+              </p>
+              <div>
+                <label className="block text-xs text-ink-faint">Reason (optional)</label>
+                <input
+                  name="reason"
+                  placeholder="Optional note for the audit log"
+                  className="mt-1 w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-xs text-ink-faint">Type handle to confirm</label>
+                  <input
+                    name="confirm"
+                    className="mt-1 w-40 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                    autoComplete="off"
+                    placeholder={tech.handle}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white"
+                >
+                  Delete forever
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
