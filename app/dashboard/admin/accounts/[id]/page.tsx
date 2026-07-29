@@ -17,6 +17,8 @@ import {
 } from "../../owner-actions";
 import { startViewAsAction } from "../view-as-actions";
 import { setInternalFlagAction } from "../../internal-actions";
+import { setOwnerTagsAction, setAtRiskManualAction } from "../../phase2-actions";
+import { formatHealthLabel } from "@/lib/owner/health";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +73,15 @@ export default async function OwnerAccountDetailPage({
           You cannot block or delete your own platform owner account.
         </p>
       ) : null}
+
+      {(() => {
+        const h = formatHealthLabel(tech);
+        return (
+          <p className="rounded-xl border border-edge bg-surface px-4 py-3 text-sm">
+            Health: <strong>{h.score}</strong> ({h.band}) — {h.reasons}
+          </p>
+        );
+      })()}
 
       <div className="flex flex-wrap gap-2">
         <Badge tone="neutral">{tech.subscriptionStatus}</Badge>
@@ -164,11 +175,48 @@ export default async function OwnerAccountDetailPage({
               {tech.isInternal ? "Unmark internal" : "Mark as internal"}
             </button>
           </form>
+          <form action={setAtRiskManualAction} className="flex flex-wrap items-end gap-2 rounded-xl border border-edge bg-cream p-3">
+            <input type="hidden" name="id" value={tech.id} />
+            <input type="hidden" name="on" value={tech.atRiskManual ? "0" : "1"} />
+            <div>
+              <label className="block text-xs text-ink-faint">Type yes to confirm</label>
+              <input
+                name="confirm"
+                className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
+              {tech.atRiskManual ? "Clear manual at-risk" : "Flag at-risk manually"}
+            </button>
+          </form>
+          <form action={setOwnerTagsAction} className="flex flex-wrap items-end gap-2 rounded-xl border border-edge bg-cream p-3">
+            <input type="hidden" name="id" value={tech.id} />
+            <div className="min-w-[200px] flex-1">
+              <label className="block text-xs text-ink-faint">Owner tags (comma-separated; use migration for import queue)</label>
+              <input
+                name="tags"
+                defaultValue={(tech.ownerTags ?? []).join(", ")}
+                className="mt-1 w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-ink-faint">Type yes</label>
+              <input
+                name="confirm"
+                className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
+              Save tags
+            </button>
+          </form>
           <Link
             href={`/dashboard/admin/support-import?tech=${encodeURIComponent(tech.id)}`}
             className="inline-flex rounded-xl border border-edge px-3 py-2 text-sm font-medium hover:border-brand-400/40"
           >
-            Support import for this account
+            Support-assisted setup / import
           </Link>
         </CardContent>
       </Card>

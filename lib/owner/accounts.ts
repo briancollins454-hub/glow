@@ -56,7 +56,7 @@ export function trialDaysLeft(trialEndsAt: string | null | undefined, nowMs = Da
  */
 export async function listOwnerAccounts(opts: {
   q?: string;
-  sort?: "createdAt" | "businessName" | "status";
+  sort?: "createdAt" | "businessName" | "status" | "health";
   page?: number;
   pageSize?: number;
 }): Promise<AccountListResult & { trialingCount: number }> {
@@ -87,6 +87,7 @@ export async function listOwnerAccounts(opts: {
   const sort = opts.sort ?? "createdAt";
   if (sort === "businessName") query = query.order("businessName", { ascending: true });
   else if (sort === "status") query = query.order("subscriptionStatus", { ascending: true });
+  else if (sort === "health") query = query.order("healthScore", { ascending: true, nullsFirst: false });
   else query = query.order("createdAt", { ascending: false });
 
   const { data, error, count } = await query.range(from, to);

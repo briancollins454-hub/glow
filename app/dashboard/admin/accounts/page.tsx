@@ -28,7 +28,8 @@ export default async function OwnerAccountsPage({
   await requireOwner();
   const sp = await searchParams;
   const page = Number(sp.page ?? "1") || 1;
-  const sort = (sp.sort as "createdAt" | "businessName" | "status" | undefined) ?? "createdAt";
+  const sort =
+    (sp.sort as "createdAt" | "businessName" | "status" | "health" | undefined) ?? "createdAt";
   const data = await listOwnerAccounts({ q: sp.q, page, sort });
 
   const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
@@ -66,6 +67,7 @@ export default async function OwnerAccountsPage({
           <option value="createdAt">Newest</option>
           <option value="businessName">Name</option>
           <option value="status">Status</option>
+          <option value="health">Health (worst first)</option>
         </select>
         <button type="submit" className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white">
           Search
@@ -79,6 +81,7 @@ export default async function OwnerAccountsPage({
               <th className="px-3 py-2">Account</th>
               <th className="px-3 py-2">Offer</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Health</th>
               <th className="px-3 py-2">Trial end</th>
               <th className="px-3 py-2">Days left</th>
               <th className="px-3 py-2">First charge</th>
@@ -116,6 +119,30 @@ export default async function OwnerAccountsPage({
                     {row.tech.subscriptionStatus}
                   </Badge>
                   {row.tech.plan ? <span className="ml-1 text-xs text-ink-faint">{row.tech.plan}</span> : null}
+                </td>
+                <td className="px-3 py-2">
+                  {row.tech.healthScore == null ? (
+                    "—"
+                  ) : (
+                    <span title={Array.isArray(row.tech.healthReasons)
+                      ? (row.tech.healthReasons as { detail?: string }[])
+                          .slice(0, 2)
+                          .map((r) => r.detail)
+                          .join("; ")
+                      : undefined}>
+                      <Badge
+                        tone={
+                          row.tech.healthBand === "at_risk"
+                            ? "amber"
+                            : row.tech.healthBand === "watch"
+                              ? "neutral"
+                              : "green"
+                        }
+                      >
+                        {row.tech.healthScore} {row.tech.healthBand || ""}
+                      </Badge>
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   {row.tech.trialEndsAt ? fmtDate(row.tech.trialEndsAt) : "—"}

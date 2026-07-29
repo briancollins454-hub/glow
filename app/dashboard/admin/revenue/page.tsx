@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { getRevenueSnapshot } from "@/lib/owner/revenue";
+import { getCohortRevenueExtras } from "@/lib/owner/cohorts";
 import { gbpFromPennies } from "@/lib/owner/mrr";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { MetricTile } from "@/components/owner/metric-tile";
@@ -18,7 +19,10 @@ export default async function OwnerRevenuePage({
   await requireOwner();
   const sp = await searchParams;
   const reconcile = sp.reconcile === "1";
-  const snap = await getRevenueSnapshot({ reconcileStripe: reconcile });
+  const [snap, cohorts] = await Promise.all([
+    getRevenueSnapshot({ reconcileStripe: reconcile }),
+    getCohortRevenueExtras(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -44,6 +48,114 @@ export default async function OwnerRevenuePage({
         <MetricTile label="Paying monthly" value={String(snap.mrr.payingMonthly)} />
         <MetricTile label="Paying annual" value={String(snap.mrr.payingAnnual)} />
       </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricTile
+          label="Expected from trials"
+          value={gbpFromPennies(cohorts.forecast.expectedFromTrialsPennies)}
+          hint={`Observed conversion ${cohorts.forecast.observedTrialConversionRate}%`}
+        />
+        <MetricTile
+          label="MRR at risk"
+          value={gbpFromPennies(cohorts.forecast.atRiskMrrPennies)}
+          tone="amber"
+          hint="Past due + at-risk"
+        />
+        <MetricTile
+          label="LTV estimate"
+          value={
+            cohorts.forecast.ltvPennies == null
+              ? "Unavailable"
+              : gbpFromPennies(cohorts.forecast.ltvPennies)
+          }
+          hint={cohorts.forecast.ltvNote}
+        />
+        <MetricTile
+          label="Avg lifetime"
+          value={
+            cohorts.forecast.avgLifetimeMonths == null
+              ? "—"
+              : `${cohorts.forecast.avgLifetimeMonths} mo`
+          }
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Retention grid</CardTitle>
+          <CardDescription>{cohorts.retention.note}</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {cohorts.retention.signupMonths.length === 0 ? (
+            <p className="text-sm text-ink-faint">No cohorts yet.</p>
+          ) : (
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="text-ink-faint">
+                <tr>
+                  <th className="px-2 py-1">Signup month</th>
+                  {Array.from({ length: cohorts.retention.maxAge + 1 }, (_, i) => (
+                    <th key={i} className="px-2 py-1">
+                      M{i}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cohorts.retention.signupMonths.slice(-12).map((sm) => (
+                  <tr key={sm} className="border-t border-edge">
+                    <td className="px-2 py-1 font-medium">{sm}</td>
+                    {Array.from({ length: cohorts.retention.maxAge + 1 }, (_, i) => {
+                      const cell = cohorts.retention.cells[sm]?.[i];
+                      return (
+                        <td key={i} className="px-2 py-1">
+                          {cell ? `${cell.accounts} / ${gbpFromPennies(cell.mrrPennies)}` : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>MRR movement</CardTitle>
+          <CardDescription>New, expansion, contraction, churned, net — from snapshots.</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {cohorts.movement.length === 0 ? (
+            <p className="text-sm text-ink-faint">Need at least two snapshot months.</p>
+          ) : (
+            <table className="w-full min-w-[700px] text-left text-sm">
+              <thead className="text-xs text-ink-faint">
+                <tr>
+                  <th className="py-1">Month</th>
+                  <th>New</th>
+                  <th>Expansion</th>
+                  <th>Contraction</th>
+                  <th>Churned</th>
+                  <th>Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cohorts.movement.map((m) => (
+                  <tr key={m.month} className="border-t border-edge">
+                    <td className="py-1.5">{m.month}</td>
+                    <td>{gbpFromPennies(m.newPennies)}</td>
+                    <td>{gbpFromPennies(m.expansionPennies)}</td>
+                    <td>{gbpFromPennies(m.contractionPennies)}</td>
+                    <td>{gbpFromPennies(m.churnedPennies)}</td>
+                    <td>{gbpFromPennies(m.netPennies)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
 
       <p className="text-sm text-ink-soft">{snap.promoNote}</p>
       <p className="text-sm text-ink-soft">{snap.stripeReconcileNote}</p>

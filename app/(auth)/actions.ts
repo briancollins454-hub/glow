@@ -32,6 +32,17 @@ export async function loginAction(formData: FormData) {
       await sb.auth.signOut();
       redirect("/login?error=blocked");
     }
+    if (tech) {
+      // Owner login recency for health score (staff logins do not count).
+      try {
+        await supabaseService()
+          .from("techs")
+          .update({ lastOwnerLoginAt: new Date().toISOString() })
+          .eq("id", tech.id);
+      } catch {
+        // Column may be missing until migration 0058.
+      }
+    }
     if (!tech) {
       const { getStaffByAuthUserId, getTechById } = await import("@/lib/db/queries");
       const staff = await getStaffByAuthUserId(supabaseService(), user.id).catch(() => null);
