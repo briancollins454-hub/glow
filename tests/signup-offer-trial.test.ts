@@ -239,7 +239,7 @@ describe("cancelling during trial / dunning", () => {
   });
 
   it("webhook dunning never offlines without prior email warning", () => {
-    const webhook = readFileSync(join(process.cwd(), "app/api/stripe/webhook/route.ts"), "utf8");
+    const webhook = readFileSync(join(process.cwd(), "lib/stripe-webhook-process.ts"), "utf8");
     expect(webhook).toContain("sendBookingPageOfflineWarningEmail");
     expect(webhook).toContain("bookingPageOfflineWarnedAt");
     expect(webhook).toContain("bookingPageLive: false");
@@ -275,7 +275,8 @@ describe("webhooks idempotent + subscriptionStatus", () => {
   });
 
   it("handles required Stripe event types", () => {
-    const webhook = readFileSync(join(process.cwd(), "app/api/stripe/webhook/route.ts"), "utf8");
+    const webhook = readFileSync(join(process.cwd(), "lib/stripe-webhook-process.ts"), "utf8");
+    const route = readFileSync(join(process.cwd(), "app/api/stripe/webhook/route.ts"), "utf8");
     for (const t of [
       "customer.subscription.trial_will_end",
       "customer.subscription.updated",
@@ -285,7 +286,8 @@ describe("webhooks idempotent + subscriptionStatus", () => {
     ]) {
       expect(webhook).toContain(t);
     }
-    expect(webhook).toContain("claimStripeWebhookEvent");
+    expect(route).toContain("claimStripeWebhookEvent");
+    expect(route).toContain("processStripeEventForReplay");
     expect(webhook).toContain("trialing");
     expect(webhook).toContain("sendTrialFirstChargeSuccessEmail");
     expect(webhook).toContain("sendTrialFirstChargeFailedEmail");

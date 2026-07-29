@@ -8,6 +8,10 @@ import { isEmailSuppressed, normaliseEmail } from "@/lib/email-suppression";
 
 const FROM = process.env.RESEND_FROM ?? "Glow <onboarding@resend.dev>";
 
+export function fromAddress(): string {
+  return FROM;
+}
+
 const EMAIL_RE = /^[^\s@,]+@[^\s@,]+\.[^\s@,]{2,}$/;
 const PLACEHOLDER_DOMAINS = new Set(["example.com", "example.org", "example.net", "test.com"]);
 
@@ -124,6 +128,28 @@ export async function sendEmail(params: {
   if (!isValidEmail(params.to)) {
     console.error("[resend] skipped invalid recipient", params.to);
     return false;
+  }
+
+  // Kill switches (Phase 3.2) — enforced at send layer, not UI.
+  try {
+    const { outboundBlockReason } = await import("@/lib/owner/controls");
+    const blocked = await outboundBlockReason({ kind: params.kind, techId: params.techId });
+    if (blocked) {
+      console.warn("[resend] skipped kill switch", JSON.stringify({ kind: params.kind, blocked }));
+      await logOutbound({
+        ok: false,
+        destination: params.to,
+        subject: params.subject,
+        kind: params.kind,
+        error: blocked,
+        techId: params.techId,
+        idempotencyKey: params.idempotencyKey,
+        deliveryStatus: "suppressed_skip",
+      });
+      return false;
+    }
+  } catch (err) {
+    console.warn("[resend] kill switch check failed:", (err as Error).message);
   }
 
   // Suppression list: never retry bounced / complained addresses.

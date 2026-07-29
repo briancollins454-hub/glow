@@ -213,8 +213,10 @@ describe("referral credit stacking", () => {
   });
 
   it("is triggered from the Stripe subscription webhook", () => {
-    const webhook = readFileSync(join(process.cwd(), "app/api/stripe/webhook/route.ts"), "utf8");
+    const webhook = readFileSync(join(process.cwd(), "lib/stripe-webhook-process.ts"), "utf8");
     expect(webhook).toContain("maybeGrantReferralCredit");
+    const route = readFileSync(join(process.cwd(), "app/api/stripe/webhook/route.ts"), "utf8");
+    expect(route).toContain("processStripeEventForReplay");
   });
 
   it("keeps launch coupon on invoice 1 separate from referral balance credit", () => {

@@ -503,6 +503,12 @@ export async function createPairedPublicBookingAction(formData: FormData) {
   const startDepositCheckout = deposit > 0 && clientOnlinePaymentsActive(tech);
   const startCardCheckout = cardCapture;
   if (startDepositCheckout || startCardCheckout) {
+    try {
+      const { assertClientPaymentsNotPaused } = await import("@/lib/subscriptions");
+      await assertClientPaymentsNotPaused();
+    } catch {
+      redirect(`/${tech.handle}?error=payments_paused`);
+    }
     let pending;
     try {
       pending = await createPendingOnlineBooking({
@@ -848,6 +854,12 @@ export async function createPublicBookingAction(formData: FormData) {
   const startDepositCheckout = deposit > 0 && clientOnlinePaymentsActive(tech!);
   const startCardCheckout = cardCapture;
   if (startDepositCheckout || startCardCheckout) {
+    try {
+      const { assertClientPaymentsNotPaused } = await import("@/lib/subscriptions");
+      await assertClientPaymentsNotPaused();
+    } catch {
+      redirect(`/${tech!.handle}?error=payments_paused`);
+    }
     let pending;
     try {
       if (isBasket) {

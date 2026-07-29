@@ -37,6 +37,36 @@ export async function sendSms(
   const phone = normalisePhone(to);
   if (!phone) return false;
 
+  // Kill switches (Phase 3.2) — enforced at send layer.
+  try {
+    const { outboundBlockReason } = await import("@/lib/owner/controls");
+    const blocked = await outboundBlockReason({ kind: opts?.kind, techId: opts?.techId });
+    if (blocked) {
+      console.warn("[twilio] skipped kill switch", blocked);
+      try {
+        const { randomId } = await import("@/lib/ids");
+        const { supabaseService } = await import("@/lib/supabase/service");
+        await supabaseService().from("outbound_sends").insert({
+          id: randomId("out"),
+          channel: "sms",
+          destination: phone.slice(0, 32),
+          subject: null,
+          kind: opts?.kind ?? "sms",
+          ok: false,
+          error: blocked,
+          techId: opts?.techId ?? null,
+          idempotencyKey: null,
+          deliveryStatus: "suppressed_skip",
+        });
+      } catch {
+        // best-effort
+      }
+      return false;
+    }
+  } catch (err) {
+    console.warn("[twilio] kill switch check failed:", (err as Error).message);
+  }
+
   const sid = process.env.TWILIO_ACCOUNT_SID!;
   const auth = Buffer.from(`${sid}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64");
 

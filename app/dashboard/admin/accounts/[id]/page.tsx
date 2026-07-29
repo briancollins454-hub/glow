@@ -18,7 +18,10 @@ import {
 import { startViewAsAction } from "../view-as-actions";
 import { setInternalFlagAction } from "../../internal-actions";
 import { setOwnerTagsAction, setAtRiskManualAction } from "../../phase2-actions";
+import { setAccountOutboundPauseAction } from "../../phase3-actions";
 import { formatHealthLabel } from "@/lib/owner/health";
+import { countUpcomingForTech, listUpcomingOutbound } from "@/lib/owner/outbound";
+import { flagsForTech } from "@/lib/owner/flags";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +42,11 @@ export default async function OwnerAccountDetailPage({
   const canModerate = isPlatformOwner(admin);
   const isBlocked = !!tech.blockedAt;
   const isSelf = admin.id === tech.id;
+  const [upcomingCount, upcomingSample, featureFlags] = await Promise.all([
+    countUpcomingForTech(tech.id, 24 * 7),
+    listUpcomingOutbound({ techId: tech.id, withinHours: 24 * 7, limit: 8 }),
+    flagsForTech(tech.id).catch(() => ({}) as Record<string, boolean>),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -82,6 +90,86 @@ export default async function OwnerAccountDetailPage({
           </p>
         );
       })()}
+
+      <Card className={upcomingCount > 0 ? "border-amber-500/50" : undefined}>
+        <CardHeader>
+          <CardTitle>
+            Upcoming client-facing sends: {upcomingCount}
+          </CardTitle>
+          <CardDescription>
+            Next 7 days. Cancel or pause before Glow contacts this account&apos;s clients.{" "}
+            <Link
+              href={`/dashboard/admin/outbound?tech=${encodeURIComponent(tech.id)}`}
+              className="underline-offset-2 hover:underline"
+            >
+              Open outbound console
+            </Link>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {tech.outboundPausedAt ? (
+            <p className="rounded-lg bg-amber-500/15 px-3 py-2 text-warning-text">
+              Outbound paused since {fmtDateTime(tech.outboundPausedAt)}
+              {tech.outboundPausedReason ? ` — ${tech.outboundPausedReason}` : ""}
+            </p>
+          ) : null}
+          {upcomingSample.length === 0 ? (
+            <p className="text-ink-faint">None scheduled.</p>
+          ) : (
+            upcomingSample.map((s) => (
+              <div key={s.id} className="rounded-lg border border-edge px-3 py-2">
+                <span className="font-medium">{s.kind}</span>
+                <span className="text-ink-faint">
+                  {" "}
+                  · {s.channel} · {s.destination || "—"} · {fmtDateTime(s.scheduledFor)}
+                </span>
+              </div>
+            ))
+          )}
+          <form
+            action={setAccountOutboundPauseAction}
+            className="flex flex-wrap items-end gap-2 rounded-xl border border-edge bg-cream p-3"
+          >
+            <input type="hidden" name="id" value={tech.id} />
+            <input type="hidden" name="paused" value={tech.outboundPausedAt ? "0" : "1"} />
+            <div className="min-w-[180px] flex-1">
+              <label className="block text-xs text-ink-faint">Reason</label>
+              <input
+                name="reason"
+                required
+                className="mt-1 w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-ink-faint">Type yes</label>
+              <input
+                name="confirm"
+                className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <button
+              type="submit"
+              className={
+                tech.outboundPausedAt
+                  ? "rounded-lg border border-edge px-3 py-2 text-sm font-medium"
+                  : "rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white"
+              }
+            >
+              {tech.outboundPausedAt ? "Resume outbound" : "Pause all outbound"}
+            </button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {Object.keys(featureFlags).length > 0 ? (
+        <p className="rounded-xl border border-edge bg-surface px-4 py-3 text-sm text-ink-soft">
+          Feature flags:{" "}
+          {Object.entries(featureFlags)
+            .map(([k, v]) => `${k}=${v ? "on" : "off"}`)
+            .join(" · ")}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <Badge tone="neutral">{tech.subscriptionStatus}</Badge>

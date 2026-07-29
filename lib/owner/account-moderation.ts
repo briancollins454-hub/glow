@@ -124,7 +124,7 @@ export async function deleteTechAccount(
     "product_change_event_services",
     "product_change_event_categories",
     "product_change_events",
-    "consent_records",
+    // consent_records are NEVER bulk-deleted (Phase 3.10 / GDPR) — immutable + retained.
     "form_responses",
     "consultation_pack_targets",
     "consultation_packs",
