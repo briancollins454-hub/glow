@@ -135,7 +135,7 @@ describe("Phase 3 template previewer", () => {
       balanceToken: null,
       serviceId: "svc_1",
       techId: "tech_1",
-    } as Booking;
+    } as unknown as Booking;
     const preview = previewReminderTemplate({
       kind: "confirmation",
       tech,
