@@ -169,6 +169,31 @@ export async function cancelClientBookingAction(formData: FormData) {
   } catch {
     // Waitlist notifications are best-effort.
   }
+  // Tech push — cancellations are urgent and bypass quiet hours. Never blocks.
+  try {
+    const { sendPushToTech } = await import("@/lib/push");
+    const { getClient, getService } = await import("@/lib/db/queries");
+    const { fmtDateTime } = await import("@/lib/format");
+    const { salonTz } = await import("@/lib/locale");
+    const [client, service] = await Promise.all([
+      getClient(sb, booking.clientId),
+      getService(sb, booking.serviceId),
+    ]);
+    await sendPushToTech(
+      sb,
+      tech!,
+      "booking_cancelled",
+      {
+        title: `Cancelled · ${client?.name ?? "Client"}`,
+        body: `${service?.name ?? "Appointment"} · ${fmtDateTime(booking.startIso, salonTz(tech))}`,
+        url: `/dashboard/bookings/${booking.id}`,
+        tag: `booking-${booking.id}`,
+      },
+      { staffId: booking.staffId ?? null, urgent: true },
+    );
+  } catch {
+    // Push is best-effort.
+  }
   await skipScheduledReminders(sb, booking.id);
   try {
     await createAuditEvent(sb, {

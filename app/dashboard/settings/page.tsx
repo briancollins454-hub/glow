@@ -17,6 +17,7 @@ import {
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
 import { InstallAppCard } from "@/components/dashboard/install-app-card";
+import { PushNotificationsCard } from "@/components/dashboard/push-notifications-card";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
 import { ThemePreferencePicker } from "@/components/theme/theme-preference-picker";
 import { useMoney } from "@/components/locale/locale-provider";
@@ -249,6 +250,8 @@ export default function SettingsPage() {
           <InstallAppCard />
         </CardContent>
       </Card>
+
+      <PushNotificationsCard prefs={tech.pushPrefs} />
 
       {/* The Region card sits visually inside the main settings form but submits
           to this separate action via the form="salon-locale-form" attribute,

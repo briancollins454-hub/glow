@@ -369,6 +369,44 @@ export async function declineBookingRequest(sb: SupabaseClient, booking: Booking
 }
 
 /** Mark a deposit paid (idempotent): confirm the booking + schedule reminders. */
+/** Tech push for an online client payment. Best-effort, never throws. */
+async function pushPaymentReceived(
+  sb: SupabaseClient,
+  booking: Booking,
+  kind: "deposit" | "balance",
+  amountPennies: number,
+): Promise<void> {
+  try {
+    const [{ sendPushToTech }, { getTechById, getClient, getService }] = await Promise.all([
+      import("@/lib/push"),
+      import("@/lib/db/queries"),
+    ]);
+    const tech = await getTechById(sb, booking.techId);
+    if (!tech) return;
+    const [client, service] = await Promise.all([
+      getClient(sb, booking.clientId),
+      getService(sb, booking.serviceId),
+    ]);
+    const { money } = await import("@/lib/money");
+    const { salonCurrency, salonTz } = await import("@/lib/locale");
+    const { fmtDateTime } = await import("@/lib/format");
+    await sendPushToTech(
+      sb,
+      tech,
+      "payment_received",
+      {
+        title: `${kind === "deposit" ? "Deposit" : "Balance"} paid · ${client?.name ?? "Client"}`,
+        body: `${money(amountPennies, salonCurrency(tech))} · ${service?.name ?? "Appointment"} · ${fmtDateTime(booking.startIso, salonTz(tech))}`,
+        url: `/dashboard/bookings/${booking.id}`,
+        tag: `payment-${booking.id}-${kind}`,
+      },
+      { staffId: booking.staffId ?? null },
+    );
+  } catch (err) {
+    console.error("[push] payment push failed", err);
+  }
+}
+
 export async function applyDepositPaid(
   sb: SupabaseClient,
   booking: Booking,
@@ -417,6 +455,9 @@ export async function applyDepositPaid(
     } catch {
       // Notify is best-effort.
     }
+  } else {
+    // Deposit paid on an already-notified booking — the payment is the news.
+    await pushPaymentReceived(sb, booking, "deposit", booking.depositPennies);
   }
   try {
     const { revalidatePublicAvailability } = await import("@/lib/booking/public-availability-cache");
@@ -624,6 +665,7 @@ export async function applyBalancePaid(
     // Duplicate Stripe payment row — treat as already processed.
   }
   await updateBooking(sb, booking.id, { balanceStatus: "paid" });
+  await pushPaymentReceived(sb, booking, "balance", booking.balancePennies);
 }
 
 /** After a reschedule: drop pending reminders and re-create the timed ones. */

@@ -182,6 +182,15 @@ export async function runRemindersJobNow(trigger: "cron" | "manual" = "manual") 
     } catch (err) {
       console.error("[owner cron] trial lifecycle failed:", (err as Error).message);
     }
+    let pushQueued = 0;
+    let pushDailySummaries = 0;
+    try {
+      const { processPushQueue, processDailySummaryPushes } = await import("@/lib/push");
+      pushQueued = await processPushQueue(sb);
+      pushDailySummaries = await processDailySummaryPushes(sb);
+    } catch (err) {
+      console.error("[owner cron] push failed:", (err as Error).message);
+    }
     const finishedAt = new Date().toISOString();
     const payload = {
       ...result,
@@ -190,6 +199,8 @@ export async function runRemindersJobNow(trigger: "cron" | "manual" = "manual") 
       infillNudges,
       accountEmailRestored,
       trialEmails,
+      pushQueued,
+      pushDailySummaries,
     };
     await recordCronRun({
       job: "reminders",
