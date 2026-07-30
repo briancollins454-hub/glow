@@ -480,7 +480,7 @@ describe("client-facing messaging when clientPaymentsEnabled is false", () => {
   it("notify confirmation email strips payment copy when off; sendReminder skips chasers", () => {
     const notify = read("lib/notify.ts");
     expect(notify).toContain("salonTakesClientPayments(tech)");
-    expect(notify).toMatch(/Price: \$\{gbp\(booking\.pricePennies\)\}/);
+    expect(notify).toMatch(/Price: \$\{money\(booking\.pricePennies, cur\)\}/);
     expect(notify).toContain('reminder.kind === "balance_request" && !sendsBalanceEmails(tech)');
     expect(notify).toContain("Balance request skipped — client payments off");
     // Approval email: deposits gated by switch; card capture independent.

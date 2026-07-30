@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Service } from "@/lib/db/types";
 import { ExpandableText } from "@/components/booking/expandable-text";
 import { ServicePhoto } from "@/components/booking/service-photo";
-import { gbp, minutesToLabel } from "@/lib/format";
+import { minutesToLabel } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { depositFor } from "@/lib/rules";
 import { onBrand, withAlpha } from "@/lib/booking/brand";
 
@@ -18,6 +21,7 @@ export function ServiceCard({
   brand: string;
   photoUrl?: string;
 }) {
+  const money = useMoney();
   const deposit = depositFor(service);
 
   return (
@@ -42,7 +46,7 @@ export function ServiceCard({
             {service.name}
           </h3>
           <p className="shrink-0 font-display text-lg font-semibold text-ink sm:text-xl">
-            {gbp(service.pricePennies)}
+            {money(service.pricePennies)}
           </p>
         </div>
 
@@ -57,7 +61,7 @@ export function ServiceCard({
           </span>
           {deposit > 0 && (
             <span className="rounded-full border border-edge bg-fill px-2.5 py-1">
-              {gbp(deposit)} deposit
+              {money(deposit)} deposit
             </span>
           )}
           {service.requiresPatchTest && (

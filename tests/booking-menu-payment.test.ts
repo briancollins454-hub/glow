@@ -96,6 +96,7 @@ describe("bookingPaymentSummary", () => {
         balancePennies: 0,
         balanceStatus: "paid",
       }),
+      "GBP",
     );
     expect(s.state).toBe("paid");
     expect(s.shortLabel).toBe("Paid");
@@ -111,6 +112,7 @@ describe("bookingPaymentSummary", () => {
         balancePennies: 3500,
         balanceStatus: "unpaid",
       }),
+      "GBP",
     );
     expect(s.state).toBe("deposit_paid");
     expect(s.shortLabel).toBe("Deposit paid");
@@ -127,6 +129,7 @@ describe("bookingPaymentSummary", () => {
         balancePennies: 4000,
         balanceStatus: "unpaid",
       }),
+      "GBP",
     );
     expect(s.state).toBe("due");
     expect(s.shortLabel).toBe("£55.00 due");
@@ -141,7 +144,7 @@ describe("bookingPaymentSummary", () => {
       balanceStatus: "unpaid",
     });
     expect(bookingAmountDue(b)).toBe(3000);
-    expect(bookingPaymentSummary(b).duePennies).toBe(3000);
+    expect(bookingPaymentSummary(b, "GBP").duePennies).toBe(3000);
   });
 });
 

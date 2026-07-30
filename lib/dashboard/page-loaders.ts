@@ -40,6 +40,7 @@ import { isAdminTech } from "@/lib/admin";
 import { canAccessSupportImport } from "@/lib/import/support-auth";
 import { getPlatformTraffic } from "@/lib/traffic-stats";
 import { buildBusinessInsights } from "@/lib/insights";
+import { salonCurrency } from "@/lib/locale";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { dateStrInTz } from "@/lib/rules";
 import { fmtDate } from "@/lib/format";
@@ -139,6 +140,7 @@ export async function loadDashboardPageData(
         clients,
         payments: recentPayments,
         services,
+        currency: salonCurrency(tech),
       });
       return {
         tech,

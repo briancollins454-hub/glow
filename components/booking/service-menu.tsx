@@ -9,7 +9,8 @@ import {
   groupServicesForMenu,
 } from "@/lib/booking/service-groups";
 import { ServicePhoto } from "@/components/booking/service-photo";
-import { gbp, minutesToLabel } from "@/lib/format";
+import { minutesToLabel } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { depositFor } from "@/lib/rules";
 import { onBrand, withAlpha } from "@/lib/booking/brand";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ function ServiceAccordionItem({
   open: boolean;
   onToggle: (id: string) => void;
 }) {
+  const money = useMoney();
   const deposit = depositFor(service);
 
   return (
@@ -60,12 +62,12 @@ function ServiceAccordionItem({
               {service.name}
             </h3>
             <p className="shrink-0 font-display text-base font-semibold text-ink sm:text-lg">
-              {gbp(service.pricePennies)}
+              {money(service.pricePennies)}
             </p>
           </div>
           <p className="mt-1 text-xs text-ink-faint">
             {minutesToLabel(service.durationMin)}
-            {deposit > 0 ? ` · ${gbp(deposit)} deposit` : ""}
+            {deposit > 0 ? ` · ${money(deposit)} deposit` : ""}
           </p>
         </div>
         <ChevronDown
@@ -102,7 +104,7 @@ function ServiceAccordionItem({
             </span>
             {deposit > 0 && (
               <span className="rounded-full border border-edge bg-fill px-2.5 py-1">
-                {gbp(deposit)} deposit
+                {money(deposit)} deposit
               </span>
             )}
             {service.requiresPatchTest && (

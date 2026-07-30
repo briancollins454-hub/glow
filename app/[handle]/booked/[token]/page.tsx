@@ -11,7 +11,9 @@ import {
 } from "@/lib/db/queries";
 import { confirmCheckoutPaid, confirmCheckoutSetup, checkoutMatchesDeposit } from "@/lib/payments";
 import { applyCardCaptured, applyDepositPaid } from "@/lib/bookings";
-import { gbp, fmtDateTime, fmtTime } from "@/lib/format";
+import { fmtDateTime, fmtTime } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { cancelClientBookingAction, payDepositAction, saveCardAction } from "./actions";
 import { clientOnlinePaymentsActive, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
 import { noShowFeeFor } from "@/lib/rules";
@@ -35,6 +37,7 @@ export default async function BookedPage({
     getBookingByToken(sb, token),
   ]);
   if (!tech || !initialBooking || initialBooking.techId !== tech.id) notFound();
+  const cur = salonCurrency(tech);
 
   let booking = initialBooking;
 
@@ -161,15 +164,15 @@ export default async function BookedPage({
             <Row label="When" value={fmtDateTime(booking.startIso)} />
             <Row label="With" value={tech.businessName} />
             <hr className="border-edge" />
-            <Row label="Total" value={gbp(booking.pricePennies)} />
+            <Row label="Total" value={money(booking.pricePennies, cur)} />
             {takeClientPay ? (
               <>
                 {booking.cardPaymentMethodId ? (
                   <Row label="Card saved (no deposit taken)" value="✓" />
                 ) : (
-                  <Row label="Deposit paid" value={booking.depositStatus === "paid" ? gbp(booking.depositPennies) : "-"} />
+                  <Row label="Deposit paid" value={booking.depositStatus === "paid" ? money(booking.depositPennies, cur) : "-"} />
                 )}
-                <Row label="Balance due on the day" value={gbp(booking.balancePennies)} strong />
+                <Row label="Balance due on the day" value={money(booking.balancePennies, cur)} strong />
               </>
             ) : booking.cardPaymentMethodId ? (
               <Row label="Card saved (no charge today)" value="✓" />
@@ -188,7 +191,7 @@ export default async function BookedPage({
                   className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white"
                   style={{ backgroundColor: brand }}
                 >
-                  <CreditCard className="h-4 w-4" /> Pay {gbp(booking.depositPennies)} deposit
+                  <CreditCard className="h-4 w-4" /> Pay {money(booking.depositPennies, cur)} deposit
                 </button>
               </form>
             )}
@@ -205,7 +208,7 @@ export default async function BookedPage({
                 </button>
                 <p className="mt-2 text-center text-xs text-ink-faint">
                   Nothing is charged today.
-                  {noShowFee > 0 && ` A no-show fee of up to ${gbp(noShowFee)} may apply if you miss the appointment.`}
+                  {noShowFee > 0 && ` A no-show fee of up to ${money(noShowFee, cur)} may apply if you miss the appointment.`}
                 </p>
               </form>
             )}

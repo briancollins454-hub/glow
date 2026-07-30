@@ -12,7 +12,8 @@ import {
 } from "@/lib/booking/service-groups";
 import { CategorySection } from "@/components/booking/category-section";
 import { ExpandableText } from "@/components/booking/expandable-text";
-import { gbp, minutesToLabel } from "@/lib/format";
+import { minutesToLabel } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { depositFor } from "@/lib/rules";
 import { onBrand, withAlpha } from "@/lib/booking/brand";
 
@@ -27,6 +28,7 @@ function ServiceCard({
   brand: string;
   photoUrl?: string;
 }) {
+  const money = useMoney();
   const deposit = depositFor(service);
 
   return (
@@ -57,7 +59,7 @@ function ServiceCard({
         <div className="flex items-start justify-between gap-3">
           <h4 className="font-display text-lg font-semibold leading-snug text-ink">{service.name}</h4>
           <p className="shrink-0 font-display text-lg font-semibold text-ink">
-            {gbp(service.pricePennies)}
+            {money(service.pricePennies)}
           </p>
         </div>
 
@@ -72,7 +74,7 @@ function ServiceCard({
           </span>
           {deposit > 0 && (
             <span className="rounded-full border border-edge bg-fill px-2.5 py-1">
-              {gbp(deposit)} deposit
+              {money(deposit)} deposit
             </span>
           )}
           {service.requiresPatchTest && (

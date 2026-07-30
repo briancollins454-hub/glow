@@ -16,7 +16,8 @@ import { BookingActions } from "@/components/dashboard/booking-actions";
 import { BookingPaymentIndicator } from "@/components/dashboard/booking-payment-indicator";
 import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { statusBadge } from "@/components/dashboard/status";
-import { fmtTime, gbp } from "@/lib/format";
+import { fmtTime } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { dateStrInTz } from "@/lib/rules";
 import type { Booking } from "@/lib/db/types";
 
@@ -81,6 +82,7 @@ export function BookingsMonthCalendar({
   hideDayList = false,
   onAddBooking,
 }: Props) {
+  const money = useMoney();
   const todayStr = dateStrInTz(new Date());
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [internalSelected, setInternalSelected] = useState(todayStr);
@@ -216,7 +218,7 @@ export function BookingsMonthCalendar({
                       </div>
                       <p className="mt-0.5 text-xs text-ink-faint">
                         {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"} ·{" "}
-                        <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
+                        <span className="font-medium text-ink">{money(b.pricePennies)}</span>
                       </p>
                     </div>
                     <div className="shrink-0">

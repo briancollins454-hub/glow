@@ -9,7 +9,9 @@ import type { TimeSlotOption } from "@/components/dashboard/date-time-picker";
 import { groupServicesForDashboard } from "@/lib/booking/service-groups";
 import { rowsForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { gbp, fmtTime } from "@/lib/format";
+import { fmtTime } from "@/lib/format";
+import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { currencySymbol } from "@/lib/money";
 import {
   basketDurationMin,
   bufferMapFromServices,
@@ -70,6 +72,8 @@ export function ManualBookingForm({
   defaultDate?: string;
   formId?: string;
 }) {
+  const money = useMoney();
+  const symbol = currencySymbol(useCurrency());
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const groups = useMemo(
     () => groupServicesForDashboard(categories, activeServices),
@@ -218,7 +222,7 @@ export function ManualBookingForm({
                             <span className="truncate font-medium">{s.name}</span>
                           </span>
                           <span className="shrink-0 text-xs text-ink-faint">
-                            {s.durationMin}m · {gbp(s.pricePennies)}
+                            {s.durationMin}m · {money(s.pricePennies)}
                           </span>
                         </label>
                       </li>
@@ -232,7 +236,7 @@ export function ManualBookingForm({
         {selectedServices.length > 0 && (
           <p className="mt-2 text-xs text-ink-faint">
             {selectedServices.length} treatment{selectedServices.length === 1 ? "" : "s"} ·{" "}
-            {totalMins} mins · {gbp(totalPennies)}
+            {totalMins} mins · {money(totalPennies)}
             {selectedServices.length > 1
               ? ` · order: ${selectedServices.map((s) => s.name).join(" → ")}`
               : ""}
@@ -259,7 +263,7 @@ export function ManualBookingForm({
                   className="h-4 w-4 rounded border-edge text-brand-400 focus:ring-brand-300"
                 />
                 {a.name}
-                <span className="text-ink-faint">+{gbp(a.pricePennies)}</span>
+                <span className="text-ink-faint">+{money(a.pricePennies)}</span>
               </label>
             ))}
           </div>
@@ -325,7 +329,7 @@ export function ManualBookingForm({
         )}
       </div>
       <div>
-        <Label>Deposit for this booking (£)</Label>
+        <Label>Deposit for this booking ({symbol})</Label>
         <Input
           name="depositPounds"
           type="number"

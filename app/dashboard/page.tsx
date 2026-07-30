@@ -17,7 +17,8 @@ import { RunningLatePanel } from "@/components/dashboard/running-late-panel";
 import { SettleUpPanel } from "@/components/dashboard/settle-up-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { gbp, fmtTime, fmtRelativeDays } from "@/lib/format";
+import { fmtTime, fmtRelativeDays } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { frozenOfferCopy } from "@/lib/offers";
@@ -68,6 +69,7 @@ function HomeView({
   lateCascadeCount,
   settleUp,
 }: HomeData) {
+  const money = useMoney();
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const notified = searchParams.get("notified");
@@ -151,8 +153,8 @@ function HomeView({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={CalendarDays} label="Today" value={String(todayCount)} hint="appointments" tone="brand" href="/dashboard/bookings" />
         <StatCard icon={Clock3} label="Upcoming" value={String(upcomingCount)} hint="booked ahead" tone="blue" href="/dashboard/bookings" />
-        <StatCard icon={PoundSterling} label="Income this month" value={gbp(monthIncome)} hint="deposits + balances" tone="green" href="/dashboard/reports" />
-        <StatCard icon={TrendingUp} label="Outstanding" value={gbp(outstanding)} hint="balances due" tone="amber" href="/dashboard/bookings" />
+        <StatCard icon={PoundSterling} label="Income this month" value={money(monthIncome)} hint="deposits + balances" tone="green" href="/dashboard/reports" />
+        <StatCard icon={TrendingUp} label="Outstanding" value={money(outstanding)} hint="balances due" tone="amber" href="/dashboard/bookings" />
       </div>
 
       {lateDone && (

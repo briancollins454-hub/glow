@@ -28,7 +28,9 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { BookingRescheduleForm } from "@/components/dashboard/booking-reschedule-form";
 import { statusBadge } from "@/components/dashboard/status";
-import { gbp, TZ, fmtDateTime, fmtTime } from "@/lib/format";
+import { TZ, fmtDateTime, fmtTime } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
 import { GoogleBookingSyncButton } from "@/components/dashboard/google-booking-sync-button";
 import { supabaseService } from "@/lib/supabase/service";
@@ -55,6 +57,7 @@ export default async function EditBookingPage({
 
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
+  const cur = salonCurrency(tech);
   const now = Date.now();
   const windowStart = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -293,16 +296,16 @@ export default async function EditBookingPage({
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2 text-sm">
             <Badge tone={booking.depositStatus === "paid" ? "green" : booking.depositStatus === "forfeited" ? "red" : "neutral"}>
-              Deposit {gbp(booking.depositPennies)} · {booking.depositStatus === "none" ? "not taken" : booking.depositStatus}
+              Deposit {money(booking.depositPennies, cur)} · {booking.depositStatus === "none" ? "not taken" : booking.depositStatus}
             </Badge>
             {booking.cardPaymentMethodId && (
               <Badge tone="green">Card saved — no-show fee can be charged</Badge>
             )}
             <Badge tone={booking.balanceStatus === "paid" ? "green" : "neutral"}>
-              Balance {gbp(booking.balancePennies)} · {booking.balanceStatus}
+              Balance {money(booking.balancePennies, cur)} · {booking.balanceStatus}
             </Badge>
             {booking.discountPennies > 0 && (
-              <Badge tone="purple">Loyalty discount -{gbp(booking.discountPennies)}</Badge>
+              <Badge tone="purple">Loyalty discount -{money(booking.discountPennies, cur)}</Badge>
             )}
           </div>
 
@@ -312,10 +315,10 @@ export default async function EditBookingPage({
               <div>
                 <Label>What was paid</Label>
                 <Select name="what" defaultValue={depositOutstanding ? "deposit" : "balance"}>
-                  {depositOutstanding && <option value="deposit">Deposit ({gbp(booking.depositPennies)})</option>}
-                  {balanceOutstanding && <option value="balance">Balance ({gbp(booking.balancePennies)})</option>}
+                  {depositOutstanding && <option value="deposit">Deposit ({money(booking.depositPennies, cur)})</option>}
+                  {balanceOutstanding && <option value="balance">Balance ({money(booking.balancePennies, cur)})</option>}
                   {depositOutstanding && balanceOutstanding && (
-                    <option value="full">Everything ({gbp(booking.depositPennies + booking.balancePennies)})</option>
+                    <option value="full">Everything ({money(booking.depositPennies + booking.balancePennies, cur)})</option>
                   )}
                 </Select>
               </div>

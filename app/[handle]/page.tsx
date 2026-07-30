@@ -46,7 +46,8 @@ import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { minNoticeFloorMs } from "@/lib/booking/min-notice";
 import type { Booking, StaffMember, WorkingHour } from "@/lib/db/types";
 import { acceptsOnlineBookings, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
-import { gbp } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import type { ConsultationQuestion, Review, ServiceAddon } from "@/lib/db/types";
 import { BookingStepInteractive } from "@/components/booking/booking-step-interactive";
 import { PairedBookingStepInteractive } from "@/components/booking/paired-booking-step-interactive";
@@ -599,7 +600,7 @@ export default async function PublicBookingPage({
 
         <BookingFooterCta
           brand={brand}
-          minPriceLabel={gbp(minPrice)}
+          minPriceLabel={money(minPrice, salonCurrency(tech))}
           serviceCount={services.length}
         />
       </main>
@@ -614,7 +615,7 @@ export default async function PublicBookingPage({
       </footer>
 
       <StickyBookCta
-        minPriceLabel={gbp(minPrice)}
+        minPriceLabel={money(minPrice, salonCurrency(tech))}
         brand={brand}
         serviceCount={services.length}
       />

@@ -1,4 +1,6 @@
-import { fmtDateTime, gbp } from "@/lib/format";
+import { fmtDateTime } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { salonTakesClientPayments, sendsBalanceEmails } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 
@@ -22,13 +24,14 @@ export function renderReminderText({ reminder, booking, client, service, tech, s
   const svc = serviceLabel ?? service?.name ?? "your appointment";
   const payUrl = `${APP_URL}/pay/${booking.balanceToken}`;
   const takeClientPay = salonTakesClientPayments(tech);
+  const cur = salonCurrency(tech);
 
   switch (reminder.kind) {
     case "confirmation":
       if (!takeClientPay) {
-        return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Price: ${gbp(booking.pricePennies)}.`;
+        return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Price: ${money(booking.pricePennies, cur)}.`;
       }
-      return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Deposit of ${gbp(booking.depositPennies)} received - thank you. Balance due: ${gbp(booking.balancePennies)}.`;
+      return `Hi ${name}! Your ${svc} with ${biz} is booked for ${when}. Deposit of ${money(booking.depositPennies, cur)} received - thank you. Balance due: ${money(booking.balancePennies, cur)}.`;
     case "reminder_24h":
       return `Reminder: ${name}, your ${svc} with ${biz} is tomorrow (${when}). See you then! Need to rearrange? Please give notice.`;
     case "reminder_2h":
@@ -38,7 +41,7 @@ export function renderReminderText({ reminder, booking, client, service, tech, s
       if (!sendsBalanceEmails(tech)) {
         return "";
       }
-      return `Hi ${name}, your remaining balance of ${gbp(booking.balancePennies)} for your ${svc} can be paid here before your appointment: ${payUrl}`;
+      return `Hi ${name}, your remaining balance of ${money(booking.balancePennies, cur)} for your ${svc} can be paid here before your appointment: ${payUrl}`;
     case "patch_test_retest":
       return reminder.preview || `Hi ${name}, ${biz} needs you to arrange a patch test before your appointment.`;
     default:

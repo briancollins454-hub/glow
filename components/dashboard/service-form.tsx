@@ -3,6 +3,8 @@ import { DepositFields } from "@/components/dashboard/deposit-fields";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { ImageFileInput } from "@/components/ui/image-file-input";
 import { saveServiceAction } from "@/app/dashboard/actions";
+import { useCurrency } from "@/components/locale/currency-provider";
+import { currencySymbol, minorUnitFactor } from "@/lib/money";
 import type { Service, ServiceCategory, StaffMember } from "@/lib/db/types";
 
 const WEEKDAYS = [
@@ -31,6 +33,9 @@ export function ServiceForm({
   /** Salon master switch — when false, deposit fields stay editable but inactive. */
   clientPaymentsEnabled?: boolean;
 }) {
+  const currency = useCurrency();
+  const symbol = currencySymbol(currency);
+  const factor = minorUnitFactor(currency);
   const s = service;
   const restrictedDays = s?.availableWeekdays?.length
     ? new Set(s.availableWeekdays)
@@ -98,8 +103,16 @@ export function ServiceForm({
           <p className="mt-1 text-xs text-ink-faint">Blocks the diary after (cleanup). Clients still see the duration above.</p>
         </div>
         <div>
-          <Label>Price (£)</Label>
-          <Input name="price" type="text" inputMode="decimal" defaultValue={s ? (s.pricePennies / 100).toFixed(2) : ""} placeholder="55.00" />
+          <Label>Price ({symbol})</Label>
+          <Input
+            name="price"
+            type="text"
+            inputMode="decimal"
+            defaultValue={
+              s ? (factor === 1 ? String(s.pricePennies) : (s.pricePennies / factor).toFixed(2)) : ""
+            }
+            placeholder="55.00"
+          />
         </div>
       </div>
 

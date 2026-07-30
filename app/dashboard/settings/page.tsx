@@ -19,7 +19,8 @@ import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-pane
 import { InstallAppCard } from "@/components/dashboard/install-app-card";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
 import { ThemePreferencePicker } from "@/components/theme/theme-preference-picker";
-import { gbp } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
+import { currencySymbol } from "@/lib/money";
 import { acceptsOnlineBookings, isLive, planLabel } from "@/lib/subscriptions";
 import { normalizeThemePreference } from "@/lib/theme";
 import {
@@ -54,6 +55,7 @@ const GOOGLE_MSG: Record<string, string> = {
 export default function SettingsPage() {
   const { tech, smsPlatformConfigured } = useDashboardAuth();
   const searchParams = useSearchParams();
+  const money = useMoney();
   if (!tech) return null;
   const smsOnForBusiness = tech.smsRemindersEnabled !== false;
 
@@ -75,30 +77,37 @@ export default function SettingsPage() {
   const localeErr = searchParams.get("err");
   const pageLive = acceptsOnlineBookings(tech);
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
+  const currency = salonCurrency(tech);
+  const symbol = currencySymbol(currency);
   const defaultDeposit = depositFieldDisplay(
     tech.defaultDepositType,
     tech.defaultDepositValue ?? tech.defaultDepositPct,
     tech.defaultDepositPct,
+    currency,
   );
   const noShowFee = depositFieldDisplay(
     tech.noShowFeeType,
     tech.noShowFeeValue ?? tech.noShowFeePct,
     tech.noShowFeePct,
+    currency,
   );
   const mediumTier = depositFieldDisplay(
     tech.depositTierMediumType,
     tech.depositTierMediumValue ?? tech.depositTierMediumPct ?? 50,
     tech.depositTierMediumPct ?? 50,
+    currency,
   );
   const highTier = depositFieldDisplay(
     tech.depositTierHighType,
     tech.depositTierHighValue ?? tech.depositTierHighPct ?? 100,
     tech.depositTierHighPct ?? 100,
+    currency,
   );
   const loyaltyDiscount = depositFieldDisplay(
     tech.loyaltyDiscountType,
     tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct,
     tech.loyaltyDiscountPct,
+    currency,
   );
 
   return (
@@ -471,7 +480,7 @@ export default function SettingsPage() {
               defaultType={defaultDeposit.type}
               defaultValue={defaultDeposit.display}
               allowNone
-              fixedHint="Used as the default when you add a new service. Exact pounds, e.g. 15.00 = £15."
+              fixedHint={`Used as the default when you add a new service. Exact amount, e.g. 15.00 = ${symbol}15.`}
               percentHint="Used as the default when you add a new service. e.g. 30 = 30% of the price."
             />
             <div>
@@ -501,7 +510,7 @@ export default function SettingsPage() {
               defaultType={noShowFee.type === "none" ? "percent" : noShowFee.type}
               defaultValue={noShowFee.display}
               allowNone={false}
-              fixedHint="Fixed amount you treat as the no-show charge, e.g. 20.00 = £20."
+              fixedHint={`Fixed amount you treat as the no-show charge, e.g. 20.00 = ${symbol}20.`}
               percentHint="Share of the service price charged for a no-show, e.g. 100 = full price."
             />
             <div className="space-y-3 sm:col-span-2">
@@ -564,7 +573,7 @@ export default function SettingsPage() {
               defaultType={mediumTier.type === "none" ? "percent" : mediumTier.type}
               defaultValue={mediumTier.display}
               allowNone={false}
-              fixedHint="Minimum deposit for new or one-visit clients, e.g. 25.00 = £25."
+              fixedHint={`Minimum deposit for new or one-visit clients, e.g. 25.00 = ${symbol}25.`}
               percentHint="Minimum deposit for new or one-visit clients as % of price, e.g. 50."
             />
             <DepositFields
@@ -574,11 +583,11 @@ export default function SettingsPage() {
               defaultType={highTier.type === "none" ? "percent" : highTier.type}
               defaultValue={highTier.display}
               allowNone={false}
-              fixedHint="Minimum deposit for flagged clients or repeat no-shows, e.g. 50.00 = £50."
+              fixedHint={`Minimum deposit for flagged clients or repeat no-shows, e.g. 50.00 = ${symbol}50.`}
               percentHint="Minimum deposit for flagged clients or repeat no-shows as % of price, e.g. 100."
             />
             <p className="text-xs text-ink-faint sm:col-span-2">
-              Trusted clients pay your normal service deposit (set per service — £ or %). Standard-risk and higher-risk clients pay at least the amounts above. Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit.
+              Trusted clients pay your normal service deposit (set per service — {symbol} or %). Standard-risk and higher-risk clients pay at least the amounts above. Cancellations inside {tech.cancellationWindowHours}h forfeit the deposit.
             </p>
           </CardContent>
         </Card>
@@ -603,14 +612,14 @@ export default function SettingsPage() {
               defaultType={loyaltyDiscount.type === "none" ? "percent" : loyaltyDiscount.type}
               defaultValue={loyaltyDiscount.display}
               allowNone={false}
-              fixedHint="Fixed discount off every booking once they qualify, e.g. 5.00 = £5 off."
+              fixedHint={`Fixed discount off every booking once they qualify, e.g. 5.00 = ${symbol}5 off.`}
               percentHint="Percent off every booking once they qualify, e.g. 10 = 10% off."
             />
             {tech.loyaltyVisitThreshold > 0 && (tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct) > 0 && (
               <p className="text-xs text-ink-faint sm:col-span-2">
                 Currently: clients with {tech.loyaltyVisitThreshold}+ completed visits get{" "}
                 {(tech.loyaltyDiscountType ?? "percent") === "fixed"
-                  ? `${gbp(tech.loyaltyDiscountValue ?? 0)} off`
+                  ? `${money(tech.loyaltyDiscountValue ?? 0)} off`
                   : `${tech.loyaltyDiscountValue ?? tech.loyaltyDiscountPct}% off`}{" "}
                 automatically.
               </p>

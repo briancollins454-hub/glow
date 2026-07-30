@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { fmtDate, gbp } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
 import type { MetricValue } from "@/lib/owner/overview";
+// Owner console metrics are Glow platform money and always GBP — see lib/owner/mrr.ts.
 import { gbpFromPennies } from "@/lib/owner/mrr";
 
 export function MetricTile({
@@ -68,4 +69,4 @@ export function AsOf({ iso, ttlSeconds }: { iso: string; ttlSeconds: number }) {
   );
 }
 
-export { gbp, gbpFromPennies };
+export { gbpFromPennies };
