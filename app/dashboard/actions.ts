@@ -329,6 +329,57 @@ export async function updateSettingsAction(formData: FormData) {
   redirect("/dashboard/settings?saved=1");
 }
 
+export async function updateSalonLocale(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const { z } = await import("zod");
+  const {
+    CURRENCIES,
+    COUNTRIES,
+    TIMEZONES,
+    isSupportedCurrency,
+    isSupportedCountry,
+    isSupportedTimezone,
+  } = await import("@/lib/locale");
+
+  const currencyCodes = CURRENCIES.map((c) => c.code) as [string, ...string[]];
+  const countryCodes = COUNTRIES.map((c) => c.code) as [string, ...string[]];
+  const zones = TIMEZONES.flatMap((g) => g.zones) as [string, ...string[]];
+
+  const schema = z.object({
+    currency: z.enum(currencyCodes),
+    country: z.enum(countryCodes),
+    timezone: z.enum(zones),
+  });
+
+  const parsed = schema.safeParse({
+    currency: String(formData.get("currency") ?? "").trim(),
+    country: String(formData.get("country") ?? "").trim(),
+    timezone: String(formData.get("timezone") ?? "").trim(),
+  });
+  if (!parsed.success) {
+    redirect("/dashboard/settings?err=locale");
+  }
+  // Extra guard — lists must stay in sync with zod enums.
+  if (
+    !isSupportedCurrency(parsed.data.currency) ||
+    !isSupportedCountry(parsed.data.country) ||
+    !isSupportedTimezone(parsed.data.timezone)
+  ) {
+    redirect("/dashboard/settings?err=locale");
+  }
+
+  await updateTech(sb, tech.id, {
+    currency: parsed.data.currency,
+    country: parsed.data.country,
+    timezone: parsed.data.timezone,
+  });
+  revalidatePublicAvailability(tech.id);
+  revalidatePath("/dashboard/settings");
+  revalidatePath(`/${tech.handle}`);
+  invalidateDashboardTech(tech.authUserId);
+  redirect("/dashboard/settings?saved=1");
+}
+
 // Uploads are resized in the browser first (see lib/image-prepare.ts); this is
 // the server-side backstop, kept under the server action body size limit.
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;

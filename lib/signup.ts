@@ -32,6 +32,9 @@ export async function provisionNewTechAccount(
     signupUtmCampaign?: string | null;
     signupHeardAbout?: string | null;
     signupPartnerSlug?: string | null;
+    currency?: string | null;
+    country?: string | null;
+    timezone?: string | null;
   },
 ): Promise<{ tech: Tech; created: boolean }> {
   const existing = await getTechByAuthUserId(admin, opts.authUserId);
@@ -83,6 +86,9 @@ export async function provisionNewTechAccount(
       signupUtmCampaign: opts.signupUtmCampaign ?? null,
       signupHeardAbout: opts.signupHeardAbout ?? null,
       signupPartnerSlug: opts.signupPartnerSlug ?? null,
+      currency: opts.currency ?? null,
+      country: opts.country ?? null,
+      timezone: opts.timezone ?? null,
     });
   } catch (err) {
     // Race: another request provisioned the same auth user first.

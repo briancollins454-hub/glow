@@ -8,6 +8,7 @@ import { Input, Label } from "@/components/ui/input";
 import { ClearSessionCache } from "@/components/auth/clear-session-cache";
 import { OnceSubmitForm } from "@/components/auth/once-submit-form";
 import { SignupAttributionFields } from "@/components/auth/signup-attribution-fields";
+import { SignupTimezoneField } from "@/components/auth/signup-timezone-field";
 import { signupAction } from "../actions";
 import { PageViewBeacon } from "@/components/analytics/page-view-beacon";
 import { HEAR_ABOUT_OPTIONS } from "@/lib/signup-attribution";
@@ -130,6 +131,7 @@ export default async function SignupPage({
 
           <OnceSubmitForm action={signupAction} className="mt-6 space-y-4">
             {ref && <input type="hidden" name="ref" value={ref} />}
+            <SignupTimezoneField />
             <SignupAttributionFields partnerSlug={partner?.slug ?? partnerSlug} />
             <div>
               <Label htmlFor="businessName">Business name</Label>
