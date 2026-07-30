@@ -2232,17 +2232,44 @@ export async function listAccountClosureRequests(sb: SB, techId: string): Promis
 }
 
 // ---------------- Push notifications ----------------
+/**
+ * Insert or refresh a device subscription. Unique on endpoint — re-subscribe
+ * updates keys / lastSeenAt / tech ownership rather than inserting a duplicate
+ * (and never rewrites the primary key on conflict).
+ */
 export async function upsertPushSubscription(
   sb: SB,
   sub: Omit<PushSubscriptionRow, "id" | "createdAt" | "lastSeenAt" | "failureCount">,
 ): Promise<PushSubscriptionRow> {
   const now = new Date().toISOString();
+  const { data: existing, error: lookupErr } = await sb
+    .from("push_subscriptions")
+    .select("id")
+    .eq("endpoint", sub.endpoint)
+    .maybeSingle();
+  if (lookupErr) throw dbError("upsertPushSubscription", lookupErr);
+
+  if (existing?.id) {
+    const { data, error } = await sb
+      .from("push_subscriptions")
+      .update({
+        techId: sub.techId,
+        staffId: sub.staffId,
+        p256dh: sub.p256dh,
+        auth: sub.auth,
+        userAgent: sub.userAgent,
+        lastSeenAt: now,
+        failureCount: 0,
+      })
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+    return must(data as PushSubscriptionRow, error, "upsertPushSubscription");
+  }
+
   const { data, error } = await sb
     .from("push_subscriptions")
-    .upsert(
-      { ...sub, id: randomId("psub"), lastSeenAt: now, failureCount: 0 },
-      { onConflict: "endpoint" },
-    )
+    .insert({ ...sub, id: randomId("psub"), lastSeenAt: now, failureCount: 0, createdAt: now })
     .select("*")
     .single();
   return must(data as PushSubscriptionRow, error, "upsertPushSubscription");

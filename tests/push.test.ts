@@ -65,7 +65,7 @@ import {
   handleLastSubscriptionGone,
   PUSH_MAX_FAILURES,
 } from "@/lib/push";
-import { classifyPushSupport } from "@/lib/push-support";
+import { classifyPushSupport, isValidVapidPublicKey, normalizePushSubscriptionPayload, pushEnableMessage, pushEndpointHost, urlBase64ToUint8Array } from "@/lib/push-support";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const sb = {} as SupabaseClient;
@@ -317,6 +317,79 @@ describe("classifyPushSupport (iOS constraint)", () => {
   });
 });
 
+// ---- VAPID + payload helpers -------------------------------------------------
+
+describe("VAPID public key conversion", () => {
+  // Uncompressed P-256 point (65 bytes, 0x04 prefix) as base64url — shape browsers expect.
+  const validKey =
+    "BAFLa_6uhP6Z7RYTW03n46yzkKPw4zoZZ0DxCkdNRJ7HAjfRFfennS16zD7VjaCY07HBWTfHv6k2RIhzzpQA5S8";
+
+  it("accepts a well-formed VAPID public key and converts to 65-byte Uint8Array", () => {
+    expect(isValidVapidPublicKey(validKey)).toBe(true);
+    const bytes = urlBase64ToUint8Array(validKey);
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect(bytes.byteLength).toBe(65);
+    expect(bytes[0]).toBe(0x04);
+  });
+
+  it("rejects missing or malformed keys", () => {
+    expect(isValidVapidPublicKey("")).toBe(false);
+    expect(isValidVapidPublicKey("not-a-key!!!")).toBe(false);
+    expect(isValidVapidPublicKey("dGVzdA")).toBe(false); // decodes but wrong length
+  });
+});
+
+describe("subscription payload shape", () => {
+  it("accepts the browser PushSubscriptionJSON shape (keys.p256dh / keys.auth)", () => {
+    expect(
+      normalizePushSubscriptionPayload({
+        endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+        keys: { p256dh: "pk", auth: "ak" },
+      }),
+    ).toEqual({
+      ok: true,
+      endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+      p256dh: "pk",
+      auth: "ak",
+    });
+  });
+
+  it("accepts the flat action shape", () => {
+    expect(
+      normalizePushSubscriptionPayload({
+        endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+        p256dh: "pk",
+        auth: "ak",
+      }),
+    ).toMatchObject({ ok: true, p256dh: "pk", auth: "ak" });
+  });
+
+  it("rejects incomplete payloads", () => {
+    expect(normalizePushSubscriptionPayload({ endpoint: "https://x", keys: {} })).toEqual({
+      ok: false,
+    });
+    expect(
+      normalizePushSubscriptionPayload({ endpoint: "http://insecure", p256dh: "a", auth: "b" }),
+    ).toEqual({ ok: false });
+  });
+
+  it("exposes endpoint host only for diagnostics", () => {
+    expect(pushEndpointHost("https://fcm.googleapis.com/fcm/send/abc")).toBe("fcm.googleapis.com");
+    expect(pushEndpointHost("not-a-url")).toBe("unknown");
+  });
+});
+
+describe("enable-flow error messages", () => {
+  it("surfaces a specific actionable message per failure cause", () => {
+    expect(pushEnableMessage("permission_denied")).toMatch(/blocked/i);
+    expect(pushEnableMessage("sw_unavailable")).toMatch(/notification service/i);
+    expect(pushEnableMessage("subscribe_rejected")).toMatch(/rejected/i);
+    expect(pushEnableMessage("save_failed")).toMatch(/server/i);
+    expect(pushEnableMessage("vapid_missing")).toMatch(/missing public key/i);
+    expect(pushEnableMessage("vapid_malformed")).toMatch(/invalid public key/i);
+  });
+});
+
 // ---- service worker wiring -----------------------------------------------------
 
 describe("service worker push handlers", () => {
@@ -337,5 +410,41 @@ describe("service worker push handlers", () => {
     expect(sw).toContain('addEventListener("install"');
     expect(sw).toContain('addEventListener("fetch"');
     expect(sw).toContain("glow-shell-v3");
+  });
+});
+
+describe("enable UI instrumentation", () => {
+  const card = readFileSync(
+    join(process.cwd(), "components/dashboard/push-notifications-card.tsx"),
+    "utf8",
+  );
+  const actions = readFileSync(join(process.cwd(), "app/dashboard/push-actions.ts"), "utf8");
+  const migration = readFileSync(
+    join(process.cwd(), "supabase/migrations/0065_push_subscriptions_rls.sql"),
+    "utf8",
+  );
+
+  it("awaits serviceWorker.ready after registering, and maps each failure cause", () => {
+    expect(card).toContain("ensureActiveServiceWorker");
+    expect(card).toContain("navigator.serviceWorker.ready");
+    expect(card).toContain("isValidVapidPublicKey");
+    expect(card).toContain("pushEnableMessage");
+    expect(card).toContain("countPushSubscriptionsAction");
+    expect(card).not.toContain("Couldn't save this device. Please try again.");
+  });
+
+  it("save endpoint returns typed errors; upsert does not rewrite id on conflict", () => {
+    expect(actions).toContain("normalizePushSubscriptionPayload");
+    expect(actions).toContain('code: "save_failed"');
+    expect(actions).toContain("supabaseService");
+    const queries = readFileSync(join(process.cwd(), "lib/db/queries.ts"), "utf8");
+    expect(queries).toContain('.eq("endpoint", sub.endpoint)');
+    expect(queries).toContain(".maybeSingle()");
+  });
+
+  it("adds RLS policies so salon-owner authenticated writes are allowed", () => {
+    expect(migration).toContain("push_subscriptions_owner");
+    expect(migration).toContain("push_queue_owner");
+    expect(migration).toContain('current_tech_id()::text');
   });
 });

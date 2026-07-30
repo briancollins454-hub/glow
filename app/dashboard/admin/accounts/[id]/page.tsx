@@ -26,6 +26,7 @@ import { formatHealthLabel } from "@/lib/owner/health";
 import { countUpcomingForTech, listUpcomingOutbound } from "@/lib/owner/outbound";
 import { flagsForTech } from "@/lib/owner/flags";
 import { getAccountTimeline, listOwnerNotes, listSettingsHistory } from "@/lib/owner/timeline";
+import { OwnerPushDiagnostics } from "@/components/owner/owner-push-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,8 @@ export default async function OwnerAccountDetailPage({
           </p>
         );
       })()}
+
+      <OwnerPushDiagnostics techId={tech.id} />
 
       <Card className={upcomingCount > 0 ? "border-amber-500/50" : undefined}>
         <CardHeader>

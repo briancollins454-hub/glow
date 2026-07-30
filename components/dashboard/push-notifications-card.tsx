@@ -5,15 +5,24 @@ import { Bell, BellOff, CheckCircle2, Laptop, Share, Smartphone, Trash2 } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  countPushSubscriptionsAction,
   listPushDevicesAction,
+  sendTestPushAction,
   subscribePushAction,
   unsubscribePushAction,
   updatePushPrefsAction,
   type PushDevice,
 } from "@/app/dashboard/push-actions";
-import { classifyPushSupport, urlBase64ToUint8Array, type PushSupport } from "@/lib/push-support";
+import {
+  classifyPushSupport,
+  isValidVapidPublicKey,
+  pushEnableMessage,
+  urlBase64ToUint8Array,
+  type PushSupport,
+} from "@/lib/push-support";
 import { fmtDate } from "@/lib/format";
 import { useSalonTz } from "@/components/locale/locale-provider";
+import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import type { PushKind, PushPrefs } from "@/lib/db/types";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -44,15 +53,55 @@ function deviceLabel(userAgent: string): { icon: "phone" | "desktop"; name: stri
   return { icon: "desktop", name: "Device" };
 }
 
+function logPush(step: string, detail?: Record<string, unknown>) {
+  if (detail) console.info(`[push] ${step}`, detail);
+  else console.info(`[push] ${step}`);
+}
+
+/** Register /sw.js if needed, then wait until the worker is active. */
+async function ensureActiveServiceWorker(): Promise<ServiceWorkerRegistration> {
+  if (!("serviceWorker" in navigator)) {
+    throw Object.assign(new Error("no serviceWorker"), { code: "sw_unavailable" as const });
+  }
+  try {
+    const existing = await navigator.serviceWorker.getRegistration();
+    if (!existing) {
+      logPush("serviceWorker.register");
+      await navigator.serviceWorker.register("/sw.js");
+    }
+    const reg = await navigator.serviceWorker.ready;
+    logPush("serviceWorker.ready", {
+      active: !!reg.active,
+      installing: !!reg.installing,
+      waiting: !!reg.waiting,
+      scope: reg.scope,
+    });
+    if (!reg.active && !reg.installing && !reg.waiting) {
+      throw Object.assign(new Error("sw not active"), { code: "sw_unavailable" as const });
+    }
+    return reg;
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "sw_unavailable") throw err;
+    console.error("[push] service worker unavailable", err);
+    throw Object.assign(new Error("sw unavailable"), { code: "sw_unavailable" as const });
+  }
+}
+
 export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | undefined }) {
   const tz = useSalonTz();
+  const { role } = useDashboardAuth();
+  const isSalonOwner = role === "owner";
   const [support, setSupport] = useState<PushSupport | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
   const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
   const [devices, setDevices] = useState<PushDevice[] | null>(null);
+  /** Fresh server count — updated after enable so email toggle isn't stuck on page-initial state. */
+  const [subscriptionCount, setSubscriptionCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [testNote, setTestNote] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Draft prefs (saved via the Save button below).
@@ -66,6 +115,8 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
   const refreshDevices = useCallback(async (endpoint: string | null) => {
     const list = await listPushDevicesAction({ currentEndpoint: endpoint ?? undefined });
     setDevices(list);
+    setSubscriptionCount(list.length);
+    return list;
   }, []);
 
   useEffect(() => {
@@ -82,20 +133,27 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
         standalone,
         hasPushApi,
       });
+      logPush("support", {
+        state: info.state,
+        vapidPresent: !!VAPID_PUBLIC_KEY,
+        vapidValid: VAPID_PUBLIC_KEY ? isValidVapidPublicKey(VAPID_PUBLIC_KEY) : false,
+        vapidLen: VAPID_PUBLIC_KEY.length,
+      });
       if (cancelled) return;
       setSupport(info);
       if (info.state !== "supported") {
         setDevices([]);
+        setSubscriptionCount(0);
         return;
       }
       setPermission(Notification.permission);
       let endpoint: string | null = null;
       try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = await ensureActiveServiceWorker();
         const sub = await reg.pushManager.getSubscription();
         endpoint = sub?.endpoint ?? null;
       } catch {
-        // No registration yet — fine.
+        // No registration yet — fine until the user taps enable.
       }
       if (cancelled) return;
       setCurrentEndpoint(endpoint);
@@ -108,39 +166,97 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
 
   const enable = async () => {
     setError(null);
+    setTestNote(null);
     setBusy(true);
     try {
       if (!VAPID_PUBLIC_KEY) {
-        setError("Push isn't configured on this environment yet.");
+        logPush("enable aborted: vapid_missing");
+        setError(pushEnableMessage("vapid_missing"));
         return;
       }
+      if (!isValidVapidPublicKey(VAPID_PUBLIC_KEY)) {
+        logPush("enable aborted: vapid_malformed", { len: VAPID_PUBLIC_KEY.length });
+        setError(pushEnableMessage("vapid_malformed"));
+        return;
+      }
+
       // Only ever called from this tap — never on page load.
       const perm = await Notification.requestPermission();
+      logPush("permission", { result: perm });
       setPermission(perm);
-      if (perm !== "granted") return;
-      const reg = await navigator.serviceWorker.ready;
-      const sub =
-        (await reg.pushManager.getSubscription()) ??
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-        }));
+      if (perm === "denied") {
+        setError(pushEnableMessage("permission_denied"));
+        return;
+      }
+      if (perm !== "granted") {
+        setError(pushEnableMessage("permission_dismissed"));
+        return;
+      }
+
+      let reg: ServiceWorkerRegistration;
+      try {
+        reg = await ensureActiveServiceWorker();
+      } catch {
+        setError(pushEnableMessage("sw_unavailable"));
+        return;
+      }
+
+      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      logPush("subscribe start", {
+        keyBytes: applicationServerKey.byteLength,
+        keyPrefix: applicationServerKey[0],
+        hadExisting: !!(await reg.pushManager.getSubscription()),
+      });
+
+      let sub: PushSubscription;
+      try {
+        sub =
+          (await reg.pushManager.getSubscription()) ??
+          (await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey as BufferSource,
+          }));
+      } catch (err) {
+        console.error("[push] pushManager.subscribe rejected", err);
+        setError(pushEnableMessage("subscribe_rejected"));
+        return;
+      }
+
       const json = sub.toJSON();
+      logPush("subscribe ok", {
+        host: (() => {
+          try {
+            return new URL(sub.endpoint).host;
+          } catch {
+            return "unknown";
+          }
+        })(),
+        hasP256dh: !!json.keys?.p256dh,
+        hasAuth: !!json.keys?.auth,
+      });
+
       const result = await subscribePushAction({
         endpoint: sub.endpoint,
-        p256dh: json.keys?.p256dh ?? "",
-        auth: json.keys?.auth ?? "",
+        keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth },
+        p256dh: json.keys?.p256dh,
+        auth: json.keys?.auth,
         userAgent: navigator.userAgent,
       });
+      logPush("save endpoint", { ok: result.ok, ...(result.ok ? {} : { code: result.code }) });
       if (!result.ok) {
-        setError("Couldn't save this device. Please try again.");
+        setError(result.error || pushEnableMessage(result.code));
         return;
       }
       setCurrentEndpoint(sub.endpoint);
-      await refreshDevices(sub.endpoint);
+      const list = await refreshDevices(sub.endpoint);
+      // Re-confirm server count so the email toggle gate matches DB, not just this device.
+      const count = await countPushSubscriptionsAction();
+      setSubscriptionCount(count > 0 ? count : list.length);
     } catch (err) {
       console.error("[push] enable failed", err);
-      setError("Couldn't turn on notifications. Please try again.");
+      const code = (err as { code?: string }).code;
+      if (code === "sw_unavailable") setError(pushEnableMessage("sw_unavailable"));
+      else setError(pushEnableMessage("subscribe_rejected"));
     } finally {
       setBusy(false);
     }
@@ -170,6 +286,10 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
     setError(null);
     setSaved(false);
     startTransition(async () => {
+      // Re-check subscription count immediately before save so a just-enabled
+      // device in this session is visible to the email-disable gate.
+      const freshCount = await countPushSubscriptionsAction();
+      setSubscriptionCount(freshCount);
       const result = await updatePushPrefsAction({
         kinds,
         emailAlso,
@@ -178,6 +298,9 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
         quietEnd,
         dailySummaryTime: summaryTime,
       });
+      if (typeof result.subscriptionCount === "number") {
+        setSubscriptionCount(result.subscriptionCount);
+      }
       if (!result.ok) {
         setError(result.error ?? "Couldn't save. Please try again.");
         if (result.error) setEmailAlso(true);
@@ -187,8 +310,22 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
     });
   };
 
+  const sendTest = () => {
+    setTestNote(null);
+    setError(null);
+    startTransition(async () => {
+      const result = await sendTestPushAction();
+      if (!result.ok) {
+        setError(result.error ?? "Test notification failed.");
+        return;
+      }
+      setTestNote(`Test sent to ${result.sent} device${result.sent === 1 ? "" : "s"}.`);
+    });
+  };
+
   const enabledHere = !!currentEndpoint && (devices ?? []).some((d) => d.mine);
-  const hasAnyDevice = (devices ?? []).length > 0;
+  const hasAnyDevice =
+    (subscriptionCount ?? 0) > 0 || (devices ?? []).length > 0 || enabledHere;
 
   const statusLine = useMemo(() => {
     if (!support || support.state !== "supported") return null;
@@ -280,7 +417,10 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
                     <span className="truncate">
                       {info.name}
                       {d.mine ? " (this device)" : ""}
-                      <span className="text-xs text-ink-faint"> · last used {fmtDate(d.lastSeenAt, tz)}</span>
+                      <span className="text-xs text-ink-faint">
+                        {" "}
+                        · last used {fmtDate(d.lastSeenAt, tz)}
+                      </span>
                     </span>
                   </span>
                   <button
@@ -380,9 +520,54 @@ export function PushNotificationsCard({ prefs }: { prefs: PushPrefs | null | und
               Turn off to rely on push alone. Needs push enabled on at least one device — and if
               your last device stops working, email switches itself back on so you never miss a
               booking. Emails to your clients are never affected.
+              {hasAnyDevice ? "" : " Enable push above before turning this off."}
             </span>
           </span>
         </label>
+
+        {/* Salon-owner diagnostics */}
+        {isSalonOwner && (
+          <div className="space-y-2 rounded-xl border border-dashed border-edge px-4 py-3">
+            <p className="text-sm font-medium">Push diagnostics</p>
+            <p className="text-xs text-ink-faint">
+              Owner only · VAPID key{" "}
+              {VAPID_PUBLIC_KEY
+                ? isValidVapidPublicKey(VAPID_PUBLIC_KEY)
+                  ? "present and valid"
+                  : "present but malformed"
+                : "missing"}
+              {" · "}
+              {subscriptionCount ?? devices?.length ?? 0} registered subscription
+              {(subscriptionCount ?? devices?.length ?? 0) === 1 ? "" : "s"}
+            </p>
+            {(devices ?? []).length > 0 ? (
+              <ul className="space-y-1.5 text-xs text-ink-soft">
+                {devices!.map((d) => {
+                  const info = deviceLabel(d.userAgent);
+                  return (
+                    <li key={`diag-${d.id}`}>
+                      {info.name}
+                      {d.mine ? " (this device)" : ""} · {d.endpointHost} · last seen{" "}
+                      {fmtDate(d.lastSeenAt, tz)} · failures {d.failureCount}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-xs text-ink-faint">No subscriptions stored yet.</p>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={sendTest}
+              disabled={pending || busy || !hasAnyDevice}
+            >
+              Send test notification
+            </Button>
+            {testNote && <p className="text-xs text-success-text">{testNote}</p>}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">{error}</div>
