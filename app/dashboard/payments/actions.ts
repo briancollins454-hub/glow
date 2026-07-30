@@ -10,8 +10,9 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 export async function connectStartAction() {
   const c = await getDashboardContext();
   if (!c) redirect("/login");
-  const accountId = await ensureConnectAccount(c.sb, c.tech);
-  const url = await createOnboardingLink(accountId, APP_URL);
+  const result = await ensureConnectAccount(c.sb, c.tech);
+  if (!result.ok) redirect("/dashboard/payments?err=country");
+  const url = await createOnboardingLink(result.accountId, APP_URL);
   redirect(url);
 }
 

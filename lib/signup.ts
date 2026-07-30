@@ -5,6 +5,7 @@ import {
   getTechByHandle,
   replaceWorkingHours,
 } from "@/lib/db/queries";
+import { connectCountrySupported } from "@/lib/connect";
 import { randomId, randomToken } from "@/lib/ids";
 import { isLive } from "@/lib/subscriptions";
 import { slugify } from "@/lib/utils";
@@ -89,6 +90,11 @@ export async function provisionNewTechAccount(
       currency: opts.currency ?? null,
       country: opts.country ?? null,
       timezone: opts.timezone ?? null,
+      // No Stripe Connect support in this country: start with online client
+      // payments off so the salon never sees a Connect flow that would fail.
+      ...(connectCountrySupported({ country: opts.country ?? null })
+        ? {}
+        : { clientPaymentsEnabled: false }),
     });
   } catch (err) {
     // Race: another request provisioned the same auth user first.

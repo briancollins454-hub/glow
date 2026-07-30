@@ -64,6 +64,8 @@ export async function ensureCoupon(s: Stripe, id: OfferId): Promise<string> {
       await s.coupons.create({
         id,
         amount_off: 1800,
+        // Glow's own subscription pricing is GBP for everyone, regardless of
+        // the salon's client-payment currency. Never localise this.
         currency: "gbp",
         duration: "once",
         name: "Tester offer: first month £1",
