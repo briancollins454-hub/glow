@@ -27,7 +27,9 @@ type Props = {
   bookings: Booking[];
   clientById: Record<string, string>;
   serviceById: Record<string, string>;
-  /** Controlled selected day (YYYY-MM-DD London). */
+  /** serviceId → category palette hex (absent = uncoloured, renders as before). */
+  colourByServiceId?: Record<string, string>;
+  /** Controlled selected day (YYYY-MM-DD, salon-local). */
   selected?: string;
   onSelectedChange?: (dateStr: string) => void;
   /** Hide the flat day list (e.g. when team columns are shown instead). */
@@ -77,6 +79,7 @@ export function BookingsMonthCalendar({
   bookings,
   clientById,
   serviceById,
+  colourByServiceId = {},
   selected: selectedProp,
   onSelectedChange,
   hideDayList = false,
@@ -167,8 +170,31 @@ export function BookingsMonthCalendar({
                   {dayNum}
                 </span>
                 {count > 0 ? (
-                  <span className="rounded-md bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-brand-text">
-                    {count}
+                  <span className="flex flex-col items-center gap-0.5">
+                    <span className="rounded-md bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-brand-text">
+                      {count}
+                    </span>
+                    {/* Category colour dots (max 4) — decoration only, the count above carries the information. */}
+                    {(() => {
+                      const dots = [
+                        ...new Set(
+                          dayBookings
+                            .map((b) => colourByServiceId[b.serviceId])
+                            .filter((c): c is string => !!c),
+                        ),
+                      ].slice(0, 4);
+                      return dots.length > 0 ? (
+                        <span className="flex gap-0.5" aria-hidden>
+                          {dots.map((hex) => (
+                            <span
+                              key={hex}
+                              className="inline-block h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: hex }}
+                            />
+                          ))}
+                        </span>
+                      ) : null;
+                    })()}
                   </span>
                 ) : (
                   <span className="h-[18px]" aria-hidden />
@@ -208,6 +234,13 @@ export function BookingsMonthCalendar({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {colourByServiceId[b.serviceId] && (
+                          <span
+                            aria-hidden
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: colourByServiceId[b.serviceId] }}
+                          />
+                        )}
                         <Link
                           href={`/dashboard/bookings/${b.id}`}
                           className="truncate font-medium hover:text-brand-text"

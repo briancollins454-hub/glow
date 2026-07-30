@@ -770,6 +770,24 @@ export async function addCategoryAction(formData: FormData) {
   redirect("/dashboard/services");
 }
 
+export async function setCategoryColourAction(formData: FormData) {
+  const { sb, tech } = await ctx();
+  const id = String(formData.get("id") ?? "");
+  const colourRaw = String(formData.get("colour") ?? "").trim();
+  const { isPaletteColourId } = await import("@/lib/category-colours");
+  // "" = no colour; anything else must be a known palette id.
+  const colour = colourRaw === "" ? null : isPaletteColourId(colourRaw) ? colourRaw : undefined;
+  if (colour !== undefined) {
+    const { getCategory, updateCategory } = await import("@/lib/db/queries");
+    const category = await getCategory(sb, id);
+    if (category && category.techId === tech.id) {
+      await updateCategory(sb, id, { colour });
+    }
+  }
+  revalidatePath("/dashboard/services");
+  redirect("/dashboard/services");
+}
+
 // ---------------- Services ----------------
 export async function saveServiceAction(formData: FormData) {
   const { sb, tech } = await ctx();

@@ -19,6 +19,9 @@ import { ManualBookingForm } from "@/components/dashboard/manual-booking-form";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { bufferMapFromServices } from "@/lib/rules";
 import { bookingPaymentSummary } from "@/lib/booking/payment-summary";
+import { serviceColourMap } from "@/lib/category-colours";
+import { DiaryColourLegend } from "@/components/dashboard/diary-colour-legend";
+import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
 import { deleteWaitlistEntryAction } from "../actions";
 import type {
   Booking,
@@ -80,6 +83,7 @@ function BookingsView({
   const money = useMoney();
   const currency = useCurrency();
   const tz = useSalonTz();
+  const { tech: authedTech } = useDashboardAuth();
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const lateErr = searchParams.get("lateerr");
@@ -97,6 +101,7 @@ function BookingsView({
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const serviceById = Object.fromEntries(services.map((s) => [s.id, s.name]));
   const bufferByServiceId = bufferMapFromServices(services);
+  const colourByServiceId = serviceColourMap(services, categories);
 
   const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
   // Day diary (with tappable blocks) for one or more staff; list-only when no staff rows.
@@ -143,6 +148,13 @@ function BookingsView({
     >
       <div className={`min-w-0 flex-1 ${muted ? "text-ink-soft" : ""}`}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {colourByServiceId[b.serviceId] && b.status !== "cancelled" && (
+            <span
+              aria-hidden
+              className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${muted ? "opacity-50" : ""}`}
+              style={{ backgroundColor: colourByServiceId[b.serviceId] }}
+            />
+          )}
           <p className={`truncate font-medium ${muted ? "text-ink-soft" : ""}`}>
             {clientById[b.clientId] ?? "Client"}
           </p>
@@ -269,10 +281,13 @@ function BookingsView({
         </div>
       </details>
 
+      <DiaryColourLegend categories={categories} techId={authedTech?.id ?? "salon"} />
+
       <BookingsMonthCalendar
         bookings={bookings}
         clientById={clientById}
         serviceById={serviceById}
+        colourByServiceId={colourByServiceId}
         selected={selectedDate}
         onSelectedChange={setSelectedDate}
         hideDayList={showStaff}
@@ -296,6 +311,7 @@ function BookingsView({
           staff={staff}
           clientById={clientById}
           serviceById={serviceById}
+          colourByServiceId={colourByServiceId}
           bufferByServiceId={bufferByServiceId}
           offs={offs}
           hoursByStaff={hoursByStaff}

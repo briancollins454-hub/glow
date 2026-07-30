@@ -13,6 +13,7 @@ import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { StatusDot, statusBadge } from "@/components/dashboard/status";
 import { fmtTime } from "@/lib/format";
 import { useSalonTz } from "@/components/locale/locale-provider";
+import { blockTint, hexAlpha } from "@/lib/category-colours";
 import {
   UNASSIGNED_STAFF_ID,
   activeBookingsOnDate,
@@ -52,6 +53,8 @@ type Props = {
   staff: StaffMember[];
   clientById: Record<string, string>;
   serviceById: Record<string, string>;
+  /** serviceId → category palette hex (absent = uncoloured, renders as before). */
+  colourByServiceId?: Record<string, string>;
   /** serviceId → cleanup minutes after the appointment. */
   bufferByServiceId?: Record<string, number>;
   offs?: TimeOff[];
@@ -84,6 +87,7 @@ export function BookingsStaffDayView({
   staff,
   clientById,
   serviceById,
+  colourByServiceId = {},
   bufferByServiceId = {},
   offs = [],
   hoursByStaff = {},
@@ -339,15 +343,26 @@ export function BookingsStaffDayView({
                       const timeService = `${fmtTime(b.startIso, tz)} · ${serviceLabel}${
                         b.groupId ? " · multi" : ""
                       }`;
+                      // Category colour is decoration only: a pale wash plus a
+                      // solid strip, so text, status and payment badges keep
+                      // their normal contrast at every density.
+                      const colour = colourByServiceId[b.serviceId];
                       return (
                         <div
                           key={b.id}
-                          className="absolute z-[3] overflow-hidden rounded-lg border border-brand-400/50 bg-surface shadow-sm"
+                          className="absolute z-[3] overflow-hidden rounded-lg border border-brand-400/50 bg-surface shadow-sm transition hover:ring-2 hover:ring-brand-400/50 focus-within:ring-2 focus-within:ring-brand-400/60"
                           style={{
                             top,
                             height: blockHeight,
                             left: `calc(${leftPct}% + ${LANE_GAP_PX}px)`,
                             width: `calc(${widthPct}% - ${LANE_GAP_PX * 2}px)`,
+                            ...(colour
+                              ? {
+                                  backgroundColor: blockTint(colour),
+                                  borderColor: hexAlpha(colour, 0.45),
+                                  borderLeft: `3px solid ${colour}`,
+                                }
+                              : {}),
                           }}
                         >
                           <div className="relative h-full overflow-hidden">

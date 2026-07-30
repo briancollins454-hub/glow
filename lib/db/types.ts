@@ -306,6 +306,9 @@ export interface ServiceCategory {
   // Defaults used when a service requires a patch test
   patchTestValidityDays: number;
   patchTestMinLeadHours: number;
+  /** Diary colour: a palette id from lib/category-colours.ts.
+   *  Optional until migration 0064; null/missing = no colour (renders as before). */
+  colour?: string | null;
   createdAt: string;
 }
 
