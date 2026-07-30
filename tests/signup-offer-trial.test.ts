@@ -310,11 +310,14 @@ describe("admin accounts trial visibility", () => {
 
   it("accounts page shows offer, trial end, days remaining, first charge, summary", () => {
     const page = readFileSync(join(process.cwd(), "app/dashboard/admin/accounts/page.tsx"), "utf8");
+    const table = readFileSync(join(process.cwd(), "components/owner/accounts-table.tsx"), "utf8");
     expect(page).toContain("Accounts currently in trial");
-    expect(page).toContain("Trial end");
-    expect(page).toContain("Days left");
-    expect(page).toContain("First charge");
     expect(page).toContain("signupOfferLabel");
+    expect(page).toContain("trialDaysLeft");
+    expect(page).toContain("firstCharge");
+    expect(page).toContain("trialEnds");
+    expect(table).toContain("Trial");
+    expect(table).toContain("daysLeft");
   });
 });
 
