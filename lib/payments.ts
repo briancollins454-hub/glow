@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
+import { salonCurrency } from "@/lib/locale";
+import { stripeCurrency } from "@/lib/money";
 import type { Booking, Service, Tech } from "@/lib/db/types";
 import { salonTakesClientPayments } from "@/lib/subscriptions";
 
@@ -43,7 +45,8 @@ export async function createDepositCheckout(
       line_items: [
         {
           price_data: {
-            currency: "gbp",
+            // Amounts are already integer minor units of the salon's currency.
+            currency: stripeCurrency(salonCurrency(tech)),
             unit_amount: booking.depositPennies,
             product_data: { name: `${service.name} - deposit` },
           },
@@ -84,7 +87,7 @@ export async function createCardCaptureCheckout(
   const base = {
     mode: "setup" as const,
     customer: customer.id,
-    currency: "gbp",
+    currency: stripeCurrency(salonCurrency(tech)),
     payment_method_types: ["card" as const],
     success_url: `${appUrl}/${tech.handle}/booked/${booking.balanceToken}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: bookingCheckoutCancelUrl(appUrl, tech, booking),
@@ -130,7 +133,7 @@ export async function createBalanceCheckout(
       line_items: [
         {
           price_data: {
-            currency: "gbp",
+            currency: stripeCurrency(salonCurrency(tech)),
             unit_amount: booking.balancePennies,
             product_data: { name: `${service.name} - balance` },
           },
@@ -274,7 +277,7 @@ export async function chargeNoShowFee(
     const pi = await s.paymentIntents.create(
       {
         amount: amountPennies,
-        currency: "gbp",
+        currency: stripeCurrency(salonCurrency(tech)),
         customer: booking.cardCustomerId,
         payment_method: booking.cardPaymentMethodId,
         off_session: true,

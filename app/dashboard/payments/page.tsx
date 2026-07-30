@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { CheckCircle2, Wallet, AlertTriangle, Banknote } from "lucide-react";
 import { getDashboardContext } from "@/lib/auth/session";
-import { syncConnectStatus } from "@/lib/connect";
+import {
+  CONNECT_UNSUPPORTED_MESSAGE,
+  connectCountrySupported,
+  syncConnectStatus,
+} from "@/lib/connect";
 import { stripeConfigured } from "@/lib/stripe";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +39,8 @@ export default async function PaymentsPage({
   const connected = chargesEnabled && payoutsEnabled;
   const started = !!tech.stripeConnectAccountId;
   const takingClientPayments = salonTakesClientPayments(tech);
+  // Salons in countries without Connect support see why, not a doomed button.
+  const countrySupported = started || connectCountrySupported(tech);
 
   return (
     <div className="space-y-6">
@@ -98,6 +104,10 @@ export default async function PaymentsPage({
                 Your first payout from a new Stripe account usually takes 7 to 14 days. After that
                 they arrive much faster.
               </p>
+            </div>
+          ) : !countrySupported ? (
+            <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning-text">
+              {CONNECT_UNSUPPORTED_MESSAGE}
             </div>
           ) : (
             <div className="space-y-3">
