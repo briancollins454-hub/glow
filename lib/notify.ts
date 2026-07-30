@@ -675,8 +675,6 @@ export async function notifySalonOfNewBooking(
     getTechById(sb, booking.techId),
   ]);
   if (!tech || !client || !service) return;
-  // Missing column / unset = on (pre-migration).
-  if (tech.bookingNotifyEmailEnabled === false) return;
 
   let serviceLabel = service.name;
   if (booking.groupId) {
@@ -723,6 +721,40 @@ export async function notifySalonOfNewBooking(
     `${client.name} booked ${serviceLabel} on ${when}.` +
     (staff?.name ? ` With ${staff.name}.` : "") +
     ` Status: ${statusLine}. Open diary: ${dashUrl}`;
+
+  // Push first (independent of the email toggle; never throws).
+  try {
+    const { sendPushToTech, pushKindEnabled, techEmailSuppressed } = await import("@/lib/push");
+    const { findNotifiedWaitlistMatch } = await import("@/lib/waitlist");
+    const claimed = await findNotifiedWaitlistMatch(sb, tech.id, client).catch(() => null);
+    const kind =
+      claimed && pushKindEnabled(tech.pushPrefs, "waitlist_claimed")
+        ? ("waitlist_claimed" as const)
+        : ("new_booking" as const);
+    await sendPushToTech(
+      sb,
+      tech,
+      kind,
+      {
+        title:
+          kind === "waitlist_claimed"
+            ? `Waitlist claimed · ${client.name}`
+            : `New booking · ${client.name}`,
+        body: `${serviceLabel} · ${when}`,
+        url: `/dashboard/bookings/${booking.id}`,
+        tag: `booking-${booking.id}`,
+      },
+      { staffId: booking.staffId ?? null },
+    );
+
+    // Missing column / unset = on (pre-migration).
+    if (tech.bookingNotifyEmailEnabled === false) return;
+    // Tech opted for push-only (guarded: requires an active subscription).
+    if (await techEmailSuppressed(sb, tech)) return;
+  } catch (err) {
+    console.error("[push] new booking push failed", err);
+    if (tech.bookingNotifyEmailEnabled === false) return;
+  }
 
   const recipients = new Set<string>();
   if (tech.email?.trim()) recipients.add(tech.email.trim().toLowerCase());

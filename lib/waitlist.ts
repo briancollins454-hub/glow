@@ -3,7 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { getService, getTechById, listWaitlist, updateWaitlistEntry } from "@/lib/db/queries";
 import { sendEmail, brandedEmail } from "@/lib/email";
 import { salonTz } from "@/lib/locale";
-import type { Booking } from "@/lib/db/types";
+import type { Booking, Client, WaitlistEntry } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const MAX_NOTIFY_PER_CANCELLATION = 10;
@@ -63,4 +63,28 @@ export async function notifyWaitlistForCancelledBooking(
     }
   }
   return notified;
+}
+
+/**
+ * Did this booking's client previously get a "slot opened up" waitlist email?
+ * Used to label the tech's push as a waitlist claim rather than a plain
+ * booking. Matches on email (case-insensitive) or digits-only phone.
+ */
+export async function findNotifiedWaitlistMatch(
+  sb: SupabaseClient,
+  techId: string,
+  client: Pick<Client, "email" | "phone">,
+): Promise<WaitlistEntry | null> {
+  const email = client.email?.trim().toLowerCase() ?? "";
+  const phone = (client.phone ?? "").replace(/\D/g, "");
+  if (!email && !phone) return null;
+  const entries = await listWaitlist(sb, techId);
+  return (
+    entries.find((e) => {
+      if (!e.notifiedAtIso) return false;
+      if (email && e.email.trim().toLowerCase() === email) return true;
+      if (phone && (e.phone ?? "").replace(/\D/g, "") === phone) return true;
+      return false;
+    }) ?? null
+  );
 }

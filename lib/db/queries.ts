@@ -3,6 +3,8 @@ import { randomId } from "@/lib/ids";
 import { dbError, throwDbError } from "@/lib/db/errors";
 import type {
   AccountClosureRequest,
+  PushQueueItem,
+  PushSubscriptionRow,
   AuditEvent,
   Booking,
   Client,
@@ -2223,4 +2225,70 @@ export async function listAccountClosureRequests(sb: SB, techId: string): Promis
     .eq("techId", techId)
     .order("requestedAt", { ascending: false });
   return must(data as AccountClosureRequest[], error, "listAccountClosureRequests") ?? [];
+}
+
+// ---------------- Push notifications ----------------
+export async function upsertPushSubscription(
+  sb: SB,
+  sub: Omit<PushSubscriptionRow, "id" | "createdAt" | "lastSeenAt" | "failureCount">,
+): Promise<PushSubscriptionRow> {
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("push_subscriptions")
+    .upsert(
+      { ...sub, id: randomId("psub"), lastSeenAt: now, failureCount: 0 },
+      { onConflict: "endpoint" },
+    )
+    .select("*")
+    .single();
+  return must(data as PushSubscriptionRow, error, "upsertPushSubscription");
+}
+export async function listPushSubscriptions(sb: SB, techId: string): Promise<PushSubscriptionRow[]> {
+  const { data, error } = await sb
+    .from("push_subscriptions")
+    .select("*")
+    .eq("techId", techId)
+    .order("createdAt", { ascending: true });
+  return must(data as PushSubscriptionRow[], error, "listPushSubscriptions") ?? [];
+}
+export async function updatePushSubscription(
+  sb: SB,
+  id: string,
+  patch: Partial<PushSubscriptionRow>,
+): Promise<void> {
+  const { error } = await sb.from("push_subscriptions").update(patch).eq("id", id);
+  if (error) throw dbError("updatePushSubscription", error);
+}
+export async function deletePushSubscription(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("push_subscriptions").delete().eq("id", id);
+  if (error) throw dbError("deletePushSubscription", error);
+}
+/** Distinct techIds that have at least one subscription (daily summary cron). */
+export async function listPushSubscriptionTechIds(sb: SB): Promise<string[]> {
+  const { data, error } = await sb.from("push_subscriptions").select("techId");
+  if (error) throw dbError("listPushSubscriptionTechIds", error);
+  return [...new Set(((data ?? []) as { techId: string }[]).map((r) => r.techId))];
+}
+
+export async function createPushQueueItem(
+  sb: SB,
+  item: Omit<PushQueueItem, "id" | "createdAt">,
+): Promise<void> {
+  const { error } = await sb
+    .from("push_queue")
+    .insert({ ...item, id: randomId("pq") });
+  if (error) throw dbError("createPushQueueItem", error);
+}
+export async function duePushQueueItems(sb: SB, nowIso: string): Promise<PushQueueItem[]> {
+  const { data, error } = await sb
+    .from("push_queue")
+    .select("*")
+    .lte("sendAfterIso", nowIso)
+    .order("sendAfterIso", { ascending: true })
+    .limit(200);
+  return must(data as PushQueueItem[], error, "duePushQueueItems") ?? [];
+}
+export async function deletePushQueueItem(sb: SB, id: string): Promise<void> {
+  const { error } = await sb.from("push_queue").delete().eq("id", id);
+  if (error) throw dbError("deletePushQueueItem", error);
 }

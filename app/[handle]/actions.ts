@@ -462,6 +462,17 @@ export async function createPairedPublicBookingAction(formData: FormData) {
         });
       }
     }
+    if (answers.length || (consentRequired && signedAt)) {
+      try {
+        const { sendFormCompletedPush } = await import("@/lib/push");
+        await sendFormCompletedPush(sb, tech, client, bookingId, {
+          signedConsent: !!(consentRequired && signedAt),
+          staffId: pairStaffId,
+        });
+      } catch {
+        // Push is best-effort.
+      }
+    }
   };
 
   const riskTier = scoreClientRisk(client, { completedVisits }, tech);
@@ -782,6 +793,16 @@ export async function createPublicBookingAction(formData: FormData) {
           ...consentClientDetailsForStorage(consentInput),
           signedAt,
         });
+      }
+    }
+    if (answers.length || (consentRequired && signedAt)) {
+      try {
+        const { sendFormCompletedPush } = await import("@/lib/push");
+        await sendFormCompletedPush(sb, tech!, client, bookingId, {
+          signedConsent: !!(consentRequired && signedAt),
+        });
+      } catch {
+        // Push is best-effort.
       }
     }
   };

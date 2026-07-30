@@ -167,6 +167,12 @@ export interface Tech {
    *  reminder scheduling are interpreted in this zone. Optional until 0062;
    *  missing = "Europe/London". */
   timezone?: string | null;
+  /** Per-type push toggles, quiet hours, daily summary time and the
+   *  "also send by email" switch. Optional until migration 0063;
+   *  missing/null = defaults (all types on, email on, quiet hours off). */
+  pushPrefs?: PushPrefs | null;
+  /** Salon-local date (YYYY-MM-DD) the daily summary push last went out. */
+  pushDailySummaryLastDate?: string | null;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.
@@ -866,5 +872,57 @@ export interface AccountClosureRequest {
   status: "requested" | "processing" | "completed" | "cancelled";
   requestedAt: string;
   completedAt: string | null;
+}
+
+// ---------------- Push notifications (migration 0063) ----------------
+
+export type PushKind =
+  | "new_booking"
+  | "booking_cancelled"
+  | "booking_rescheduled"
+  | "payment_received"
+  | "form_completed"
+  | "waitlist_claimed"
+  | "daily_summary";
+
+/** Stored on techs.pushPrefs (jsonb). Missing keys fall back to defaults. */
+export interface PushPrefs {
+  /** Per-type toggles; missing = on. */
+  kinds?: Partial<Record<PushKind, boolean>>;
+  /** "Also send these by email" — default true. Client emails never affected. */
+  emailAlso?: boolean;
+  /** Quiet hours (salon-local). Default off. Cancellations always send. */
+  quietHoursEnabled?: boolean;
+  /** "HH:MM" salon-local start of quiet period. */
+  quietStart?: string;
+  /** "HH:MM" salon-local end of quiet period. */
+  quietEnd?: string;
+  /** "HH:MM" salon-local time for the daily summary. Default "08:00". */
+  dailySummaryTime?: string;
+}
+
+/** One Web Push subscription = one device. */
+export interface PushSubscriptionRow {
+  id: string;
+  techId: string;
+  /** Set when a staff login (not the owner) enabled push on this device. */
+  staffId: string | null;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+  failureCount: number;
+}
+
+/** Non-urgent push held back by quiet hours; drained by the reminders cron. */
+export interface PushQueueItem {
+  id: string;
+  techId: string;
+  staffId: string | null;
+  payload: { title: string; body: string; url: string; tag?: string };
+  sendAfterIso: string;
+  createdAt: string;
 }
 
