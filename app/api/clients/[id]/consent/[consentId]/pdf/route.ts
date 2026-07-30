@@ -1,6 +1,7 @@
 import { getDashboardContext } from "@/lib/auth/session";
 import { createAuditEvent, getBooking, getClient, getConsentRecord, getService } from "@/lib/db/queries";
 import { buildConsentRecordPdf, consentPdfFilename } from "@/lib/consent-pdf";
+import { salonTz } from "@/lib/locale";
 
 export async function GET(
   _request: Request,
@@ -36,7 +37,7 @@ export async function GET(
     record,
     appointmentStartIso: booking?.startIso ?? null,
   });
-  const filename = consentPdfFilename(client, record, new Date());
+  const filename = consentPdfFilename(client, record, new Date(), salonTz(c.tech));
 
   try {
     await createAuditEvent(c.sb, {

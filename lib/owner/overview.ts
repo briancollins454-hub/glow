@@ -4,7 +4,8 @@ import { cachedGet } from "@/lib/owner/cache";
 import { computeMrrFromTechs, type MrrBreakdown } from "@/lib/owner/mrr";
 import { getPlatformTraffic, type PlatformTraffic } from "@/lib/traffic-stats";
 
-const TZ = "Europe/London";
+// Glow's own reporting timezone — deliberate, never the salon's zone.
+import { PLATFORM_TZ as TZ } from "@/lib/locale";
 const OVERVIEW_TTL_MS = 60_000;
 
 export type MetricValue =

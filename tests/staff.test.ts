@@ -103,7 +103,7 @@ describe("slots respect staff working hours", () => {
     const slots = daySlots(
       service,
       dateStr,
-      { workingHours: workingHoursForStaff(hours, amy, owner.id), timeOff: [], bookings: [] },
+      { tz: "Europe/London", workingHours: workingHoursForStaff(hours, amy, owner.id), timeOff: [], bookings: [] },
       now,
     );
     // 10:00 London = 09:00 UTC; last start for 60-min ending by 14:00 is 13:00 London.
@@ -125,6 +125,7 @@ describe("slots respect staff working hours", () => {
       service,
       dateStr,
       {
+        tz: "Europe/London",
         workingHours: workingHoursForStaff(ownerHours, amy, owner.id),
         timeOff: [],
         bookings: [],

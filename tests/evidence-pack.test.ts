@@ -7,6 +7,7 @@ describe("evidencePackFilename", () => {
     const name = evidencePackFilename(
       makeClient({ name: "Sophie Turner" }),
       new Date("2026-07-10T12:00:00.000Z"),
+      "Europe/London",
     );
     expect(name).toBe("evidence-pack-Sophie-Turner-2026-07-10.pdf");
   });
@@ -15,6 +16,7 @@ describe("evidencePackFilename", () => {
     const name = evidencePackFilename(
       makeClient({ name: "Mary O'Brien (VIP)" }),
       new Date("2026-07-10T12:00:00.000Z"),
+      "Europe/London",
     );
     expect(name).toMatch(/^evidence-pack-Mary-O-Brien-VIP-2026-07-10\.pdf$/);
   });

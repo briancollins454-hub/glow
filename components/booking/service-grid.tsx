@@ -13,7 +13,7 @@ import {
 import { CategorySection } from "@/components/booking/category-section";
 import { ExpandableText } from "@/components/booking/expandable-text";
 import { minutesToLabel } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useMoney } from "@/components/locale/locale-provider";
 import { depositFor } from "@/lib/rules";
 import { onBrand, withAlpha } from "@/lib/booking/brand";
 

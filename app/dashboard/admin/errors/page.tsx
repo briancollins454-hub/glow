@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -47,7 +48,7 @@ export default async function OwnerErrorsPage({
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-lg font-semibold">{g.message}</h2>
                   <p className="mt-1 text-sm text-ink-soft">
-                    {g.count}× · first {fmtDateTime(g.firstSeen)} · last {fmtDateTime(g.lastSeen)} ·{" "}
+                    {g.count}× · first {fmtDateTime(g.firstSeen, PLATFORM_TZ)} · last {fmtDateTime(g.lastSeen, PLATFORM_TZ)} ·{" "}
                     {g.affectedAccounts.length} accounts
                   </p>
                   {g.affectedAccounts[0] ? (

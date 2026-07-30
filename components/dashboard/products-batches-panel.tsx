@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { productTypeLabel } from "@/lib/product-batches";
 import type { Product, ProductBatch, ServiceCategory } from "@/lib/db/types";
 import {
@@ -31,6 +32,7 @@ export function ProductsBatchesPanel({
   products: Product[];
   batchSummaries: BatchSummary[];
 }) {
+  const tz = useSalonTz();
   const [openProduct, setOpenProduct] = useState(categories.length > 0 && products.length === 0);
   const catById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const activeBatches = batchSummaries.filter((s) => !s.batch.retiredAtIso);
@@ -139,8 +141,8 @@ export function ProductsBatchesPanel({
                       <span className="ml-2 text-ink-faint">Lot {batch.lotNumber}</span>
                     )}
                     <p className="text-xs text-ink-faint">
-                      Opened {batch.openedAtIso ? fmtDate(batch.openedAtIso) : "—"}
-                      {batch.expiresAtIso && ` · expires ${fmtDate(batch.expiresAtIso)}`}
+                      Opened {batch.openedAtIso ? fmtDate(batch.openedAtIso, tz) : "—"}
+                      {batch.expiresAtIso && ` · expires ${fmtDate(batch.expiresAtIso, tz)}`}
                       {" · "}{usageCount} use{usageCount === 1 ? "" : "s"}
                     </p>
                   </div>

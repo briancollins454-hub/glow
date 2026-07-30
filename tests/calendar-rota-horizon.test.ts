@@ -101,6 +101,7 @@ describe("dayWindowForDate rota 200 days ahead", () => {
 
     expect(
       dayWindowForDate(far, {
+        tz: "Europe/London",
         workingHours: recurring,
         timeOff: [],
         bookings: [],
@@ -122,6 +123,7 @@ describe("dayWindowForDate rota 200 days ahead", () => {
     const dateStr = "2030-12-01";
     const weekStart = mondayOfWeekContaining(dateStr);
     dayWindowForDate(dateStr, {
+      tz: "Europe/London",
       workingHours: [
         {
           id: "wh",

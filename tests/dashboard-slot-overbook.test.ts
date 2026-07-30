@@ -62,6 +62,7 @@ describe("findOverlappingBooking / day slot choices", () => {
       60,
       "2026-09-01",
       {
+        tz: "Europe/London",
         workingHours: hours,
         timeOff: [],
         bookings: [taken],
@@ -80,6 +81,7 @@ describe("findOverlappingBooking / day slot choices", () => {
       60,
       "2026-09-01",
       {
+        tz: "Europe/London",
         workingHours: hours,
         timeOff: [
           {

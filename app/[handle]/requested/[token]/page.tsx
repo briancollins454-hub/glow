@@ -5,6 +5,7 @@ import { Clock, CalendarHeart } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechByHandle, listBookingsByGroup } from "@/lib/db/queries";
 import { fmtDateTime } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import { usesCardCapture, salonTakesClientPayments } from "@/lib/subscriptions";
 import { BookingThemedPage } from "@/components/theme/booking-themed-page";
 
@@ -57,7 +58,7 @@ export default async function RequestedBookingPage({
           </div>
           <div className="space-y-4 p-6">
             <Row label={serviceLabel.includes("+") ? "Treatments" : "Service"} value={serviceLabel} />
-            <Row label="Requested time" value={fmtDateTime(booking.startIso)} />
+            <Row label="Requested time" value={fmtDateTime(booking.startIso, salonTz(tech))} />
             <p className="text-sm text-ink-soft">
               {takeClientPay || usesCardCapture(tech)
                 ? `No payment has been taken yet. If you don't hear back, contact ${tech.businessName} directly.`

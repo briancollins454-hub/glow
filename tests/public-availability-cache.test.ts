@@ -27,7 +27,7 @@ vi.mock("@/lib/db/queries", () => ({
 }));
 
 vi.mock("@/lib/rota", () => ({
-  currentWeekStartLondon: () => "2026-07-20",
+  currentWeekStart: () => "2026-07-20",
   addDaysToDateStr: (d: string) => d,
 }));
 
@@ -43,7 +43,7 @@ describe("public availability cache", () => {
   it("returns fresh blocking bookings after a booking mutation invalidates the tag", async () => {
     const cache = await import("@/lib/booking/public-availability-cache");
 
-    const first = await cache.getCachedPublicAvailabilityBundle("tech_1");
+    const first = await cache.getCachedPublicAvailabilityBundle("tech_1", { timezone: null });
     expect(first.bookings[0]?.id).toBe("bk_cached");
 
     // Simulate a create/cancel/reschedule: bust the tag, then the uncached
@@ -60,7 +60,7 @@ describe("public availability cache", () => {
 
     // Cached display path would still be stale until Next regenerates; the
     // submit path must not rely on it.
-    const stillCachedDisplay = await cache.getCachedPublicAvailabilityBundle("tech_1");
+    const stillCachedDisplay = await cache.getCachedPublicAvailabilityBundle("tech_1", { timezone: null });
     // In this unit test unstable_cache is a passthrough, so display also
     // refreshes — assert the intentional uncached helper exists and is used
     // from the booking submit action instead.

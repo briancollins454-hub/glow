@@ -5,6 +5,7 @@ import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { deleteReviewAction, setReviewStatusAction } from "../actions";
 import type { Review } from "@/lib/db/types";
 
@@ -22,6 +23,7 @@ export default function ReviewsPage() {
 }
 
 function ReviewsView({ reviews, clientById }: ReviewsData) {
+  const tz = useSalonTz();
   const approved = reviews.filter((r) => r.status === "approved");
   const avg = approved.length
     ? (approved.reduce((s, r) => s + r.rating, 0) / approved.length).toFixed(1)
@@ -63,7 +65,7 @@ function ReviewsView({ reviews, clientById }: ReviewsData) {
                   ))}
                 </span>
                 <p className="font-medium">{clientById[r.clientId] ?? "Client"}</p>
-                <span className="text-xs text-ink-faint">{fmtDate(r.createdAt)}</span>
+                <span className="text-xs text-ink-faint">{fmtDate(r.createdAt, tz)}</span>
                 {r.status === "approved" && <Badge tone="green">On your page</Badge>}
                 {r.status === "pending" && <Badge tone="amber">Waiting</Badge>}
                 {r.status === "hidden" && <Badge tone="neutral">Hidden</Badge>}

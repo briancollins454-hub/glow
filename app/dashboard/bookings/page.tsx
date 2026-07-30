@@ -7,7 +7,7 @@ import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate, fmtTime } from "@/lib/format";
-import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { useCurrency, useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { statusBadge } from "@/components/dashboard/status";
 import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
@@ -79,6 +79,7 @@ function BookingsView({
 }: BookingsData) {
   const money = useMoney();
   const currency = useCurrency();
+  const tz = useSalonTz();
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const lateErr = searchParams.get("lateerr");
@@ -100,7 +101,7 @@ function BookingsView({
   const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
   // Day diary (with tappable blocks) for one or more staff; list-only when no staff rows.
   const showStaff = staff.length >= 1;
-  const [selectedDate, setSelectedDate] = useState(() => dateStrInTz(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() => dateStrInTz(new Date(), tz));
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrefillDate, setManualPrefillDate] = useState<string | undefined>(undefined);
   const manualFormId = "manual-booking-form";
@@ -115,19 +116,19 @@ function BookingsView({
     });
   }
 
-  const todayStr = fmtDate(new Date().toISOString());
-  const todayKey = dateStrInTz(new Date());
+  const todayStr = fmtDate(new Date().toISOString(), tz);
+  const todayKey = dateStrInTz(new Date(), tz);
   const notCancelled = bookings.filter((b) => b.status !== "cancelled");
-  const today = notCancelled.filter((b) => fmtDate(b.startIso) === todayStr);
-  const lateTargets = filterLateCascadeBookings(today, todayKey, now);
+  const today = notCancelled.filter((b) => fmtDate(b.startIso, tz) === todayStr);
+  const lateTargets = filterLateCascadeBookings(today, todayKey, tz, now);
   const upcoming = notCancelled.filter(
-    (b) => new Date(b.startIso).getTime() >= now && fmtDate(b.startIso) !== todayStr,
+    (b) => new Date(b.startIso).getTime() >= now && fmtDate(b.startIso, tz) !== todayStr,
   );
   const past = bookings
     .filter(
       (b) =>
         (new Date(b.startIso).getTime() < now || b.status === "cancelled") &&
-        fmtDate(b.startIso) !== todayStr,
+        fmtDate(b.startIso, tz) !== todayStr,
     )
     .reverse();
 
@@ -153,7 +154,7 @@ function BookingsView({
           {b.depositStatus === "forfeited" && <Badge tone="red">Deposit kept</Badge>}
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">
-          {serviceById[b.serviceId] ?? "Service"} · {fmtDate(b.startIso)} at {fmtTime(b.startIso)}
+          {serviceById[b.serviceId] ?? "Service"} · {fmtDate(b.startIso, tz)} at {fmtTime(b.startIso, tz)}
           {showStaff && b.staffId && staffById[b.staffId] ? ` · with ${staffById[b.staffId]}` : ""}
         </p>
         <p className="mt-0.5 text-xs text-ink-faint">
@@ -196,7 +197,7 @@ function BookingsView({
       {bookingError === "slot" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
           {conflictName && conflictAt
-            ? `This slot is taken by ${conflictName} at ${fmtTime(conflictAt)}. Pick another time, or choose that slot again and confirm “Book anyway”.`
+            ? `This slot is taken by ${conflictName} at ${fmtTime(conflictAt, tz)}. Pick another time, or choose that slot again and confirm “Book anyway”.`
             : slotReason === "blocked"
               ? "This time is blocked. Pick another time, or choose it again and confirm “Book anyway”."
               : slotReason === "outside_hours"
@@ -346,7 +347,7 @@ function BookingsView({
                   <p className="truncate text-xs text-ink-faint">
                     {w.serviceId ? serviceById[w.serviceId] ?? "Any service" : "Any service"}
                     {" · "}
-                    {w.dateStr ? `wants ${fmtDate(`${w.dateStr}T12:00:00Z`)}` : "any day"}
+                    {w.dateStr ? `wants ${fmtDate(`${w.dateStr}T12:00:00Z`, "UTC")}` : "any day"}
                     {" · "}
                     {w.email}
                   </p>

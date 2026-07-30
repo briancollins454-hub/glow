@@ -12,7 +12,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Select } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtDate, fmtTime } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useSalonTz } from "@/components/locale/locale-provider";
+import { useMoney } from "@/components/locale/locale-provider";
 import type { Booking, Client, Service } from "@/lib/db/types";
 import { bookingAmountDue } from "@/lib/booking/payment-summary";
 
@@ -34,6 +35,7 @@ export function SettleUpPanel({
   serviceById: Record<string, Service>;
 }) {
   const money = useMoney();
+  const tz = useSalonTz();
   if (bookings.length === 0) return null;
 
   const totalDue = bookings.reduce((sum, b) => sum + amountDue(b), 0);
@@ -85,8 +87,8 @@ export function SettleUpPanel({
                     {statusBadge(b.status)}
                   </div>
                   <p className="mt-0.5 text-xs text-ink-faint">
-                    {serviceById[b.serviceId]?.name ?? "Service"} · {fmtDate(b.startIso)} at{" "}
-                    {fmtTime(b.startIso)}
+                    {serviceById[b.serviceId]?.name ?? "Service"} · {fmtDate(b.startIso, tz)} at{" "}
+                    {fmtTime(b.startIso, tz)}
                   </p>
                   <p className="mt-0.5 text-xs text-ink-faint">
                     <span className="font-medium text-ink">{money(b.pricePennies)}</span>

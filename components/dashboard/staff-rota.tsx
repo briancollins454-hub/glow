@@ -11,9 +11,10 @@ import {
 } from "@/app/dashboard/team/actions";
 import {
   addDaysToDateStr,
-  currentWeekStartLondon,
+  currentWeekStart,
   formatWeekLabel,
 } from "@/lib/rota";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import type { RotaHour, WorkingHour } from "@/lib/db/types";
 
 const DAYS = [
@@ -62,7 +63,8 @@ export function StaffRotaEditor({
   staffId: string;
   templateHours: WorkingHour[];
 }) {
-  const [weekStart, setWeekStart] = useState(currentWeekStartLondon);
+  const tz = useSalonTz();
+  const [weekStart, setWeekStart] = useState(() => currentWeekStart(tz));
   const [drafts, setDrafts] = useState<DayDraft[]>(() => draftsFromRows([], templateHours));
   const [hasSavedWeek, setHasSavedWeek] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -174,7 +176,7 @@ export function StaffRotaEditor({
           variant="secondary"
           size="sm"
           disabled={pending}
-          onClick={() => setWeekStart(currentWeekStartLondon())}
+          onClick={() => setWeekStart(currentWeekStart(tz))}
         >
           This week
         </Button>

@@ -13,6 +13,7 @@ import { startCheckoutAction, manageBillingAction } from "./actions";
 import type { Tech } from "@/lib/db/types";
 import { frozenOfferCopy, partnerOfferEnabled } from "@/lib/offers";
 import { fmtDate } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import { trialDaysRemaining } from "@/lib/trial-lifecycle";
 
 const APP_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://glow-uk.com").replace(/^https?:\/\//, "");
@@ -102,7 +103,7 @@ function BillingView({
           <p className="font-display text-lg font-semibold">You&apos;re on a free trial</p>
           <p className="mt-1">
             {trialDaysRemaining(tech.trialEndsAt)} day(s) remaining. First charge of £19 on{" "}
-            <strong>{fmtDate(tech.trialEndsAt)}</strong>. Cancel any time before then and you won&apos;t be charged.
+            <strong>{fmtDate(tech.trialEndsAt, salonTz(tech))}</strong>. Cancel any time before then and you won&apos;t be charged.
           </p>
         </div>
       )}

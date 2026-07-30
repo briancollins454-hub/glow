@@ -12,12 +12,13 @@ import {
 import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { StatusDot, statusBadge } from "@/components/dashboard/status";
 import { fmtTime } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import {
   UNASSIGNED_STAFF_ID,
   activeBookingsOnDate,
   bookingsInColumn,
   dayWindowMinutes,
-  minutesFromMidnightLondon,
+  minutesFromMidnight,
   packBookingLanes,
   staffColumnsForDay,
   timeOffInColumn,
@@ -91,11 +92,12 @@ export function BookingsStaffDayView({
   onAddBooking,
 }: Props) {
   const { zoom, setZoom, pxPerMin } = useDayViewZoom();
-  const dayBookings = activeBookingsOnDate(bookings, dateStr);
-  const dayOffs = timeOffOnDate(offs, dateStr);
+  const tz = useSalonTz();
+  const dayBookings = activeBookingsOnDate(bookings, dateStr, tz);
+  const dayOffs = timeOffOnDate(offs, dateStr, tz);
   const weekDates = weekDatesContaining(dateStr);
   const todayStr = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -104,6 +106,7 @@ export function BookingsStaffDayView({
   const knownStaffIds = new Set(staff.map((s) => s.id));
   const { start: windowStart, end: windowEnd } = dayWindowMinutes(
     dayBookings,
+    tz,
     bufferByServiceId,
     dayOffs,
   );
@@ -148,7 +151,7 @@ export function BookingsStaffDayView({
                 onClick={() =>
                   onDateChange(
                     new Intl.DateTimeFormat("en-CA", {
-                      timeZone: "Europe/London",
+                      timeZone: tz,
                       year: "numeric",
                       month: "2-digit",
                       day: "2-digit",
@@ -258,14 +261,15 @@ export function BookingsStaffDayView({
                         dateStr,
                         windowStart,
                         windowEnd,
+                        tz,
                         {
                           rotaHours: member ? rowsForStaff(rotaHours, member) : [],
                           rotaFetchedRange,
                         },
                       );
-                const laidOut = packBookingLanes(colBookings, (b) => {
+                const laidOut = packBookingLanes(colBookings, tz, (b) => {
                   const bufferMin = Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
-                  return minutesFromMidnightLondon(b.endIso) + bufferMin;
+                  return minutesFromMidnight(b.endIso, tz) + bufferMin;
                 });
                 return (
                   <div
@@ -298,9 +302,9 @@ export function BookingsStaffDayView({
                     {colOffs.map((o) => {
                       const startM = Math.max(
                         windowStart,
-                        minutesFromMidnightLondon(o.startIso),
+                        minutesFromMidnight(o.startIso, tz),
                       );
-                      const endM = Math.min(windowEnd, minutesFromMidnightLondon(o.endIso));
+                      const endM = Math.min(windowEnd, minutesFromMidnight(o.endIso, tz));
                       if (endM <= startM) return null;
                       const top = dayViewOffsetPx(startM, windowStart, pxPerMin);
                       const blockHeight = dayViewSpanHeightPx(endM - startM, pxPerMin, {
@@ -316,7 +320,7 @@ export function BookingsStaffDayView({
                       );
                     })}
                     {laidOut.map(({ booking: b, lane, laneCount, startM, endM }) => {
-                      const apptEndM = minutesFromMidnightLondon(b.endIso);
+                      const apptEndM = minutesFromMidnight(b.endIso, tz);
                       const bufferMin = Math.max(0, endM - apptEndM);
                       const top = dayViewOffsetPx(startM, windowStart, pxPerMin);
                       const blockHeight = dayViewSpanHeightPx(endM - startM, pxPerMin);
@@ -332,7 +336,7 @@ export function BookingsStaffDayView({
                       const widthPct = 100 / laneCount;
                       const leftPct = lane * widthPct;
                       const serviceLabel = serviceById[b.serviceId] ?? "Service";
-                      const timeService = `${fmtTime(b.startIso)} · ${serviceLabel}${
+                      const timeService = `${fmtTime(b.startIso, tz)} · ${serviceLabel}${
                         b.groupId ? " · multi" : ""
                       }`;
                       return (

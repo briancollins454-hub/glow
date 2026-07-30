@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -78,7 +79,7 @@ export default async function MoneyPage({
                     <td>{r.tech.subscriptionStatus}</td>
                     <td>{r.mrrPennies ? gbpFromPennies(r.mrrPennies) : "—"}</td>
                     <td>{r.stripeStatus ?? "—"}</td>
-                    <td>{r.tech.currentPeriodEnd ? fmtDate(r.tech.currentPeriodEnd) : "—"}</td>
+                    <td>{r.tech.currentPeriodEnd ? fmtDate(r.tech.currentPeriodEnd, PLATFORM_TZ) : "—"}</td>
                     <td>
                       {r.mismatch ? <Badge tone="amber">{r.mismatch}</Badge> : null}
                     </td>
@@ -130,7 +131,7 @@ export default async function MoneyPage({
                   <td>
                     {r.payoutInTransitPennies == null ? "—" : gbpFromPennies(r.payoutInTransitPennies)}
                     {r.nextPayoutEta ? (
-                      <span className="ml-1 text-xs text-ink-faint">eta {fmtDate(r.nextPayoutEta)}</span>
+                      <span className="ml-1 text-xs text-ink-faint">eta {fmtDate(r.nextPayoutEta, PLATFORM_TZ)}</span>
                     ) : null}
                   </td>
                   <td>

@@ -10,7 +10,8 @@ import {
   staffServiceDayMap,
   staffServiceMap,
 } from "@/lib/db/queries";
-import { addDaysToDateStr, currentWeekStartLondon } from "@/lib/rota";
+import { salonTz } from "@/lib/locale";
+import { addDaysToDateStr, currentWeekStart } from "@/lib/rota";
 import { bufferMapFromServices, withTechAvailability, type AvailabilityCtx } from "@/lib/rules";
 import type { Booking, RotaHour, Service, StaffMember, Tech, TimeOff, WorkingHour } from "@/lib/db/types";
 
@@ -38,10 +39,13 @@ export type PublicAvailabilityBundle = {
   dayRulesByStaff: Record<string, Record<string, number[] | null>>;
 };
 
-async function fetchPublicAvailabilityBundle(techId: string): Promise<PublicAvailabilityBundle> {
+async function fetchPublicAvailabilityBundle(
+  techId: string,
+  tz: string,
+): Promise<PublicAvailabilityBundle> {
   const sb = supabaseService();
   const rangeEnd = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-  const rotaFrom = currentWeekStartLondon();
+  const rotaFrom = currentWeekStart(tz);
   const rotaTo = addDaysToDateStr(rotaFrom, 7 * 12);
 
   const [workingHours, timeOff, bookings, rotaHours, services, staffList] = await Promise.all([
@@ -81,11 +85,18 @@ async function fetchPublicAvailabilityBundle(techId: string): Promise<PublicAvai
 /**
  * Cached public availability for a tech (60s). Bots hammering /[handle] must not
  * fan out into 6+ Supabase queries per hit. Invalidate via revalidatePublicAvailability.
+ *
+ * The salon timezone is part of the cache key: the fetched rota week range
+ * depends on it, so a salon changing timezone must not be served stale slots.
  */
-export function getCachedPublicAvailabilityBundle(techId: string): Promise<PublicAvailabilityBundle> {
+export function getCachedPublicAvailabilityBundle(
+  techId: string,
+  tech: Pick<Tech, "timezone"> | null | undefined,
+): Promise<PublicAvailabilityBundle> {
+  const tz = salonTz(tech);
   return unstable_cache(
-    () => fetchPublicAvailabilityBundle(techId),
-    ["public-availability", techId],
+    () => fetchPublicAvailabilityBundle(techId, tz),
+    ["public-availability", techId, tz],
     { revalidate: 60, tags: [publicAvailabilityTag(techId)] },
   )();
 }
@@ -99,6 +110,7 @@ export function availabilityCtxFromBundle(
     | "flexibleStartMinutes"
     | "flexibleEndMinutes"
     | "flexibleLastStartMinutes"
+    | "timezone"
   >,
 ): AvailabilityCtx {
   return {

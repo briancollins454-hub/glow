@@ -7,7 +7,7 @@ import { OwnerNav } from "@/components/owner/owner-nav";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtDate, fmtDateTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { PLATFORM_TZ, salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import {
   ownerSetTesterAction,
@@ -64,7 +64,7 @@ export default async function OwnerAccountDetailPage({
         </Link>
         <h1 className="mt-2 font-display text-2xl font-semibold">{tech.businessName || tech.handle}</h1>
         <p className="text-sm text-ink-soft">
-          {tech.email} · /{tech.handle} · joined {fmtDate(tech.createdAt)}
+          {tech.email} · /{tech.handle} · joined {fmtDate(tech.createdAt, PLATFORM_TZ)}
         </p>
       </div>
       <OwnerNav />
@@ -117,7 +117,7 @@ export default async function OwnerAccountDetailPage({
         <CardContent className="space-y-3 text-sm">
           {tech.outboundPausedAt ? (
             <p className="rounded-lg bg-amber-500/15 px-3 py-2 text-warning-text">
-              Outbound paused since {fmtDateTime(tech.outboundPausedAt)}
+              Outbound paused since {fmtDateTime(tech.outboundPausedAt, PLATFORM_TZ)}
               {tech.outboundPausedReason ? ` — ${tech.outboundPausedReason}` : ""}
             </p>
           ) : null}
@@ -129,7 +129,7 @@ export default async function OwnerAccountDetailPage({
                 <span className="font-medium">{s.kind}</span>
                 <span className="text-ink-faint">
                   {" "}
-                  · {s.channel} · {s.destination || "—"} · {fmtDateTime(s.scheduledFor)}
+                  · {s.channel} · {s.destination || "—"} · {fmtDateTime(s.scheduledFor, PLATFORM_TZ)}
                 </span>
               </div>
             ))
@@ -223,7 +223,7 @@ export default async function OwnerAccountDetailPage({
               <div key={n.id} className="rounded-lg border border-edge px-3 py-2">
                 <p className="whitespace-pre-wrap">{n.body}</p>
                 <p className="mt-1 text-xs text-ink-faint">
-                  {n.authorEmail} · {fmtDateTime(n.createdAt)}
+                  {n.authorEmail} · {fmtDateTime(n.createdAt, PLATFORM_TZ)}
                 </p>
               </div>
             ))
@@ -246,7 +246,7 @@ export default async function OwnerAccountDetailPage({
               <div key={item.id} className="rounded-lg border border-edge px-3 py-2">
                 <div className="flex flex-wrap justify-between gap-2">
                   <span className="font-medium">{item.title}</span>
-                  <span className="text-xs text-ink-faint">{fmtDateTime(item.at)}</span>
+                  <span className="text-xs text-ink-faint">{fmtDateTime(item.at, PLATFORM_TZ)}</span>
                 </div>
                 <p className="text-xs text-ink-faint">
                   {item.source}
@@ -278,7 +278,7 @@ export default async function OwnerAccountDetailPage({
               }) => (
                 <div key={h.id} className="rounded-lg border border-edge px-3 py-2">
                   <p className="text-xs text-ink-faint">
-                    {fmtDateTime(h.createdAt)} · {h.actor}
+                    {fmtDateTime(h.createdAt, PLATFORM_TZ)} · {h.actor}
                   </p>
                   <pre className="mt-1 max-h-28 overflow-auto text-xs text-ink-soft">
                     {JSON.stringify(h.metadata?.changes ?? h.metadata, null, 2)}
@@ -302,9 +302,9 @@ export default async function OwnerAccountDetailPage({
           <p>Heard about: {tech.signupHeardAbout || "—"}</p>
           <p>Partner slug: {tech.signupPartnerSlug || "—"}</p>
           <p>Signup offer (frozen): {tech.signupOffer || "—"}</p>
-          <p>Trial ends: {tech.trialEndsAt ? fmtDate(tech.trialEndsAt) : "—"}</p>
+          <p>Trial ends: {tech.trialEndsAt ? fmtDate(tech.trialEndsAt, PLATFORM_TZ) : "—"}</p>
           <p>Referred by: {tech.referredBy || "—"}</p>
-          <p>Referral credit granted: {tech.referralCreditGrantedAt ? fmtDate(tech.referralCreditGrantedAt) : "—"}</p>
+          <p>Referral credit granted: {tech.referralCreditGrantedAt ? fmtDate(tech.referralCreditGrantedAt, PLATFORM_TZ) : "—"}</p>
         </CardContent>
       </Card>
 
@@ -427,7 +427,7 @@ export default async function OwnerAccountDetailPage({
               <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
                 <p className="font-medium text-warning-text">Blocked</p>
                 <p className="mt-1 text-ink-soft">
-                  Since {tech.blockedAt ? fmtDateTime(tech.blockedAt) : "—"}
+                  Since {tech.blockedAt ? fmtDateTime(tech.blockedAt, PLATFORM_TZ) : "—"}
                   {tech.blockedByEmail ? ` by ${tech.blockedByEmail}` : ""}.
                 </p>
                 <p className="mt-1 text-ink-soft">Reason: {tech.blockedReason || "—"}</p>
@@ -566,7 +566,7 @@ export default async function OwnerAccountDetailPage({
                 (b: { id: string; startIso: string; status: string; pricePennies: number }) => (
                   <div key={b.id} className="flex justify-between rounded-lg border border-edge px-3 py-2">
                     <span>
-                      {fmtDateTime(b.startIso)} · {b.status}
+                      {fmtDateTime(b.startIso, salonTz(tech))} · {b.status}
                     </span>
                     <span>{money(b.pricePennies, salonCurrency(tech))}</span>
                   </div>
@@ -589,7 +589,7 @@ export default async function OwnerAccountDetailPage({
                 (p: { id: string; kind: string; status: string; amountPennies: number; createdAt: string }) => (
                   <div key={p.id} className="flex justify-between rounded-lg border border-edge px-3 py-2">
                     <span>
-                      {p.kind} · {p.status} · {fmtDate(p.createdAt)}
+                      {p.kind} · {p.status} · {fmtDate(p.createdAt, PLATFORM_TZ)}
                     </span>
                     <span>{money(p.amountPennies, salonCurrency(tech))}</span>
                   </div>
@@ -629,7 +629,7 @@ export default async function OwnerAccountDetailPage({
                   <span className="text-ink-faint">
                     {" "}
                     · {s.destination} · {s.deliveryStatus || (s.ok ? "sent" : "failed")} ·{" "}
-                    {fmtDateTime(s.createdAt)}
+                    {fmtDateTime(s.createdAt, PLATFORM_TZ)}
                   </span>
                 </div>
               ),
@@ -645,7 +645,7 @@ export default async function OwnerAccountDetailPage({
         <CardContent className="text-sm text-ink-soft space-y-1">
           <p>Status: {tech.subscriptionStatus}</p>
           <p>Plan: {tech.plan ?? "—"}</p>
-          <p>Period end: {tech.currentPeriodEnd ? fmtDate(tech.currentPeriodEnd) : "—"}</p>
+          <p>Period end: {tech.currentPeriodEnd ? fmtDate(tech.currentPeriodEnd, PLATFORM_TZ) : "—"}</p>
           <p>Stripe customer: {tech.stripeCustomerId ?? "—"}</p>
           <p>Stripe subscription: {tech.stripeSubscriptionId ?? "—"}</p>
         </CardContent>
@@ -665,7 +665,7 @@ export default async function OwnerAccountDetailPage({
                   <span className="font-medium">{a.action}</span>
                   <span className="text-ink-faint">
                     {" "}
-                    · {a.actor} · {fmtDateTime(a.createdAt)}
+                    · {a.actor} · {fmtDateTime(a.createdAt, PLATFORM_TZ)}
                   </span>
                 </div>
               ),

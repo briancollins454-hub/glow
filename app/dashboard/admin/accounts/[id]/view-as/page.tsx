@@ -6,6 +6,7 @@ import { supabaseService } from "@/lib/supabase/service";
 import { getActiveViewAsSession } from "@/lib/owner/view-as";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { fmtDate } from "@/lib/format";
+import { PLATFORM_TZ } from "@/lib/locale";
 import { acceptsOnlineBookings, isLive } from "@/lib/subscriptions";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +68,7 @@ export default async function ViewAsPage({ params }: { params: Promise<{ id: str
             {acceptsOnlineBookings(tech) ? " · accepting bookings" : " · not accepting"}
           </p>
           <p className="mt-1 text-xs text-ink-faint">
-            Expires {fmtDate(session.expiresAt)}. No emails, SMS, Stripe calls, or writes are possible from this
+            Expires {fmtDate(session.expiresAt, PLATFORM_TZ)}. No emails, SMS, Stripe calls, or writes are possible from this
             session.
           </p>
         </div>

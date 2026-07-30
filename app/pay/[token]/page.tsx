@@ -7,7 +7,7 @@ import { getBookingByToken, getService, getTechById } from "@/lib/db/queries";
 import { confirmCheckoutPaid, checkoutMatchesBalance } from "@/lib/payments";
 import { applyBalancePaid } from "@/lib/bookings";
 import { fmtDateTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import { payBalanceAction } from "../actions";
@@ -74,7 +74,7 @@ export default async function PayPage({
           </div>
           <div className="space-y-4 p-6">
             <Row label="Service" value={service?.name ?? "Appointment"} />
-            <Row label="Appointment" value={fmtDateTime(booking.startIso)} />
+            <Row label="Appointment" value={fmtDateTime(booking.startIso, salonTz(tech))} />
             <hr className="border-edge" />
             <Row label="Total" value={money(booking.pricePennies, cur)} />
             {takeClientPay ? (

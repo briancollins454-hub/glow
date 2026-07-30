@@ -158,14 +158,14 @@ describe("daySlots", () => {
   const service = makeService({ durationMin: 60 });
 
   it("starts at opening time in the London timezone", () => {
-    const slots = daySlots(service, dateStr, { workingHours: [makeWorkingHour()], timeOff: [], bookings: [] }, now);
+    const slots = daySlots(service, dateStr, { tz: "Europe/London", workingHours: [makeWorkingHour()], timeOff: [], bookings: [] }, now);
     expect(slots.length).toBeGreaterThan(0);
     expect(slots[0]).toBe("2030-07-10T08:00:00.000Z");
   });
 
   it("returns nothing on closed days", () => {
     const closed = makeWorkingHour({ enabled: false });
-    expect(daySlots(service, dateStr, { workingHours: [closed], timeOff: [], bookings: [] }, now)).toEqual([]);
+    expect(daySlots(service, dateStr, { tz: "Europe/London", workingHours: [closed], timeOff: [], bookings: [] }, now)).toEqual([]);
   });
 
   it("excludes times that clash with an existing booking", () => {
@@ -174,7 +174,7 @@ describe("daySlots", () => {
       endIso: "2030-07-10T09:00:00.000Z",
       status: "confirmed",
     });
-    const slots = daySlots(service, dateStr, { workingHours: [makeWorkingHour()], timeOff: [], bookings: [busy] }, now);
+    const slots = daySlots(service, dateStr, { tz: "Europe/London", workingHours: [makeWorkingHour()], timeOff: [], bookings: [busy] }, now);
     expect(slots).not.toContain("2030-07-10T08:00:00.000Z");
     expect(slots.length).toBeGreaterThan(0);
   });
@@ -190,6 +190,7 @@ describe("daySlots", () => {
       service,
       dateStr,
       {
+        tz: "Europe/London",
         workingHours: [makeWorkingHour()],
         timeOff: [],
         bookings: [busy],
@@ -209,7 +210,7 @@ describe("daySlots", () => {
     const slots = daySlots(
       withBuffer,
       dateStr,
-      { workingHours: [wh], timeOff: [], bookings: [] },
+      { tz: "Europe/London", workingHours: [wh], timeOff: [], bookings: [] },
       now,
     );
     // 60 + 30 buffer must finish by close unless lastStart is set; lastStart wins,
@@ -219,7 +220,7 @@ describe("daySlots", () => {
 
   it("respects a custom last-start time", () => {
     const wh = makeWorkingHour({ lastStartMinutes: 10 * 60 }); // last start 10:00 London
-    const slots = daySlots(service, dateStr, { workingHours: [wh], timeOff: [], bookings: [] }, now);
+    const slots = daySlots(service, dateStr, { tz: "Europe/London", workingHours: [wh], timeOff: [], bookings: [] }, now);
     expect(slots[slots.length - 1]).toBe("2030-07-10T09:00:00.000Z");
   });
 
@@ -230,6 +231,7 @@ describe("daySlots", () => {
       service,
       sunday,
       {
+        tz: "Europe/London",
         workingHours: [],
         timeOff: [],
         bookings: [],
@@ -248,6 +250,7 @@ describe("daySlots", () => {
       service,
       sunday,
       {
+        tz: "Europe/London",
         workingHours: [makeWorkingHour({ weekday: 3, enabled: true })],
         timeOff: [],
         bookings: [],
@@ -264,6 +267,7 @@ describe("daySlots", () => {
       service,
       dateStr,
       {
+        tz: "Europe/London",
         workingHours: [
           makeWorkingHour({
             weekday: 3,
@@ -288,6 +292,7 @@ describe("daySlots", () => {
       service,
       dateStr,
       {
+        tz: "Europe/London",
         workingHours: [],
         timeOff: [
           {
@@ -433,7 +438,7 @@ describe("availableDays DST", () => {
     );
     const days = availableDays(
       makeService({ durationMin: 60 }),
-      { workingHours, timeOff: [], bookings: [] },
+      { tz: "Europe/London", workingHours, timeOff: [], bookings: [] },
       10,
       nowMs,
     );

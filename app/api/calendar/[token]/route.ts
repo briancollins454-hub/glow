@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { supabaseService } from "@/lib/supabase/service";
 import { getTechByCalendarToken, listBookings, listClients, listServices } from "@/lib/db/queries";
+import { salonTz } from "@/lib/locale";
 
 function esc(value: string): string {
   return value
@@ -59,7 +60,9 @@ export async function GET(
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${esc(`${tech.businessName} bookings`)}`,
-    "X-WR-TIMEZONE:Europe/London",
+    // DTSTART/DTEND are UTC ("Z") stamps, so no TZID is needed; this header
+    // only hints the default display zone for calendar apps.
+    `X-WR-TIMEZONE:${salonTz(tech)}`,
     ...events,
     "END:VCALENDAR",
     "",

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatInTimeZone } from "date-fns-tz";
 import { getService, getTechById, listWaitlist, updateWaitlistEntry } from "@/lib/db/queries";
 import { sendEmail, brandedEmail } from "@/lib/email";
-import { TZ } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import type { Booking } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -27,12 +27,12 @@ export async function notifyWaitlistForCancelledBooking(
     getService(sb, booking.serviceId),
   ]);
 
-  const dateStr = formatInTimeZone(new Date(booking.startIso), TZ, "yyyy-MM-dd");
+  const dateStr = formatInTimeZone(new Date(booking.startIso), salonTz(tech), "yyyy-MM-dd");
   const waiting = entries
     .filter((e) => !e.notifiedAtIso && (e.dateStr === "" || e.dateStr === dateStr))
     .slice(0, MAX_NOTIFY_PER_CANCELLATION);
 
-  const niceWhen = formatInTimeZone(new Date(booking.startIso), TZ, "EEEE d MMMM 'at' HH:mm");
+  const niceWhen = formatInTimeZone(new Date(booking.startIso), salonTz(tech), "EEEE d MMMM 'at' HH:mm");
   const biz = tech.businessName || "your beauty studio";
   const url = `${APP_URL}/${tech.handle}`;
 

@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { loadPublicTechByHandle } from "@/lib/booking/public-tech-load";
 import { PublicBookingTheme } from "@/components/theme/theme-providers";
-import { CurrencyProvider } from "@/components/locale/currency-provider";
-import { salonCurrency } from "@/lib/locale";
+import { LocaleProvider } from "@/components/locale/locale-provider";
+import { salonCurrency, salonTz } from "@/lib/locale";
 
 /**
  * Validate the handle before the page streams.
@@ -20,9 +20,9 @@ export default async function PublicHandleLayout({
   const tech = await loadPublicTechByHandle(handle);
   if (!tech) notFound();
   return (
-    <CurrencyProvider currency={salonCurrency(tech)}>
+    <LocaleProvider currency={salonCurrency(tech)} timezone={salonTz(tech)}>
       <PublicBookingTheme preference={tech.bookingTheme} />
       {children}
-    </CurrencyProvider>
+    </LocaleProvider>
   );
 }

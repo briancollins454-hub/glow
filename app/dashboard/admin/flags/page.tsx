@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { listFeatureFlags } from "@/lib/owner/flags";
@@ -48,7 +49,7 @@ export default async function OwnerFlagsPage({
                   <p className="mt-1 text-xs text-ink-faint">
                     {f.enabledGlobal ? <Badge tone="green">global on</Badge> : <Badge tone="neutral">global off</Badge>}
                     {f.updatedByEmail
-                      ? ` · ${f.updatedByEmail} · ${fmtDateTime(f.updatedAt)}`
+                      ? ` · ${f.updatedByEmail} · ${fmtDateTime(f.updatedAt, PLATFORM_TZ)}`
                       : null}
                   </p>
                 </div>

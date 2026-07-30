@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import {
@@ -49,7 +50,7 @@ export default async function OwnerWebhooksPage({
           <div key={h.provider} className="rounded-xl border border-edge bg-surface p-4 text-sm">
             <h2 className="font-display text-base font-semibold capitalize">{h.provider}</h2>
             <p className="text-ink-soft">
-              Last OK: {h.lastSuccessAt ? fmtDateTime(h.lastSuccessAt) : "—"}
+              Last OK: {h.lastSuccessAt ? fmtDateTime(h.lastSuccessAt, PLATFORM_TZ) : "—"}
             </p>
             <p className="text-ink-soft">
               24h: {h.successCount24h} ok / {h.errorCount24h} err
@@ -88,7 +89,7 @@ export default async function OwnerWebhooksPage({
                 <span className="font-medium">{e.type}</span>
                 <span className="text-ink-faint">
                   {" "}
-                  · {fmtDateTime(e.processedAt)}
+                  · {fmtDateTime(e.processedAt, PLATFORM_TZ)}
                   {e.error ? ` · ${e.error}` : ""}
                   {e.replayCount ? ` · replay×${e.replayCount}` : ""}
                 </span>
@@ -125,7 +126,7 @@ export default async function OwnerWebhooksPage({
               <span className="font-medium">{e.type}</span>
               <span className="text-ink-faint">
                 {" "}
-                · {fmtDateTime(e.receivedAt)}
+                · {fmtDateTime(e.receivedAt, PLATFORM_TZ)}
                 {e.emailId ? ` · ${e.emailId}` : ""}
               </span>
             </div>

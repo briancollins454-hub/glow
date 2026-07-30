@@ -4,7 +4,7 @@ import {
   activeBookingsOnDate,
   bookingsInColumn,
   dayWindowMinutes,
-  minutesFromMidnightLondon,
+  minutesFromMidnight,
   packBookingLanes,
   staffColumnsForDay,
   timeOffAppliesToStaff,
@@ -42,7 +42,7 @@ function staff(partial: Partial<StaffMember> & Pick<StaffMember, "id" | "name">)
 describe("staff day calendar helpers", () => {
   it("reads London minutes from an ISO instant", () => {
     // 10:00 BST in July = 09:00 UTC
-    expect(minutesFromMidnightLondon("2030-07-10T09:00:00.000Z")).toBe(10 * 60);
+    expect(minutesFromMidnight("2030-07-10T09:00:00.000Z", "Europe/London")).toBe(10 * 60);
   });
 
   it("filters active bookings for one date", () => {
@@ -66,7 +66,7 @@ describe("staff day calendar helpers", () => {
         status: "cancelled",
       }),
     ];
-    const onDay = activeBookingsOnDate(day, "2030-07-10");
+    const onDay = activeBookingsOnDate(day, "2030-07-10", "Europe/London");
     expect(onDay.map((b) => b.id)).toEqual(["b1"]);
   });
 
@@ -95,7 +95,7 @@ describe("staff day calendar helpers", () => {
         endIso: "2030-07-10T12:00:00.000Z", // 13:00 London
       }),
     ];
-    const win = dayWindowMinutes(dayBookings);
+    const win = dayWindowMinutes(dayBookings, "Europe/London");
     expect(win.start).toBeLessThanOrEqual(10 * 60);
     expect(win.end).toBeGreaterThanOrEqual(13 * 60);
   });
@@ -109,7 +109,7 @@ describe("staff day calendar helpers", () => {
         endIso: "2030-07-10T16:00:00.000Z", // 17:00 London
       }),
     ];
-    const win = dayWindowMinutes(dayBookings, { svc_1: 30 });
+    const win = dayWindowMinutes(dayBookings, "Europe/London", { svc_1: 30 });
     expect(win.end).toBeGreaterThanOrEqual(17 * 60 + 30);
   });
 
@@ -136,8 +136,8 @@ describe("staff day calendar helpers", () => {
     ];
     expect(timeOffAppliesToStaff(rows, "stf_a").map((o) => o.id)).toEqual(["o1", "o2"]);
     expect(timeOffInColumn(rows, "stf_a").map((o) => o.id)).toEqual(["o1", "o2"]);
-    expect(timeOffOnDate(rows, "2030-07-10")).toHaveLength(3);
-    expect(timeOffOnDate(rows, "2030-07-11")).toHaveLength(0);
+    expect(timeOffOnDate(rows, "2030-07-10", "Europe/London")).toHaveLength(3);
+    expect(timeOffOnDate(rows, "2030-07-11", "Europe/London")).toHaveLength(0);
   });
 
   it("packs overlapping bookings into side-by-side lanes", () => {
@@ -156,8 +156,8 @@ describe("staff day calendar helpers", () => {
       startIso: "2030-07-10T11:00:00.000Z", // 12:00
       endIso: "2030-07-10T12:00:00.000Z", // 13:00
     });
-    const laid = packBookingLanes([a, b, c], (booking) =>
-      minutesFromMidnightLondon(booking.endIso),
+    const laid = packBookingLanes([a, b, c], "Europe/London", (booking) =>
+      minutesFromMidnight(booking.endIso, "Europe/London"),
     );
     const byId = Object.fromEntries(laid.map((x) => [x.booking.id, x]));
     expect(byId.a!.lane).not.toBe(byId.b!.lane);
@@ -183,20 +183,20 @@ describe("unavailableRangesForStaffDay", () => {
         enabled: true,
       }),
     ];
-    expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd)).toEqual([
+    expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, "Europe/London")).toEqual([
       { startM: 9 * 60, endM: 10 * 60 },
       { startM: 16 * 60, endM: 17 * 60 },
     ]);
   });
 
   it("covers the whole window when the weekday is closed or missing", () => {
-    expect(unavailableRangesForStaffDay([], dateStr, windowStart, windowEnd)).toEqual([
+    expect(unavailableRangesForStaffDay([], dateStr, windowStart, windowEnd, "Europe/London")).toEqual([
       { startM: windowStart, endM: windowEnd },
     ]);
     const closed = [
       makeWorkingHour({ weekday: 3, enabled: false, startMinutes: 10 * 60, endMinutes: 16 * 60 }),
     ];
-    expect(unavailableRangesForStaffDay(closed, dateStr, windowStart, windowEnd)).toEqual([
+    expect(unavailableRangesForStaffDay(closed, dateStr, windowStart, windowEnd, "Europe/London")).toEqual([
       { startM: windowStart, endM: windowEnd },
     ]);
   });
@@ -210,7 +210,7 @@ describe("unavailableRangesForStaffDay", () => {
         enabled: true,
       }),
     ];
-    expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd)).toEqual([]);
+    expect(unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, "Europe/London")).toEqual([]);
   });
 
   it("prefers a saved rota week over usual weekly hours", () => {
@@ -237,7 +237,7 @@ describe("unavailableRangesForStaffDay", () => {
       },
     ];
     expect(
-      unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, { rotaHours }),
+      unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, "Europe/London", { rotaHours }),
     ).toEqual([{ startM: windowStart, endM: windowEnd }]);
   });
 
@@ -264,7 +264,7 @@ describe("unavailableRangesForStaffDay", () => {
       },
     ];
     expect(
-      unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, { rotaHours }),
+      unavailableRangesForStaffDay(hours, dateStr, windowStart, windowEnd, "Europe/London", { rotaHours }),
     ).toEqual([
       { startM: 9 * 60, endM: 11 * 60 },
       { startM: 15 * 60, endM: 17 * 60 },

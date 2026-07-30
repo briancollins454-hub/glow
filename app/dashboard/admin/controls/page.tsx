@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { getKillSwitches, KILL_SWITCH_LABELS, type KillSwitchKey } from "@/lib/owner/controls";
@@ -34,7 +35,7 @@ export default async function ControlsPage() {
                     {s.paused ? (
                       <>
                         <Badge tone="amber">ON</Badge> by {s.pausedBy || "—"} at{" "}
-                        {s.pausedAt ? fmtDateTime(s.pausedAt) : "—"}
+                        {s.pausedAt ? fmtDateTime(s.pausedAt, PLATFORM_TZ) : "—"}
                         {s.pausedReason ? ` — ${s.pausedReason}` : ""}
                       </>
                     ) : (

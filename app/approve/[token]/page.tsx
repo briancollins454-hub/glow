@@ -5,7 +5,7 @@ import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { bookingsForClient, getBookingByApprovalToken, getBooking, getClient, getService, getTechById, listBookingsByGroup } from "@/lib/db/queries";
 import { fmtDateTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { riskTierLabel, riskTierTone } from "@/lib/rules";
 import { rateLimit } from "@/lib/rate-limit";
@@ -103,7 +103,7 @@ export default async function ApproveBookingPage({
               label={visitServiceNames.length > 1 ? "Treatments" : "Service"}
               value={visitServiceNames.length > 1 ? visitServiceNames.join(" + ") : service.name}
             />
-            <Row label="When" value={fmtDateTime(booking.startIso)} />
+            <Row label="When" value={fmtDateTime(booking.startIso, salonTz(tech))} />
             <Row label="Total" value={money(booking.pricePennies, salonCurrency(tech))} />
             {booking.depositPennies > 0 && (
               <Row label="Deposit after approval" value={money(booking.depositPennies, salonCurrency(tech))} />

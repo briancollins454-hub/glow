@@ -3,7 +3,7 @@ import { DepositFields } from "@/components/dashboard/deposit-fields";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { ImageFileInput } from "@/components/ui/image-file-input";
 import { saveServiceAction } from "@/app/dashboard/actions";
-import { useCurrency } from "@/components/locale/currency-provider";
+import { useCurrency } from "@/components/locale/locale-provider";
 import { currencySymbol, minorUnitFactor } from "@/lib/money";
 import type { Service, ServiceCategory, StaffMember } from "@/lib/db/types";
 

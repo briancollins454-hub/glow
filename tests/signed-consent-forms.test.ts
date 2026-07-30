@@ -333,7 +333,7 @@ describe("consent record retention + PDF + prefill", () => {
     expect(pdf.length).toBeGreaterThan(500);
     expect(record.signatureImage.length).toBeGreaterThan(80);
     expect(record.signedAt).toBe("2026-07-25T12:34:56.000Z");
-    expect(consentPdfFilename(makeClient(), record, new Date("2026-07-25T12:00:00.000Z"))).toBe(
+    expect(consentPdfFilename(makeClient(), record, new Date("2026-07-25T12:00:00.000Z"), "Europe/London")).toBe(
       "signed-consent-Sophie-Turner-2026-07-25.pdf",
     );
   });

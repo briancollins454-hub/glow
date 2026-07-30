@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -107,7 +108,7 @@ export default async function DeliverabilityPage({
                 <p className="font-medium">{s.email}</p>
                 <p className="text-xs text-ink-soft">
                   {s.reason ?? "—"} · {s.permanent ? "hard" : "soft"} · failures {s.consecutiveSoftFailures} ·{" "}
-                  {s.lastEventType ?? "—"} · {fmtDateTime(s.updatedAt)}
+                  {s.lastEventType ?? "—"} · {fmtDateTime(s.updatedAt, PLATFORM_TZ)}
                 </p>
                 <p className="text-xs text-ink-faint">
                   Accounts: {s.accounts.length ? s.accounts.join(", ") : "—"}
@@ -152,7 +153,7 @@ export default async function DeliverabilityPage({
                     {t.businessName || t.handle}
                   </Link>
                   <p className="text-xs text-ink-faint">
-                    {t.email} · {t.reason ?? "—"} · {t.at ? fmtDateTime(t.at) : "—"}
+                    {t.email} · {t.reason ?? "—"} · {t.at ? fmtDateTime(t.at, PLATFORM_TZ) : "—"}
                   </p>
                 </div>
                 <form action={clearTechDeliveryFlagAction} className="flex items-end gap-2">

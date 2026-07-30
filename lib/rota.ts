@@ -1,5 +1,5 @@
 /**
- * Week-by-week staff rota helpers (Europe/London calendar dates).
+ * Week-by-week staff rota helpers (calendar dates in the salon's timezone).
  * weekStart is always the Monday of that week as YYYY-MM-DD.
  */
 
@@ -22,10 +22,10 @@ export function mondayOfWeekContaining(dateStr: string): string {
   return addDaysToDateStr(dateStr, -daysFromMonday);
 }
 
-/** Monday of the current week in Europe/London. */
-export function currentWeekStartLondon(now = new Date()): string {
+/** Monday of the current week in the given timezone. */
+export function currentWeekStart(tz: string, now = new Date()): string {
   const dateStr = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

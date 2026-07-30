@@ -387,7 +387,7 @@ export interface RotaHour {
   id: string;
   techId: string;
   staffId: string;
-  /** Monday of the week (YYYY-MM-DD, Europe/London). */
+  /** Monday of the week (YYYY-MM-DD, salon-local calendar date). */
   weekStart: string;
   weekday: number; // 0 = Sunday ... 6 = Saturday
   startMinutes: number;
@@ -829,7 +829,7 @@ export interface WaitlistEntry {
   name: string;
   email: string;
   phone: string;
-  // Preferred date (yyyy-mm-dd, Europe/London); "" = any date works.
+  // Preferred date (yyyy-mm-dd, salon-local); "" = any date works.
   dateStr: string;
   notifiedAtIso: string | null;
   createdAt: string;

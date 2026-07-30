@@ -15,7 +15,7 @@ describe("filterLateCascadeBookings", () => {
         status: "confirmed",
       }),
     ];
-    expect(filterLateCascadeBookings(bookings, today, now)).toHaveLength(1);
+    expect(filterLateCascadeBookings(bookings, today, "Europe/London", now)).toHaveLength(1);
   });
 
   it("excludes completed and cancelled bookings", () => {
@@ -32,7 +32,7 @@ describe("filterLateCascadeBookings", () => {
         status: "cancelled",
       }),
     ];
-    expect(filterLateCascadeBookings(bookings, today, now)).toHaveLength(0);
+    expect(filterLateCascadeBookings(bookings, today, "Europe/London", now)).toHaveLength(0);
   });
 
   it("excludes appointments that already finished", () => {
@@ -43,7 +43,7 @@ describe("filterLateCascadeBookings", () => {
         status: "confirmed",
       }),
     ];
-    expect(filterLateCascadeBookings(bookings, today, now)).toHaveLength(0);
+    expect(filterLateCascadeBookings(bookings, today, "Europe/London", now)).toHaveLength(0);
   });
 
   it("includes appointments that started within the grace window", () => {
@@ -54,6 +54,6 @@ describe("filterLateCascadeBookings", () => {
         status: "confirmed",
       }),
     ];
-    expect(filterLateCascadeBookings(bookings, today, now)).toHaveLength(1);
+    expect(filterLateCascadeBookings(bookings, today, "Europe/London", now)).toHaveLength(1);
   });
 });

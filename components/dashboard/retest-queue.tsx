@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import type { Booking, Client, ProductChangeRetest, ServiceCategory } from "@/lib/db/types";
 
 const STATUS_LABEL: Record<ProductChangeRetest["status"], string> = {
@@ -26,6 +29,7 @@ export function RetestQueue({
   categories: ServiceCategory[];
   bookings: Booking[];
 }) {
+  const tz = useSalonTz();
   const open = retests.filter((r) => r.status !== "passed");
   if (open.length === 0) return null;
 
@@ -61,7 +65,7 @@ export function RetestQueue({
                   {booking && (
                     <span className="text-ink-faint">
                       {" "}
-                      · appointment {fmtDateTime(booking.startIso)}
+                      · appointment {fmtDateTime(booking.startIso, tz)}
                     </span>
                   )}
                 </p>

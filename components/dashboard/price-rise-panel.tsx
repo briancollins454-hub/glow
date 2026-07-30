@@ -5,7 +5,7 @@ import { TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input, Label } from "@/components/ui/input";
-import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { useCurrency, useMoney } from "@/components/locale/locale-provider";
 import { currencySymbol } from "@/lib/money";
 import {
   buildPriceRiseAnnouncement,

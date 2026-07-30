@@ -50,6 +50,7 @@ describe("intersectWeekdayLists", () => {
 describe("daySlots respects per-staff day rules", () => {
   const service = makeService({ availableWeekdays: [1, 2, 3, 4, 5] }); // weekdays
   const ctxBase = {
+    tz: "Europe/London",
     workingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) =>
       makeWorkingHour({ weekday, enabled: true }),
     ),

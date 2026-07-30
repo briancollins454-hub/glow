@@ -1,5 +1,5 @@
 import { fromZonedTime } from "date-fns-tz";
-import { TZ } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import { mondayOfWeekContaining } from "@/lib/rota";
 import type {
   Booking,
@@ -169,6 +169,11 @@ export type FlexibleHoursWindow = {
 };
 
 export interface AvailabilityCtx {
+  /**
+   * IANA timezone the rota hours and slot times are interpreted in — the
+   * salon's zone (salonTz(tech)), never a hardcoded default.
+   */
+  tz: string;
   workingHours: WorkingHour[];
   timeOff: TimeOff[];
   bookings: Booking[];
@@ -387,18 +392,25 @@ export function flexibleHoursFromTech(
   };
 }
 
-/** Attach the tech's flexible-hours window (if any) onto an availability ctx. */
+/**
+ * Attach the tech's flexible-hours window (if any) and salon timezone onto an
+ * availability ctx.
+ */
 export function withTechAvailability(
-  ctx: Omit<AvailabilityCtx, "flexibleHours">,
-  tech: Parameters<typeof flexibleHoursFromTech>[0],
+  ctx: Omit<AvailabilityCtx, "flexibleHours" | "tz">,
+  tech:
+    | (NonNullable<Parameters<typeof flexibleHoursFromTech>[0]> &
+        Pick<Tech, "timezone">)
+    | null
+    | undefined,
 ): AvailabilityCtx {
-  return { ...ctx, flexibleHours: flexibleHoursFromTech(tech) };
+  return { ...ctx, tz: salonTz(tech), flexibleHours: flexibleHoursFromTech(tech) };
 }
 
-function localInstant(dateStr: string, minutes: number): Date {
+function localInstant(dateStr: string, minutes: number, tz: string): Date {
   const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
   const mm = String(minutes % 60).padStart(2, "0");
-  return fromZonedTime(`${dateStr}T${hh}:${mm}:00`, TZ);
+  return fromZonedTime(`${dateStr}T${hh}:${mm}:00`, tz);
 }
 
 function weekdayOf(dateStr: string): number {
@@ -409,9 +421,10 @@ function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
   return aStart < bEnd && bStart < aEnd;
 }
 
-export function dateStrInTz(d: Date): string {
+/** Calendar date (YYYY-MM-DD) of an instant in the given timezone. */
+export function dateStrInTz(d: Date, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -456,7 +469,7 @@ export function daySlotsForDuration(
       ? wh.lastStartMinutes
       : wh.endMinutes - durationMin;
   for (let m = wh.startMinutes; m <= lastStart; m += SLOT_STEP_MIN) {
-    const start = localInstant(dateStr, m);
+    const start = localInstant(dateStr, m, ctx.tz);
     const startMs = start.getTime();
     const endMs = startMs + durationMin * 60 * 1000;
     if (startMs <= nowMs) continue;
@@ -529,7 +542,7 @@ export function daySlotChoicesForDuration(
 
   const choices: DaySlotChoice[] = [];
   for (let m = loopStart; m <= loopEnd; m += SLOT_STEP_MIN) {
-    const start = localInstant(dateStr, m);
+    const start = localInstant(dateStr, m, ctx.tz);
     const startMs = start.getTime();
     const endMs = startMs + durationMin * 60 * 1000;
     if (startMs <= nowMs) continue;
@@ -590,8 +603,8 @@ export function availableDaysForDuration(
   let prevDateStr: string | null = null;
   for (let i = 0; i < 60 && days.length < count; i++) {
     const d = new Date(nowMs + i * 24 * 60 * 60 * 1000);
-    const dateStr = dateStrInTz(d);
-    // Across UK autumn DST fallback a 24h step can land on the same civil date twice.
+    const dateStr = dateStrInTz(d, ctx.tz);
+    // Across an autumn DST fallback a 24h step can land on the same civil date twice.
     if (dateStr === prevDateStr) continue;
     prevDateStr = dateStr;
     const slots = daySlotsForDuration(durationMin, dateStr, ctx, nowMs);

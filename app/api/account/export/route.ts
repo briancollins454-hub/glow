@@ -18,7 +18,7 @@ import {
   createAuditEvent,
 } from "@/lib/db/queries";
 import { formatInTimeZone } from "date-fns-tz";
-import { TZ } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 
 export async function GET() {
   const c = await getDashboardContext();
@@ -97,7 +97,7 @@ export async function GET() {
     auditEvents,
     accountClosureRequests: closureRequests,
   };
-  const filename = `glow-account-export-${tech.handle}-${formatInTimeZone(exportedAt, TZ, "yyyy-MM-dd")}.json`;
+  const filename = `glow-account-export-${tech.handle}-${formatInTimeZone(exportedAt, salonTz(tech), "yyyy-MM-dd")}.json`;
 
   return new Response(JSON.stringify(body, null, 2), {
     headers: {

@@ -1,15 +1,19 @@
 import { formatInTimeZone } from "date-fns-tz";
 import type { Booking, Reminder, ReminderKind } from "@/lib/db/types";
-import { TZ } from "@/lib/format";
+import { DEFAULT_TZ } from "@/lib/locale";
 
 export type ReminderWithBooking = {
   reminder: Reminder;
   booking: Booking;
 };
 
-/** Europe/London calendar day for grouping same-day appointments. */
-export function londonDayKey(iso: string): string {
-  return formatInTimeZone(new Date(iso), TZ, "yyyy-MM-dd");
+/**
+ * Calendar day in the salon's timezone, for grouping same-day appointments.
+ * Using the wrong zone here splits one day's reminders into two emails or
+ * merges the wrong days into one.
+ */
+export function salonDayKey(iso: string, tz: string): string {
+  return formatInTimeZone(new Date(iso), tz, "yyyy-MM-dd");
 }
 
 export function reminderBatchKey(
@@ -17,9 +21,10 @@ export function reminderBatchKey(
   techId: string,
   clientId: string,
   bookingStartIso: string,
+  tz: string,
 ): string {
   if (kind === "reminder_24h" || kind === "reminder_2h") {
-    return `${kind}|${techId}|${clientId}|${londonDayKey(bookingStartIso)}`;
+    return `${kind}|${techId}|${clientId}|${salonDayKey(bookingStartIso, tz)}`;
   }
   if (kind === "balance_request") {
     return `balance_request|${techId}|${clientId}`;
@@ -30,6 +35,8 @@ export function reminderBatchKey(
 /** Group due reminders that should share one email (24h / 2h by day; balance by client). */
 export function groupBatchableReminders(
   items: ReminderWithBooking[],
+  /** techId → salon timezone (salonTz(tech)); missing techs fall back to the GB default. */
+  tzByTechId: Record<string, string>,
 ): Map<string, ReminderWithBooking[]> {
   const groups = new Map<string, ReminderWithBooking[]>();
   for (const item of items) {
@@ -42,6 +49,7 @@ export function groupBatchableReminders(
       item.reminder.techId,
       item.booking.clientId,
       item.booking.startIso,
+      tzByTechId[item.reminder.techId] ?? DEFAULT_TZ,
     );
     const list = groups.get(key) ?? [];
     list.push(item);

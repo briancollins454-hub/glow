@@ -18,7 +18,7 @@ import { SettleUpPanel } from "@/components/dashboard/settle-up-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtTime, fmtRelativeDays } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { frozenOfferCopy } from "@/lib/offers";
@@ -70,6 +70,7 @@ function HomeView({
   settleUp,
 }: HomeData) {
   const money = useMoney();
+  const tz = useSalonTz();
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const notified = searchParams.get("notified");
@@ -213,8 +214,8 @@ function HomeView({
                   <p className="truncate text-xs text-ink-faint">{serviceById[b.serviceId]?.name}</p>
                 </div>
                 <div className="shrink-0 text-right text-sm">
-                  <p className="font-medium">{fmtTime(b.startIso)}</p>
-                  <p className="text-xs text-ink-faint">{fmtRelativeDays(b.startIso)}</p>
+                  <p className="font-medium">{fmtTime(b.startIso, tz)}</p>
+                  <p className="text-xs text-ink-faint">{fmtRelativeDays(b.startIso, tz)}</p>
                 </div>
               </Link>
             ))}

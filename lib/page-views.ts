@@ -18,7 +18,8 @@ import { callerIp } from "@/lib/rate-limit";
 import { randomId } from "@/lib/ids";
 import { supabaseService } from "@/lib/supabase/service";
 
-const TZ = "Europe/London";
+// Glow's own reporting timezone — deliberate, never the salon's zone.
+import { PLATFORM_TZ as TZ } from "@/lib/locale";
 
 const BOT_RE =
   /bot|crawl|spider|slurp|preview|headless|wget|curl|python-requests|scrapy|mediapartners|facebookexternalhit|whatsapp|telegrambot|linkedinbot|twitterbot|bingpreview|googlebot|applebot|semrush|ahrefs|petalbot|bytespider/i;

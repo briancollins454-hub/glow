@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, Clock } from "lucide-react";
 import type { Tech } from "@/lib/db/types";
 import { fmtDate } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import { MONTHLY_PRICE_LABEL } from "@/lib/offers";
 import { trialDaysRemaining, isOnFrozenTrial } from "@/lib/trial-lifecycle";
 
@@ -9,7 +10,7 @@ import { trialDaysRemaining, isOnFrozenTrial } from "@/lib/trial-lifecycle";
 export function TrialBanner({ tech }: { tech: Tech }) {
   if (!isOnFrozenTrial(tech) || tech.subscriptionStatus !== "trialing") return null;
   const days = trialDaysRemaining(tech.trialEndsAt);
-  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt) : "the end of your trial";
+  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt, salonTz(tech)) : "the end of your trial";
   return (
     <div className="border-b border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-text">
       <div className="container-page flex flex-wrap items-center gap-2">

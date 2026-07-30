@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -85,7 +86,7 @@ export default async function OwnerAuditPage({
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-edge align-top">
                   <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-faint">
-                    {fmtDateTime(r.createdAt)}
+                    {fmtDateTime(r.createdAt, PLATFORM_TZ)}
                   </td>
                   <td className="px-3 py-2">{r.actorEmail}</td>
                   <td className="px-3 py-2 font-mono text-xs">{r.action}</td>

@@ -19,7 +19,7 @@ import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-pane
 import { InstallAppCard } from "@/components/dashboard/install-app-card";
 import { DepositFields, depositFieldDisplay } from "@/components/dashboard/deposit-fields";
 import { ThemePreferencePicker } from "@/components/theme/theme-preference-picker";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useMoney } from "@/components/locale/locale-provider";
 import { currencySymbol } from "@/lib/money";
 import { acceptsOnlineBookings, isLive, planLabel } from "@/lib/subscriptions";
 import { normalizeThemePreference } from "@/lib/theme";

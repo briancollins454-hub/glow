@@ -1,5 +1,6 @@
 "use client";
 
+import { PLATFORM_TZ } from "@/lib/locale";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { notFound, useRouter, useSearchParams } from "next/navigation";
@@ -117,7 +118,7 @@ function SupportImportView({ techs }: { techs: Tech[] }) {
                       <span className="text-xs font-normal text-brand-400">/{t.handle}</span>
                     </span>
                     <span className="text-xs text-ink-faint">
-                      {t.email} · joined {fmtDate(t.createdAt)}
+                      {t.email} · joined {fmtDate(t.createdAt, PLATFORM_TZ)}
                     </span>
                   </button>
                 );

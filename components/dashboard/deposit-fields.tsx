@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Label, Select } from "@/components/ui/input";
-import { useCurrency } from "@/components/locale/currency-provider";
+import { useCurrency } from "@/components/locale/locale-provider";
 import { currencySymbol, minorUnitFactor } from "@/lib/money";
 import type { DepositType } from "@/lib/db/types";
 

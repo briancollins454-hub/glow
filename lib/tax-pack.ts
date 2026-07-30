@@ -2,8 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import PDFDocument from "pdfkit";
 import { formatInTimeZone } from "date-fns-tz";
 import { listBookings, listClients, listPayments, listServices } from "@/lib/db/queries";
-import { fmtDate, fmtDateTime, TZ } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { fmtDate, fmtDateTime } from "@/lib/format";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { inTaxYear, taxYearRange, type TaxYearRange } from "@/lib/tax-year";
 import type { Payment, Tech } from "@/lib/db/types";
@@ -81,7 +81,7 @@ export async function loadTaxPackData(
 
   const byMonth = new Map<string, number>();
   for (const p of succeeded) {
-    const key = formatInTimeZone(new Date(p.createdAt), TZ, "yyyy-MM");
+    const key = formatInTimeZone(new Date(p.createdAt), salonTz(tech), "yyyy-MM");
     byMonth.set(key, (byMonth.get(key) ?? 0) + signedAmount(p.kind, p.amountPennies));
   }
 
@@ -133,7 +133,7 @@ function sanitizeFilename(s: string): string {
 }
 
 export function taxPackFilename(tech: Tech, taxYear: TaxYearRange, generatedAt: Date): string {
-  const date = formatInTimeZone(generatedAt, TZ, "yyyy-MM-dd");
+  const date = formatInTimeZone(generatedAt, salonTz(tech), "yyyy-MM-dd");
   const biz = sanitizeFilename(tech.businessName || tech.handle || "glow");
   return `self-assessment-${biz}-${taxYear.label.replace("/", "-")}-${date}.pdf`;
 }
@@ -194,8 +194,9 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
 
     const biz = data.tech.businessName || data.tech.name;
     const cur = salonCurrency(data.tech);
-    const periodFrom = fmtDate(data.taxYear.fromIso);
-    const periodTo = fmtDate(new Date(new Date(data.taxYear.toIso).getTime() - 1).toISOString());
+    const tz = salonTz(data.tech);
+    const periodFrom = fmtDate(data.taxYear.fromIso, tz);
+    const periodTo = fmtDate(new Date(new Date(data.taxYear.toIso).getTime() - 1).toISOString(), tz);
 
     doc.font("Helvetica-Bold").fontSize(18).fillColor("#db2777").text("Self Assessment tax pack", left, ctx.y);
     ctx.y += 28;
@@ -204,7 +205,7 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
     ctx.y += 16;
     doc.text(`Tax year ${data.taxYear.label} (${periodFrom} – ${periodTo})`, left, ctx.y);
     ctx.y += 16;
-    doc.text(`Generated ${fmtDateTime(data.generatedAt.toISOString())}`, left, ctx.y);
+    doc.text(`Generated ${fmtDateTime(data.generatedAt.toISOString(), tz)}`, left, ctx.y);
     ctx.y += 24;
 
     sectionTitle(ctx, "Income summary");
@@ -225,7 +226,8 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
       bodyLine(ctx, "No payments recorded in this tax year.");
     } else {
       for (const [month, total] of data.byMonth) {
-        const label = formatInTimeZone(new Date(`${month}-01T12:00:00Z`), TZ, "MMMM yyyy");
+        // Month label from a synthetic noon-UTC date — timezone-independent.
+        const label = formatInTimeZone(new Date(`${month}-01T12:00:00Z`), "UTC", "MMMM yyyy");
         bodyLine(ctx, `${label}: ${money(total, cur)}`);
       }
     }
@@ -251,9 +253,9 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
     } else {
       for (const row of data.payments) {
         ensureSpace(ctx, 40);
-        const date = formatInTimeZone(new Date(row.dateIso), TZ, "dd MMM yyyy");
+        const date = formatInTimeZone(new Date(row.dateIso), tz, "dd MMM yyyy");
         const appt = row.appointmentIso
-          ? formatInTimeZone(new Date(row.appointmentIso), TZ, "dd MMM yyyy HH:mm")
+          ? formatInTimeZone(new Date(row.appointmentIso), tz, "dd MMM yyyy HH:mm")
           : "—";
         const line =
           `${date} · ${kindLabel(row.kind)} · ${money(row.amountPennies, cur)}` +

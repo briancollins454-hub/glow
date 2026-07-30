@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { deleteTimeOffAction } from "@/app/dashboard/actions";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { fmtTime } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import type { TimeOff } from "@/lib/db/types";
 
 type SheetMode = "detail" | "confirm";
@@ -23,6 +24,7 @@ export function CalendarManualBlock({
   staffName: string;
   style: React.CSSProperties;
 }) {
+  const tz = useSalonTz();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<SheetMode>("detail");
   const titleId = useId();
@@ -60,7 +62,7 @@ export function CalendarManualBlock({
         className="calendar-manual-block absolute inset-x-1 z-[1] overflow-hidden rounded-lg border px-1.5 py-1 text-left touch-manipulation"
         style={style}
         title={`${block.reason?.trim() || "Blocked"} · tap to manage`}
-        aria-label={`Blocked ${fmtTime(block.startIso)} to ${fmtTime(block.endIso)}${block.reason ? `: ${block.reason}` : ""}. Tap to manage or delete.`}
+        aria-label={`Blocked ${fmtTime(block.startIso, tz)} to ${fmtTime(block.endIso, tz)}${block.reason ? `: ${block.reason}` : ""}. Tap to manage or delete.`}
         onClick={() => {
           setMode("detail");
           setOpen(true);
@@ -110,11 +112,11 @@ export function CalendarManualBlock({
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>From</dt>
-                    <dd className="font-medium text-ink">{fmtTime(block.startIso)}</dd>
+                    <dd className="font-medium text-ink">{fmtTime(block.startIso, tz)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt>To</dt>
-                    <dd className="font-medium text-ink">{fmtTime(block.endIso)}</dd>
+                    <dd className="font-medium text-ink">{fmtTime(block.endIso, tz)}</dd>
                   </div>
                   {block.reason?.trim() ? (
                     <div className="flex justify-between gap-3">

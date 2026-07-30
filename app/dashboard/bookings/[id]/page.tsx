@@ -28,8 +28,8 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { BookingRescheduleForm } from "@/components/dashboard/booking-reschedule-form";
 import { statusBadge } from "@/components/dashboard/status";
-import { TZ, fmtDateTime, fmtTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { fmtDateTime, fmtTime } from "@/lib/format";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { recordManualPaymentAction, deleteBookingAction, logBookingProductUsageAction } from "../../actions";
 import { GoogleBookingSyncButton } from "@/components/dashboard/google-booking-sync-button";
@@ -58,6 +58,7 @@ export default async function EditBookingPage({
   const booking = await getBooking(sb, id);
   if (!booking || booking.techId !== tech.id) notFound();
   const cur = salonCurrency(tech);
+  const tz = salonTz(tech);
   const now = Date.now();
   const windowStart = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const windowEnd = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -123,7 +124,7 @@ export default async function EditBookingPage({
   const clientById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
 
   // Prefill the picker with the booking's current local date/time.
-  const currentLocal = formatInTimeZone(new Date(booking.startIso), TZ, "yyyy-MM-dd'T'HH:mm");
+  const currentLocal = formatInTimeZone(new Date(booking.startIso), tz, "yyyy-MM-dd'T'HH:mm");
   const depositOutstanding = booking.depositPennies > 0 && booking.depositStatus !== "paid";
   const balanceOutstanding = booking.balancePennies > 0 && booking.balanceStatus !== "paid";
   const googleConnected = !!tech.googleRefreshToken && !!tech.googleCalendarId;
@@ -132,7 +133,7 @@ export default async function EditBookingPage({
     booking.status === "confirmed" &&
     new Date(booking.startIso).getTime() > Date.now() - 15 * 60 * 1000;
 
-  const conflictTime = at ? fmtTime(at) : null;
+  const conflictTime = at ? fmtTime(at, tz) : null;
   const pickerServices =
     !services.some((s) => s.id === booking.serviceId) && service
       ? [...services, service]
@@ -166,7 +167,7 @@ export default async function EditBookingPage({
         <p className="text-sm text-ink-soft">
           {service?.name ?? "Service"}
           {" · "}
-          {fmtDateTime(booking.startIso)}
+          {fmtDateTime(booking.startIso, tz)}
         </p>
       </div>
 
@@ -274,11 +275,11 @@ export default async function EditBookingPage({
                     : preCare.status === "sent"
                       ? "Sent — awaiting confirm"
                       : preCare.status === "scheduled"
-                        ? `Scheduled ${fmtDateTime(preCare.sendAtIso)}`
+                        ? `Scheduled ${fmtDateTime(preCare.sendAtIso, tz)}`
                         : "Skipped"}
                 </Badge>
                 {preCare.confirmedAtIso && (
-                  <span className="text-xs text-ink-faint">Confirmed {fmtDateTime(preCare.confirmedAtIso)}</span>
+                  <span className="text-xs text-ink-faint">Confirmed {fmtDateTime(preCare.confirmedAtIso, tz)}</span>
                 )}
               </div>
             ) : (

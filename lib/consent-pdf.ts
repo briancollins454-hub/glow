@@ -1,7 +1,8 @@
 import PDFDocument from "pdfkit";
 import { formatInTimeZone } from "date-fns-tz";
 import { CONSENT_STATEMENT } from "@/lib/booking/consent";
-import { fmtDateTime, TZ } from "@/lib/format";
+import { fmtDateTime } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import type { ConsentRecord, Client, Service, Tech } from "@/lib/db/types";
 
 export type ConsentPdfData = {
@@ -20,8 +21,13 @@ function sanitizeFilename(s: string): string {
     .slice(0, 60);
 }
 
-export function consentPdfFilename(client: Client, record: ConsentRecord, generatedAt: Date): string {
-  const date = formatInTimeZone(generatedAt, TZ, "yyyy-MM-dd");
+export function consentPdfFilename(
+  client: Client,
+  record: ConsentRecord,
+  generatedAt: Date,
+  tz: string,
+): string {
+  const date = formatInTimeZone(generatedAt, tz, "yyyy-MM-dd");
   return `signed-consent-${sanitizeFilename(client.name)}-${date}.pdf`;
 }
 
@@ -84,7 +90,7 @@ export function buildConsentRecordPdf(data: ConsentPdfData): Promise<Buffer> {
       `Client: ${data.client.name}`,
       `Service: ${data.service.name}`,
       data.appointmentStartIso
-        ? `Appointment: ${fmtDateTime(data.appointmentStartIso)}`
+        ? `Appointment: ${fmtDateTime(data.appointmentStartIso, salonTz(data.tech))}`
         : null,
       `Signed (UTC): ${data.record.signedAt}`,
       `Typed name: ${data.record.typedName}`,

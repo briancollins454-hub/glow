@@ -12,7 +12,7 @@ import {
 import { confirmCheckoutPaid, confirmCheckoutSetup, checkoutMatchesDeposit } from "@/lib/payments";
 import { applyCardCaptured, applyDepositPaid } from "@/lib/bookings";
 import { fmtDateTime, fmtTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { cancelClientBookingAction, payDepositAction, saveCardAction } from "./actions";
 import { clientOnlinePaymentsActive, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
@@ -154,14 +154,14 @@ export default async function BookedPage({
                 {groupServices.map(({ booking: b, service: s }) => (
                   <div key={b.id} className="flex items-center justify-between text-sm">
                     <span className="font-medium">{s?.name ?? "Treatment"}</span>
-                    <span className="text-ink-faint">{fmtTime(b.startIso)}</span>
+                    <span className="text-ink-faint">{fmtTime(b.startIso, salonTz(tech))}</span>
                   </div>
                 ))}
               </div>
             ) : (
               <Row label="Service" value={service?.name ?? "Appointment"} />
             )}
-            <Row label="When" value={fmtDateTime(booking.startIso)} />
+            <Row label="When" value={fmtDateTime(booking.startIso, salonTz(tech))} />
             <Row label="With" value={tech.businessName} />
             <hr className="border-edge" />
             <Row label="Total" value={money(booking.pricePennies, cur)} />

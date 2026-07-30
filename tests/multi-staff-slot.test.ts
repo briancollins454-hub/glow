@@ -49,7 +49,7 @@ describe("multi-staff slot conflict (app-level)", () => {
     const slots = daySlots(
       service,
       dateStr,
-      { workingHours: [hours], timeOff: [], bookings: claireBookings },
+      { tz: "Europe/London", workingHours: [hours], timeOff: [], bookings: claireBookings },
       now,
     );
     expect(slots).toContain(slot);
@@ -60,7 +60,7 @@ describe("multi-staff slot conflict (app-level)", () => {
     const slots = daySlots(
       service,
       dateStr,
-      { workingHours: [hours], timeOff: [], bookings: amyBookings },
+      { tz: "Europe/London", workingHours: [hours], timeOff: [], bookings: amyBookings },
       now,
     );
     expect(slots).not.toContain(slot);
@@ -80,13 +80,13 @@ describe("multi-staff slot conflict (app-level)", () => {
     const ownerSlots = daySlots(
       service,
       dateStr,
-      { workingHours: [hours], timeOff: [], bookings: rowsForStaff([unassigned], claire) },
+      { tz: "Europe/London", workingHours: [hours], timeOff: [], bookings: rowsForStaff([unassigned], claire) },
       now,
     );
     const amySlots = daySlots(
       service,
       dateStr,
-      { workingHours: [hours], timeOff: [], bookings: rowsForStaff([unassigned], amy) },
+      { tz: "Europe/London", workingHours: [hours], timeOff: [], bookings: rowsForStaff([unassigned], amy) },
       now,
     );
     expect(ownerSlots).not.toContain(slot);

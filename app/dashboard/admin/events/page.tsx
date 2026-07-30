@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -86,7 +87,7 @@ export default async function OwnerEventsPage({
               {events.map((e) => (
                 <tr key={e.id} className="border-t border-edge">
                   <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-faint">
-                    {fmtDateTime(e.createdAt)}
+                    {fmtDateTime(e.createdAt, PLATFORM_TZ)}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{e.type}</td>
                   <td className="px-3 py-2">

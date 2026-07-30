@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { supabaseService } from "@/lib/supabase/service";
@@ -81,7 +82,7 @@ export default async function OwnerSupportPage({
                 <div>
                   <p className="font-medium">{row.subject ?? "(no subject)"}</p>
                   <p className="text-xs text-ink-faint">
-                    {row.fromAddress} · {fmtDateTime(row.createdAt)}
+                    {row.fromAddress} · {fmtDateTime(row.createdAt, PLATFORM_TZ)}
                   </p>
                 </div>
                 <Badge tone={row.ok ? "green" : "red"}>{row.ok ? "ok" : "fail"}</Badge>
@@ -109,7 +110,7 @@ export default async function OwnerSupportPage({
                     <span className="text-ink-faint">· {t?.email}</span>
                   </p>
                   <p className="text-xs text-ink-faint">
-                    Requested {fmtDate(r.requestedAt)}
+                    Requested {fmtDate(r.requestedAt, PLATFORM_TZ)}
                     {r.reason ? ` · "${r.reason}"` : ""}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -160,7 +161,7 @@ export default async function OwnerSupportPage({
                     >
                       {f.status}
                     </Badge>
-                    <span className="text-xs text-ink-faint">{fmtDateTime(f.createdAt)}</span>
+                    <span className="text-xs text-ink-faint">{fmtDateTime(f.createdAt, PLATFORM_TZ)}</span>
                   </div>
                   <p className="mt-1 font-medium">
                     {t?.businessName ?? f.techId} · {t?.email}

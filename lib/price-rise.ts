@@ -1,5 +1,4 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { TZ } from "@/lib/format";
 import { salonCurrency } from "@/lib/locale";
 import { money } from "@/lib/money";
 import type { Service, Tech } from "@/lib/db/types";
@@ -10,7 +9,7 @@ export type PriceRiseOptions = {
   mode: PriceRiseMode;
   /** Percent (e.g. 10) or fixed increase in pennies. */
   value: number;
-  /** yyyy-mm-dd in Europe/London for client messaging. */
+  /** yyyy-mm-dd calendar date (salon-local) for client messaging. */
   effectiveDate?: string;
   note?: string;
 };
@@ -61,7 +60,9 @@ export function previewPriceRise(
 function formatEffectiveDate(dateStr?: string): string {
   if (!dateStr?.trim()) return "soon";
   try {
-    return formatInTimeZone(new Date(`${dateStr.trim()}T12:00:00Z`), TZ, "d MMMM yyyy");
+    // Synthetic noon-UTC date formatted in UTC — renders the typed calendar
+    // date as-is, independent of any timezone.
+    return formatInTimeZone(new Date(`${dateStr.trim()}T12:00:00Z`), "UTC", "d MMMM yyyy");
   } catch {
     return dateStr;
   }

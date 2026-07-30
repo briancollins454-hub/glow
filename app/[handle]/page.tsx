@@ -221,7 +221,7 @@ export default async function PublicBookingPage({
   let addableForStaff = addable;
   if (selected && live) {
     const [bundle, formBundle, adds, category] = await Promise.all([
-      getCachedPublicAvailabilityBundle(tech.id),
+      getCachedPublicAvailabilityBundle(tech.id, tech),
       loadConsultationScopeBundle(sb, tech.id, { activeOnly: true }),
       addonsForService(sb, selected.id, { activeOnly: true }),
       getCategory(sb, selected.categoryId),

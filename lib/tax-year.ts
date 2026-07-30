@@ -1,6 +1,8 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { fromZonedTime } from "date-fns-tz";
-import { TZ } from "@/lib/format";
+// UK-specific: the HMRC tax year boundary is 6 April in UK wall-clock time.
+// This module is only meaningful for GB salons (see international prompt 5).
+import { PLATFORM_TZ as TZ } from "@/lib/locale";
 
 export type TaxYearRange = {
   /** e.g. 2025 for the 2025/26 tax year */

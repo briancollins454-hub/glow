@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { fmtDateTime } from "@/lib/format";
+import Link from "next/link";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { saveAvailabilityAction, addTimeOffAction, deleteTimeOffAction } from "../actions";
 import type { ApprovalMode, TimeOff, WorkingHour } from "@/lib/db/types";
 
@@ -52,6 +54,7 @@ function AvailabilityView({
   flexibleLastStartMinutes,
   approvalMode,
 }: AvailabilityData) {
+  const tz = useSalonTz();
   const searchParams = useSearchParams();
   const saved = searchParams.get("saved");
   const [flexible, setFlexible] = useState(initialFlexible);
@@ -62,7 +65,11 @@ function AvailabilityView({
       <div>
         <h1 className="font-display text-2xl font-semibold">Opening hours</h1>
         <p className="text-sm text-ink-soft">
-          Your weekly hours and any time off. Slots are generated from this automatically (Europe/London).
+          Your weekly hours and any time off. Slots are generated from this automatically ({tz}).{" "}
+          <Link href="/dashboard/settings" className="underline underline-offset-2 hover:text-ink">
+            Change timezone in settings
+          </Link>
+          .
         </p>
       </div>
 
@@ -220,7 +227,7 @@ function AvailabilityView({
                 >
                   <div className="text-sm">
                     <p className="font-medium">
-                      {fmtDateTime(o.startIso)} → {fmtDateTime(o.endIso)}
+                      {fmtDateTime(o.startIso, tz)} → {fmtDateTime(o.endIso, tz)}
                     </p>
                     {o.reason && <p className="text-ink-faint">{o.reason}</p>}
                   </div>

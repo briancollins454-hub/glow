@@ -65,6 +65,7 @@ describe("basketAmounts", () => {
 describe("daySlotsForDuration", () => {
   // Wednesday 2026-06-03, working 09:00-17:00 UK time (BST = UTC+1).
   const ctx = {
+    tz: "Europe/London",
     workingHours: [makeWorkingHour({ weekday: 3 })],
     timeOff: [],
     bookings: [

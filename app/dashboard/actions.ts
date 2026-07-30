@@ -5,8 +5,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import type { ApprovalMode } from "@/lib/db/types";
 import { fromZonedTime } from "date-fns-tz";
-import { TZ } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { toMinorUnits } from "@/lib/money";
 import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
@@ -133,8 +132,12 @@ export async function changePasswordAction(formData: FormData) {
   redirect("/dashboard/settings?pw=1");
 }
 
-function toIso(localValue: string): string {
-  return fromZonedTime(localValue, TZ).toISOString();
+/**
+ * Convert a datetime-local value typed by the tech into an instant, in the
+ * salon's timezone. The wrong zone here saves bookings at the wrong time.
+ */
+function toIso(localValue: string, tz: string): string {
+  return fromZonedTime(localValue, tz).toISOString();
 }
 
 function clampInt(v: string, min: number, max: number, fallback: number): number {
@@ -682,8 +685,8 @@ export async function addTimeOffAction(formData: FormData) {
         : [null];
   const returnTo = safeDashboardReturn(formData, "/dashboard/availability");
   if (start && end) {
-    const startIso = toIso(start);
-    const endIso = toIso(end);
+    const startIso = toIso(start, salonTz(tech));
+    const endIso = toIso(end, salonTz(tech));
     if (new Date(endIso).getTime() > new Date(startIso).getTime()) {
       const reason = String(formData.get("reason") ?? "").trim();
       for (const staffId of staffTargets) {
@@ -1057,7 +1060,7 @@ export async function productChangeAction(formData: FormData) {
         ? {
             productId: newProductId,
             lotNumber: lotNumber || undefined,
-            expiresAtIso: expiresAt ? fromZonedTime(`${expiresAt}T23:59:59`, TZ).toISOString() : undefined,
+            expiresAtIso: expiresAt ? fromZonedTime(`${expiresAt}T23:59:59`, salonTz(tech)).toISOString() : undefined,
           }
         : undefined,
     });
@@ -1080,7 +1083,7 @@ export async function addPatchTestAction(formData: FormData) {
   const batchId = String(formData.get("batchId") ?? "").trim();
   const category = categoryId ? await getCategory(sb, categoryId) : null;
   if (clientId && category && performedDate) {
-    const performed = fromZonedTime(`${performedDate}T12:00:00`, TZ);
+    const performed = fromZonedTime(`${performedDate}T12:00:00`, salonTz(tech));
     const expires = new Date(performed.getTime() + category.patchTestValidityDays * 24 * 60 * 60 * 1000);
     const patchTest = await createPatchTest(sb, {
       techId: tech.id,
@@ -1358,7 +1361,7 @@ export async function addManualBookingAction(formData: FormData) {
     });
   }
 
-  const startIso = toIso(dateTime);
+  const startIso = toIso(dateTime, salonTz(tech));
   const { bookingsForClient, addonsForService } = await import("@/lib/db/queries");
   const existing = await bookingsForClient(sb, tech.id, client.id);
   const startMs = new Date(startIso).getTime();
@@ -1502,7 +1505,7 @@ export async function rescheduleBookingAction(formData: FormData) {
   const service = await getService(sb, newServiceId);
   if (!service) redirect(`/dashboard/bookings/${id}?err=missing`);
 
-  const start = new Date(toIso(dateTime));
+  const start = new Date(toIso(dateTime, salonTz(tech)));
   const end = new Date(start.getTime() + service!.durationMin * 60 * 1000);
   const startIso = start.toISOString();
   const confirmOverbook = String(formData.get("confirmOverbook") ?? "") === "1";
@@ -2205,8 +2208,8 @@ export async function addBatchAction(formData: FormData) {
     await openProductBatch(sb, tech.id, {
       productId,
       lotNumber: String(formData.get("lotNumber") ?? "").trim(),
-      openedAtIso: openedAt ? fromZonedTime(`${openedAt}T12:00:00`, TZ).toISOString() : undefined,
-      expiresAtIso: expiresAt ? fromZonedTime(`${expiresAt}T23:59:59`, TZ).toISOString() : undefined,
+      openedAtIso: openedAt ? fromZonedTime(`${openedAt}T12:00:00`, salonTz(tech)).toISOString() : undefined,
+      expiresAtIso: expiresAt ? fromZonedTime(`${expiresAt}T23:59:59`, salonTz(tech)).toISOString() : undefined,
       notes: String(formData.get("notes") ?? "").trim(),
     });
   }
@@ -2260,7 +2263,7 @@ export async function addReactionAction(formData: FormData) {
       categoryId,
       severity: validSeverity,
       symptoms: String(formData.get("symptoms") ?? "").trim(),
-      onsetIso: onsetDate ? fromZonedTime(`${onsetDate}T12:00:00`, TZ).toISOString() : undefined,
+      onsetIso: onsetDate ? fromZonedTime(`${onsetDate}T12:00:00`, salonTz(tech)).toISOString() : undefined,
       batchId: batchId || null,
       patchTestId: String(formData.get("patchTestId") ?? "").trim() || null,
       bookingId: String(formData.get("bookingId") ?? "").trim() || null,

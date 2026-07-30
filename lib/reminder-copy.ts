@@ -1,5 +1,5 @@
 import { fmtDateTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { salonTakesClientPayments, sendsBalanceEmails } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
@@ -18,7 +18,7 @@ interface Ctx {
 
 /** Pure reminder preview text — safe for client components. */
 export function renderReminderText({ reminder, booking, client, service, tech, serviceLabel }: Ctx): string {
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const name = client?.name?.split(" ")[0] ?? "there";
   const biz = tech?.businessName ?? "your beauty studio";
   const svc = serviceLabel ?? service?.name ?? "your appointment";

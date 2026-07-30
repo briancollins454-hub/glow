@@ -1,7 +1,8 @@
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { supabaseService } from "@/lib/supabase/service";
 
-const TZ = "Europe/London";
+// Glow's own reporting timezone — deliberate, never the salon's zone.
+import { PLATFORM_TZ as TZ } from "@/lib/locale";
 
 export type TrafficPeriod = { views: number; visitors: number };
 export type TrafficDaily = { day: string; views: number; visitors: number };

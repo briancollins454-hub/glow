@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fmtDate } from "@/lib/format";
+import { PLATFORM_TZ } from "@/lib/locale";
 import type { MetricValue } from "@/lib/owner/overview";
 // Owner console metrics are Glow platform money and always GBP — see lib/owner/mrr.ts.
 import { gbpFromPennies } from "@/lib/owner/mrr";
@@ -64,7 +65,7 @@ export function AsOf({ iso, ttlSeconds }: { iso: string; ttlSeconds: number }) {
   const ageMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   return (
     <p className="text-xs text-ink-faint">
-      As of {ageMin === 0 ? "just now" : `${ageMin}m ago`} · cached up to {ttlSeconds}s · {fmtDate(iso)}
+      As of {ageMin === 0 ? "just now" : `${ageMin}m ago`} · cached up to {ttlSeconds}s · {fmtDate(iso, PLATFORM_TZ)}
     </p>
   );
 }
