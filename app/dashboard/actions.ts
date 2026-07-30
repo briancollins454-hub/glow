@@ -781,7 +781,12 @@ export async function setCategoryColourAction(formData: FormData) {
     const { getCategory, updateCategory } = await import("@/lib/db/queries");
     const category = await getCategory(sb, id);
     if (category && category.techId === tech.id) {
-      await updateCategory(sb, id, { colour });
+      try {
+        await updateCategory(sb, id, { colour });
+      } catch (err) {
+        // Migration 0064 may be pending — don't error the settings screen.
+        console.error("[categories] colour save failed", err);
+      }
     }
   }
   revalidatePath("/dashboard/services");
