@@ -32,14 +32,20 @@ export async function subscribePushAction(input: {
   const p256dh = String(input.p256dh ?? "").trim();
   const auth = String(input.auth ?? "").trim();
   if (!endpoint.startsWith("https://") || !p256dh || !auth) return { ok: false };
-  await upsertPushSubscription(c.sb, {
-    techId: c.tech.id,
-    staffId: c.role === "staff" ? c.staff?.id ?? null : null,
-    endpoint,
-    p256dh,
-    auth,
-    userAgent: String(input.userAgent ?? "").slice(0, 300),
-  });
+  try {
+    await upsertPushSubscription(c.sb, {
+      techId: c.tech.id,
+      staffId: c.role === "staff" ? c.staff?.id ?? null : null,
+      endpoint,
+      p256dh,
+      auth,
+      userAgent: String(input.userAgent ?? "").slice(0, 300),
+    });
+  } catch (err) {
+    // Migration 0063 may be pending.
+    console.error("[push] subscribe failed", err);
+    return { ok: false };
+  }
   return { ok: true };
 }
 
@@ -50,7 +56,7 @@ export async function unsubscribePushAction(input: {
 }): Promise<{ ok: boolean }> {
   const c = await getDashboardContext();
   if (!c) return { ok: false };
-  const subs = await listPushSubscriptions(c.sb, c.tech.id);
+  const subs = await listPushSubscriptions(c.sb, c.tech.id).catch(() => []);
   const target = subs.find(
     (s) => (input.id && s.id === input.id) || (input.endpoint && s.endpoint === input.endpoint),
   );
@@ -66,14 +72,19 @@ export async function listPushDevicesAction(input: {
 }): Promise<PushDevice[]> {
   const c = await getDashboardContext();
   if (!c) return [];
-  const subs = await listPushSubscriptions(c.sb, c.tech.id);
-  return subs.map((s) => ({
-    id: s.id,
-    userAgent: s.userAgent,
-    createdAt: s.createdAt,
-    lastSeenAt: s.lastSeenAt,
-    mine: !!input.currentEndpoint && s.endpoint === input.currentEndpoint,
-  }));
+  try {
+    const subs = await listPushSubscriptions(c.sb, c.tech.id);
+    return subs.map((s) => ({
+      id: s.id,
+      userAgent: s.userAgent,
+      createdAt: s.createdAt,
+      lastSeenAt: s.lastSeenAt,
+      mine: !!input.currentEndpoint && s.endpoint === input.currentEndpoint,
+    }));
+  } catch {
+    // Migration 0063 may be pending — show an empty list rather than erroring.
+    return [];
+  }
 }
 
 /** Save notification preferences (toggles, email supplement, quiet hours, summary time). */
@@ -102,7 +113,7 @@ export async function updatePushPrefsAction(input: {
   // Email may only be switched off while at least one device can receive push.
   let emailAlso = input.emailAlso !== false;
   if (!emailAlso) {
-    const subs = await listPushSubscriptions(c.sb, c.tech.id);
+    const subs = await listPushSubscriptions(c.sb, c.tech.id).catch(() => []);
     if (subs.length === 0) {
       return {
         ok: false,
