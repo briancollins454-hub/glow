@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { listOpenAlerts } from "@/lib/owner/alerts";
 import { dismissAlertAction } from "../phase3-actions";
+import { runbookForAlertRule } from "@/lib/owner/runbooks";
 import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
 
@@ -51,6 +52,20 @@ export default async function OwnerAlertsPage() {
                         </Link>
                       </>
                     ) : null}
+                    {(() => {
+                      const rb = runbookForAlertRule(a.rule);
+                      return rb ? (
+                        <>
+                          {" · "}
+                          <Link
+                            href={`/dashboard/admin/runbooks#${rb.id}`}
+                            className="text-brand-text hover:underline"
+                          >
+                            Runbook
+                          </Link>
+                        </>
+                      ) : null;
+                    })()}
                   </p>
                 </div>
                 <form action={dismissAlertAction} className="flex items-end gap-2">

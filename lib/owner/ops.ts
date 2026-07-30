@@ -33,6 +33,12 @@ export const CRON_JOB_CATALOG: {
     expectedMaxGapMinutes: 36 * 60,
     description: "Health scores, snapshots, SMS rollup, anomaly alerts",
   },
+  {
+    job: "owner_weekly_digest",
+    schedule: "0 7 * * 1",
+    expectedMaxGapMinutes: 8 * 24 * 60,
+    description: "Monday owner digest email (MRR, alerts, signups)",
+  },
 ];
 
 export function cronJobOverdue(
