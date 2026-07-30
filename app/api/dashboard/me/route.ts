@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDashboardContext } from "@/lib/auth/session";
 import { isAdminTech } from "@/lib/admin";
 import { signedPhotoUrls } from "@/lib/storage";
-import { smsConfigured } from "@/lib/sms";
+import { smsSupportedForTech } from "@/lib/sms";
 
 export async function GET() {
   const ctx = await getDashboardContext();
@@ -16,7 +16,10 @@ export async function GET() {
     staff: ctx.staff,
     brandCoverUrl: ctx.tech.coverPhotoPath ? signed.get(ctx.tech.coverPhotoPath) ?? null : null,
     brandProfileUrl: ctx.tech.profilePhotoPath ? signed.get(ctx.tech.profilePhotoPath) ?? null : null,
-    /** Glow's Twilio is configured — techs don't enter their own SMS keys. */
-    smsPlatformConfigured: smsConfigured(),
+    /**
+     * Glow's Twilio is configured AND this salon's country is SMS-supported —
+     * non-GB salons never see the SMS toggle (email fallback always works).
+     */
+    smsPlatformConfigured: smsSupportedForTech(ctx.tech),
   });
 }

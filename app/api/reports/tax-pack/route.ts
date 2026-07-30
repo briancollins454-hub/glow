@@ -1,11 +1,19 @@
 import { getDashboardContext } from "@/lib/auth/session";
 import { createAuditEvent } from "@/lib/db/queries";
+import { salonCountry } from "@/lib/locale";
 import { buildTaxPackPdf, loadTaxPackData, taxPackFilename } from "@/lib/tax-pack";
 import { taxYearRange, taxYearStartForDate } from "@/lib/tax-year";
 
 export async function GET(request: Request) {
   const c = await getDashboardContext();
   if (!c) return new Response("Unauthorized", { status: 401 });
+  // UK-specific: the pack is built around the 6 April tax year. Non-GB salons
+  // use the calendar-year summary and CSV export instead.
+  if (salonCountry(c.tech) !== "GB") {
+    return new Response("The Self Assessment tax pack is only available for UK salons.", {
+      status: 404,
+    });
+  }
 
   const url = new URL(request.url);
   const yearParam = url.searchParams.get("year");

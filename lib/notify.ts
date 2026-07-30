@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
 import { fmtDate, fmtDateTime, fmtTime } from "@/lib/format";
-import { salonCurrency, salonTz } from "@/lib/locale";
+import { salonCountry, salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
-import { sendSms, smsConfigured, techAllowsSms } from "@/lib/sms";
+import { sendSms, smsSupportedForTech, techAllowsSms } from "@/lib/sms";
 import { sendsBalanceEmails, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
 import { renderReminderText } from "@/lib/reminder-copy";
@@ -229,12 +229,12 @@ export async function notifyClientOfPatchTestRetest(opts: {
     });
   }
 
-  if (smsConfigured() && techAllowsSms(tech) && client.phone) {
+  if (smsSupportedForTech(tech) && techAllowsSms(tech) && client.phone) {
     const smsBody =
       `${biz}: we've changed products for ${categoryName}. ` +
       `${hasUpcoming ? "You have an appointment coming up. " : ""}` +
       `Please arrange a patch test: ${arrangeUrl}`;
-    sms = await sendSms(client.phone, smsBody);
+    sms = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "patch_retest", country: salonCountry(tech) });
   }
 
   if (email || sms) {
@@ -382,8 +382,8 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
   }
 
   let smsOk = false;
-  if (smsConfigured() && tech && techAllowsSms(tech) && client?.phone && canSms) {
-    smsOk = await sendSms(client.phone, text, { techId: booking.techId, kind: reminder.kind });
+  if (tech && smsSupportedForTech(tech) && techAllowsSms(tech) && client?.phone && canSms) {
+    smsOk = await sendSms(client.phone, text, { techId: booking.techId, kind: reminder.kind, country: salonCountry(tech) });
   }
 
   if (emailOk || smsOk) {
@@ -564,8 +564,8 @@ export async function sendBatchedReminders(
   }
 
   let smsOk = false;
-  if (smsConfigured() && tech && techAllowsSms(tech) && client?.phone && canSms) {
-    smsOk = await sendSms(client.phone, text, { techId: primary.booking.techId, kind });
+  if (tech && smsSupportedForTech(tech) && techAllowsSms(tech) && client?.phone && canSms) {
+    smsOk = await sendSms(client.phone, text, { techId: primary.booking.techId, kind, country: salonCountry(tech) });
   }
 
   if (emailOk || smsOk) {
@@ -953,11 +953,11 @@ export async function notifyClientOfReactionCheckin(
     });
   }
 
-  if (!sent && smsConfigured() && techAllowsSms(tech) && client.phone) {
+  if (!sent && smsSupportedForTech(tech) && techAllowsSms(tech) && client.phone) {
     const smsBody =
       `Hi ${name}, ${biz} checking in 48h after your ${catName} appointment. ` +
       `Any redness or irritation? Reply here: ${url}`;
-    sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "reaction_checkin" });
+    sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "reaction_checkin", country: salonCountry(tech) });
   }
 
   return sent;
@@ -1095,11 +1095,11 @@ export async function notifyClientRunningLate(opts: {
     });
   }
 
-  if (smsConfigured() && techAllowsSms(tech) && client.phone) {
+  if (smsSupportedForTech(tech) && techAllowsSms(tech) && client.phone) {
     sms = await sendSms(
       client.phone,
       `${biz}: running ~${minutesLate} min late today. Your ${svc} at ${fmtTime(booking.startIso, salonTz(tech))} may start later. Sorry!${lateNoteText}`,
-      { techId: booking.techId, kind: "late_cascade" },
+      { techId: booking.techId, kind: "late_cascade", country: salonCountry(tech) },
     );
   }
 
@@ -1165,11 +1165,11 @@ export async function notifyClientOfPreCare(
     });
   }
 
-  if (!sent && smsConfigured() && techAllowsSms(tech) && client.phone) {
+  if (!sent && smsSupportedForTech(tech) && techAllowsSms(tech) && client.phone) {
     const smsBody =
       `Hi ${name}, ${biz}: prep for your ${service.name} on ${fmtTime(booking.startIso, salonTz(tech))}. ` +
       `Please read and confirm: ${url}`;
-    sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "precare" });
+    sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "precare", country: salonCountry(tech) });
   }
 
   return sent;
