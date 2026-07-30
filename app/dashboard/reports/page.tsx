@@ -6,7 +6,8 @@ import { formatInTimeZone } from "date-fns-tz";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { gbp, TZ } from "@/lib/format";
+import { TZ } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { selectableTaxYears } from "@/lib/tax-year";
 import type { ReportSummary } from "@/lib/db/queries";
 
@@ -28,6 +29,7 @@ function ReportsView({
   byMonth: months,
   byService: svcRows,
 }: ReportSummary) {
+  const money = useMoney();
   const taxYears = useMemo(() => selectableTaxYears(), []);
   const [taxYear, setTaxYear] = useState(() => taxYears[0]!.startYear);
   const maxService = Math.max(1, ...svcRows.map(([, v]) => v));
@@ -74,17 +76,17 @@ function ReportsView({
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat icon={PoundSterling} tone="green" label="Total income" value={gbp(totalIncome)} />
+        <Stat icon={PoundSterling} tone="green" label="Total income" value={money(totalIncome)} />
         <Stat icon={CheckCircle2} tone="blue" label="Completed" value={String(completed)} />
         <Stat icon={XCircle} tone="amber" label="No-shows" value={String(noShows)} />
-        <Stat icon={ShieldX} tone="red" label="Forfeited deposits" value={gbp(forfeited)} />
+        <Stat icon={ShieldX} tone="red" label="Forfeited deposits" value={money(forfeited)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Income by month</CardTitle>
-            <CardDescription>Deposits {gbp(depositsTotal)} · balances {gbp(balancesTotal)}</CardDescription>
+            <CardDescription>Deposits {money(depositsTotal)} · balances {money(balancesTotal)}</CardDescription>
           </CardHeader>
           <CardContent>
             {months.length === 0 ? (
@@ -95,7 +97,7 @@ function ReportsView({
                   {months.map(([m, total]) => (
                     <tr key={m} className="border-b border-edge last:border-0">
                       <td className="py-2.5 text-ink-soft">{formatInTimeZone(new Date(`${m}-01T12:00:00Z`), TZ, "MMMM yyyy")}</td>
-                      <td className="py-2.5 text-right font-medium">{gbp(total)}</td>
+                      <td className="py-2.5 text-right font-medium">{money(total)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -117,7 +119,7 @@ function ReportsView({
                 <div key={name}>
                   <div className="mb-1 flex justify-between text-sm">
                     <span className="text-ink-soft">{name}</span>
-                    <span className="font-medium">{gbp(total)}</span>
+                    <span className="font-medium">{money(total)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-fill-hover">
                     <div className="h-full rounded-full bg-brand-500" style={{ width: `${(total / maxService) * 100}%` }} />

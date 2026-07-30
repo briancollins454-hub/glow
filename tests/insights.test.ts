@@ -4,7 +4,7 @@ import { makeBooking, makeClient, makeService } from "./fixtures";
 
 describe("buildBusinessInsights", () => {
   it("flags a quiet week", () => {
-    const insights = buildBusinessInsights({ bookings: [], clients: [], payments: [], services: [] });
+    const insights = buildBusinessInsights({ bookings: [], clients: [], payments: [], services: [], currency: "GBP" });
     expect(insights.some((i) => i.title.includes("quiet"))).toBe(true);
   });
 
@@ -16,7 +16,7 @@ describe("buildBusinessInsights", () => {
       balanceStatus: "unpaid",
       balancePennies: 3500,
     });
-    const insights = buildBusinessInsights({ bookings: [future], clients: [], payments: [], services: [] });
+    const insights = buildBusinessInsights({ bookings: [future], clients: [], payments: [], services: [], currency: "GBP" });
     expect(insights.some((i) => i.title.includes("outstanding"))).toBe(true);
   });
 
@@ -26,6 +26,7 @@ describe("buildBusinessInsights", () => {
       clients: [makeClient({ noShowCount: 2 })],
       payments: [],
       services: [makeService()],
+      currency: "GBP",
     });
     expect(insights.some((i) => i.title.includes("no-show"))).toBe(true);
   });
@@ -36,6 +37,7 @@ describe("buildBusinessInsights", () => {
       clients: [makeClient({ noShowCount: 3 })],
       payments: [],
       services: [],
+      currency: "GBP",
     });
     expect(insights.length).toBeLessThanOrEqual(3);
   });

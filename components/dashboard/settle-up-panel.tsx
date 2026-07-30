@@ -11,7 +11,8 @@ import { statusBadge } from "@/components/dashboard/status";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Select } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { gbp, fmtDate, fmtTime } from "@/lib/format";
+import { fmtDate, fmtTime } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import type { Booking, Client, Service } from "@/lib/db/types";
 import { bookingAmountDue } from "@/lib/booking/payment-summary";
 
@@ -32,6 +33,7 @@ export function SettleUpPanel({
   clientById: Record<string, Client>;
   serviceById: Record<string, Service>;
 }) {
+  const money = useMoney();
   if (bookings.length === 0) return null;
 
   const totalDue = bookings.reduce((sum, b) => sum + amountDue(b), 0);
@@ -49,7 +51,7 @@ export function SettleUpPanel({
           {totalDue > 0 ? (
             <>
               {" "}
-              · <span className="font-medium text-amber-200">{gbp(totalDue)} due</span>
+              · <span className="font-medium text-amber-200">{money(totalDue)} due</span>
             </>
           ) : null}
           . Mark complete and cash off without digging through the calendar.
@@ -61,10 +63,10 @@ export function SettleUpPanel({
           const incomplete = needsComplete(b);
           const settleLabel =
             incomplete && due > 0
-              ? `Complete & cash ${gbp(due)}`
+              ? `Complete & cash ${money(due)}`
               : incomplete
                 ? "Mark completed"
-                : `Cash off ${gbp(due)}`;
+                : `Cash off ${money(due)}`;
 
           return (
             <div
@@ -87,10 +89,10 @@ export function SettleUpPanel({
                     {fmtTime(b.startIso)}
                   </p>
                   <p className="mt-0.5 text-xs text-ink-faint">
-                    <span className="font-medium text-ink">{gbp(b.pricePennies)}</span>
+                    <span className="font-medium text-ink">{money(b.pricePennies)}</span>
                     {" · "}
                     {due > 0 ? (
-                      <span className="font-medium text-amber-200">{gbp(due)} still due</span>
+                      <span className="font-medium text-amber-200">{money(due)} still due</span>
                     ) : (
                       "paid in full"
                     )}

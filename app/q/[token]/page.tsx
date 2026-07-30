@@ -5,7 +5,9 @@ import { CalendarHeart, Clock, Sparkles } from "lucide-react";
 import { supabaseService } from "@/lib/supabase/service";
 import { getDmQuoteLinkByToken, getService, getTechById, updateDmQuoteLink } from "@/lib/db/queries";
 import { bookUrl, parseQuoteAddons } from "@/lib/dm-quote";
-import { gbp, minutesToLabel } from "@/lib/format";
+import { minutesToLabel } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { acceptsOnlineBookings } from "@/lib/subscriptions";
 import { rateLimit } from "@/lib/rate-limit";
 import { BookingThemedPage } from "@/components/theme/booking-themed-page";
@@ -42,6 +44,7 @@ export default async function QuotePage({
   }
 
   const brand = heroBrand(tech.brandColor || "#db2777");
+  const cur = salonCurrency(tech);
   const addons = parseQuoteAddons(quote.addons);
   const book = bookUrl(tech.handle, service.id, quote.token, APP_URL);
   const greeting = quote.clientName?.trim()
@@ -64,7 +67,7 @@ export default async function QuotePage({
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-4 w-4" /> {minutesToLabel(service.durationMin)}
                 </span>
-                <span className="font-medium text-ink">{gbp(quote.pricePennies)}</span>
+                <span className="font-medium text-ink">{money(quote.pricePennies, cur)}</span>
               </p>
             </div>
 
@@ -77,7 +80,7 @@ export default async function QuotePage({
                 <ul className="mt-2 space-y-1 text-sm text-ink-soft">
                   {addons.map((a) => (
                     <li key={a.name}>
-                      {a.name} {a.pricePennies > 0 ? `(+${gbp(a.pricePennies)})` : ""}
+                      {a.name} {a.pricePennies > 0 ? `(+${money(a.pricePennies, cur)})` : ""}
                     </li>
                   ))}
                 </ul>
@@ -86,7 +89,7 @@ export default async function QuotePage({
 
             {quote.depositPennies > 0 && (
               <p className="text-sm text-ink-soft">
-                <strong className="text-ink">{gbp(quote.depositPennies)} deposit</strong> secures your slot.
+                <strong className="text-ink">{money(quote.depositPennies, cur)} deposit</strong> secures your slot.
                 The rest is due on the day.
               </p>
             )}

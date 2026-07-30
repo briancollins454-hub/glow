@@ -17,7 +17,8 @@ import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { ConsentSignatureFields } from "@/components/booking/consent-signature-fields";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
-import { gbp, minutesToLabel, TZ } from "@/lib/format";
+import { minutesToLabel, TZ } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { depositFor } from "@/lib/rules";
 import { serviceRequiresSignedConsent } from "@/lib/booking/consent";
 import { usesCardCapture } from "@/lib/subscriptions";
@@ -78,6 +79,7 @@ export function PairedBookingStepInteractive({
   photoUrl?: string;
   staffId?: string | null;
 }) {
+  const money = useMoney();
   // Card capture: nothing is paid upfront; a card is saved at checkout instead.
   const cardCapture = usesCardCapture(tech);
   const deposit = cardCapture ? 0 : depositFor(treatmentService);
@@ -145,7 +147,7 @@ export function PairedBookingStepInteractive({
             </div>
             <div className="shrink-0 text-right">
               <p className="font-display text-2xl font-semibold text-ink">
-                {gbp(treatmentService.pricePennies)}
+                {money(treatmentService.pricePennies)}
               </p>
               <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-ink-faint">
                 <Clock className="h-3.5 w-3.5" />
@@ -160,14 +162,14 @@ export function PairedBookingStepInteractive({
           </Notice>
 
           <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl border border-edge bg-cream/50 p-3 text-sm sm:gap-3 sm:p-4">
-            <Stat label="Patch test" value={gbp(patchTestService.pricePennies)} brand={brand} />
+            <Stat label="Patch test" value={money(patchTestService.pricePennies)} brand={brand} />
             <Stat
               label={cardCapture ? "Pay today" : "Treatment deposit"}
-              value={cardCapture ? "Card only" : deposit > 0 ? gbp(deposit) : "None"}
+              value={cardCapture ? "Card only" : deposit > 0 ? money(deposit) : "None"}
               highlight={cardCapture || deposit > 0}
               brand={brand}
             />
-            <Stat label="Balance on the day" value={gbp(balance)} />
+            <Stat label="Balance on the day" value={money(balance)} />
           </div>
         </div>
       </div>
@@ -208,7 +210,7 @@ export function PairedBookingStepInteractive({
         <div className="rounded-2xl border border-edge bg-surface/80 p-5 sm:p-6">
           <h3 className="font-display text-lg font-semibold text-ink">1. Patch test time</h3>
           <p className="mt-1 text-sm text-ink-soft">
-            Quick {minutesToLabel(patchTestService.durationMin)} appointment ({gbp(patchTestService.pricePennies)}).
+            Quick {minutesToLabel(patchTestService.durationMin)} appointment ({money(patchTestService.pricePennies)}).
           </p>
           <DateSlotPicker
             days={patchTestDays}
@@ -280,7 +282,7 @@ export function PairedBookingStepInteractive({
                       <input type="checkbox" name={`addon_${a.id}`} className="h-4 w-4 rounded" />
                       {a.name}
                     </span>
-                    <span className="font-medium">+{gbp(a.pricePennies)}</span>
+                    <span className="font-medium">+{money(a.pricePennies)}</span>
                   </label>
                 ))}
               </div>
@@ -327,7 +329,7 @@ export function PairedBookingStepInteractive({
               {cardCapture
                 ? "Save card & book both"
                 : deposit > 0
-                  ? `Pay ${gbp(deposit)} deposit & book both`
+                  ? `Pay ${money(deposit)} deposit & book both`
                   : "Confirm both appointments"}
             </SubmitButton>
           </form>

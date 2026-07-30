@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { ImageFileInput } from "@/components/ui/image-file-input";
-import { gbp, minutesToLabel } from "@/lib/format";
+import { minutesToLabel } from "@/lib/format";
+import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { currencySymbol } from "@/lib/money";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";
 import { ServiceListItem } from "@/components/dashboard/service-list-item";
@@ -69,6 +71,8 @@ function ServicesView({
   staff = [],
   staffDayRulesByService = {},
 }: ServicesData) {
+  const money = useMoney();
+  const symbol = currencySymbol(useCurrency());
   const searchParams = useSearchParams();
   const open = searchParams.get("open") ?? undefined;
   const [openServiceId, setOpenServiceId] = useState<string | null>(open ?? null);
@@ -292,11 +296,11 @@ function ServicesView({
                         {catById[s.categoryId]} · {minutesToLabel(s.durationMin)}
                         {(s.bufferMinutes ?? 0) > 0 ? ` + ${minutesToLabel(s.bufferMinutes ?? 0)} buffer` : ""}
                         {" · "}
-                        {gbp(s.pricePennies)} ·{" "}
+                        {money(s.pricePennies)} ·{" "}
                         {!clientPaymentsEnabled
                           ? "deposits off"
                           : depositFor(s) > 0
-                            ? `${gbp(depositFor(s))} deposit`
+                            ? `${money(depositFor(s))} deposit`
                             : "no deposit"}
                       </p>
                     </div>
@@ -337,7 +341,7 @@ function ServicesView({
                   <div className="space-y-2">
                     {addons.filter((a) => a.serviceId === s.id).map((a) => (
                       <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-fill px-4 py-2.5 text-sm">
-                        <span>{a.name} <span className="text-ink-faint">+{gbp(a.pricePennies)}</span></span>
+                        <span>{a.name} <span className="text-ink-faint">+{money(a.pricePennies)}</span></span>
                         <form action={deleteAddonAction}>
                           <input type="hidden" name="id" value={a.id} />
                           <input type="hidden" name="serviceId" value={s.id} />
@@ -348,7 +352,7 @@ function ServicesView({
                     <form action={addAddonAction} className="flex flex-wrap items-end gap-2">
                       <input type="hidden" name="serviceId" value={s.id} />
                       <div className="min-w-32 flex-1"><Label>Extra name</Label><Input name="name" placeholder="Wispy" required /></div>
-                      <div className="w-28"><Label>Price (£)</Label><Input name="pricePounds" type="number" min={0} step="0.01" placeholder="5.00" required /></div>
+                      <div className="w-28"><Label>Price ({symbol})</Label><Input name="pricePounds" type="number" min={0} step="0.01" placeholder="5.00" required /></div>
                       <SubmitButton pendingLabel="Adding…">
                         <Plus className="h-4 w-4" /> Add extra
                       </SubmitButton>

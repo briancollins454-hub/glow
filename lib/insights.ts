@@ -1,5 +1,5 @@
 import type { Booking, Client, Payment, Service } from "@/lib/db/types";
-import { gbp } from "@/lib/format";
+import { money } from "@/lib/money";
 
 export interface BusinessInsight {
   title: string;
@@ -13,11 +13,14 @@ export function buildBusinessInsights({
   clients,
   payments,
   services,
+  currency,
 }: {
   bookings: Booking[];
   clients: Client[];
   payments: Payment[];
   services: Service[];
+  /** Salon currency (salonCurrency(tech)) for amounts in insight copy. */
+  currency: string;
 }): BusinessInsight[] {
   const now = Date.now();
   const nextSevenDays = now + 7 * 24 * 60 * 60 * 1000;
@@ -48,7 +51,7 @@ export function buildBusinessInsights({
   }
   if (outstanding > 0) {
     insights.push({
-      title: `${gbp(outstanding)} still outstanding`,
+      title: `${money(outstanding, currency)} still outstanding`,
       body: "Send balance links before appointments so payment is settled before clients arrive.",
       href: "/dashboard/bookings",
       tone: "green",

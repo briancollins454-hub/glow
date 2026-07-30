@@ -25,7 +25,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { gbp, fmtDate } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { statusBadge } from "@/components/dashboard/status";
 import { ClientMessageLink } from "@/components/messages/client-message-link";
 import { ClientReactionsCard } from "@/components/dashboard/client-reactions-card";
@@ -470,7 +472,7 @@ export default async function ClientDetailPage({
                   {lash && <p className="mt-0.5 text-xs text-brand-text">{lash}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm font-medium">{gbp(b.pricePennies)}</span>
+                  <span className="text-sm font-medium">{money(b.pricePennies, salonCurrency(tech))}</span>
                   {statusBadge(b.status)}
                 </div>
               </Link>

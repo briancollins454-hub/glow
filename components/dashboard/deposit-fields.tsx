@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { Label, Select } from "@/components/ui/input";
+import { useCurrency } from "@/components/locale/currency-provider";
+import { currencySymbol, minorUnitFactor } from "@/lib/money";
 import type { DepositType } from "@/lib/db/types";
 
 type AmountMode = DepositType | "percent" | "fixed" | "none";
 
 /**
- * £ / % amount picker. The amount box transforms with the type:
- * £ prefix for a set amount, % suffix for a percentage, hidden for "none".
+ * Amount picker in the salon's currency. The amount box transforms with the
+ * type: currency-symbol prefix for a set amount, % suffix for a percentage,
+ * hidden for "none".
  */
 export function DepositFields({
   defaultType,
@@ -21,7 +24,7 @@ export function DepositFields({
   fixedHint,
 }: {
   defaultType: AmountMode;
-  /** Display value for the input (percent as "30", fixed as pounds "15.00"). */
+  /** Display value for the input (percent as "30", fixed as major units "15.00"). */
   defaultValue: string;
   nameType?: string;
   nameValue?: string;
@@ -31,6 +34,7 @@ export function DepositFields({
   fixedHint?: string;
 }) {
   const [type, setType] = useState<AmountMode>(defaultType);
+  const symbol = currencySymbol(useCurrency());
 
   return (
     <>
@@ -41,7 +45,7 @@ export function DepositFields({
           value={type}
           onChange={(e) => setType(e.target.value as AmountMode)}
         >
-          <option value="fixed">Set amount (£)</option>
+          <option value="fixed">Set amount ({symbol})</option>
           <option value="percent">Percentage (%)</option>
           {allowNone && <option value="none">No deposit</option>}
         </Select>
@@ -55,9 +59,9 @@ export function DepositFields({
         </div>
       ) : (
         <div>
-          <Label>{type === "fixed" ? "Amount (£)" : "Percentage (%)"}</Label>
+          <Label>{type === "fixed" ? `Amount (${symbol})` : "Percentage (%)"}</Label>
           <div className="flex items-center gap-1.5 rounded-xl border border-edge bg-fill px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/30">
-            {type === "fixed" && <span className="text-base font-semibold text-brand-text">£</span>}
+            {type === "fixed" && <span className="text-base font-semibold text-brand-text">{symbol}</span>}
             <input
               key={type}
               name={nameValue}
@@ -71,8 +75,8 @@ export function DepositFields({
           </div>
           <p className="mt-1 text-xs text-ink-faint">
             {type === "fixed"
-              ? fixedHint ?? "Exact pounds, e.g. 15.00 = £15."
-              : percentHint ?? "Share of the price, e.g. 30 = 30%. On a £50 service that's £15."}
+              ? fixedHint ?? `Exact amount, e.g. 15.00 = ${symbol}15.`
+              : percentHint ?? `Share of the price, e.g. 30 = 30%. On a ${symbol}50 service that's ${symbol}15.`}
           </p>
         </div>
       )}
@@ -85,11 +89,16 @@ export function depositFieldDisplay(
   type: AmountMode | null | undefined,
   value: number | null | undefined,
   fallbackPct: number,
+  currency?: string | null,
 ): { type: AmountMode; display: string } {
   const t = type ?? "percent";
   if (t === "fixed") {
-    const pennies = value ?? 0;
-    return { type: "fixed", display: (pennies / 100).toFixed(2) };
+    const minorUnits = value ?? 0;
+    const factor = minorUnitFactor(currency ?? "GBP");
+    return {
+      type: "fixed",
+      display: factor === 1 ? String(minorUnits) : (minorUnits / factor).toFixed(2),
+    };
   }
   if (t === "none") return { type: "none", display: "0" };
   return { type: "percent", display: String(value ?? fallbackPct) };

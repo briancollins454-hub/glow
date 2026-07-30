@@ -15,7 +15,9 @@ import {
   productUsagesForClient,
   reactionCheckinsForClient,
 } from "@/lib/db/queries";
-import { fmtDate, fmtDateTime, gbp, TZ } from "@/lib/format";
+import { fmtDate, fmtDateTime, TZ } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { severityLabel } from "@/lib/product-batches";
 import type {
   Booking,
@@ -263,7 +265,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
         const svc = serviceById.get(b.serviceId);
         bodyLine(
           ctx,
-          `${fmtDateTime(b.startIso)} · ${svc?.name ?? "Service"} · ${gbp(b.pricePennies)}`,
+          `${fmtDateTime(b.startIso)} · ${svc?.name ?? "Service"} · ${money(b.pricePennies, salonCurrency(data.tech))}`,
           { bold: true },
         );
         const lash = [b.lashMap, b.lashCurl, b.lashLength].filter(Boolean).join(" · ");

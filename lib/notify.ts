@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
-import { fmtDate, fmtDateTime, fmtTime, gbp } from "@/lib/format";
+import { fmtDate, fmtDateTime, fmtTime } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
 import { sendEmail, brandedEmail } from "@/lib/email";
@@ -46,6 +48,7 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
   const when = fmtDateTime(booking.startIso);
   const svc = ctx.serviceLabel ?? service?.name ?? "your appointment";
   const payUrl = `${APP_URL}/pay/${booking.balanceToken}`;
+  const cur = salonCurrency(tech);
 
   let heading = "";
   let bodyHtml = "";
@@ -57,9 +60,9 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
       heading = "You're booked in!";
       if (!salonTakesClientPayments(tech)) {
         // Salon master switch off: appointment + price only — no deposit/balance/pay copy.
-        bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Price: ${gbp(booking.pricePennies)}`;
+        bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Price: ${money(booking.pricePennies, cur)}`;
       } else {
-        bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Deposit paid: ${gbp(booking.depositPennies)}<br/>Balance due on the day: <strong>${gbp(booking.balancePennies)}</strong>`;
+        bodyHtml = `Hi ${name},<br/><br/>Your <strong>${svc}</strong> is confirmed for <strong>${when}</strong>.<br/><br/>Deposit paid: ${money(booking.depositPennies, cur)}<br/>Balance due on the day: <strong>${money(booking.balancePennies, cur)}</strong>`;
         // Salons that settle in person hide the pay-early button (Settings toggle).
         if (booking.balancePennies > 0 && sendsBalanceEmails(tech)) {
           buttonLabel = "Pay balance early";
@@ -84,8 +87,8 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
         break;
       }
       heading = "Your balance is ready to pay";
-      bodyHtml = `Hi ${name},<br/><br/>Your remaining balance for <strong>${svc}</strong> is <strong>${gbp(booking.balancePennies)}</strong>. You can pay it securely before your appointment.`;
-      buttonLabel = `Pay ${gbp(booking.balancePennies)}`;
+      bodyHtml = `Hi ${name},<br/><br/>Your remaining balance for <strong>${svc}</strong> is <strong>${money(booking.balancePennies, cur)}</strong>. You can pay it securely before your appointment.`;
+      buttonLabel = `Pay ${money(booking.balancePennies, cur)}`;
       buttonUrl = payUrl;
       break;
   }
@@ -478,6 +481,7 @@ export async function sendBatchedReminders(
   const name = client?.name?.split(" ")[0] ?? "there";
   const biz = tech?.businessName ?? "your beauty studio";
   const brand = tech?.brandColor || "#db2777";
+  const cur = salonCurrency(tech);
 
   let subject: string;
   let text: string;
@@ -491,24 +495,24 @@ export async function sendBatchedReminders(
       const svc = services[idx]?.name ?? "appointment";
       const when = fmtDateTime(item.booking.startIso);
       const payUrl = `${APP_URL}/pay/${item.booking.balanceToken}`;
-      return `• ${svc} on ${when}: ${gbp(item.booking.balancePennies)} — ${payUrl}`;
+      return `• ${svc} on ${when}: ${money(item.booking.balancePennies, cur)} — ${payUrl}`;
     });
     const linesHtml = allowed
       .map((item, idx) => {
         const svc = services[idx]?.name ?? "appointment";
         const when = fmtDateTime(item.booking.startIso);
         const payUrl = `${APP_URL}/pay/${item.booking.balanceToken}`;
-        return `<li><strong>${svc}</strong> on ${when}: <strong>${gbp(item.booking.balancePennies)}</strong> — <a href="${payUrl}">Pay</a></li>`;
+        return `<li><strong>${svc}</strong> on ${when}: <strong>${money(item.booking.balancePennies, cur)}</strong> — <a href="${payUrl}">Pay</a></li>`;
       })
       .join("");
     subject = `Your remaining balance for ${biz}`;
-    text = `Hi ${name}, you have outstanding balances totalling ${gbp(total)} with ${biz}:\n\n${lines.join("\n")}`;
+    text = `Hi ${name}, you have outstanding balances totalling ${money(total, cur)} with ${biz}:\n\n${lines.join("\n")}`;
     html = brandedEmail({
       brand,
       businessName: biz,
       heading: "Your balances are ready to pay",
-      bodyHtml: `Hi ${name},<br/><br/>You have outstanding balances totalling <strong>${gbp(total)}</strong>:<ul style="padding-left:18px">${linesHtml}</ul>`,
-      buttonLabel: allowed.length === 1 ? `Pay ${gbp(total)}` : undefined,
+      bodyHtml: `Hi ${name},<br/><br/>You have outstanding balances totalling <strong>${money(total, cur)}</strong>:<ul style="padding-left:18px">${linesHtml}</ul>`,
+      buttonLabel: allowed.length === 1 ? `Pay ${money(total, cur)}` : undefined,
       buttonUrl: allowed.length === 1 ? `${APP_URL}/pay/${allowed[0].booking.balanceToken}` : undefined,
     });
   } else {
@@ -768,6 +772,7 @@ export async function notifyTechOfBookingRequest(
   const when = fmtDateTime(booking.startIso);
   const approveUrl = `${APP_URL}/approve/${booking.approvalToken}`;
   const brand = tech.brandColor || "#db2777";
+  const cur = salonCurrency(tech);
   const riskLine = booking.riskTier
     ? `<br/><br/>Client risk: <strong>${riskTierLabel(booking.riskTier)}</strong>`
     : "";
@@ -785,7 +790,7 @@ export async function notifyTechOfBookingRequest(
     heading: "New booking request",
     bodyHtml:
       `<strong>${client.name}</strong> requested <strong>${serviceLabel}</strong> on <strong>${when}</strong>.` +
-      `${riskLine}${signalLine}<br/><br/>Deposit if approved: <strong>${gbp(booking.depositPennies)}</strong> of ${gbp(booking.pricePennies)}.` +
+      `${riskLine}${signalLine}<br/><br/>Deposit if approved: <strong>${money(booking.depositPennies, cur)}</strong> of ${money(booking.pricePennies, cur)}.` +
       `<br/><br/>Approve to send them a deposit link (or confirm straight away if no deposit applies).`,
     buttonLabel: "Review & approve",
     buttonUrl: approveUrl,
@@ -794,7 +799,7 @@ export async function notifyTechOfBookingRequest(
     to: tech.email,
     subject: `Booking request from ${client.name}`,
     html,
-    text: `${client.name} requested ${serviceLabel} on ${when}. Deposit: ${gbp(booking.depositPennies)}. Approve: ${approveUrl}`,
+    text: `${client.name} requested ${serviceLabel} on ${when}. Deposit: ${money(booking.depositPennies, cur)}. Approve: ${approveUrl}`,
     idempotencyKey: `booking-request/${booking.id}`,
     techId: tech.id,
     kind: "booking_request",
@@ -814,6 +819,7 @@ export async function notifyClientBookingApproved(
   const name = client.name?.split(" ")[0] ?? "there";
   const when = fmtDateTime(booking.startIso);
   const actionUrl = `${APP_URL}/${tech.handle}/booked/${booking.balanceToken}`;
+  const cur = salonCurrency(tech);
 
   // Salon switch off: never ask for a deposit. Card capture is independent.
   const takeClientPay = salonTakesClientPayments(tech);
@@ -834,12 +840,12 @@ export async function notifyClientBookingApproved(
         ? "You're approved — save a card to secure your slot"
         : "You're booked in!",
     bodyHtml: needsDeposit
-      ? `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>.<br/><br/>Pay your <strong>${gbp(booking.depositPennies)}</strong> deposit now to secure the slot.`
+      ? `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>.<br/><br/>Pay your <strong>${money(booking.depositPennies, cur)}</strong> deposit now to secure the slot.`
       : needsCard
         ? `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>.<br/><br/>No deposit needed — just save a card (nothing is charged) to secure the slot.`
         : `Hi ${name},<br/><br/>${biz} approved your <strong>${service.name}</strong> for <strong>${when}</strong>. See you then!`,
     buttonLabel: needsDeposit
-      ? `Pay ${gbp(booking.depositPennies)} deposit`
+      ? `Pay ${money(booking.depositPennies, cur)} deposit`
       : needsCard
         ? "Save card to secure booking"
         : "View booking",

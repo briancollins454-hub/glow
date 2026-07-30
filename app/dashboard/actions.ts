@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import type { ApprovalMode } from "@/lib/db/types";
 import { fromZonedTime } from "date-fns-tz";
-import { TZ, poundsToPennies } from "@/lib/format";
+import { TZ } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { toMinorUnits } from "@/lib/money";
 import { getDashboardContext, invalidateDashboardTech } from "@/lib/auth/session";
 import { supabaseService } from "@/lib/supabase/service";
 import { revalidatePublicAvailability } from "@/lib/booking/public-availability-cache";
@@ -193,7 +195,7 @@ export async function updateSettingsAction(formData: FormData) {
     const raw = get(valueKey);
     if (type === "none") return { type: "none" as const, value: 0, pctMirror: 0 };
     if (type === "fixed") {
-      const pennies = poundsToPennies(raw);
+      const pennies = toMinorUnits(raw, salonCurrency(tech));
       return { type: "fixed" as const, value: pennies, pctMirror: opts.fallbackPct };
     }
     const pct = clampInt(raw, 0, opts.percentMax ?? 100, opts.fallbackPct);
@@ -772,7 +774,7 @@ export async function saveServiceAction(formData: FormData) {
   const depositType = String(formData.get("depositType") ?? "percent") as DepositType;
   const depositRaw = String(formData.get("depositValue") ?? "0");
   const depositValue =
-    depositType === "fixed" ? poundsToPennies(depositRaw) : clampInt(depositRaw, 0, 100, 0);
+    depositType === "fixed" ? toMinorUnits(depositRaw, salonCurrency(tech)) : clampInt(depositRaw, 0, 100, 0);
   const fullSet = String(formData.get("fullSetServiceId") ?? "");
 
   const weekdayRaw = formData
@@ -789,7 +791,7 @@ export async function saveServiceAction(formData: FormData) {
     description: String(formData.get("description") ?? "").trim(),
     durationMin: clampInt(String(formData.get("durationMin") ?? "60"), 5, 600, 60),
     bufferMinutes: clampInt(String(formData.get("bufferMinutes") ?? "0"), 0, 180, 0),
-    pricePennies: poundsToPennies(String(formData.get("price") ?? "0")),
+    pricePennies: toMinorUnits(String(formData.get("price") ?? "0"), salonCurrency(tech)),
     depositType,
     depositValue,
     requiresPatchTest: formData.get("requiresPatchTest") === "on",
@@ -1376,7 +1378,7 @@ export async function addManualBookingAction(formData: FormData) {
   const paymentMethod = String(formData.get("paymentMethod") ?? "cash");
 
   const depositRaw = String(formData.get("depositPounds") ?? "").trim();
-  const depositOverridePennies = depositRaw === "" ? null : poundsToPennies(depositRaw);
+  const depositOverridePennies = depositRaw === "" ? null : toMinorUnits(depositRaw, salonCurrency(tech));
 
   // Add-ons for the primary treatment (same as online).
   const available = await addonsForService(sb, primary.id, { activeOnly: true }).catch(() => []);
@@ -1553,7 +1555,7 @@ export async function rescheduleBookingAction(formData: FormData) {
   let deposit = booking!.depositPennies;
   const depositRaw = String(formData.get("depositPounds") ?? "").trim();
   if (depositRaw !== "" && booking!.depositStatus !== "paid") {
-    deposit = Math.min(Math.max(0, poundsToPennies(depositRaw)), price);
+    deposit = Math.min(Math.max(0, toMinorUnits(depositRaw, salonCurrency(tech))), price);
   }
 
   const balance = Math.max(0, price - deposit);
@@ -1815,7 +1817,7 @@ export async function addAddonAction(formData: FormData) {
   const { sb, tech } = await ctx();
   const serviceId = String(formData.get("serviceId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const price = poundsToPennies(String(formData.get("pricePounds") ?? "0"));
+  const price = toMinorUnits(String(formData.get("pricePounds") ?? "0"), salonCurrency(tech));
   const service = await getService(sb, serviceId);
   if (service && service.techId === tech.id && name) {
     const { createAddon, addonsForService } = await import("@/lib/db/queries");

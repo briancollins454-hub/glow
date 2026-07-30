@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { groupServicesForDashboard } from "@/lib/booking/service-groups";
-import { gbp } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { cn } from "@/lib/utils";
 import type { Service, ServiceCategory } from "@/lib/db/types";
 
@@ -30,6 +30,7 @@ export function ServicePicker({
   onValueChange?: (serviceId: string) => void;
   className?: string;
 }) {
+  const money = useMoney();
   const [query, setQuery] = useState("");
   const [uncontrolled, setUncontrolled] = useState(defaultValue);
   const selectedId = controlledValue !== undefined ? controlledValue : uncontrolled;
@@ -92,7 +93,7 @@ export function ServicePicker({
         <p className="text-xs text-ink-faint">
           Selected: <span className="font-medium text-ink-soft">{selected.name}</span>
           {" · "}
-          {gbp(selected.pricePennies)}
+          {money(selected.pricePennies)}
         </p>
       )}
       {!selected && required && (
@@ -138,7 +139,7 @@ export function ServicePicker({
                           )}
                         </span>
                         <span className="flex shrink-0 items-center gap-2 text-xs text-ink-faint">
-                          {gbp(s.pricePennies)}
+                          {money(s.pricePennies)}
                           {active && <Check className="h-3.5 w-3.5 text-brand-text" />}
                         </span>
                       </button>

@@ -6,7 +6,9 @@ import { supabaseService } from "@/lib/supabase/service";
 import { getBookingByToken, getService, getTechById } from "@/lib/db/queries";
 import { confirmCheckoutPaid, checkoutMatchesBalance } from "@/lib/payments";
 import { applyBalancePaid } from "@/lib/bookings";
-import { gbp, fmtDateTime } from "@/lib/format";
+import { fmtDateTime } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import { payBalanceAction } from "../actions";
 import { salonTakesClientPayments } from "@/lib/subscriptions";
@@ -46,6 +48,7 @@ export default async function PayPage({
 
   const service = await getService(sb, booking.serviceId);
   const brand = heroBrand(tech?.brandColor || "#db2777");
+  const cur = salonCurrency(tech);
   const settled = booking.balanceStatus === "paid" || booking.balancePennies === 0;
   const takeClientPay = !!tech && salonTakesClientPayments(tech);
   const canPayOnline = takeClientPay && !!tech.stripeConnectAccountId;
@@ -73,11 +76,11 @@ export default async function PayPage({
             <Row label="Service" value={service?.name ?? "Appointment"} />
             <Row label="Appointment" value={fmtDateTime(booking.startIso)} />
             <hr className="border-edge" />
-            <Row label="Total" value={gbp(booking.pricePennies)} />
+            <Row label="Total" value={money(booking.pricePennies, cur)} />
             {takeClientPay ? (
               <>
-                <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${gbp(booking.depositPennies)}` : "-"} />
-                <Row label="Balance" value={gbp(booking.balancePennies)} strong />
+                <Row label="Deposit paid" value={booking.depositStatus === "paid" ? `- ${money(booking.depositPennies, cur)}` : "-"} />
+                <Row label="Balance" value={money(booking.balancePennies, cur)} strong />
               </>
             ) : null}
             {sp.err === "unavailable" && (
@@ -90,7 +93,7 @@ export default async function PayPage({
             ) : canPayOnline ? (
               <form action={payBalanceAction}>
                 <input type="hidden" name="token" value={token} />
-                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}><CreditCard className="h-4 w-4" /> Pay {gbp(booking.balancePennies)} now</button>
+                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white" style={{ backgroundColor: brand }}><CreditCard className="h-4 w-4" /> Pay {money(booking.balancePennies, cur)} now</button>
               </form>
             ) : (
               <p className="rounded-xl bg-fill px-4 py-3 text-center text-sm text-ink-soft">

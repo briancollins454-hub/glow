@@ -8,7 +8,9 @@ import { DateTimePicker, type TimeSlotOption } from "@/components/dashboard/date
 import { ServicePicker } from "@/components/dashboard/service-picker";
 import { rowsForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
-import { gbp, fmtTime } from "@/lib/format";
+import { fmtTime } from "@/lib/format";
+import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { currencySymbol } from "@/lib/money";
 import {
   bufferMapFromServices,
   daySlotChoicesForDuration,
@@ -64,6 +66,8 @@ export function BookingRescheduleForm({
   > | null;
   depositLocked: boolean;
 }) {
+  const money = useMoney();
+  const symbol = currencySymbol(useCurrency());
   const [serviceId, setServiceId] = useState(booking.serviceId);
   const selectedService =
     services.find((s) => s.id === serviceId) ??
@@ -159,10 +163,10 @@ export function BookingRescheduleForm({
         </p>
       </div>
       <div>
-        <Label>Deposit for this booking (£)</Label>
+        <Label>Deposit for this booking ({symbol})</Label>
         {depositLocked ? (
           <p className="rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm text-ink-soft">
-            {gbp(booking.depositPennies)} - already paid, so the amount is locked.
+            {money(booking.depositPennies)} - already paid, so the amount is locked.
           </p>
         ) : (
           <>
@@ -174,7 +178,7 @@ export function BookingRescheduleForm({
               defaultValue={(booking.depositPennies / 100).toFixed(2)}
             />
             <p className="mt-1.5 text-xs text-ink-faint">
-              Set to 0 for no deposit - the client pays the full {gbp(booking.pricePennies)} on the day.
+              Set to 0 for no deposit - the client pays the full {money(booking.pricePennies)} on the day.
             </p>
           </>
         )}
@@ -199,7 +203,7 @@ export function BookingRescheduleForm({
           <div className="flex flex-wrap gap-2">
             {booking.addons.map((a, i) => (
               <Badge key={i} tone="brand">
-                {a.name} +{gbp(a.pricePennies)}
+                {a.name} +{money(a.pricePennies)}
               </Badge>
             ))}
           </div>

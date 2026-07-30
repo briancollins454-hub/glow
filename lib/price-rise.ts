@@ -1,5 +1,7 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { gbp, TZ } from "@/lib/format";
+import { TZ } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import type { Service, Tech } from "@/lib/db/types";
 
 export type PriceRiseMode = "percent" | "fixed";
@@ -72,11 +74,12 @@ export type PriceRiseAnnouncement = {
 };
 
 export function buildPriceRiseAnnouncement(
-  tech: Pick<Tech, "businessName" | "name" | "handle">,
+  tech: Pick<Tech, "businessName" | "name" | "handle" | "currency">,
   options: PriceRiseOptions,
   preview: PriceRisePreviewRow[],
   appUrl: string,
 ): PriceRiseAnnouncement {
+  const cur = salonCurrency(tech);
   const biz = tech.businessName || tech.name || "your beauty studio";
   const when = formatEffectiveDate(options.effectiveDate);
   const bookUrl = `${appUrl}/${tech.handle}`;
@@ -85,11 +88,11 @@ export function buildPriceRiseAnnouncement(
 
   const examples = preview
     .slice(0, 4)
-    .map((r) => `${r.name}: ${gbp(r.currentPennies)} → ${gbp(r.newPennies)}`)
+    .map((r) => `${r.name}: ${money(r.currentPennies, cur)} → ${money(r.newPennies, cur)}`)
     .join("\n");
   const examplesShort = preview
     .slice(0, 3)
-    .map((r) => `${r.name} ${gbp(r.newPennies)}`)
+    .map((r) => `${r.name} ${money(r.newPennies, cur)}`)
     .join(", ");
 
   const email =

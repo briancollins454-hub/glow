@@ -20,7 +20,8 @@ import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { ConsentSignatureFields } from "@/components/booking/consent-signature-fields";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
-import { gbp, minutesToLabel, TZ } from "@/lib/format";
+import { minutesToLabel, TZ } from "@/lib/format";
+import { useMoney } from "@/components/locale/currency-provider";
 import { depositFor, noShowFeeFor } from "@/lib/rules";
 import { anyServiceRequiresSignedConsent } from "@/lib/booking/consent";
 import { usesCardCapture } from "@/lib/subscriptions";
@@ -84,6 +85,7 @@ export function BookingStepInteractive({
   staffOptions?: { id: string; name: string }[];
   selectedStaff?: string;
 }) {
+  const money = useMoney();
   const basket = [service, ...basketExtras];
   const totalPrice = basket.reduce((s, x) => s + x.pricePennies, 0);
   const totalDuration = basket.reduce((s, x) => s + x.durationMin, 0);
@@ -134,7 +136,7 @@ export function BookingStepInteractive({
             </div>
             <div className="shrink-0 text-right">
               <p className="font-display text-2xl font-semibold text-ink">
-                {gbp(service.pricePennies)}
+                {money(service.pricePennies)}
               </p>
               <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-ink-faint">
                 <Clock className="h-3.5 w-3.5" />
@@ -161,7 +163,7 @@ export function BookingStepInteractive({
                     {x.name}
                     <span className="text-xs text-ink-faint">{minutesToLabel(x.durationMin)}</span>
                   </span>
-                  <span className="font-medium">{gbp(x.pricePennies)}</span>
+                  <span className="font-medium">{money(x.pricePennies)}</span>
                 </div>
               ))}
               <div className="flex items-center justify-between border-t border-edge pt-2 text-sm font-semibold">
@@ -171,7 +173,7 @@ export function BookingStepInteractive({
                     {minutesToLabel(totalDuration)}, back-to-back
                   </span>
                 </span>
-                <span>{gbp(totalPrice)}</span>
+                <span>{money(totalPrice)}</span>
               </div>
             </div>
           )}
@@ -196,7 +198,7 @@ export function BookingStepInteractive({
                       {x.name}
                       <span className="text-xs text-ink-faint">{minutesToLabel(x.durationMin)}</span>
                     </span>
-                    <span className="font-medium">{gbp(x.pricePennies)}</span>
+                    <span className="font-medium">{money(x.pricePennies)}</span>
                   </Link>
                 ))}
                 <p className="px-3 pt-1 text-xs text-ink-faint">
@@ -210,9 +212,9 @@ export function BookingStepInteractive({
             {cardCapture ? (
               <Stat label="Pay today" value="Nothing" highlight brand={brand} />
             ) : (
-              <Stat label="Deposit now" value={deposit > 0 ? gbp(deposit) : "None"} highlight={deposit > 0} brand={brand} />
+              <Stat label="Deposit now" value={deposit > 0 ? money(deposit) : "None"} highlight={deposit > 0} brand={brand} />
             )}
-            <Stat label={cardCapture ? "Pay on the day" : "Balance on the day"} value={gbp(balance)} />
+            <Stat label={cardCapture ? "Pay on the day" : "Balance on the day"} value={money(balance)} />
             <Stat label="Cancellation" value={`${tech.cancellationWindowHours}h notice`} />
           </div>
 
@@ -220,7 +222,7 @@ export function BookingStepInteractive({
             <p className="mt-3 text-xs leading-relaxed text-ink-faint">
               No deposit — a card saved securely at checkout holds your booking. Nothing is
               charged unless you miss your appointment or cancel inside the notice window
-              {noShowFee > 0 ? ` (fee up to ${gbp(noShowFee)})` : ""}.
+              {noShowFee > 0 ? ` (fee up to ${money(noShowFee)})` : ""}.
             </p>
           )}
 
@@ -420,7 +422,7 @@ export function BookingStepInteractive({
                       />
                       {a.name}
                     </span>
-                    <span className="font-medium">+{gbp(a.pricePennies)}</span>
+                    <span className="font-medium">+{money(a.pricePennies)}</span>
                   </label>
                 ))}
                 <p className="text-xs text-ink-faint">Extras are added to your balance on the day.</p>
@@ -468,8 +470,8 @@ export function BookingStepInteractive({
                 </Link>
                 .{" "}
                 {cardCapture
-                  ? `A card saved securely at checkout holds my booking — nothing is charged today. If I miss the appointment or cancel inside the notice window, a fee${noShowFee > 0 ? ` of up to ${gbp(noShowFee)}` : ""} may be charged to it.`
-                  : `My ${deposit > 0 ? gbp(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.`}
+                  ? `A card saved securely at checkout holds my booking — nothing is charged today. If I miss the appointment or cancel inside the notice window, a fee${noShowFee > 0 ? ` of up to ${money(noShowFee)}` : ""} may be charged to it.`
+                  : `My ${deposit > 0 ? money(deposit) + " deposit" : "deposit"} secures the slot and is deducted from the total.`}
               </span>
             </label>
             <SubmitButton
@@ -481,7 +483,7 @@ export function BookingStepInteractive({
               {cardCapture
                 ? "Save card & book"
                 : deposit > 0
-                  ? `Pay ${gbp(deposit)} deposit & book`
+                  ? `Pay ${money(deposit)} deposit & book`
                   : "Confirm booking"}
             </SubmitButton>
             {(process.env.NEXT_PUBLIC_STRIPE_TEST_MODE === "1" ||

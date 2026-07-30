@@ -1,4 +1,4 @@
-import { gbp } from "@/lib/format";
+import { money } from "@/lib/money";
 import type { BalanceStatus, DepositStatus } from "@/lib/db/types";
 
 export type BookingPaymentFields = {
@@ -48,7 +48,10 @@ export function bookingAmountDue(b: BookingPaymentFields): number {
  * - Deposit paid: deposit recorded, balance still outstanding
  * - Due: anything still owed
  */
-export function bookingPaymentSummary(b: BookingPaymentFields): BookingPaymentSummary {
+export function bookingPaymentSummary(
+  b: BookingPaymentFields,
+  currency: string,
+): BookingPaymentSummary {
   const duePennies = bookingAmountDue(b);
   const depositPaid =
     b.depositPennies > 0 &&
@@ -72,18 +75,18 @@ export function bookingPaymentSummary(b: BookingPaymentFields): BookingPaymentSu
     return {
       state: "deposit_paid",
       shortLabel: "Deposit paid",
-      listLabel: `${gbp(b.balancePennies)} due`,
+      listLabel: `${money(b.balancePennies, currency)} due`,
       duePennies: b.balancePennies,
-      ariaLabel: `Deposit paid, ${gbp(b.balancePennies)} still due`,
+      ariaLabel: `Deposit paid, ${money(b.balancePennies, currency)} still due`,
     };
   }
 
   return {
     state: "due",
-    shortLabel: `${gbp(duePennies)} due`,
-    listLabel: `${gbp(b.balancePennies)} due`,
+    shortLabel: `${money(duePennies, currency)} due`,
+    listLabel: `${money(b.balancePennies, currency)} due`,
     duePennies,
-    ariaLabel: `${gbp(duePennies)} due`,
+    ariaLabel: `${money(duePennies, currency)} due`,
   };
 }
 

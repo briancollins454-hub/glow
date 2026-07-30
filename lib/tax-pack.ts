@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import PDFDocument from "pdfkit";
 import { formatInTimeZone } from "date-fns-tz";
 import { listBookings, listClients, listPayments, listServices } from "@/lib/db/queries";
-import { fmtDate, fmtDateTime, gbp, TZ } from "@/lib/format";
+import { fmtDate, fmtDateTime, TZ } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import { inTaxYear, taxYearRange, type TaxYearRange } from "@/lib/tax-year";
 import type { Payment, Tech } from "@/lib/db/types";
 
@@ -191,6 +193,7 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
     const ctx: PdfCtx = { doc, left, right, contentWidth, y: 50 };
 
     const biz = data.tech.businessName || data.tech.name;
+    const cur = salonCurrency(data.tech);
     const periodFrom = fmtDate(data.taxYear.fromIso);
     const periodTo = fmtDate(new Date(new Date(data.taxYear.toIso).getTime() - 1).toISOString());
 
@@ -205,16 +208,16 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
     ctx.y += 24;
 
     sectionTitle(ctx, "Income summary");
-    bodyLine(ctx, `Total turnover (net of refunds): ${gbp(data.totalIncome)}`, { bold: true, gap: 6 });
-    bodyLine(ctx, `Deposits received: ${gbp(data.depositsTotal)}`);
-    bodyLine(ctx, `Balances received: ${gbp(data.balancesTotal)}`);
+    bodyLine(ctx, `Total turnover (net of refunds): ${money(data.totalIncome, cur)}`, { bold: true, gap: 6 });
+    bodyLine(ctx, `Deposits received: ${money(data.depositsTotal, cur)}`);
+    bodyLine(ctx, `Balances received: ${money(data.balancesTotal, cur)}`);
     if (data.refundsTotal > 0) {
-      bodyLine(ctx, `Refunds issued: ${gbp(data.refundsTotal)}`);
+      bodyLine(ctx, `Refunds issued: ${money(data.refundsTotal, cur)}`);
     }
     bodyLine(ctx, `Completed appointments: ${data.completed}`);
     bodyLine(ctx, `No-shows: ${data.noShows}`);
     if (data.forfeited > 0) {
-      bodyLine(ctx, `Forfeited deposits (kept): ${gbp(data.forfeited)}`, { gap: 8 });
+      bodyLine(ctx, `Forfeited deposits (kept): ${money(data.forfeited, cur)}`, { gap: 8 });
     }
 
     sectionTitle(ctx, "Income by month");
@@ -223,7 +226,7 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
     } else {
       for (const [month, total] of data.byMonth) {
         const label = formatInTimeZone(new Date(`${month}-01T12:00:00Z`), TZ, "MMMM yyyy");
-        bodyLine(ctx, `${label}: ${gbp(total)}`);
+        bodyLine(ctx, `${label}: ${money(total, cur)}`);
       }
     }
 
@@ -232,7 +235,7 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
       bodyLine(ctx, "No service income recorded in this tax year.");
     } else {
       for (const [name, total] of data.byService) {
-        bodyLine(ctx, `${name}: ${gbp(total)}`);
+        bodyLine(ctx, `${name}: ${money(total, cur)}`);
       }
     }
 
@@ -253,7 +256,7 @@ export function buildTaxPackPdf(data: TaxPackData): Promise<Buffer> {
           ? formatInTimeZone(new Date(row.appointmentIso), TZ, "dd MMM yyyy HH:mm")
           : "—";
         const line =
-          `${date} · ${kindLabel(row.kind)} · ${gbp(row.amountPennies)}` +
+          `${date} · ${kindLabel(row.kind)} · ${money(row.amountPennies, cur)}` +
           (row.clientName ? ` · ${row.clientName}` : "") +
           (row.serviceName ? ` · ${row.serviceName}` : "") +
           ` · Appt ${appt}`;

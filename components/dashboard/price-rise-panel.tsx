@@ -5,7 +5,8 @@ import { TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input, Label } from "@/components/ui/input";
-import { gbp } from "@/lib/format";
+import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { currencySymbol } from "@/lib/money";
 import {
   buildPriceRiseAnnouncement,
   previewPriceRise,
@@ -24,6 +25,8 @@ export function PriceRisePanel({
   services: Service[];
   tech: Tech;
 }) {
+  const money = useMoney();
+  const symbol = currencySymbol(useCurrency());
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const [mode, setMode] = useState<PriceRiseMode>("percent");
   const [amount, setAmount] = useState(10);
@@ -106,7 +109,7 @@ export function PriceRisePanel({
                     : "bg-fill-hover text-ink-soft hover:text-ink")
                 }
               >
-                {m === "percent" ? "%" : "£ fixed"}
+                {m === "percent" ? "%" : `${symbol} fixed`}
               </button>
             ))}
           </div>
@@ -197,9 +200,9 @@ export function PriceRisePanel({
               {preview.map((row) => (
                 <tr key={row.serviceId} className="border-b border-edge last:border-0">
                   <td className="px-3 py-2 font-medium">{row.name}</td>
-                  <td className="px-3 py-2 text-ink-soft">{gbp(row.currentPennies)}</td>
-                  <td className="px-3 py-2">{gbp(row.newPennies)}</td>
-                  <td className="px-3 py-2 text-right text-success-text">+{gbp(row.deltaPennies)}</td>
+                  <td className="px-3 py-2 text-ink-soft">{money(row.currentPennies)}</td>
+                  <td className="px-3 py-2">{money(row.newPennies)}</td>
+                  <td className="px-3 py-2 text-right text-success-text">+{money(row.deltaPennies)}</td>
                 </tr>
               ))}
             </tbody>

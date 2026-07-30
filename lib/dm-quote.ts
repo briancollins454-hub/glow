@@ -1,4 +1,6 @@
-import { gbp, minutesToLabel } from "@/lib/format";
+import { minutesToLabel } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import type { BookingAddon, DmQuoteLink, Service, Tech } from "@/lib/db/types";
 
 export function quoteUrl(token: string, appUrl: string): string {
@@ -21,25 +23,26 @@ export type DmQuoteCopy = {
 };
 
 export function buildDmQuoteCopy(
-  tech: Pick<Tech, "businessName" | "name"> & { clientPaymentsEnabled?: boolean | null },
+  tech: Pick<Tech, "businessName" | "name" | "currency"> & { clientPaymentsEnabled?: boolean | null },
   quote: Pick<DmQuoteLink, "clientName" | "pricePennies" | "depositPennies" | "note">,
   service: Pick<Service, "name" | "durationMin">,
   addons: BookingAddon[],
   url: string,
 ): DmQuoteCopy {
+  const cur = salonCurrency(tech);
   const first = quote.clientName?.trim().split(" ")[0];
   const hi = first ? `Hi ${first}!` : "Hi!";
   const addonLine =
     addons.length > 0 ? `\nIncludes: ${addons.map((a) => a.name).join(", ")}` : "";
   const depositLine =
     quote.depositPennies > 0 && tech.clientPaymentsEnabled !== false
-      ? `\n${gbp(quote.depositPennies)} deposit secures your slot.`
+      ? `\n${money(quote.depositPennies, cur)} deposit secures your slot.`
       : "";
   const noteLine = quote.note?.trim() ? `\n\n${quote.note.trim()}` : "";
 
   const body =
     `${hi} ✨\n\n` +
-    `${service.name} (${minutesToLabel(service.durationMin)}) — ${gbp(quote.pricePennies)}` +
+    `${service.name} (${minutesToLabel(service.durationMin)}) — ${money(quote.pricePennies, cur)}` +
     `${addonLine}${depositLine}${noteLine}\n\n` +
     `Book here: ${url}`;
 

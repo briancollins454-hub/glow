@@ -6,7 +6,8 @@ import { Plus, BellRing, Trash2, CheckCircle2, CalendarOff } from "lucide-react"
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { gbp, fmtDate, fmtTime } from "@/lib/format";
+import { fmtDate, fmtTime } from "@/lib/format";
+import { useCurrency, useMoney } from "@/components/locale/currency-provider";
 import { statusBadge } from "@/components/dashboard/status";
 import { riskTierLabel, riskTierTone, dateStrInTz } from "@/lib/rules";
 import { BookingActions } from "@/components/dashboard/booking-actions";
@@ -76,6 +77,8 @@ function BookingsView({
   tech = null,
   now,
 }: BookingsData) {
+  const money = useMoney();
+  const currency = useCurrency();
   const searchParams = useSearchParams();
   const lateDone = searchParams.get("late");
   const lateErr = searchParams.get("lateerr");
@@ -155,10 +158,10 @@ function BookingsView({
         </p>
         <p className="mt-0.5 text-xs text-ink-faint">
           <span className={`font-medium ${muted ? "text-ink-soft" : "text-ink"}`}>
-            {gbp(b.pricePennies)}
+            {money(b.pricePennies)}
           </span>
           {" · "}
-          {bookingPaymentSummary(b).listLabel}
+          {bookingPaymentSummary(b, currency).listLabel}
         </p>
       </div>
       <div className="relative shrink-0">
@@ -225,12 +228,12 @@ function BookingsView({
       {noShowFee === "charged" && (
         <div className="flex items-start gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{gbp(noShowAmt)} charged to the client&apos;s saved card.</span>
+          <span>{money(noShowAmt)} charged to the client&apos;s saved card.</span>
         </div>
       )}
       {noShowFee === "declined" && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
-          We couldn&apos;t charge {gbp(noShowAmt)} to the saved card — the client&apos;s bank declined it.
+          We couldn&apos;t charge {money(noShowAmt)} to the saved card — the client&apos;s bank declined it.
           The booking update is still recorded; you can request payment from the client directly.
         </div>
       )}

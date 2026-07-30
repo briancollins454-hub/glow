@@ -2,22 +2,6 @@ import { formatInTimeZone } from "date-fns-tz";
 
 export const TZ = "Europe/London";
 
-/** Format pennies (integer) as GBP. */
-export function gbp(pennies: number): string {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format((pennies ?? 0) / 100);
-}
-
-/** Parse a "£12.50" / "12.5" string into integer pennies. */
-export function poundsToPennies(value: string | number): number {
-  if (typeof value === "number") return Math.round(value * 100);
-  const cleaned = value.replace(/[^0-9.]/g, "");
-  if (!cleaned) return 0;
-  return Math.round(parseFloat(cleaned) * 100);
-}
-
 export function fmtDate(iso: string): string {
   return formatInTimeZone(new Date(iso), TZ, "EEE d MMM yyyy");
 }

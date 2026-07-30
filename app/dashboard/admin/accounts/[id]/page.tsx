@@ -6,7 +6,9 @@ import { getOwnerAccountDetail } from "@/lib/owner/accounts";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { fmtDate, fmtDateTime, gbp } from "@/lib/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
+import { salonCurrency } from "@/lib/locale";
+import { money } from "@/lib/money";
 import {
   ownerSetTesterAction,
   ownerSetCompAction,
@@ -545,7 +547,7 @@ export default async function OwnerAccountDetailPage({
                     {s.name}
                     {!s.active ? <span className="text-ink-faint"> (off)</span> : null}
                   </span>
-                  <span>{gbp(s.pricePennies)}</span>
+                  <span>{money(s.pricePennies, salonCurrency(tech))}</span>
                 </div>
               ))
             )}
@@ -566,7 +568,7 @@ export default async function OwnerAccountDetailPage({
                     <span>
                       {fmtDateTime(b.startIso)} · {b.status}
                     </span>
-                    <span>{gbp(b.pricePennies)}</span>
+                    <span>{money(b.pricePennies, salonCurrency(tech))}</span>
                   </div>
                 ),
               )
@@ -589,7 +591,7 @@ export default async function OwnerAccountDetailPage({
                     <span>
                       {p.kind} · {p.status} · {fmtDate(p.createdAt)}
                     </span>
-                    <span>{gbp(p.amountPennies)}</span>
+                    <span>{money(p.amountPennies, salonCurrency(tech))}</span>
                   </div>
                 ),
               )

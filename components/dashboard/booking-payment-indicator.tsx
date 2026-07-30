@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { useCurrency } from "@/components/locale/currency-provider";
 import {
   bookingPaymentSummary,
   isCompactPaymentIndicator,
@@ -24,7 +25,8 @@ export function BookingPaymentIndicator({
   forceCompact?: boolean;
   className?: string;
 }) {
-  const summary = bookingPaymentSummary(booking);
+  const currency = useCurrency();
+  const summary = bookingPaymentSummary(booking, currency);
   const compact =
     forceCompact ||
     (typeof blockHeightPx === "number" ? isCompactPaymentIndicator(blockHeightPx) : false);

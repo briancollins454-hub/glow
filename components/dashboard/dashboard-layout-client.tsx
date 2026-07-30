@@ -4,7 +4,9 @@ import { usePathname } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DashboardPaywall } from "@/components/dashboard/dashboard-paywall";
 import { DashboardTheme } from "@/components/theme/theme-providers";
+import { CurrencyProvider } from "@/components/locale/currency-provider";
 import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
+import { salonCurrency } from "@/lib/locale";
 import { isLive } from "@/lib/subscriptions";
 import { DASHBOARD_DATA_KEYS } from "@/lib/dashboard/page-loaders";
 import { prefetchDashboardData } from "@/lib/dashboard/client-cache";
@@ -49,7 +51,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   );
 
   return (
-    <>
+    <CurrencyProvider currency={salonCurrency(tech)}>
       <DashboardTheme preference={tech.dashboardTheme} />
       <DashboardShell
         tech={tech}
@@ -60,6 +62,6 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
       >
         {mustPay && !onAllowedRoute ? <DashboardPaywall tech={tech} /> : children}
       </DashboardShell>
-    </>
+    </CurrencyProvider>
   );
 }
