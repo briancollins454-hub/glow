@@ -17,7 +17,7 @@ import { BookingPaymentIndicator } from "@/components/dashboard/booking-payment-
 import { DiaryDatePicker } from "@/components/dashboard/diary-date-picker";
 import { statusBadge } from "@/components/dashboard/status";
 import { fmtTime } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { dateStrInTz } from "@/lib/rules";
 import type { Booking } from "@/lib/db/types";
 
@@ -40,10 +40,10 @@ function activeBookings(bookings: Booking[]): Booking[] {
   return bookings.filter((b) => b.status !== "cancelled");
 }
 
-function bookingsByDate(bookings: Booking[]): Map<string, Booking[]> {
+function bookingsByDate(bookings: Booking[], tz: string): Map<string, Booking[]> {
   const map = new Map<string, Booking[]>();
   for (const b of activeBookings(bookings)) {
-    const key = dateStrInTz(new Date(b.startIso));
+    const key = dateStrInTz(new Date(b.startIso), tz);
     const list = map.get(key);
     if (list) list.push(b);
     else map.set(key, [b]);
@@ -54,7 +54,7 @@ function bookingsByDate(bookings: Booking[]): Map<string, Booking[]> {
   return map;
 }
 
-function monthCells(cursor: Date): { dateStr: string; inMonth: boolean }[] {
+function monthCells(cursor: Date, tz: string): { dateStr: string; inMonth: boolean }[] {
   const start = startOfMonth(cursor);
   const end = endOfMonth(cursor);
   const days = eachDayOfInterval({ start, end });
@@ -65,7 +65,7 @@ function monthCells(cursor: Date): { dateStr: string; inMonth: boolean }[] {
     cells.push({ dateStr: "", inMonth: false });
   }
   for (const d of days) {
-    cells.push({ dateStr: dateStrInTz(d), inMonth: true });
+    cells.push({ dateStr: dateStrInTz(d, tz), inMonth: true });
   }
   while (cells.length % 7 !== 0) {
     cells.push({ dateStr: "", inMonth: false });
@@ -83,7 +83,8 @@ export function BookingsMonthCalendar({
   onAddBooking,
 }: Props) {
   const money = useMoney();
-  const todayStr = dateStrInTz(new Date());
+  const tz = useSalonTz();
+  const todayStr = dateStrInTz(new Date(), tz);
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [internalSelected, setInternalSelected] = useState(todayStr);
   const selected = selectedProp ?? internalSelected;
@@ -92,8 +93,8 @@ export function BookingsMonthCalendar({
     else setInternalSelected(dateStr);
   };
 
-  const byDate = useMemo(() => bookingsByDate(bookings), [bookings]);
-  const cells = useMemo(() => monthCells(cursor), [cursor]);
+  const byDate = useMemo(() => bookingsByDate(bookings, tz), [bookings, tz]);
+  const cells = useMemo(() => monthCells(cursor, tz), [cursor, tz]);
   const selectedBookings = byDate.get(selected) ?? [];
   const monthLabel = format(cursor, "MMMM yyyy");
 
@@ -217,7 +218,7 @@ export function BookingsMonthCalendar({
                         <BookingPaymentIndicator booking={b} />
                       </div>
                       <p className="mt-0.5 text-xs text-ink-faint">
-                        {fmtTime(b.startIso)} · {serviceById[b.serviceId] ?? "Service"} ·{" "}
+                        {fmtTime(b.startIso, tz)} · {serviceById[b.serviceId] ?? "Service"} ·{" "}
                         <span className="font-medium text-ink">{money(b.pricePennies)}</span>
                       </p>
                     </div>

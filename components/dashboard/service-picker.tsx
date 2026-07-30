@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { groupServicesForDashboard } from "@/lib/booking/service-groups";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useMoney } from "@/components/locale/locale-provider";
 import { cn } from "@/lib/utils";
 import type { Service, ServiceCategory } from "@/lib/db/types";
 

@@ -9,12 +9,13 @@ const GRACE_MS = 30 * 60 * 1000;
 export function filterLateCascadeBookings(
   bookings: Booking[],
   targetDate: string,
+  tz: string,
   nowMs = Date.now(),
 ): Booking[] {
   return bookings
     .filter((b) => {
       if (!ACTIVE_STATUSES.includes(b.status)) return false;
-      if (dateStrInTz(new Date(b.startIso)) !== targetDate) return false;
+      if (dateStrInTz(new Date(b.startIso), tz) !== targetDate) return false;
       const endMs = new Date(b.endIso || b.startIso).getTime();
       if (endMs <= nowMs) return false;
       const startMs = new Date(b.startIso).getTime();
@@ -24,6 +25,6 @@ export function filterLateCascadeBookings(
     .sort((a, b) => new Date(a.startIso).getTime() - new Date(b.startIso).getTime());
 }
 
-export function todayDateStr(now = new Date()): string {
-  return dateStrInTz(now);
+export function todayDateStr(tz: string, now = new Date()): string {
+  return dateStrInTz(now, tz);
 }

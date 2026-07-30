@@ -10,7 +10,7 @@ import { groupServicesForDashboard } from "@/lib/booking/service-groups";
 import { rowsForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { fmtTime } from "@/lib/format";
-import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { useCurrency, useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { currencySymbol } from "@/lib/money";
 import {
   basketDurationMin,
@@ -74,6 +74,7 @@ export function ManualBookingForm({
 }) {
   const money = useMoney();
   const symbol = currencySymbol(useCurrency());
+  const tz = useSalonTz();
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const groups = useMemo(
     () => groupServicesForDashboard(categories, activeServices),
@@ -121,6 +122,7 @@ export function ManualBookingForm({
         duration,
         dateStr,
         {
+          tz,
           workingHours,
           timeOff: scopedOffs,
           bookings: scopedBookings,
@@ -132,7 +134,7 @@ export function ManualBookingForm({
         { includeOutsideHours: true },
       );
       return choices.map((c) => {
-        const time = fmtTime(c.iso);
+        const time = fmtTime(c.iso, tz);
         if (c.overrideReason === "blocked" || c.overrideReason === "outside_hours") {
           return { time, overrideReason: c.overrideReason };
         }
@@ -158,6 +160,7 @@ export function ManualBookingForm({
       flexibleHours,
       bufferByServiceId,
       clientById,
+      tz,
     ],
   );
 

@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,7 +78,7 @@ export default async function OwnerPartnersPage({
               <div key={p.id} className="rounded-xl border border-edge px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-medium text-ink">{p.name}</p>
-                  <p className="text-ink-faint">Added {fmtDate(p.createdAt)}</p>
+                  <p className="text-ink-faint">Added {fmtDate(p.createdAt, PLATFORM_TZ)}</p>
                 </div>
                 <p className="mt-1 text-ink-soft">
                   /partner/{p.slug}

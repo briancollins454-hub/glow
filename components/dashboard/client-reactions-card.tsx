@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { severityLabel } from "@/lib/product-batches";
 import type { ClientReaction, Product, ProductBatch, ServiceCategory } from "@/lib/db/types";
 import { addReactionAction, deleteReactionAction } from "@/app/dashboard/actions";
@@ -26,6 +27,7 @@ export function ClientReactionsCard({
   reactions: ClientReaction[];
   batchOptions: BatchOption[];
 }) {
+  const tz = useSalonTz();
   const catById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -59,7 +61,7 @@ export function ClientReactionsCard({
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={tone}>{severityLabel(r.severity)}</Badge>
                     <span className="font-medium">{catById[r.categoryId] ?? "Category"}</span>
-                    <span className="text-xs text-ink-faint">{fmtDate(r.onsetIso)}</span>
+                    <span className="text-xs text-ink-faint">{fmtDate(r.onsetIso, tz)}</span>
                   </div>
                   {r.symptoms && <p className="mt-1">{r.symptoms}</p>}
                   {batch && (

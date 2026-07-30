@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
-import { fmtTime, TZ } from "@/lib/format";
+import { fmtTime } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { onBrand } from "@/lib/booking/brand";
 
 type DayOption = { dateStr: string; slots: string[] };
@@ -20,6 +21,7 @@ export function DateSlotPicker({
   brand: string;
   onSlotChange?: (slot: string) => void;
 }) {
+  const tz = useSalonTz();
   const defaultDate =
     initialDate && days.some((d) => d.dateStr === initialDate)
       ? initialDate
@@ -76,13 +78,13 @@ export function DateSlotPicker({
               }
             >
               <span className="text-xs opacity-80">
-                {formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "EEE")}
+                {formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), "UTC", "EEE")}
               </span>
               <span className="text-lg font-semibold">
-                {formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "d")}
+                {formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), "UTC", "d")}
               </span>
               <span className="text-[10px] opacity-80">
-                {formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), TZ, "MMM")}
+                {formatInTimeZone(new Date(`${d.dateStr}T12:00:00Z`), "UTC", "MMM")}
               </span>
             </button>
           );
@@ -105,7 +107,7 @@ export function DateSlotPicker({
                   : { borderColor: "rgba(255,255,255,0.14)" }
               }
             >
-              {fmtTime(s)}
+              {fmtTime(s, tz)}
             </button>
           );
         })}

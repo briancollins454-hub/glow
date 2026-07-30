@@ -9,7 +9,7 @@ import { ServicePicker } from "@/components/dashboard/service-picker";
 import { rowsForStaff } from "@/lib/booking/staff";
 import { timeOffAppliesToStaff } from "@/lib/booking/staff-day";
 import { fmtTime } from "@/lib/format";
-import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { useCurrency, useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { currencySymbol } from "@/lib/money";
 import {
   bufferMapFromServices,
@@ -68,6 +68,7 @@ export function BookingRescheduleForm({
 }) {
   const money = useMoney();
   const symbol = currencySymbol(useCurrency());
+  const tz = useSalonTz();
   const [serviceId, setServiceId] = useState(booking.serviceId);
   const selectedService =
     services.find((s) => s.id === serviceId) ??
@@ -96,6 +97,7 @@ export function BookingRescheduleForm({
         selectedService.durationMin,
         dateStr,
         {
+          tz,
           workingHours,
           timeOff: scopedOffs,
           bookings: others,
@@ -107,7 +109,7 @@ export function BookingRescheduleForm({
         { includeOutsideHours: true },
       );
       return choices.map((c) => {
-        const time = fmtTime(c.iso);
+        const time = fmtTime(c.iso, tz);
         if (c.overrideReason === "blocked" || c.overrideReason === "outside_hours") {
           return { time, overrideReason: c.overrideReason };
         }
@@ -133,6 +135,7 @@ export function BookingRescheduleForm({
       bufferByServiceId,
       booking.id,
       clientById,
+      tz,
     ],
   );
 

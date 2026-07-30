@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { formatInTimeZone } from "date-fns-tz";
-import { TZ } from "@/lib/format";
+const TZ = "Europe/London";
 
-/** Mirrors googleDateTime in lib/google-calendar.ts */
+/** Mirrors googleDateTime in lib/google-calendar.ts (salon tz; London here). */
 function googleDateTime(iso: string): string {
   return formatInTimeZone(new Date(iso), TZ, "yyyy-MM-dd'T'HH:mm:ss");
 }

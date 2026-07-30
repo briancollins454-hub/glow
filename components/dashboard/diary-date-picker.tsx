@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { fmtDate } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import {
   addMonthsToMonthStart,
   firstOfMonthContaining,
@@ -26,15 +27,16 @@ export function DiaryDatePicker({
   onDateChange: (dateStr: string) => void;
   className?: string;
 }) {
+  const tz = useSalonTz();
   const [open, setOpen] = useState(false);
   const [monthStart, setMonthStart] = useState(() => firstOfMonthContaining(dateStr));
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // London today as YYYY-MM-DD
-  const todayLondon = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
+  // Salon-local today as YYYY-MM-DD
+  const todayLocal = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -88,7 +90,7 @@ export function DiaryDatePicker({
         onClick={() => setOpen((v) => !v)}
         className="inline-flex min-h-10 min-w-[9rem] items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-ink hover:bg-fill-hover"
       >
-        <span>{fmtDate(`${dateStr}T12:00:00Z`)}</span>
+        <span>{fmtDate(`${dateStr}T12:00:00Z`, "UTC")}</span>
         <ChevronDown className="h-4 w-4 text-ink-faint" aria-hidden="true" />
       </button>
 
@@ -131,7 +133,7 @@ export function DiaryDatePicker({
 
           <div className="grid grid-cols-7 gap-0.5">
             {cells.map((cell) => {
-              const isToday = cell.dateStr === todayLondon;
+              const isToday = cell.dateStr === todayLocal;
               const isSelected = cell.dateStr === dateStr;
               const dayNum = Number(cell.dateStr.slice(8, 10));
               return (
@@ -164,7 +166,7 @@ export function DiaryDatePicker({
 
           <button
             type="button"
-            onClick={() => selectDay(todayLondon)}
+            onClick={() => selectDay(todayLocal)}
             className="mt-2 w-full rounded-xl border border-edge px-3 py-2.5 text-sm font-medium text-ink-soft hover:bg-fill-hover"
           >
             Today

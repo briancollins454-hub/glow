@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fmtDate } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { statusBadge } from "@/components/dashboard/status";
 import { ClientMessageLink } from "@/components/messages/client-message-link";
@@ -55,6 +55,7 @@ export default async function ClientDetailPage({
   const { photoerr } = await searchParams;
   const client = await getClient(sb, id);
   if (!client || client.techId !== tech.id) notFound();
+  const tz = salonTz(tech);
 
   const [history, tests, categories, services, photos, responses, consentRecords, reactions, products, batches] =
     await Promise.all([
@@ -183,7 +184,7 @@ export default async function ClientDetailPage({
                     <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm">
                       <div className="min-w-0">
                         <p className="font-medium">{catById.get(t.categoryId) ?? "Category"}</p>
-                        <p className="text-xs text-ink-faint">Done {fmtDate(t.performedAtIso)} · expires {fmtDate(t.expiresAtIso)}</p>
+                        <p className="text-xs text-ink-faint">Done {fmtDate(t.performedAtIso, tz)} · expires {fmtDate(t.expiresAtIso, tz)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         {t.result === "fail" ? <Badge tone="red">Failed</Badge> : expired ? <Badge tone="neutral">Expired</Badge> : <Badge tone="green">Valid</Badge>}
@@ -248,7 +249,7 @@ export default async function ClientDetailPage({
           <CardHeader className="flex-row items-start justify-between gap-3">
             <div>
               <CardTitle>Latest consultation answers</CardTitle>
-              <CardDescription>From {fmtDate(latestResponse.createdAt)}</CardDescription>
+              <CardDescription>From {fmtDate(latestResponse.createdAt, tz)}</CardDescription>
             </div>
             <form action={deleteFormResponseAction}>
               <input type="hidden" name="id" value={latestResponse.id} />
@@ -287,10 +288,10 @@ export default async function ClientDetailPage({
                     <div>
                       <p className="font-medium text-ink">Signed consent record</p>
                       <p className="mt-0.5 text-xs text-ink-faint">
-                        {fmtDate(record.signedAt)}
+                        {fmtDate(record.signedAt, tz)}
                         {" · "}
                         {serviceById.get(record.serviceId) ?? "Service"}
-                        {appointment ? ` · appointment ${fmtDate(appointment.startIso)}` : ""}
+                        {appointment ? ` · appointment ${fmtDate(appointment.startIso, tz)}` : ""}
                       </p>
                     </div>
                     <a
@@ -349,7 +350,7 @@ export default async function ClientDetailPage({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-ink">Consultation answers</p>
-                    <p className="mt-0.5 text-xs text-ink-faint">{fmtDate(fr.createdAt)}</p>
+                    <p className="mt-0.5 text-xs text-ink-faint">{fmtDate(fr.createdAt, tz)}</p>
                   </div>
                   {fr.id !== latestResponse?.id && (
                     <form action={deleteFormResponseAction}>
@@ -468,7 +469,7 @@ export default async function ClientDetailPage({
               <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-cream px-4 py-2.5 text-sm transition hover:shadow-card">
                 <div className="min-w-0">
                   <p className="font-medium">{serviceById.get(b.serviceId) ?? "Service"}{extras && <span className="text-ink-faint"> + {extras}</span>}</p>
-                  <p className="text-xs text-ink-faint">{fmtDate(b.startIso)}</p>
+                  <p className="text-xs text-ink-faint">{fmtDate(b.startIso, tz)}</p>
                   {lash && <p className="mt-0.5 text-xs text-brand-text">{lash}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">

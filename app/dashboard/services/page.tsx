@@ -12,7 +12,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { ImageFileInput } from "@/components/ui/image-file-input";
 import { minutesToLabel } from "@/lib/format";
-import { useCurrency, useMoney } from "@/components/locale/currency-provider";
+import { useCurrency, useMoney } from "@/components/locale/locale-provider";
 import { currencySymbol } from "@/lib/money";
 import { depositFor } from "@/lib/rules";
 import { ServiceForm } from "@/components/dashboard/service-form";

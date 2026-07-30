@@ -53,6 +53,7 @@ describe("dayWindowForDate with rota", () => {
   it("uses the rota day when a week is saved", () => {
     expect(
       dayWindowForDate("2030-07-10", {
+        tz: "Europe/London",
         workingHours: [],
         timeOff: [],
         bookings: [],
@@ -69,6 +70,7 @@ describe("dayWindowForDate with rota", () => {
   it("treats disabled rota days as closed even when flexible is on", () => {
     expect(
       dayWindowForDate("2030-07-11", {
+        tz: "Europe/London",
         workingHours: [],
         timeOff: [],
         bookings: [],
@@ -81,6 +83,7 @@ describe("dayWindowForDate with rota", () => {
   it("falls back to flexible when the week has no rota rows", () => {
     expect(
       dayWindowForDate("2030-07-17", {
+        tz: "Europe/London",
         workingHours: [],
         timeOff: [],
         bookings: [],
@@ -99,6 +102,7 @@ describe("dayWindowForDate with rota", () => {
       60,
       "2030-07-10",
       {
+        tz: "Europe/London",
         workingHours: [],
         timeOff: [],
         bookings: [],

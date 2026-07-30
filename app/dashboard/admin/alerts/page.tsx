@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -40,7 +41,7 @@ export default async function OwnerAlertsPage() {
                   <h2 className="mt-1 font-display text-lg font-semibold">{a.title}</h2>
                   <p className="text-sm text-ink-soft">{a.body}</p>
                   <p className="mt-2 text-xs text-ink-faint">
-                    {fmtDateTime(a.createdAt)}
+                    {fmtDateTime(a.createdAt, PLATFORM_TZ)}
                     {a.techId ? (
                       <>
                         {" · "}

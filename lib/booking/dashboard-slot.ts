@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { workingHoursForStaff, rowsForStaff } from "@/lib/booking/staff";
-import { minutesFromMidnightLondon, timeOffAppliesToStaff } from "@/lib/booking/staff-day";
+import { minutesFromMidnight, timeOffAppliesToStaff } from "@/lib/booking/staff-day";
+import { salonTz } from "@/lib/locale";
 import {
   BLOCKING_STATUSES,
   bufferMapFromServices,
@@ -90,7 +91,8 @@ export async function checkDashboardStaffSlot(
     } = await import("@/lib/db/queries");
     const { supabaseService } = await import("@/lib/supabase/service");
 
-    const dateStr = dateStrInTz(new Date(opts.startIso));
+    const tz = salonTz(tech);
+    const dateStr = dateStrInTz(new Date(opts.startIso), tz);
     const dayMs = 24 * 60 * 60 * 1000;
     const windowStart = new Date(new Date(opts.startIso).getTime() - dayMs).toISOString();
     const windowEnd = new Date(new Date(opts.startIso).getTime() + dayMs).toISOString();
@@ -122,6 +124,7 @@ export async function checkDashboardStaffSlot(
     const bufferByServiceId = bufferMapFromServices(allServices as Service[]);
     const flexibleHours = flexibleHoursFromTech(tech);
     const availabilityCtx = {
+      tz,
       workingHours,
       timeOff: scopedOffs,
       bookings: scopedBookings.filter((b) => b.id !== opts.excludeBookingId),
@@ -170,7 +173,7 @@ export async function checkDashboardStaffSlot(
     const wh = dayWindowForDate(dateStr, availabilityCtx);
     if (!wh) return { ok: false, reason: "outside_hours" };
 
-    const startM = minutesFromMidnightLondon(opts.startIso);
+    const startM = minutesFromMidnight(opts.startIso, tz);
     const lastStart =
       wh.lastStartMinutes != null ? wh.lastStartMinutes : wh.endMinutes - opts.durationMin;
     if (startM < wh.startMinutes || startM > lastStart) {

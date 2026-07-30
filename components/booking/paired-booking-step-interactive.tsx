@@ -17,8 +17,8 @@ import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { ConsentSignatureFields } from "@/components/booking/consent-signature-fields";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
-import { minutesToLabel, TZ } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { minutesToLabel } from "@/lib/format";
+import { useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { depositFor } from "@/lib/rules";
 import { serviceRequiresSignedConsent } from "@/lib/booking/consent";
 import { usesCardCapture } from "@/lib/subscriptions";
@@ -80,6 +80,7 @@ export function PairedBookingStepInteractive({
   staffId?: string | null;
 }) {
   const money = useMoney();
+  const tz = useSalonTz();
   // Card capture: nothing is paid upfront; a card is saved at checkout instead.
   const cardCapture = usesCardCapture(tech);
   const deposit = cardCapture ? 0 : depositFor(treatmentService);
@@ -226,7 +227,7 @@ export function PairedBookingStepInteractive({
           <h3 className="font-display text-lg font-semibold text-ink">2. Treatment time</h3>
           <p className="mt-1 text-sm text-ink-soft">
             At least {minLeadHours} hours after your patch test on{" "}
-            {formatInTimeZone(new Date(patchSlot), TZ, "EEE d MMM 'at' HH:mm")}.
+            {formatInTimeZone(new Date(patchSlot), tz, "EEE d MMM 'at' HH:mm")}.
           </p>
           {loadingTreatment ? (
             <p className="mt-4 text-sm text-ink-faint">Loading available treatment times…</p>
@@ -251,11 +252,11 @@ export function PairedBookingStepInteractive({
           <p className="mt-1 text-sm text-ink-soft">
             <strong className="text-ink">{patchTestService.name}</strong> on{" "}
             <strong className="text-ink">
-              {formatInTimeZone(new Date(patchSlot), TZ, "EEE d MMM 'at' HH:mm")}
+              {formatInTimeZone(new Date(patchSlot), tz, "EEE d MMM 'at' HH:mm")}
             </strong>
             , then <strong className="text-ink">{treatmentService.name}</strong> on{" "}
             <strong className="text-ink">
-              {formatInTimeZone(new Date(treatmentSlot), TZ, "EEE d MMM 'at' HH:mm")}
+              {formatInTimeZone(new Date(treatmentSlot), tz, "EEE d MMM 'at' HH:mm")}
             </strong>
           </p>
           <form action={createPairedPublicBookingAction} className="mt-5 space-y-4">

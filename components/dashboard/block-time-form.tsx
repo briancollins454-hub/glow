@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { addTimeOffAction, deleteTimeOffAction } from "@/app/dashboard/actions";
 import { timeOffOnDate } from "@/lib/booking/staff-day";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { fmtTime } from "@/lib/format";
 import type { StaffMember, TimeOff } from "@/lib/db/types";
 
@@ -22,7 +23,8 @@ export function BlockTimeForm({
   offs: TimeOff[];
   staff: StaffMember[];
 }) {
-  const dayOffs = useMemo(() => timeOffOnDate(offs, dateStr), [offs, dateStr]);
+  const tz = useSalonTz();
+  const dayOffs = useMemo(() => timeOffOnDate(offs, dateStr, tz), [offs, dateStr, tz]);
   const showStaff = staff.length > 1;
   const [start, setStart] = useState(() => localDateTime(dateStr, 12));
   const [end, setEnd] = useState(() => localDateTime(dateStr, 13));
@@ -162,7 +164,7 @@ export function BlockTimeForm({
               >
                 <div className="min-w-0">
                   <p className="font-medium text-ink">
-                    {fmtTime(o.startIso)} – {fmtTime(o.endIso)}
+                    {fmtTime(o.startIso, tz)} – {fmtTime(o.endIso, tz)}
                     {showStaff ? (
                       <span className="font-normal text-ink-faint"> · {staffName(o.staffId)}</span>
                     ) : null}

@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { listOwnerAccounts, signupOfferLabel, trialDaysLeft } from "@/lib/owner/accounts";
@@ -59,16 +60,16 @@ export default async function OwnerAccountsPage({
       plan: row.tech.plan,
       healthScore: row.tech.healthScore ?? null,
       healthBand: row.tech.healthBand ?? null,
-      trialEnds: row.tech.trialEndsAt ? fmtDate(row.tech.trialEndsAt) : null,
+      trialEnds: row.tech.trialEndsAt ? fmtDate(row.tech.trialEndsAt, PLATFORM_TZ) : null,
       daysLeft: days == null ? "—" : String(days),
       firstCharge:
-        row.tech.signupOffer === "trial" && row.tech.trialEndsAt ? fmtDate(row.tech.trialEndsAt) : "—",
+        row.tech.signupOffer === "trial" && row.tech.trialEndsAt ? fmtDate(row.tech.trialEndsAt, PLATFORM_TZ) : "—",
       mrr: row.mrrPennies ? gbpFromPennies(row.mrrPennies) : "—",
       staff: row.staffCount,
       clients: row.clientCount,
       bookings: row.bookingCount,
       connect: row.tech.connectChargesEnabled ? "Onboarded" : "Pending",
-      joined: fmtDate(row.tech.createdAt),
+      joined: fmtDate(row.tech.createdAt, PLATFORM_TZ),
       flags: row.flags,
       tags: row.tech.ownerTags ?? [],
     };

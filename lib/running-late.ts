@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/queries";
 import { notifyClientRunningLate } from "@/lib/notify";
 import { fmtTime } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import {
   filterLateCascadeBookings,
   todayDateStr,
@@ -19,7 +20,7 @@ export { filterLateCascadeBookings, todayDateStr } from "@/lib/running-late-filt
 export type LateCascadeInput = {
   minutesLate: number;
   note?: string;
-  /** yyyy-mm-dd in Europe/London; defaults to today. */
+  /** yyyy-mm-dd in the salon's timezone; defaults to today. */
   targetDate?: string;
 };
 
@@ -38,13 +39,15 @@ export async function executeRunningLateCascade(
   input: LateCascadeInput,
 ): Promise<LateCascadeResult> {
   const minutesLate = Math.min(240, Math.max(1, Math.round(input.minutesLate)));
-  const targetDate = input.targetDate?.trim() || todayDateStr();
+  const tz = salonTz(tech);
+  const targetDate = input.targetDate?.trim() || todayDateStr(tz);
   const note = input.note?.trim() ?? "";
   const nowMs = Date.now();
 
   const bookings = filterLateCascadeBookings(
     await listBookings(sb, tech.id),
     targetDate,
+    tz,
     nowMs,
   );
 
@@ -124,6 +127,7 @@ export function lateCascadeBookingLabel(
   booking: Booking,
   clientName: string,
   serviceName: string,
+  tz: string,
 ): string {
-  return `${clientName} · ${serviceName} · ${fmtTime(booking.startIso)}`;
+  return `${clientName} · ${serviceName} · ${fmtTime(booking.startIso, tz)}`;
 }

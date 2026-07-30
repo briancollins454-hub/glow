@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, brandedEmail, isValidEmail } from "@/lib/email";
 import { fmtDate } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import { MONTHLY_PRICE_LABEL, TRIAL_DAYS } from "@/lib/offers";
 import type { Tech } from "@/lib/db/types";
 
@@ -52,7 +53,7 @@ async function sendTrialEmail(opts: {
 
 /** Day 7 — halfway check-in. */
 export async function sendTrialDay7Email(tech: Tech): Promise<boolean> {
-  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt) : "the end of your trial";
+  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt, salonTz(tech)) : "the end of your trial";
   return sendTrialEmail({
     tech,
     subject: "You're halfway through your Glow trial",
@@ -70,7 +71,7 @@ export async function sendTrialDay7Email(tech: Tech): Promise<boolean> {
 
 /** Day 11 — 3 days before charge. */
 export async function sendTrialDay11Email(tech: Tech): Promise<boolean> {
-  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt) : "in 3 days";
+  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt, salonTz(tech)) : "in 3 days";
   return sendTrialEmail({
     tech,
     subject: `Your Glow trial ends in 3 days — ${MONTHLY_PRICE_LABEL} on ${ends}`,
@@ -88,7 +89,7 @@ export async function sendTrialDay11Email(tech: Tech): Promise<boolean> {
 
 /** Day 13 — 1 day before charge. */
 export async function sendTrialDay13Email(tech: Tech): Promise<boolean> {
-  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt) : "tomorrow";
+  const ends = tech.trialEndsAt ? fmtDate(tech.trialEndsAt, salonTz(tech)) : "tomorrow";
   return sendTrialEmail({
     tech,
     subject: `Tomorrow: your Glow trial ends — ${MONTHLY_PRICE_LABEL} charge`,

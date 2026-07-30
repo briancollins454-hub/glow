@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBooking, getClient, getService, getTechById, markReminder, createReminder } from "@/lib/db/queries";
 import { fmtDate, fmtDateTime, fmtTime } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
@@ -45,7 +45,7 @@ function renderReminderEmail(ctx: Ctx): { subject: string; html: string } {
   const brand = tech?.brandColor || "#db2777";
   const biz = tech?.businessName ?? "your beauty studio";
   const name = client?.name?.split(" ")[0] ?? "there";
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const svc = ctx.serviceLabel ?? service?.name ?? "your appointment";
   const payUrl = `${APP_URL}/pay/${booking.balanceToken}`;
   const cur = salonCurrency(tech);
@@ -190,7 +190,7 @@ export async function notifyClientOfPatchTestRetest(opts: {
   const messageUrl = `${APP_URL}/m/${client.messageToken}`;
 
   const upcomingLine = hasUpcoming && futureBooking
-    ? `You have an appointment coming up on <strong>${fmtDateTime(futureBooking.startIso)}</strong>. `
+    ? `You have an appointment coming up on <strong>${fmtDateTime(futureBooking.startIso, salonTz(tech))}</strong>. `
     : "";
 
   const bodyHtml =
@@ -201,7 +201,7 @@ export async function notifyClientOfPatchTestRetest(opts: {
 
   const text =
     `Hi ${name}, ${biz} has changed products for ${categoryName}. ` +
-    `${hasUpcoming && futureBooking ? `You have an appointment on ${fmtDateTime(futureBooking.startIso)}. ` : ""}` +
+    `${hasUpcoming && futureBooking ? `You have an appointment on ${fmtDateTime(futureBooking.startIso, salonTz(tech))}. ` : ""}` +
     `You need a patch test before your next treatment. Arrange it: ${arrangeUrl} Message: ${messageUrl}`;
 
   const preview = text.slice(0, 200);
@@ -493,14 +493,14 @@ export async function sendBatchedReminders(
     const total = allowed.reduce((sum, i) => sum + i.booking.balancePennies, 0);
     const lines = allowed.map((item, idx) => {
       const svc = services[idx]?.name ?? "appointment";
-      const when = fmtDateTime(item.booking.startIso);
+      const when = fmtDateTime(item.booking.startIso, salonTz(tech));
       const payUrl = `${APP_URL}/pay/${item.booking.balanceToken}`;
       return `• ${svc} on ${when}: ${money(item.booking.balancePennies, cur)} — ${payUrl}`;
     });
     const linesHtml = allowed
       .map((item, idx) => {
         const svc = services[idx]?.name ?? "appointment";
-        const when = fmtDateTime(item.booking.startIso);
+        const when = fmtDateTime(item.booking.startIso, salonTz(tech));
         const payUrl = `${APP_URL}/pay/${item.booking.balanceToken}`;
         return `<li><strong>${svc}</strong> on ${when}: <strong>${money(item.booking.balancePennies, cur)}</strong> — <a href="${payUrl}">Pay</a></li>`;
       })
@@ -519,19 +519,19 @@ export async function sendBatchedReminders(
     // reminder_24h / reminder_2h — list all appointments that day
     const lines = allowed.map((item, idx) => {
       const svc = services[idx]?.name ?? "appointment";
-      return `• ${svc} at ${fmtTime(item.booking.startIso)}`;
+      return `• ${svc} at ${fmtTime(item.booking.startIso, salonTz(tech))}`;
     });
     const linesHtml = allowed
       .map((item, idx) => {
         const svc = services[idx]?.name ?? "appointment";
-        return `<li><strong>${svc}</strong> at ${fmtTime(item.booking.startIso)}</li>`;
+        return `<li><strong>${svc}</strong> at ${fmtTime(item.booking.startIso, salonTz(tech))}</li>`;
       })
       .join("");
-    const dayLabel = fmtDate(allowed[0].booking.startIso);
+    const dayLabel = fmtDate(allowed[0].booking.startIso, salonTz(tech));
     subject =
       kind === "reminder_2h"
         ? `See you soon - your appointments today`
-        : `Reminder: your appointments ${dayLabel === fmtDate(new Date().toISOString()) ? "tomorrow" : `on ${dayLabel}`}`;
+        : `Reminder: your appointments ${dayLabel === fmtDate(new Date().toISOString(), salonTz(tech)) ? "tomorrow" : `on ${dayLabel}`}`;
     text = `Hi ${name}, reminder of your appointments with ${biz} on ${dayLabel}:\n\n${lines.join("\n")}\n\nSee you then!`;
     html = brandedEmail({
       brand,
@@ -691,7 +691,7 @@ export async function notifySalonOfNewBooking(
   }
 
   const staff = booking.staffId ? await getStaff(sb, booking.staffId) : null;
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const brand = tech.brandColor || "#db2777";
   const biz = tech.businessName || "Glow";
   const dashUrl = `${APP_URL}/dashboard/bookings`;
@@ -769,7 +769,7 @@ export async function notifyTechOfBookingRequest(
     }
   }
 
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const approveUrl = `${APP_URL}/approve/${booking.approvalToken}`;
   const brand = tech.brandColor || "#db2777";
   const cur = salonCurrency(tech);
@@ -817,7 +817,7 @@ export async function notifyClientBookingApproved(
   const brand = tech.brandColor || "#db2777";
   const biz = tech.businessName || "your beauty studio";
   const name = client.name?.split(" ")[0] ?? "there";
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const actionUrl = `${APP_URL}/${tech.handle}/booked/${booking.balanceToken}`;
   const cur = salonCurrency(tech);
 
@@ -880,7 +880,7 @@ export async function notifyClientBookingDeclined(
   const brand = tech.brandColor || "#db2777";
   const biz = tech.businessName || "your beauty studio";
   const name = client.name?.split(" ")[0] ?? "there";
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const rebookUrl = `${APP_URL}/${tech.handle}?service=${service.id}`;
   const html = brandedEmail({
     brand,
@@ -1011,7 +1011,7 @@ export async function notifyClientOfInfillDeadline(
   const biz = tech.businessName || "your beauty studio";
   const brand = tech.brandColor || "#db2777";
   const name = client.name?.split(" ")[0] ?? "there";
-  const deadline = fmtDate(deadlineIso);
+  const deadline = fmtDate(deadlineIso, salonTz(tech));
   const url = `${APP_URL}/${tech.handle}?service=${infillService.id}`;
   const unsubUrl = `${APP_URL}/unsubscribe/${client.messageToken}`;
   const gapDays = infillService.infillMaxGapDays || 21;
@@ -1059,7 +1059,7 @@ export async function notifyClientRunningLate(opts: {
   const biz = tech.businessName || "your beauty studio";
   const brand = tech.brandColor || "#db2777";
   const name = client.name?.split(" ")[0] ?? "there";
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const svc = service?.name ?? "your appointment";
   const lateNote = note ? `<br/><br/><em>${truncate(note)}</em>` : "";
   const lateNoteText = note ? `\n\n${note}` : "";
@@ -1098,7 +1098,7 @@ export async function notifyClientRunningLate(opts: {
   if (smsConfigured() && techAllowsSms(tech) && client.phone) {
     sms = await sendSms(
       client.phone,
-      `${biz}: running ~${minutesLate} min late today. Your ${svc} at ${fmtTime(booking.startIso)} may start later. Sorry!${lateNoteText}`,
+      `${biz}: running ~${minutesLate} min late today. Your ${svc} at ${fmtTime(booking.startIso, salonTz(tech))} may start later. Sorry!${lateNoteText}`,
       { techId: booking.techId, kind: "late_cascade" },
     );
   }
@@ -1129,7 +1129,7 @@ export async function notifyClientOfPreCare(
   const biz = tech.businessName || "your beauty studio";
   const brand = tech.brandColor || "#db2777";
   const name = client.name?.split(" ")[0] ?? "there";
-  const when = fmtDateTime(booking.startIso);
+  const when = fmtDateTime(booking.startIso, salonTz(tech));
   const url = `${APP_URL}/precare/${row.token}`;
   const instructionsHtml = precareHtml(instructions);
 
@@ -1167,7 +1167,7 @@ export async function notifyClientOfPreCare(
 
   if (!sent && smsConfigured() && techAllowsSms(tech) && client.phone) {
     const smsBody =
-      `Hi ${name}, ${biz}: prep for your ${service.name} on ${fmtTime(booking.startIso)}. ` +
+      `Hi ${name}, ${biz}: prep for your ${service.name} on ${fmtTime(booking.startIso, salonTz(tech))}. ` +
       `Please read and confirm: ${url}`;
     sent = await sendSms(client.phone, smsBody, { techId: tech.id, kind: "precare" });
   }

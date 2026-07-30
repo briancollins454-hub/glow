@@ -15,8 +15,8 @@ import {
   productUsagesForClient,
   reactionCheckinsForClient,
 } from "@/lib/db/queries";
-import { fmtDate, fmtDateTime, TZ } from "@/lib/format";
-import { salonCurrency } from "@/lib/locale";
+import { fmtDate, fmtDateTime } from "@/lib/format";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { severityLabel } from "@/lib/product-batches";
 import type {
@@ -128,8 +128,8 @@ function sanitizeFilename(s: string): string {
     .slice(0, 60);
 }
 
-export function evidencePackFilename(client: Client, generatedAt: Date): string {
-  const date = formatInTimeZone(generatedAt, TZ, "yyyy-MM-dd");
+export function evidencePackFilename(client: Client, generatedAt: Date, tz: string): string {
+  const date = formatInTimeZone(generatedAt, tz, "yyyy-MM-dd");
   return `evidence-pack-${sanitizeFilename(client.name)}-${date}.pdf`;
 }
 
@@ -184,11 +184,12 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
     const contentWidth = right - left;
     const ctx: PdfCtx = { doc, left, right, contentWidth, y: 50 };
 
+    const tz = salonTz(data.tech);
     const catById = new Map(data.categories.map((c) => [c.id, c.name]));
     const serviceById = new Map(data.services.map((s) => [s.id, s]));
     const productById = new Map(data.products.map((p) => [p.id, p]));
     const batchById = new Map(data.batches.map((b) => [b.id, b]));
-    const generated = fmtDateTime(data.generatedAt.toISOString());
+    const generated = fmtDateTime(data.generatedAt.toISOString(), tz);
 
     // Header
     doc.font("Helvetica-Bold").fontSize(18).fillColor("#db2777").text("Client evidence pack", left, ctx.y);
@@ -234,7 +235,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
       for (const t of data.patchTests) {
         bodyLine(
           ctx,
-          `${catById.get(t.categoryId) ?? "Category"} · ${fmtDate(t.performedAtIso)} · ${patchTestStatus(t)} · expires ${fmtDate(t.expiresAtIso)}`,
+          `${catById.get(t.categoryId) ?? "Category"} · ${fmtDate(t.performedAtIso, tz)} · ${patchTestStatus(t)} · expires ${fmtDate(t.expiresAtIso, tz)}`,
           { bold: true },
         );
         if (t.notes.trim()) bodyLine(ctx, `Notes: ${t.notes.trim()}`);
@@ -247,7 +248,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
       emptyNote(ctx, "No consultation responses on file.");
     } else {
       for (const fr of data.formResponses) {
-        bodyLine(ctx, `Submitted ${fmtDate(fr.createdAt)}`, { bold: true });
+        bodyLine(ctx, `Submitted ${fmtDate(fr.createdAt, tz)}`, { bold: true });
         for (const a of fr.answers) {
           bodyLine(ctx, `${a.prompt}: ${a.answer || "—"}`);
         }
@@ -265,7 +266,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
         const svc = serviceById.get(b.serviceId);
         bodyLine(
           ctx,
-          `${fmtDateTime(b.startIso)} · ${svc?.name ?? "Service"} · ${money(b.pricePennies, salonCurrency(data.tech))}`,
+          `${fmtDateTime(b.startIso, tz)} · ${svc?.name ?? "Service"} · ${money(b.pricePennies, salonCurrency(data.tech))}`,
           { bold: true },
         );
         const lash = [b.lashMap, b.lashCurl, b.lashLength].filter(Boolean).join(" · ");
@@ -286,7 +287,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
         const linked = u.patchTestId ? "patch test" : u.bookingId ? "treatment" : "visit";
         bodyLine(
           ctx,
-          `${fmtDate(u.usedAtIso)} · ${product?.name ?? "Product"}${lot} (${linked})`,
+          `${fmtDate(u.usedAtIso, tz)} · ${product?.name ?? "Product"}${lot} (${linked})`,
           { bold: true },
         );
       }
@@ -300,7 +301,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
       for (const r of data.reactions) {
         bodyLine(
           ctx,
-          `${fmtDate(r.onsetIso)} · ${catById.get(r.categoryId) ?? "Category"} · ${severityLabel(r.severity)}`,
+          `${fmtDate(r.onsetIso, tz)} · ${catById.get(r.categoryId) ?? "Category"} · ${severityLabel(r.severity)}`,
           { bold: true },
         );
         if (r.symptoms.trim()) bodyLine(ctx, `Symptoms: ${r.symptoms.trim()}`);
@@ -322,7 +323,7 @@ export function buildEvidencePackPdf(data: EvidencePackData): Promise<Buffer> {
       for (const c of data.checkins) {
         bodyLine(
           ctx,
-          `${catById.get(c.categoryId) ?? "Category"} · sent ${c.sentAtIso ? fmtDate(c.sentAtIso) : fmtDate(c.sendAtIso)} · ${checkinLabel(c)}`,
+          `${catById.get(c.categoryId) ?? "Category"} · sent ${c.sentAtIso ? fmtDate(c.sentAtIso, tz) : fmtDate(c.sendAtIso, tz)} · ${checkinLabel(c)}`,
           { bold: true },
         );
         if (c.symptoms.trim()) bodyLine(ctx, `Client reported: ${c.symptoms.trim()}`);

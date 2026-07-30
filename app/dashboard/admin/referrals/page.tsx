@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -63,7 +64,7 @@ export default async function ReferralsPage() {
                       {e.referredLabel}
                     </Link>
                   </td>
-                  <td>{e.creditGrantedAt ? fmtDate(e.creditGrantedAt) : "—"}</td>
+                  <td>{e.creditGrantedAt ? fmtDate(e.creditGrantedAt, PLATFORM_TZ) : "—"}</td>
                   <td>
                     {e.fraudFlags.map((f) => (
                       <Badge key={f} tone="amber">

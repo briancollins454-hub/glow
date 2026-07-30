@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { getPlatformTraffic } from "@/lib/traffic-stats";
@@ -65,7 +66,7 @@ export default async function OwnerTrafficPage() {
               <tbody>
                 {traffic.daily.map((row) => (
                   <tr key={row.day} className="border-t border-edge">
-                    <td className="px-2 py-1.5">{fmtDate(`${row.day}T12:00:00.000Z`)}</td>
+                    <td className="px-2 py-1.5">{fmtDate(`${row.day}T12:00:00.000Z`, PLATFORM_TZ)}</td>
                     <td className="px-2 py-1.5">{row.views}</td>
                     <td className="px-2 py-1.5">{row.visitors}</td>
                   </tr>

@@ -2,7 +2,7 @@
 // Acuity exports all differ; we normalise headers and match flexibly).
 
 import { fromZonedTime } from "date-fns-tz";
-import { TZ } from "@/lib/format";
+import { DEFAULT_TZ } from "@/lib/locale";
 
 export interface ParsedCsv {
   /** Normalised headers: lowercase, letters only ("First Name" -> "firstname") */
@@ -403,15 +403,20 @@ export function normalizeImportName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function resolveImportTimeZone(timeZone?: string): string {
+/**
+ * Rows may carry their own IANA zone (Acuity). When it is missing or unknown,
+ * fall back to the importing salon's timezone (callers pass salonTz(tech));
+ * only when no fallback is supplied do we assume the GB default.
+ */
+function resolveImportTimeZone(timeZone: string | undefined, fallbackTz: string): string {
   const tz = (timeZone ?? "").trim();
-  if (!tz) return TZ;
+  if (!tz) return fallbackTz;
   try {
     // Throws RangeError for unknown IANA zones.
     new Intl.DateTimeFormat("en-GB", { timeZone: tz }).format(new Date());
     return tz;
   } catch {
-    return TZ;
+    return fallbackTz;
   }
 }
 
@@ -421,11 +426,12 @@ function zonedLocalInstant(
   day: number,
   hour: number,
   minute: number,
-  timeZone?: string,
+  timeZone: string | undefined,
+  fallbackTz: string,
 ): Date | null {
   const local = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   try {
-    const d = fromZonedTime(local, resolveImportTimeZone(timeZone));
+    const d = fromZonedTime(local, resolveImportTimeZone(timeZone, fallbackTz));
     return Number.isNaN(d.getTime()) ? null : d;
   } catch {
     // Invalid local wall times / rare date-fns-tz edge cases must not crash preview.
@@ -442,7 +448,7 @@ function zonedLocalInstant(
 export function parseAppointmentWhen(
   dateRaw: string,
   timeRaw = "",
-  opts: { monthFirst?: boolean; timeZone?: string } = {},
+  opts: { monthFirst?: boolean; timeZone?: string; fallbackTz?: string } = {},
 ): Date | null {
   try {
     return parseAppointmentWhenUnsafe(dateRaw, timeRaw, opts);
@@ -454,7 +460,7 @@ export function parseAppointmentWhen(
 function parseAppointmentWhenUnsafe(
   dateRaw: string,
   timeRaw = "",
-  opts: { monthFirst?: boolean; timeZone?: string } = {},
+  opts: { monthFirst?: boolean; timeZone?: string; fallbackTz?: string } = {},
 ): Date | null {
   let s = `${dateRaw.trim()} ${timeRaw.trim()}`.trim();
   if (!s) return null;
@@ -473,7 +479,7 @@ function parseAppointmentWhenUnsafe(
     const ap = acuityLong[6].toLowerCase();
     if (ap === "pm" && hour < 12) hour += 12;
     if (ap === "am" && hour === 12) hour = 0;
-    return zonedLocalInstant(year, mon + 1, day, hour, min, opts.timeZone);
+    return zonedLocalInstant(year, mon + 1, day, hour, min, opts.timeZone, opts.fallbackTz ?? DEFAULT_TZ);
   }
 
   // Fresha: "04 Jul 2026, 3:00pm" / "23 Jun 2026, 9:51pm"
@@ -490,7 +496,7 @@ function parseAppointmentWhenUnsafe(
     const ap = (fresha[6] ?? "").toLowerCase();
     if (ap === "pm" && hour < 12) hour += 12;
     if (ap === "am" && hour === 12) hour = 0;
-    return zonedLocalInstant(year, mon + 1, day, hour, min, opts.timeZone);
+    return zonedLocalInstant(year, mon + 1, day, hour, min, opts.timeZone, opts.fallbackTz ?? DEFAULT_TZ);
   }
 
   // Appt slot fallback: "15:00:00-16:10:00" paired with a separate date field.
@@ -523,7 +529,7 @@ function parseAppointmentWhenUnsafe(
       if (ap === "pm" && hour < 12) hour += 12;
       if (ap === "am" && hour === 12) hour = 0;
     }
-    return zonedLocalInstant(year, month, day, hour, minute, opts.timeZone);
+    return zonedLocalInstant(year, month, day, hour, minute, opts.timeZone, opts.fallbackTz ?? DEFAULT_TZ);
   }
 
   if (/z$|[+-]\d{2}:?\d{2}$/i.test(s)) {
@@ -540,6 +546,7 @@ function parseAppointmentWhenUnsafe(
       parseInt(m[4] ?? "9", 10),
       parseInt(m[5] ?? "0", 10),
       opts.timeZone,
+      opts.fallbackTz ?? DEFAULT_TZ,
     );
   }
 

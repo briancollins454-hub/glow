@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -41,7 +42,7 @@ export default async function FeedbackBoardPage() {
                   <p className="text-sm text-ink-soft">{t.sampleMessage}</p>
                   <p className="mt-1 text-xs text-ink-faint">
                     {t.requesterCount} account{t.requesterCount === 1 ? "" : "s"} · updated{" "}
-                    {fmtDate(t.updatedAt)}
+                    {fmtDate(t.updatedAt, PLATFORM_TZ)}
                   </p>
                   <p className="mt-1 flex flex-wrap gap-1 text-xs">
                     {t.requesters.slice(0, 8).map((r) => (

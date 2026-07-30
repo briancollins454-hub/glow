@@ -20,8 +20,8 @@ import { YesNoQuestion } from "@/components/booking/yesno-question";
 import { ConsentSignatureFields } from "@/components/booking/consent-signature-fields";
 import { DateSlotPicker } from "@/components/booking/date-slot-picker";
 import { ServicePhoto } from "@/components/booking/service-photo";
-import { minutesToLabel, TZ } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { minutesToLabel } from "@/lib/format";
+import { useMoney, useSalonTz } from "@/components/locale/locale-provider";
 import { depositFor, noShowFeeFor } from "@/lib/rules";
 import { anyServiceRequiresSignedConsent } from "@/lib/booking/consent";
 import { usesCardCapture } from "@/lib/subscriptions";
@@ -86,6 +86,7 @@ export function BookingStepInteractive({
   selectedStaff?: string;
 }) {
   const money = useMoney();
+  const tz = useSalonTz();
   const basket = [service, ...basketExtras];
   const totalPrice = basket.reduce((s, x) => s + x.pricePennies, 0);
   const totalDuration = basket.reduce((s, x) => s + x.durationMin, 0);
@@ -382,7 +383,7 @@ export function BookingStepInteractive({
             </strong>{" "}
             on{" "}
             <strong className="text-ink">
-              {formatInTimeZone(new Date(slot), TZ, "EEE d MMM 'at' HH:mm")}
+              {formatInTimeZone(new Date(slot), tz, "EEE d MMM 'at' HH:mm")}
             </strong>
             {chosenStaffName && (
               <>

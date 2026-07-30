@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Booking, BookingStatus, Client, Tech } from "@/lib/db/types";
+import { salonTz } from "@/lib/locale";
 import {
   createAuditEvent,
   createCategory,
@@ -602,7 +603,8 @@ export async function importBookingsForTech(
     const serviceName = normalizeImportName(cols[iService] ?? "");
     const { dateRaw, timeRaw } = appointmentWhenRaw(cols, headers);
     const timeZone = iTimezone !== -1 ? (cols[iTimezone] ?? "").trim() : "";
-    const when = parseAppointmentWhen(dateRaw, timeRaw, { timeZone });
+    const fallbackTz = salonTz(scope.tech);
+    const when = parseAppointmentWhen(dateRaw, timeRaw, { timeZone, fallbackTz });
     const service = serviceByName.get(serviceName);
     if (!clientName || !service || !when) {
       skipped++;
@@ -629,8 +631,8 @@ export async function importBookingsForTech(
       const endRaw = (cols[iEndTime] ?? "").trim();
       if (endRaw) {
         const end =
-          parseAppointmentWhen(endRaw, "", { timeZone }) ??
-          parseAppointmentWhen(dateRaw, endRaw, { timeZone });
+          parseAppointmentWhen(endRaw, "", { timeZone, fallbackTz }) ??
+          parseAppointmentWhen(dateRaw, endRaw, { timeZone, fallbackTz });
         if (end) {
           const diff = Math.round((end.getTime() - when.getTime()) / 60000);
           if (diff > 0 && diff <= MAX_MINUTES) endDurationMin = diff;

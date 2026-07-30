@@ -6,7 +6,7 @@ import {
 } from "@/lib/client-messaging";
 import {
   groupBatchableReminders,
-  londonDayKey,
+  salonDayKey,
   reminderBatchKey,
 } from "@/lib/reminder-batch";
 import { makeBooking, makeClient, makeTech } from "./fixtures";
@@ -98,11 +98,11 @@ describe("reminder batching", () => {
         booking,
       };
     });
-    const groups = groupBatchableReminders(items);
+    const groups = groupBatchableReminders(items, { tech_1: "Europe/London" });
     expect(groups.size).toBe(1);
     const only = [...groups.values()][0];
     expect(only).toHaveLength(3);
-    expect(londonDayKey(items[0].booking.startIso)).toBe(londonDayKey(items[2].booking.startIso));
+    expect(salonDayKey(items[0].booking.startIso, "Europe/London")).toBe(salonDayKey(items[2].booking.startIso, "Europe/London"));
   });
 
   it("groups balance requests by client (not by day)", () => {
@@ -119,10 +119,10 @@ describe("reminder batching", () => {
     const groups = groupBatchableReminders([
       { reminder: makeReminder({ id: "r1", kind: "balance_request", bookingId: a.id }), booking: a },
       { reminder: makeReminder({ id: "r2", kind: "balance_request", bookingId: b.id }), booking: b },
-    ]);
+    ], { tech_1: "Europe/London" });
     expect(groups.size).toBe(1);
-    expect(reminderBatchKey("balance_request", "tech_1", "cli_1", a.startIso)).toBe(
-      reminderBatchKey("balance_request", "tech_1", "cli_1", b.startIso),
+    expect(reminderBatchKey("balance_request", "tech_1", "cli_1", a.startIso, "Europe/London")).toBe(
+      reminderBatchKey("balance_request", "tech_1", "cli_1", b.startIso, "Europe/London"),
     );
   });
 });

@@ -9,6 +9,7 @@ import {
   getTechById,
 } from "@/lib/db/queries";
 import { fmtDateTime } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { submitPrecareAction } from "./actions";
 import { BookingThemedPage } from "@/components/theme/booking-themed-page";
@@ -65,7 +66,7 @@ export default async function PrecarePage({
               <div className="space-y-4">
                 <p className="text-sm text-ink-soft">
                   Your <strong className="text-ink">{service?.name ?? "appointment"}</strong> is on{" "}
-                  <strong className="text-ink">{fmtDateTime(booking.startIso)}</strong>.
+                  <strong className="text-ink">{fmtDateTime(booking.startIso, salonTz(tech))}</strong>.
                 </p>
 
                 <div className="rounded-xl border border-edge bg-cream px-4 py-3">

@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import { requireOwner } from "@/lib/owner/require-owner";
 import {
   averageDurationMs,
@@ -107,7 +108,7 @@ export default async function OwnerOpsPage({
                   <p className="text-ink-soft">{job.description}</p>
                   <p className="text-xs text-ink-faint">
                     cron: {job.schedule} · last{" "}
-                    {latest ? fmtDateTime(latest.startedAt) : "—"} · avg {avg != null ? `${avg}ms` : "—"}
+                    {latest ? fmtDateTime(latest.startedAt, PLATFORM_TZ) : "—"} · avg {avg != null ? `${avg}ms` : "—"}
                   </p>
                 </div>
               </div>
@@ -195,7 +196,7 @@ export default async function OwnerOpsPage({
                 ) : (
                   crons.map((c) => (
                     <tr key={c.id} className="border-t border-edge align-top">
-                      <td className="px-2 py-1.5">{fmtDateTime(c.startedAt)}</td>
+                      <td className="px-2 py-1.5">{fmtDateTime(c.startedAt, PLATFORM_TZ)}</td>
                       <td className="px-2 py-1.5">{c.trigger}</td>
                       <td className="px-2 py-1.5">
                         <Badge tone={c.ok ? "green" : "red"}>{c.ok ? "ok" : "fail"}</Badge>
@@ -230,7 +231,7 @@ export default async function OwnerOpsPage({
                     <Badge tone={s.ok ? "green" : "red"}>{s.ok ? "ok" : "fail"}</Badge>
                   </div>
                   <p className="text-xs text-ink-faint">
-                    {String(s.destination ?? "")} · {fmtDateTime(String(s.createdAt))}
+                    {String(s.destination ?? "")} · {fmtDateTime(String(s.createdAt), PLATFORM_TZ)}
                     {s.error ? ` · ${String(s.error)}` : ""}
                   </p>
                 </div>
@@ -252,7 +253,7 @@ export default async function OwnerOpsPage({
                 <div key={String(e.id)} className="rounded-lg border border-edge px-3 py-2">
                   <p className="font-medium">{String(e.signature)}</p>
                   <p className="text-xs text-ink-faint">
-                    {String(e.where ?? "")} · {fmtDateTime(String(e.createdAt))}
+                    {String(e.where ?? "")} · {fmtDateTime(String(e.createdAt), PLATFORM_TZ)}
                   </p>
                 </div>
               ))

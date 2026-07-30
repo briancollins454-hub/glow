@@ -41,6 +41,7 @@ describe("intersectWeekdays", () => {
 describe("daySlots respects availableWeekdays", () => {
   const service = makeService({ availableWeekdays: [3] }); // Wednesday only
   const ctx = {
+    tz: "Europe/London",
     workingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) =>
       makeWorkingHour({ weekday, enabled: true }),
     ),

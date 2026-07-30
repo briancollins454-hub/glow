@@ -10,7 +10,7 @@ import {
 } from "@/lib/booking/service-groups";
 import { ServicePhoto } from "@/components/booking/service-photo";
 import { minutesToLabel } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+import { useMoney } from "@/components/locale/locale-provider";
 import { depositFor } from "@/lib/rules";
 import { onBrand, withAlpha } from "@/lib/booking/brand";
 import { cn } from "@/lib/utils";

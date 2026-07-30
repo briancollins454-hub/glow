@@ -1,29 +1,32 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { TZ } from "@/lib/format";
 import { dateStrInTz, dayWindowForDate, type FlexibleHoursWindow } from "@/lib/rules";
 import type { Booking, RotaHour, StaffMember, TimeOff, WorkingHour } from "@/lib/db/types";
 
 export const UNASSIGNED_STAFF_ID = "__unassigned__";
 
-/** Minutes from midnight in Europe/London for an ISO instant. */
-export function minutesFromMidnightLondon(iso: string): number {
-  const hm = formatInTimeZone(new Date(iso), TZ, "HH:mm");
+/** Minutes from midnight in the salon's timezone for an ISO instant. */
+export function minutesFromMidnight(iso: string, tz: string): number {
+  const hm = formatInTimeZone(new Date(iso), tz, "HH:mm");
   const [h = "0", m = "0"] = hm.split(":");
   return Number(h) * 60 + Number(m);
 }
 
-export function activeBookingsOnDate(bookings: Booking[], dateStr: string): Booking[] {
+export function activeBookingsOnDate(
+  bookings: Booking[],
+  dateStr: string,
+  tz: string,
+): Booking[] {
   return bookings
-    .filter((b) => b.status !== "cancelled" && dateStrInTz(new Date(b.startIso)) === dateStr)
+    .filter((b) => b.status !== "cancelled" && dateStrInTz(new Date(b.startIso), tz) === dateStr)
     .sort((a, b) => a.startIso.localeCompare(b.startIso));
 }
 
-/** Time-off rows that overlap a London calendar day. */
-export function timeOffOnDate(offs: TimeOff[], dateStr: string): TimeOff[] {
+/** Time-off rows that overlap a salon-local calendar day. */
+export function timeOffOnDate(offs: TimeOff[], dateStr: string, tz: string): TimeOff[] {
   return offs
     .filter((o) => {
-      const startDay = dateStrInTz(new Date(o.startIso));
-      const endDay = dateStrInTz(new Date(o.endIso));
+      const startDay = dateStrInTz(new Date(o.startIso), tz);
+      const endDay = dateStrInTz(new Date(o.endIso), tz);
       return startDay <= dateStr && endDay >= dateStr;
     })
     .sort((a, b) => a.startIso.localeCompare(b.startIso) || a.id.localeCompare(b.id));
@@ -80,9 +83,9 @@ export function bookingsInColumn(
 }
 
 /**
- * Minutes outside this person's working window for one London calendar day,
- * clipped to the visible diary window. Uses the same priority as online booking:
- * week rota (if saved) → weekly hours → flexible window.
+ * Minutes outside this person's working window for one salon-local calendar
+ * day, clipped to the visible diary window. Uses the same priority as online
+ * booking: week rota (if saved) → weekly hours → flexible window.
  * Closed / missing days cover the whole window.
  */
 export function unavailableRangesForStaffDay(
@@ -90,6 +93,7 @@ export function unavailableRangesForStaffDay(
   dateStr: string,
   windowStart: number,
   windowEnd: number,
+  tz: string,
   opts?: {
     rotaHours?: RotaHour[];
     flexibleHours?: FlexibleHoursWindow | null;
@@ -98,6 +102,7 @@ export function unavailableRangesForStaffDay(
 ): { startM: number; endM: number }[] {
   if (windowEnd <= windowStart) return [];
   const win = dayWindowForDate(dateStr, {
+    tz,
     workingHours: hours,
     timeOff: [],
     bookings: [],
@@ -128,21 +133,22 @@ export function unavailableRangesForStaffDay(
 /** Visible day window in minutes from midnight (padded around bookings / blocks). */
 export function dayWindowMinutes(
   dayBookings: Booking[],
+  tz: string,
   bufferByServiceId: Record<string, number> = {},
   dayOffs: TimeOff[] = [],
 ): { start: number; end: number } {
   let start = 9 * 60;
   let end = 17 * 60;
   for (const b of dayBookings) {
-    const s = minutesFromMidnightLondon(b.startIso);
+    const s = minutesFromMidnight(b.startIso, tz);
     const e =
-      minutesFromMidnightLondon(b.endIso) + Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
+      minutesFromMidnight(b.endIso, tz) + Math.max(0, bufferByServiceId[b.serviceId] ?? 0);
     start = Math.min(start, s);
     end = Math.max(end, e);
   }
   for (const o of dayOffs) {
-    start = Math.min(start, minutesFromMidnightLondon(o.startIso));
-    end = Math.max(end, minutesFromMidnightLondon(o.endIso));
+    start = Math.min(start, minutesFromMidnight(o.startIso, tz));
+    end = Math.max(end, minutesFromMidnight(o.endIso, tz));
   }
   // Pad half an hour; clamp to a sensible salon day.
   start = Math.max(6 * 60, Math.floor(start / 30) * 30 - 30);
@@ -165,11 +171,12 @@ export type LaidOutBooking = {
  */
 export function packBookingLanes(
   bookings: Booking[],
+  tz: string,
   endMinutesFor: (b: Booking) => number,
 ): LaidOutBooking[] {
   const items = bookings
     .map((booking) => {
-      const startM = minutesFromMidnightLondon(booking.startIso);
+      const startM = minutesFromMidnight(booking.startIso, tz);
       const endM = Math.max(startM + 15, endMinutesFor(booking));
       return { booking, startM, endM, lane: 0, laneCount: 1 };
     })

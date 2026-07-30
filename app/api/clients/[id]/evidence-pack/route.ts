@@ -5,6 +5,7 @@ import {
   evidencePackFilename,
   loadEvidencePackData,
 } from "@/lib/evidence-pack";
+import { salonTz } from "@/lib/locale";
 
 export async function GET(
   _request: Request,
@@ -18,7 +19,7 @@ export async function GET(
   if (!data) return new Response("Not found", { status: 404 });
 
   const pdf = await buildEvidencePackPdf(data);
-  const filename = evidencePackFilename(data.client, data.generatedAt);
+  const filename = evidencePackFilename(data.client, data.generatedAt, salonTz(c.tech));
 
   try {
     await createAuditEvent(c.sb, {

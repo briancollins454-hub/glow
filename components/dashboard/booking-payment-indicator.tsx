@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { useCurrency } from "@/components/locale/currency-provider";
+import { useCurrency } from "@/components/locale/locale-provider";
 import {
   bookingPaymentSummary,
   isCompactPaymentIndicator,

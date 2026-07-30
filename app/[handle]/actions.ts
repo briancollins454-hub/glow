@@ -167,6 +167,7 @@ async function loadAvailability(
     | "flexibleStartMinutes"
     | "flexibleEndMinutes"
     | "flexibleLastStartMinutes"
+    | "timezone"
   >,
   opts?: { freshBookings?: boolean },
 ): Promise<AvailabilityCtx> {
@@ -175,7 +176,7 @@ async function loadAvailability(
     availabilityCtxFromBundle,
     loadFreshBlockingBookings,
   } = await import("@/lib/booking/public-availability-cache");
-  const bundle = await getCachedPublicAvailabilityBundle(tech.id);
+  const bundle = await getCachedPublicAvailabilityBundle(tech.id, tech);
   const ctx = availabilityCtxFromBundle(bundle, tech);
   if (opts?.freshBookings) {
     // Intentionally uncached: final slot check must see the latest diary so
@@ -215,13 +216,14 @@ async function resolveBookingStaff(
   if (capable.length === 0) return "invalid";
 
   const owner = staffList.find((s) => s.role === "owner") ?? null;
-  const dateStr = dateStrInTz(new Date(slotIso));
+  const dateStr = dateStrInTz(new Date(slotIso), availability.tz);
   const freeFor = (staff: StaffMember) => {
     const allowedWeekdays = weekdaysForStaffBasket(services, dayRulesByStaff[staff.id]);
     return daySlotsForDuration(
       totalDurationMin,
       dateStr,
       {
+        tz: availability.tz,
         workingHours: workingHoursForStaff(availability.workingHours, staff, owner?.id),
         timeOff: timeOffAppliesToStaff(availability.timeOff, staff.id),
         bookings: rowsForStaff(availability.bookings, staff),
@@ -263,6 +265,7 @@ async function scopeCtxToStaff(
   if (!staff) return ctx;
   const owner = staffList.find((s) => s.role === "owner") ?? null;
   return {
+    tz: ctx.tz,
     workingHours: workingHoursForStaff(ctx.workingHours, staff, owner?.id),
     timeOff: timeOffAppliesToStaff(ctx.timeOff, staff.id),
     bookings: rowsForStaff(ctx.bookings, staff),
@@ -365,7 +368,7 @@ export async function createPairedPublicBookingAction(formData: FormData) {
     redirect(`${base}&err=slot`);
   }
 
-  const patchDateStr = dateStrInTz(new Date(patchSlotIso));
+  const patchDateStr = dateStrInTz(new Date(patchSlotIso), ctx.tz);
   const patchFree = daySlots(patchTestService, patchDateStr, ctx, noticeFloor).includes(
     patchSlotIso,
   );
@@ -645,7 +648,7 @@ export async function createPublicBookingAction(formData: FormData) {
   }
 
   if (!bookingStaff) {
-    const dateStr = dateStrInTz(new Date(slotIso));
+    const dateStr = dateStrInTz(new Date(slotIso), availability.tz);
     const stillFree = daySlotsForDuration(
       totalDuration,
       dateStr,
@@ -665,7 +668,7 @@ export async function createPublicBookingAction(formData: FormData) {
       (await listStaff(sb, tech!.id, { activeOnly: true }).catch(() => [] as StaffMember[])).find(
         (s) => s.role === "owner",
       ) ?? null;
-    const dateStr = dateStrInTz(new Date(slotIso));
+    const dateStr = dateStrInTz(new Date(slotIso), availability.tz);
     const dayRulesByStaff = await staffServiceDayMap(sb, [bookingStaff.id]).catch(
       () => ({}) as Record<string, Record<string, number[] | null>>,
     );
@@ -673,6 +676,7 @@ export async function createPublicBookingAction(formData: FormData) {
       totalDuration,
       dateStr,
       {
+        tz: availability.tz,
         workingHours: workingHoursForStaff(availability.workingHours, bookingStaff, owner?.id),
         timeOff: timeOffAppliesToStaff(availability.timeOff, bookingStaff.id),
         bookings: rowsForStaff(availability.bookings, bookingStaff),

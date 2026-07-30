@@ -7,6 +7,7 @@ import {
 } from "@/lib/notify";
 import { maySendClientReminder } from "@/lib/client-messaging";
 import { groupBatchableReminders, type ReminderWithBooking } from "@/lib/reminder-batch";
+import { salonTz } from "@/lib/locale";
 import { sendsBalanceEmails } from "@/lib/subscriptions";
 
 // Processes reminders whose send time has passed. Called by the Vercel Cron
@@ -30,6 +31,7 @@ export async function processDueReminders(
 
   const singles: ReminderWithBooking[] = [];
   const batchCandidates: ReminderWithBooking[] = [];
+  const tzByTechId: Record<string, string> = {};
 
   for (const reminder of due) {
     if (reminder.kind === "patch_test_retest") {
@@ -45,6 +47,7 @@ export async function processDueReminders(
     }
 
     const tech = await getTechById(sb, reminder.techId).catch(() => null);
+    tzByTechId[reminder.techId] = salonTz(tech);
     if (!maySendClientReminder(tech, booking, reminder.kind)) {
       await markReminder(sb, reminder.id, {
         status: "skipped",
@@ -86,7 +89,7 @@ export async function processDueReminders(
     else skipped++;
   }
 
-  const groups = groupBatchableReminders(batchCandidates);
+  const groups = groupBatchableReminders(batchCandidates, tzByTechId);
   const processed = new Set<string>();
 
   for (const [, group] of groups) {

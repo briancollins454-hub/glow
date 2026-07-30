@@ -40,7 +40,7 @@ import { isAdminTech } from "@/lib/admin";
 import { canAccessSupportImport } from "@/lib/import/support-auth";
 import { getPlatformTraffic } from "@/lib/traffic-stats";
 import { buildBusinessInsights } from "@/lib/insights";
-import { salonCurrency } from "@/lib/locale";
+import { salonCurrency, salonTz } from "@/lib/locale";
 import { filterLateCascadeBookings } from "@/lib/running-late-filter";
 import { dateStrInTz } from "@/lib/rules";
 import { fmtDate } from "@/lib/format";
@@ -92,8 +92,9 @@ export async function loadDashboardPageData(
       const monthStart = new Date();
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
-      const todayKey = dateStrInTz(now);
-      const todayStr = fmtDate(nowIso);
+      const tz = salonTz(tech);
+      const todayKey = dateStrInTz(now, tz);
+      const todayStr = fmtDate(nowIso, tz);
       const dayStart = `${todayKey}T00:00:00.000Z`;
       const dayEnd = `${todayKey}T23:59:59.999Z`;
       const insightFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -131,6 +132,7 @@ export async function loadDashboardPageData(
       const lateCascadeCount = filterLateCascadeBookings(
         todayBookings,
         todayKey,
+        tz,
         now.getTime(),
       ).length;
       const clientById = Object.fromEntries(clients.map((c) => [c.id, c]));

@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -103,7 +104,7 @@ export default async function OutboundPage({
                     → {s.destination || "(no destination yet)"}
                   </p>
                   <p className="text-xs text-ink-faint">
-                    {fmtDateTime(s.scheduledFor)} · {s.triggerLabel}
+                    {fmtDateTime(s.scheduledFor, PLATFORM_TZ)} · {s.triggerLabel}
                     {s.marketing ? " · marketing" : " · transactional"}
                   </p>
                 </div>

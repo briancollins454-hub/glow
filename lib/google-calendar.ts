@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatInTimeZone } from "date-fns-tz";
 import { getClient, getService, listBookings, updateBooking } from "@/lib/db/queries";
 import type { Booking, Tech } from "@/lib/db/types";
-import { TZ } from "@/lib/format";
+import { salonTz } from "@/lib/locale";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -48,8 +48,8 @@ export type GoogleBulkSyncResult = {
 };
 
 /** Google Calendar expects local wall-clock with timeZone, not a UTC `Z` timestamp. */
-function googleDateTime(iso: string): string {
-  return formatInTimeZone(new Date(iso), TZ, "yyyy-MM-dd'T'HH:mm:ss");
+function googleDateTime(iso: string, tz: string): string {
+  return formatInTimeZone(new Date(iso), tz, "yyyy-MM-dd'T'HH:mm:ss");
 }
 
 export function googleCalendarConfigured(): boolean {
@@ -154,11 +154,12 @@ function googleEventBody({
   clientName: string;
   serviceName: string;
 }) {
+  const tz = salonTz(tech);
   return {
     summary: `${clientName} - ${serviceName}`,
     description: `Glow booking for ${tech.businessName}.`,
-    start: { dateTime: googleDateTime(booking.startIso), timeZone: TZ },
-    end: { dateTime: googleDateTime(booking.endIso), timeZone: TZ },
+    start: { dateTime: googleDateTime(booking.startIso, tz), timeZone: tz },
+    end: { dateTime: googleDateTime(booking.endIso, tz), timeZone: tz },
     extendedProperties: { private: { glowBookingId: booking.id } },
   };
 }
@@ -322,7 +323,7 @@ export async function syncUpcomingBookingsToGoogle(
             bookingId: booking.id,
             summary: result.summary ?? "Appointment",
             htmlLink: result.htmlLink ?? null,
-            startLocal: formatInTimeZone(new Date(booking.startIso), TZ, "EEE d MMM yyyy HH:mm"),
+            startLocal: formatInTimeZone(new Date(booking.startIso), salonTz(tech), "EEE d MMM yyyy HH:mm"),
           });
         }
       }

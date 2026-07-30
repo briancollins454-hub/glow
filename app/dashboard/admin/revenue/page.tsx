@@ -1,3 +1,4 @@
+import { PLATFORM_TZ } from "@/lib/locale";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/require-owner";
 import { getRevenueSnapshot } from "@/lib/owner/revenue";
@@ -221,7 +222,7 @@ export default async function OwnerRevenuePage({
                   </td>
                   <td className="px-2 py-1.5">{row.mrrPennies ? gbpFromPennies(row.mrrPennies) : "—"}</td>
                   <td className="px-2 py-1.5">
-                    {row.tech.currentPeriodEnd ? fmtDate(row.tech.currentPeriodEnd) : "—"}
+                    {row.tech.currentPeriodEnd ? fmtDate(row.tech.currentPeriodEnd, PLATFORM_TZ) : "—"}
                   </td>
                   <td className="px-2 py-1.5">{row.stripeStatus ?? "—"}</td>
                   <td className="px-2 py-1.5">

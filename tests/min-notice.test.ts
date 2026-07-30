@@ -62,7 +62,7 @@ describe("minNoticeHours helpers", () => {
 describe("public slot generation respects min notice", () => {
   // 2026-09-01 is a Tuesday (weekday 2). Hours 09:00–17:00 London = 08:00–16:00Z (BST).
   const hours = [makeWorkingHour({ weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 })];
-  const ctx = { workingHours: hours, timeOff: [], bookings: [] as never[] };
+  const ctx = { tz: "Europe/London", workingHours: hours, timeOff: [], bookings: [] as never[] };
 
   it("with minNoticeHours=2, hides a slot 1h away and keeps a slot 3h away", () => {
     const now = Date.parse("2026-09-01T08:00:00.000Z"); // 09:00 London

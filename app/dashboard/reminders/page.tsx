@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/format";
+import { useSalonTz } from "@/components/locale/locale-provider";
 import { renderReminderText, labelForKind } from "@/lib/reminder-copy";
 import { runRemindersAction } from "../actions";
 import type { Booking, Client, InfillDeadlineNudge, PreCareConfirmation, ReactionCheckin, Reminder, Service, Tech } from "@/lib/db/types";
@@ -31,6 +32,7 @@ export default function RemindersPage() {
 }
 
 function RemindersView({ reminders, services, bookings, clients, checkins, infillNudges, preCare, tech }: RemindersData) {
+  const tz = useSalonTz();
   const searchParams = useSearchParams();
   const ran = searchParams.get("ran");
 
@@ -76,7 +78,7 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
           <span className="font-medium">{clientName(r)}</span>
           <Badge tone={r.channel === "email" ? "blue" : "purple"}>{labelForKind(r.kind)}</Badge>
         </div>
-        <span className="text-xs text-ink-faint">{done ? "Sent" : "Sends"} {fmtDateTime(done && r.sentAtIso ? r.sentAtIso : r.sendAtIso)}</span>
+        <span className="text-xs text-ink-faint">{done ? "Sent" : "Sends"} {fmtDateTime(done && r.sentAtIso ? r.sentAtIso : r.sendAtIso, tz)}</span>
       </div>
       <p className="mt-2 rounded-lg bg-fill-hover px-3 py-2 text-sm text-ink-soft">{preview(r)}</p>
     </div>
@@ -108,7 +110,7 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">{clientById[c.clientId]?.name ?? "Client"}</span>
                 <Badge tone="amber">48h check-in</Badge>
-                <span className="text-xs text-ink-faint">Sends {fmtDateTime(c.sendAtIso)}</span>
+                <span className="text-xs text-ink-faint">Sends {fmtDateTime(c.sendAtIso, tz)}</span>
               </div>
             </div>
           ))}
@@ -144,11 +146,11 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">{clientById[n.clientId]?.name ?? "Client"}</span>
                 <Badge tone="purple">Infill deadline</Badge>
-                <span className="text-xs text-ink-faint">Sends {fmtDateTime(n.sendAtIso)} · closes {fmtDateTime(n.deadlineIso)}</span>
+                <span className="text-xs text-ink-faint">Sends {fmtDateTime(n.sendAtIso, tz)} · closes {fmtDateTime(n.deadlineIso, tz)}</span>
               </div>
               <p className="mt-1 text-xs text-ink-faint">
                 {serviceById[n.infillServiceId]?.name ?? "Infill"} · after full set on{" "}
-                {bookingById[n.baseBookingId] ? fmtDateTime(bookingById[n.baseBookingId]!.startIso) : "—"}
+                {bookingById[n.baseBookingId] ? fmtDateTime(bookingById[n.baseBookingId]!.startIso, tz) : "—"}
               </p>
             </div>
           ))}
@@ -179,12 +181,12 @@ function RemindersView({ reminders, services, bookings, clients, checkins, infil
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">{clientById[p.clientId]?.name ?? "Client"}</span>
                 <Badge tone="blue">Pre-care</Badge>
-                <span className="text-xs text-ink-faint">Sends {fmtDateTime(p.sendAtIso)}</span>
+                <span className="text-xs text-ink-faint">Sends {fmtDateTime(p.sendAtIso, tz)}</span>
               </div>
               {bookingById[p.bookingId] && (
                 <p className="mt-1 text-xs text-ink-faint">
                   {serviceById[bookingById[p.bookingId]!.serviceId]?.name ?? "Service"} ·{" "}
-                  {fmtDateTime(bookingById[p.bookingId]!.startIso)}
+                  {fmtDateTime(bookingById[p.bookingId]!.startIso, tz)}
                 </p>
               )}
             </div>

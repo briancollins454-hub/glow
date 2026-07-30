@@ -6,8 +6,8 @@ import { formatInTimeZone } from "date-fns-tz";
 import { AsyncDashboardPage } from "@/components/dashboard/async-dashboard-page";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { TZ } from "@/lib/format";
-import { useMoney } from "@/components/locale/currency-provider";
+
+import { useMoney } from "@/components/locale/locale-provider";
 import { selectableTaxYears } from "@/lib/tax-year";
 import type { ReportSummary } from "@/lib/db/queries";
 
@@ -96,7 +96,7 @@ function ReportsView({
                 <tbody>
                   {months.map(([m, total]) => (
                     <tr key={m} className="border-b border-edge last:border-0">
-                      <td className="py-2.5 text-ink-soft">{formatInTimeZone(new Date(`${m}-01T12:00:00Z`), TZ, "MMMM yyyy")}</td>
+                      <td className="py-2.5 text-ink-soft">{formatInTimeZone(new Date(`${m}-01T12:00:00Z`), "UTC", "MMMM yyyy")}</td>
                       <td className="py-2.5 text-right font-medium">{money(total)}</td>
                     </tr>
                   ))}
