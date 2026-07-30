@@ -156,6 +156,17 @@ export interface Tech {
    * Optional until migration 0041; missing = system.
    */
   bookingTheme?: string | null;
+  /** ISO 4217 currency for this salon's service prices and client payments.
+   *  Optional until migration 0062; missing = "GBP". Glow's own subscription
+   *  pricing is always GBP and is unaffected by this. */
+  currency?: string | null;
+  /** ISO 3166-1 alpha-2 country. Drives Stripe Connect account country and
+   *  which region-specific features are available. Optional until 0062; missing = "GB". */
+  country?: string | null;
+  /** IANA timezone, e.g. "Australia/Sydney". All calendar times, rota hours and
+   *  reminder scheduling are interpreted in this zone. Optional until 0062;
+   *  missing = "Europe/London". */
+  timezone?: string | null;
   // When on, new online bookings wait for tech approval before deposit/confirmation.
   requiresBookingApproval: boolean;
   // off = instant booking; manual = every request needs approval; rules = trusted clients auto-book.

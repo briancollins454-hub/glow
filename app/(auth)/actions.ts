@@ -83,6 +83,8 @@ export async function signupAction(formData: FormData) {
   const signupUtmCampaign = clip(formData.get("utmCampaign"));
   const signupHeardAbout = clip(formData.get("heardAbout"));
   const signupPartnerSlug = slugify(String(formData.get("partnerSlug") ?? "")) || null;
+  const { localeFromTimezone } = await import("@/lib/locale");
+  const locale = localeFromTimezone(String(formData.get("tz") ?? ""));
 
   if (!email || !password || !businessName) {
     redirect("/signup?error=missing");
@@ -138,6 +140,9 @@ export async function signupAction(formData: FormData) {
     signupUtmCampaign,
     signupHeardAbout,
     signupPartnerSlug,
+    currency: locale.currency,
+    country: locale.country,
+    timezone: locale.timezone,
   });
 
   // Ensure a session cookie. Ignore "already signed in" from the recovery path.

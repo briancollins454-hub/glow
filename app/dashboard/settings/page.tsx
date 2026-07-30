@@ -12,6 +12,7 @@ import {
   requestAccountClosureAction,
   setBookingPageLiveAction,
   updateSettingsAction,
+  updateSalonLocale,
 } from "../actions";
 import { PageBrandingUploads } from "@/components/dashboard/page-branding-uploads";
 import { GoogleCalendarPanel } from "@/components/dashboard/google-calendar-panel";
@@ -21,6 +22,14 @@ import { ThemePreferencePicker } from "@/components/theme/theme-preference-picke
 import { gbp } from "@/lib/format";
 import { acceptsOnlineBookings, isLive, planLabel } from "@/lib/subscriptions";
 import { normalizeThemePreference } from "@/lib/theme";
+import {
+  COUNTRIES,
+  CURRENCIES,
+  TIMEZONES,
+  salonCountry,
+  salonCurrency,
+  salonTz,
+} from "@/lib/locale";
 
 const PW_ERRORS: Record<string, string> = {
   wrong: "Your current password is incorrect.",
@@ -63,6 +72,7 @@ export default function SettingsPage() {
   const profileSaved = searchParams.get("profile");
   const liveToggle = searchParams.get("live");
   const bookingPageError = searchParams.get("error");
+  const localeErr = searchParams.get("err");
   const pageLive = acceptsOnlineBookings(tech);
   const calendarUrl = tech.calendarToken ? `${APP_URL}/api/calendar/${tech.calendarToken}` : "";
   const defaultDeposit = depositFieldDisplay(
@@ -99,6 +109,11 @@ export default function SettingsPage() {
       </div>
 
       {saved && <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text"><CheckCircle2 className="h-4 w-4" /> Settings saved.</div>}
+      {localeErr === "locale" && (
+        <div className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+          That country, currency or timezone isn&apos;t supported. Please pick from the list.
+        </div>
+      )}
       {liveToggle === "1" && (
         <div className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success-text">
           <CheckCircle2 className="h-4 w-4" /> Booking page is live. Clients can book online.
@@ -290,7 +305,86 @@ export default function SettingsPage() {
             <div><Label htmlFor="tiktok">TikTok handle</Label><Input id="tiktok" name="tiktok" defaultValue={tech.tiktok} placeholder="bellarosebeauty" /></div>
           </CardContent>
         </Card>
+      </form>
 
+      <form action={updateSalonLocale} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-brand-400" /> Region and currency
+            </CardTitle>
+            <CardDescription>
+              Country, currency and timezone for your salon. Glow&apos;s own subscription stays in GBP.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="country">Country</Label>
+              <select
+                id="country"
+                name="country"
+                defaultValue={salonCountry(tech)}
+                className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="currency">Currency</Label>
+              <select
+                id="currency"
+                name="currency"
+                defaultValue={salonCurrency(tech)}
+                className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning-text">
+                Changing currency relabels your existing prices, it does not convert them. A £50
+                service becomes a 50 service in the new currency. Check your service prices after
+                changing this.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="timezone">Timezone</Label>
+              <select
+                id="timezone"
+                name="timezone"
+                defaultValue={salonTz(tech)}
+                className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
+              >
+                {TIMEZONES.map((g) => (
+                  <optgroup key={g.group} label={g.group}>
+                    {g.zones.map((z) => (
+                      <option key={z} value={z}>
+                        {z.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-ink-faint">
+                All your appointment times, working hours and client reminders use this timezone.
+              </p>
+            </div>
+            <div className="sm:col-span-2 flex justify-end">
+              <Button type="submit" variant="secondary">
+                Save region
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+
+      <form action={updateSettingsAction} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Page photos</CardTitle>

@@ -88,46 +88,57 @@ async function listAllForTech<T>(
 }
 
 // ---------------- Techs ----------------
+/** Map a techs row to Tech, including optional locale columns (migration 0062). */
+export function mapTechRow(row: Tech | null | undefined): Tech | null {
+  if (!row) return null;
+  return {
+    ...row,
+    currency: row.currency ?? null,
+    country: row.country ?? null,
+    timezone: row.timezone ?? null,
+  };
+}
+
 export async function getTechById(sb: SB, id: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("id", id).maybeSingle();
   if (error) throw dbError("getTechById", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByHandle(sb: SB, handle: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").ilike("handle", handle).maybeSingle();
   if (error) throw dbError("getTechByHandle", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByAuthUserId(sb: SB, authUserId: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("authUserId", authUserId).maybeSingle();
   if (error) throw dbError("getTechByAuthUserId", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByEmail(sb: SB, email: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").ilike("email", email).maybeSingle();
   if (error) throw dbError("getTechByEmail", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByStripeCustomerId(sb: SB, customerId: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("stripeCustomerId", customerId).maybeSingle();
   if (error) throw dbError("getTechByStripeCustomerId", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByConnectAccountId(sb: SB, accountId: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("stripeConnectAccountId", accountId).maybeSingle();
   if (error) throw dbError("getTechByConnectAccountId", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByCalendarToken(sb: SB, token: string): Promise<Tech | null> {
   if (!token) return null;
   const { data, error } = await sb.from("techs").select("*").eq("calendarToken", token).maybeSingle();
   if (error) throw dbError("getTechByCalendarToken", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 export async function getTechByResetTokenHash(sb: SB, tokenHash: string): Promise<Tech | null> {
   const { data, error } = await sb.from("techs").select("*").eq("resetTokenHash", tokenHash).maybeSingle();
   if (error) throw dbError("getTechByResetTokenHash", error);
-  return data as Tech | null;
+  return mapTechRow(data as Tech | null);
 }
 type ManagedTechField =
   | "stripeCustomerId"
@@ -184,7 +195,7 @@ type NewTech = Omit<Tech, "createdAt" | ManagedTechField> &
 
 export async function createTech(sb: SB, tech: NewTech): Promise<Tech> {
   const { data, error } = await sb.from("techs").insert({ ...tech }).select("*").single();
-  return must(data as Tech, error, "createTech");
+  return mapTechRow(must(data as Tech, error, "createTech")) as Tech;
 }
 const SCHEMA_COLUMN_RE = /Could not find the '([^']+)' column/;
 
