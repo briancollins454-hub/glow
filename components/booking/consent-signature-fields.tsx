@@ -89,13 +89,13 @@ export function ConsentSignatureFields({
         </div>
         <div>
           <label className="mb-1 block text-sm text-ink-soft">
-            Postcode <span className="text-red-400">*</span>
+            Postcode / ZIP <span className="text-red-400">*</span>
           </label>
           <input
             name="addressPostcode"
             required
             autoComplete="postal-code"
-            placeholder="Postcode"
+            placeholder="Postcode or ZIP"
             className="input max-w-[12rem] uppercase"
             value={details.addressPostcode}
             onChange={(e) => setDetails((d) => ({ ...d, addressPostcode: e.target.value }))}

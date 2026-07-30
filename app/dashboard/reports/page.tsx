@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ButtonLink } from "@/components/ui/button";
 
 import { useMoney } from "@/components/locale/locale-provider";
+import { useDashboardAuth } from "@/hooks/use-dashboard-auth";
+import { salonCountry } from "@/lib/locale";
 import { selectableTaxYears } from "@/lib/tax-year";
 import type { ReportSummary } from "@/lib/db/queries";
 
@@ -30,50 +32,99 @@ function ReportsView({
   byService: svcRows,
 }: ReportSummary) {
   const money = useMoney();
+  const { tech } = useDashboardAuth();
+  // The Self Assessment tax pack is built around the UK 6 April – 5 April
+  // year — wrong figures for a foreign tech are worse than none, so non-GB
+  // salons get a plain calendar-year summary instead.
+  const ukTaxPack = salonCountry(tech) === "GB";
   const taxYears = useMemo(() => selectableTaxYears(), []);
   const [taxYear, setTaxYear] = useState(() => taxYears[0]!.startYear);
   const maxService = Math.max(1, ...svcRows.map(([, v]) => v));
+  const byCalendarYear = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const [m, total] of months) {
+      const year = m.slice(0, 4);
+      totals.set(year, (totals.get(year) ?? 0) + total);
+    }
+    return [...totals.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [months]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Tax &amp; income</h1>
+          <h1 className="font-display text-2xl font-semibold">
+            {ukTaxPack ? <>Tax &amp; income</> : "Income"}
+          </h1>
           <p className="text-sm text-ink-soft">
-            A simple view for your Self Assessment. Download a tax-year PDF pack or export raw CSV.
+            {ukTaxPack
+              ? "A simple view for your Self Assessment. Download a tax-year PDF pack or export raw CSV."
+              : "Your income at a glance, plus a raw CSV export for your accountant."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-ink-soft">
-            Tax year{" "}
-            <select
-              value={taxYear}
-              onChange={(e) => setTaxYear(parseInt(e.target.value, 10))}
-              className="ml-1 rounded-lg border border-edge bg-cream px-2 py-1.5 text-sm text-ink"
-            >
-              {taxYears.map((y) => (
-                <option key={y.startYear} value={y.startYear}>
-                  {y.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ButtonLink href={`/api/reports/tax-pack?year=${taxYear}`} variant="secondary">
-            <FileText className="h-4 w-4" /> Tax pack PDF
-          </ButtonLink>
+          {ukTaxPack && (
+            <>
+              <label className="text-sm text-ink-soft">
+                Tax year{" "}
+                <select
+                  value={taxYear}
+                  onChange={(e) => setTaxYear(parseInt(e.target.value, 10))}
+                  className="ml-1 rounded-lg border border-edge bg-cream px-2 py-1.5 text-sm text-ink"
+                >
+                  {taxYears.map((y) => (
+                    <option key={y.startYear} value={y.startYear}>
+                      {y.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <ButtonLink href={`/api/reports/tax-pack?year=${taxYear}`} variant="secondary">
+                <FileText className="h-4 w-4" /> Tax pack PDF
+              </ButtonLink>
+            </>
+          )}
           <ButtonLink href="/api/reports/export" variant="outline">
             <Download className="h-4 w-4" /> Export CSV
           </ButtonLink>
         </div>
       </div>
 
-      <Card className="border-brand-500/20 bg-brand-500/5">
-        <CardContent className="p-4 text-sm text-ink-soft">
-          <strong className="text-ink">Self Assessment tax pack</strong> — PDF summary for the UK tax year
-          (6 April – 5 April): turnover, monthly breakdown, income by service, and every payment transaction.
-          Not tax advice — check against your Stripe payouts and keep expense receipts.
-        </CardContent>
-      </Card>
+      {ukTaxPack ? (
+        <Card className="border-brand-500/20 bg-brand-500/5">
+          <CardContent className="p-4 text-sm text-ink-soft">
+            <strong className="text-ink">Self Assessment tax pack</strong> — PDF summary for the UK tax year
+            (6 April – 5 April): turnover, monthly breakdown, income by service, and every payment transaction.
+            Not tax advice — check against your Stripe payouts and keep expense receipts.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-brand-500/20 bg-brand-500/5">
+          <CardHeader>
+            <CardTitle>Income by calendar year</CardTitle>
+            <CardDescription>
+              Totals per calendar year (January – December). Export the CSV for the raw
+              transactions your accountant needs — not tax advice.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {byCalendarYear.length === 0 ? (
+              <p className="text-sm text-ink-faint">No income recorded yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <tbody>
+                  {byCalendarYear.map(([year, total]) => (
+                    <tr key={year} className="border-b border-edge last:border-0">
+                      <td className="py-2.5 text-ink-soft">{year}</td>
+                      <td className="py-2.5 text-right font-medium">{money(total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={PoundSterling} tone="green" label="Total income" value={money(totalIncome)} />

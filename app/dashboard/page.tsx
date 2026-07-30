@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtTime, fmtRelativeDays } from "@/lib/format";
 import { useMoney, useSalonTz } from "@/components/locale/locale-provider";
+import { salonCountry } from "@/lib/locale";
 import { statusBadge } from "@/components/dashboard/status";
 import { isLive, isPaymentsReady } from "@/lib/subscriptions";
 import { frozenOfferCopy } from "@/lib/offers";
@@ -236,7 +237,10 @@ function HomeView({
             <CardContent className="space-y-2 text-sm">
               <QuickLink href="/dashboard/services" label="Edit services & prices" />
               <QuickLink href="/dashboard/availability" label="Update opening hours" />
-              <QuickLink href="/dashboard/reports" label="Tax & income reports" />
+              <QuickLink
+                href="/dashboard/reports"
+                label={salonCountry(tech) === "GB" ? "Tax & income reports" : "Income reports"}
+              />
               <QuickLink href="/dashboard/settings" label="Branding & policy" />
             </CardContent>
           </Card>

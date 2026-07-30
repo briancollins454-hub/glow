@@ -1,3 +1,6 @@
+// UK-specific: the Self Assessment tax pack is built around the UK 6 April –
+// 5 April tax year and is only offered to GB salons (see prompt 5 gating in
+// app/dashboard/reports/page.tsx and app/api/reports/tax-pack/route.ts).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import PDFDocument from "pdfkit";
 import { formatInTimeZone } from "date-fns-tz";

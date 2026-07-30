@@ -1,3 +1,5 @@
+// UK-specific: HMRC tax years only. Do not use for non-GB salons — they get a
+// plain calendar-year summary instead.
 import { formatInTimeZone } from "date-fns-tz";
 import { fromZonedTime } from "date-fns-tz";
 // UK-specific: the HMRC tax year boundary is 6 April in UK wall-clock time.

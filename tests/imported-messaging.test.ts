@@ -234,6 +234,7 @@ describe("processDueReminders batch send behaviour", () => {
     }));
     vi.doMock("@/lib/sms", () => ({
       smsConfigured: () => false,
+      smsSupportedForTech: () => false,
       techAllowsSms: () => false,
       sendSms: vi.fn(),
     }));
@@ -296,6 +297,7 @@ describe("processDueReminders batch send behaviour", () => {
     });
     vi.doMock("@/lib/sms", () => ({
       smsConfigured: () => false,
+      smsSupportedForTech: () => false,
       techAllowsSms: () => false,
       sendSms: vi.fn(),
     }));
@@ -353,6 +355,7 @@ describe("processDueReminders batch send behaviour", () => {
     }));
     vi.doMock("@/lib/sms", () => ({
       smsConfigured: () => false,
+      smsSupportedForTech: () => false,
       techAllowsSms: () => false,
       sendSms: vi.fn(),
     }));
