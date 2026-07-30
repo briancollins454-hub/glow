@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/owner-daily",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/owner-weekly",
+      "schedule": "0 7 * * 1"
     }
   ],
   "redirects": [

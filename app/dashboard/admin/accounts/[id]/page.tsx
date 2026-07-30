@@ -19,9 +19,11 @@ import { startViewAsAction } from "../view-as-actions";
 import { setInternalFlagAction } from "../../internal-actions";
 import { setOwnerTagsAction, setAtRiskManualAction } from "../../phase2-actions";
 import { setAccountOutboundPauseAction } from "../../phase3-actions";
+import { addOwnerNoteAction } from "../../phase4-actions";
 import { formatHealthLabel } from "@/lib/owner/health";
 import { countUpcomingForTech, listUpcomingOutbound } from "@/lib/owner/outbound";
 import { flagsForTech } from "@/lib/owner/flags";
+import { getAccountTimeline, listOwnerNotes, listSettingsHistory } from "@/lib/owner/timeline";
 
 export const dynamic = "force-dynamic";
 
@@ -42,11 +44,15 @@ export default async function OwnerAccountDetailPage({
   const canModerate = isPlatformOwner(admin);
   const isBlocked = !!tech.blockedAt;
   const isSelf = admin.id === tech.id;
-  const [upcomingCount, upcomingSample, featureFlags] = await Promise.all([
-    countUpcomingForTech(tech.id, 24 * 7),
-    listUpcomingOutbound({ techId: tech.id, withinHours: 24 * 7, limit: 8 }),
-    flagsForTech(tech.id).catch(() => ({}) as Record<string, boolean>),
-  ]);
+  const [upcomingCount, upcomingSample, featureFlags, notes, timeline, settingsHistory] =
+    await Promise.all([
+      countUpcomingForTech(tech.id, 24 * 7),
+      listUpcomingOutbound({ techId: tech.id, withinHours: 24 * 7, limit: 8 }),
+      flagsForTech(tech.id).catch(() => ({}) as Record<string, boolean>),
+      listOwnerNotes(tech.id, 30),
+      getAccountTimeline(tech.id, 60),
+      listSettingsHistory(tech.id, 20),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -185,6 +191,102 @@ export default async function OwnerAccountDetailPage({
           <Badge tone="amber">Connect pending</Badge>
         )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner notes</CardTitle>
+          <CardDescription>
+            Timestamped freeform notes (Messenger context lives here). Tags: champion, at risk, feature
+            request, migration pending, do not contact.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <form action={addOwnerNoteAction} className="space-y-2 rounded-xl border border-edge bg-cream p-3">
+            <input type="hidden" name="id" value={tech.id} />
+            <textarea
+              name="body"
+              required
+              rows={3}
+              placeholder="Note…"
+              className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+            />
+            <button type="submit" className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white">
+              Add note
+            </button>
+          </form>
+          {notes.length === 0 ? (
+            <p className="text-ink-faint">No notes yet.</p>
+          ) : (
+            notes.map((n: { id: string; body: string; authorEmail: string; createdAt: string }) => (
+              <div key={n.id} className="rounded-lg border border-edge px-3 py-2">
+                <p className="whitespace-pre-wrap">{n.body}</p>
+                <p className="mt-1 text-xs text-ink-faint">
+                  {n.authorEmail} · {fmtDateTime(n.createdAt)}
+                </p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Unified timeline</CardTitle>
+          <CardDescription>
+            Bookings, payments, emails, notes, owner actions, platform events, flags — newest first.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm max-h-[420px] overflow-y-auto">
+          {timeline.length === 0 ? (
+            <p className="text-ink-faint">No timeline events.</p>
+          ) : (
+            timeline.map((item) => (
+              <div key={item.id} className="rounded-lg border border-edge px-3 py-2">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="font-medium">{item.title}</span>
+                  <span className="text-xs text-ink-faint">{fmtDateTime(item.at)}</span>
+                </div>
+                <p className="text-xs text-ink-faint">
+                  {item.source}
+                  {item.detail ? ` · ${item.detail}` : ""}
+                </p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Settings change history</CardTitle>
+          <CardDescription>What changed, from/to, when, by whom (from settings_updated audits).</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {settingsHistory.length === 0 ? (
+            <p className="text-ink-faint">
+              No settings diffs logged yet. Future Settings saves write before/after into audit_events.
+            </p>
+          ) : (
+            settingsHistory.map(
+              (h: {
+                id: string;
+                actor: string;
+                createdAt: string;
+                metadata: Record<string, unknown>;
+              }) => (
+                <div key={h.id} className="rounded-lg border border-edge px-3 py-2">
+                  <p className="text-xs text-ink-faint">
+                    {fmtDateTime(h.createdAt)} · {h.actor}
+                  </p>
+                  <pre className="mt-1 max-h-28 overflow-auto text-xs text-ink-soft">
+                    {JSON.stringify(h.metadata?.changes ?? h.metadata, null, 2)}
+                  </pre>
+                </div>
+              ),
+            )
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

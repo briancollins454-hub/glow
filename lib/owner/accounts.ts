@@ -59,6 +59,11 @@ export async function listOwnerAccounts(opts: {
   sort?: "createdAt" | "businessName" | "status" | "health";
   page?: number;
   pageSize?: number;
+  status?: string;
+  tag?: string;
+  healthBand?: string;
+  atRisk?: boolean;
+  signupSinceDays?: number;
 }): Promise<AccountListResult & { trialingCount: number }> {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = Math.min(50, Math.max(10, opts.pageSize ?? 25));
@@ -82,6 +87,14 @@ export async function listOwnerAccounts(opts: {
     query = query.or(
       `businessName.ilike.%${q}%,handle.ilike.%${q}%,email.ilike.%${q}%,name.ilike.%${q}%`,
     );
+  }
+  if (opts.status) query = query.eq("subscriptionStatus", opts.status);
+  if (opts.healthBand) query = query.eq("healthBand", opts.healthBand);
+  if (opts.atRisk) query = query.or("atRiskManual.eq.true,healthBand.eq.at_risk");
+  if (opts.tag?.trim()) query = query.contains("ownerTags", [opts.tag.trim()]);
+  if (opts.signupSinceDays && opts.signupSinceDays > 0) {
+    const since = new Date(Date.now() - opts.signupSinceDays * 24 * 3600_000).toISOString();
+    query = query.gte("createdAt", since);
   }
 
   const sort = opts.sort ?? "createdAt";

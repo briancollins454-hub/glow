@@ -223,7 +223,7 @@ export async function updateSettingsAction(formData: FormData) {
     fallbackType: tech.loyaltyDiscountType ?? "percent",
   });
 
-  await updateTech(sb, tech.id, {
+  const patch = {
     businessName: get("businessName") || tech.businessName,
     name: get("name"),
     handle,
@@ -287,7 +287,41 @@ export async function updateSettingsAction(formData: FormData) {
     depositTierHighType: highTier.type === "none" ? "percent" : highTier.type,
     depositTierHighValue: highTier.value,
     depositTierHighPct: highTier.type === "percent" ? highTier.value : tech.depositTierHighPct ?? 100,
-  });
+  };
+
+  // Phase 4: settings change history (before → after for changed keys).
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  const track = <K extends keyof typeof patch>(key: K, before: unknown) => {
+    const after = patch[key];
+    if (after !== undefined && before !== after) {
+      changes[String(key)] = { from: before ?? null, to: after };
+    }
+  };
+  track("businessName", tech.businessName);
+  track("handle", tech.handle);
+  track("brandColor", tech.brandColor);
+  track("cancellationWindowHours", tech.cancellationWindowHours);
+  track("minNoticeHours", tech.minNoticeHours);
+  track("clientPaymentsEnabled", tech.clientPaymentsEnabled);
+  track("balanceEmailsEnabled", tech.balanceEmailsEnabled);
+  track("approvalMode", tech.approvalMode);
+  track("rebookNudgesEnabled", tech.rebookNudgesEnabled);
+
+  await updateTech(sb, tech.id, patch);
+  if (Object.keys(changes).length) {
+    try {
+      await createAuditEvent(sb, {
+        techId: tech.id,
+        actor: "tech",
+        action: "settings_updated",
+        entityType: "tech",
+        entityId: tech.id,
+        metadata: { changes, by: tech.email },
+      });
+    } catch {
+      // best-effort history
+    }
+  }
   revalidatePublicAvailability(tech.id);
   revalidatePath("/dashboard/settings");
   revalidatePath(`/${handle}`);

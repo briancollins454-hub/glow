@@ -59,14 +59,46 @@ export default async function OwnerOverviewPage() {
       <section className="space-y-3">
         <h2 className="font-display text-lg font-semibold">Accounts</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricTile label="Total accounts" value={String(o.accountsTotal)} hint={`${o.testers} tester offer`} />
-          <MetricTile label="Paying (active)" value={String(o.paying)} hint="subscriptionStatus=active only" tone="green" />
-          <MetricTile label="Trialing" value={String(o.trialing)} tone="amber" />
-          <MetricTile label="Complimentary" value={String(o.complimentary)} hint="comped" tone="neutral" />
-          <MetricTile label="Cancelled" value={String(o.cancelled)} tone="red" />
-          <MetricTile label="Past due" value={String(o.pastDue)} tone="amber" />
-          <MetricTile label="Staff (all accounts)" {...tile(o.staffTotal)} />
-          <MetricTile label="Clients (all accounts)" {...tile(o.clientsTotal)} />
+          <MetricTile
+            label="Total accounts"
+            value={String(o.accountsTotal)}
+            hint={`${o.testers} tester offer`}
+            href="/dashboard/admin/accounts"
+          />
+          <MetricTile
+            label="Paying (active)"
+            value={String(o.paying)}
+            hint="subscriptionStatus=active only"
+            tone="green"
+            href="/dashboard/admin/accounts?status=active"
+          />
+          <MetricTile
+            label="Trialing"
+            value={String(o.trialing)}
+            tone="amber"
+            href="/dashboard/admin/accounts?status=trialing"
+          />
+          <MetricTile
+            label="Complimentary"
+            value={String(o.complimentary)}
+            hint="comped"
+            tone="neutral"
+            href="/dashboard/admin/accounts?status=comped"
+          />
+          <MetricTile
+            label="Cancelled"
+            value={String(o.cancelled)}
+            tone="red"
+            href="/dashboard/admin/accounts?status=canceled"
+          />
+          <MetricTile
+            label="Past due"
+            value={String(o.pastDue)}
+            tone="amber"
+            href="/dashboard/admin/accounts?status=past_due"
+          />
+          <MetricTile label="Staff (all accounts)" {...tile(o.staffTotal)} href="/dashboard/admin/accounts" />
+          <MetricTile label="Clients (all accounts)" {...tile(o.clientsTotal)} href="/dashboard/admin/accounts" />
         </div>
       </section>
 
@@ -92,18 +124,37 @@ export default async function OwnerOverviewPage() {
         <h2 className="font-display text-lg font-semibold">Glow revenue</h2>
         <p className="text-sm text-ink-soft">{o.mrr.note}</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricTile label="MRR" value={gbpFromPennies(o.mrr.mrrPennies)} hint={`${o.mrr.payingCount} paying`} tone="green" />
-          <MetricTile label="ARR" value={gbpFromPennies(o.mrr.arrPennies)} hint="MRR × 12" tone="green" />
-          <MetricTile label="New paying (this month)" {...tile(o.newPayingThisMonth)} hint="active + signed up this month (proxy)" />
+          <MetricTile
+            label="MRR"
+            value={gbpFromPennies(o.mrr.mrrPennies)}
+            hint={`${o.mrr.payingCount} paying`}
+            tone="green"
+            href="/dashboard/admin/accounts?status=active"
+          />
+          <MetricTile
+            label="ARR"
+            value={gbpFromPennies(o.mrr.arrPennies)}
+            hint="MRR × 12"
+            tone="green"
+            href="/dashboard/admin/revenue"
+          />
+          <MetricTile
+            label="New paying (this month)"
+            {...tile(o.newPayingThisMonth)}
+            hint="active + signed up this month (proxy)"
+            href="/dashboard/admin/accounts?status=active&signupSince=30"
+          />
           <MetricTile
             label="Churned (this month)"
             {...tile(o.churnedThisMonth)}
             hint={metricReason(o.churnedThisMonth) ?? "canceled with period end this month"}
+            href="/dashboard/admin/accounts?status=canceled"
           />
           <MetricTile
             label="Trial → paid rate"
             value={o.trialToPaidRate.ok ? `${o.trialToPaidRate.value}%` : "Unavailable"}
             hint={metricReason(o.trialToPaidRate) ?? "active / (active + trialing)"}
+            href="/dashboard/admin/revenue"
           />
         </div>
       </section>
@@ -111,9 +162,21 @@ export default async function OwnerOverviewPage() {
       <section className="space-y-3">
         <h2 className="font-display text-lg font-semibold">Growth</h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          <MetricTile label="Signups (24h)" value={String(o.signups.day)} />
-          <MetricTile label="Signups (7d)" value={String(o.signups.week)} />
-          <MetricTile label="Signups (30d)" value={String(o.signups.month)} />
+          <MetricTile
+            label="Signups (24h)"
+            value={String(o.signups.day)}
+            href="/dashboard/admin/accounts?signupSince=1"
+          />
+          <MetricTile
+            label="Signups (7d)"
+            value={String(o.signups.week)}
+            href="/dashboard/admin/accounts?signupSince=7"
+          />
+          <MetricTile
+            label="Signups (30d)"
+            value={String(o.signups.month)}
+            href="/dashboard/admin/accounts?signupSince=30"
+          />
         </div>
         <Card>
           <CardHeader>
@@ -142,15 +205,24 @@ export default async function OwnerOverviewPage() {
             }
             tone={o.health.lastCron && !o.health.lastCron.ok ? "red" : "green"}
           />
-          <Link href="/dashboard/admin/ops">
-            <MetricTile label="Failed crons (24h)" {...tile(o.health.failedCrons24h)} tone="red" />
-          </Link>
-          <Link href="/dashboard/admin/ops">
-            <MetricTile label="Send failures (24h)" {...tile(o.health.outboundFailures24h)} tone="amber" />
-          </Link>
-          <Link href="/dashboard/admin/ops">
-            <MetricTile label="Errors (24h)" {...tile(o.health.errors24h)} tone="red" />
-          </Link>
+          <MetricTile
+            label="Failed crons (24h)"
+            {...tile(o.health.failedCrons24h)}
+            tone="red"
+            href="/dashboard/admin/ops"
+          />
+          <MetricTile
+            label="Send failures (24h)"
+            {...tile(o.health.outboundFailures24h)}
+            tone="amber"
+            href="/dashboard/admin/ops"
+          />
+          <MetricTile
+            label="Errors (24h)"
+            {...tile(o.health.errors24h)}
+            tone="red"
+            href="/dashboard/admin/errors"
+          />
         </div>
       </section>
 
@@ -162,9 +234,24 @@ export default async function OwnerOverviewPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-4">
-          <MetricTile label="Today" value={String(o.traffic.today.views)} hint={`${o.traffic.today.visitors} visitors`} />
-          <MetricTile label="7 days" value={String(o.traffic.last7Days.views)} hint={`${o.traffic.last7Days.visitors} visitors`} />
-          <MetricTile label="30 days" value={String(o.traffic.last30Days.views)} hint={`${o.traffic.last30Days.visitors} visitors`} />
+          <MetricTile
+            label="Today"
+            value={String(o.traffic.today.views)}
+            hint={`${o.traffic.today.visitors} visitors`}
+            href="/dashboard/admin/traffic"
+          />
+          <MetricTile
+            label="7 days"
+            value={String(o.traffic.last7Days.views)}
+            hint={`${o.traffic.last7Days.visitors} visitors`}
+            href="/dashboard/admin/traffic"
+          />
+          <MetricTile
+            label="30 days"
+            value={String(o.traffic.last30Days.views)}
+            hint={`${o.traffic.last30Days.visitors} visitors`}
+            href="/dashboard/admin/traffic"
+          />
           <Link href="/dashboard/admin/traffic" className="text-sm font-medium text-brand-text underline-offset-2 hover:underline self-center">
             Open traffic →
           </Link>

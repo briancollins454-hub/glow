@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { fmtDateTime } from "@/lib/format";
 import { ownerRunCronAction } from "../owner-actions";
 import { runOwnerDailyAction } from "../phase2-actions";
+import { runOwnerWeeklyDigestAction } from "../phase4-actions";
 import { PendingSubmitButton } from "@/components/owner/pending-submit-button";
 import Link from "next/link";
 
@@ -150,6 +151,27 @@ export default async function OwnerOpsPage({
               pendingLabel="Running… this can take a minute"
               className="rounded-lg border border-edge bg-cream px-3 py-2 text-sm font-medium disabled:opacity-60"
             />
+          </form>
+          <form
+            action={runOwnerWeeklyDigestAction}
+            className="flex flex-wrap items-end gap-2 border-t border-edge pt-3"
+          >
+            <div className="min-w-[220px] flex-1">
+              <p className="text-sm text-ink-soft">
+                Weekly owner digest email — Mondays 07:00 UTC (MRR, signups, at-risk, alerts).
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-ink-faint">Type yes to confirm</label>
+              <input
+                name="confirm"
+                className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
+              Send digest now
+            </button>
           </form>
 
           <div className="overflow-x-auto">
