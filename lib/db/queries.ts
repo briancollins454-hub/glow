@@ -248,6 +248,10 @@ export async function createCategory(sb: SB, c: Omit<ServiceCategory, "id" | "cr
   const { data, error } = await sb.from("categories").insert({ ...c, id: randomId("cat") }).select("*").single();
   return must(data as ServiceCategory, error, "createCategory");
 }
+export async function updateCategory(sb: SB, id: string, patch: Partial<ServiceCategory>): Promise<void> {
+  const { error } = await sb.from("categories").update(patch).eq("id", id);
+  if (error) throw dbError("updateCategory", error);
+}
 
 // ---------------- Services ----------------
 export async function listServices(sb: SB, techId: string, opts: { activeOnly?: boolean } = {}): Promise<Service[]> {
