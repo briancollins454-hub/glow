@@ -241,6 +241,11 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* The Region card sits visually inside the main settings form but submits
+          to this separate action via the form="salon-locale-form" attribute,
+          because forms cannot nest. */}
+      <form id="salon-locale-form" action={updateSalonLocale} />
+
       <form action={updateSettingsAction} className="space-y-6">
         <Card>
           <CardHeader>
@@ -305,9 +310,7 @@ export default function SettingsPage() {
             <div><Label htmlFor="tiktok">TikTok handle</Label><Input id="tiktok" name="tiktok" defaultValue={tech.tiktok} placeholder="bellarosebeauty" /></div>
           </CardContent>
         </Card>
-      </form>
 
-      <form action={updateSalonLocale} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -323,6 +326,7 @@ export default function SettingsPage() {
               <select
                 id="country"
                 name="country"
+                form="salon-locale-form"
                 defaultValue={salonCountry(tech)}
                 className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
               >
@@ -338,6 +342,7 @@ export default function SettingsPage() {
               <select
                 id="currency"
                 name="currency"
+                form="salon-locale-form"
                 defaultValue={salonCurrency(tech)}
                 className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
               >
@@ -358,6 +363,7 @@ export default function SettingsPage() {
               <select
                 id="timezone"
                 name="timezone"
+                form="salon-locale-form"
                 defaultValue={salonTz(tech)}
                 className="mt-1 w-full rounded-xl border border-edge bg-fill px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/30"
               >
@@ -376,15 +382,13 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="sm:col-span-2 flex justify-end">
-              <Button type="submit" variant="secondary">
+              <Button type="submit" form="salon-locale-form" variant="secondary">
                 Save region
               </Button>
             </div>
           </CardContent>
         </Card>
-      </form>
 
-      <form action={updateSettingsAction} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Page photos</CardTitle>
