@@ -79,7 +79,7 @@ export default async function OutboundPage({
           <input type="hidden" name="techId" value={techId} />
           <p className="w-full text-sm">Cancel all upcoming for this account</p>
           <input name="reason" placeholder="Reason" className="min-w-[200px] flex-1 rounded-lg border border-edge px-2 py-1.5 text-sm" />
-          <input name="confirm" placeholder="yes" className="w-16 rounded-lg border border-edge px-2 py-1.5 text-sm" />
+          <input name="confirm" placeholder="type yes" className="w-16 rounded-lg border border-edge px-2 py-1.5 text-sm" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
           <button type="submit" className="rounded-lg bg-amber-700 px-3 py-1.5 text-sm text-white">
             Cancel all
           </button>
@@ -111,7 +111,7 @@ export default async function OutboundPage({
                 <form action={cancelOutboundSendAction} className="flex flex-wrap items-end gap-1">
                   <input type="hidden" name="reminderId" value={s.sourceId} />
                   <input name="reason" placeholder="Reason" className="w-36 rounded border border-edge px-1 text-xs" />
-                  <input name="confirm" placeholder="yes" className="w-12 rounded border border-edge px-1 text-xs" />
+                  <input name="confirm" placeholder="type yes" className="w-12 rounded border border-edge px-1 text-xs" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
                   <button type="submit" className="rounded bg-amber-700 px-2 py-1 text-xs text-white">
                     Cancel
                   </button>

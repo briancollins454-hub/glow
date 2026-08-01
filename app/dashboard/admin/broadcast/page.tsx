@@ -131,9 +131,13 @@ export default async function OwnerBroadcastPage({
               <label className="block text-xs text-ink-faint">Type yes to send</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <button type="submit" className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">
               Send to {previewRow.recipientCount}

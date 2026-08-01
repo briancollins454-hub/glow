@@ -127,8 +127,13 @@ export default async function DeliverabilityPage({
                     <label className="block text-xs text-ink-faint">Type yes</label>
                     <input
                       name="confirm"
+                      placeholder="type yes"
                       className="mt-1 w-20 rounded-lg border border-edge bg-cream px-2 py-1 text-sm"
-                    />
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      autoComplete="off"
+                      />
                   </div>
                   <button type="submit" className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white">
                     Unsuppress
@@ -160,9 +165,13 @@ export default async function DeliverabilityPage({
                   <input type="hidden" name="id" value={t.id} />
                   <input
                     name="confirm"
-                    placeholder="yes"
+                    placeholder="type yes"
                     className="w-16 rounded-lg border border-edge bg-cream px-2 py-1 text-sm"
-                  />
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="off"
+                    />
                   <button type="submit" className="rounded-lg border border-edge px-2 py-1 text-xs">
                     Clear flag
                   </button>

@@ -48,7 +48,7 @@ export default async function InternalAccountsPage({
         </p>
         <div>
           <label className="block text-xs text-ink-faint">Type yes</label>
-          <input name="confirm" className="mt-1 w-20 rounded-lg border border-edge bg-cream px-2 py-1 text-sm" />
+          <input name="confirm" placeholder="type yes" className="mt-1 w-20 rounded-lg border border-edge bg-cream px-2 py-1 text-sm" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
         </div>
         <button type="submit" className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white">
           {include ? "Exclude internals from metrics" : "Include internals in metrics"}
@@ -68,7 +68,7 @@ export default async function InternalAccountsPage({
               <form action={setInternalFlagAction} className="flex items-end gap-2">
                 <input type="hidden" name="id" value={t.id} />
                 <input type="hidden" name="internal" value="0" />
-                <input name="confirm" placeholder="yes" className="w-16 rounded-lg border border-edge px-2 py-1 text-sm" />
+                <input name="confirm" placeholder="type yes" className="w-16 rounded-lg border border-edge px-2 py-1 text-sm" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
                 <button type="submit" className="rounded-lg border border-edge px-2 py-1 text-xs">
                   Unmark
                 </button>
@@ -99,7 +99,7 @@ export default async function InternalAccountsPage({
               <form action={setInternalFlagAction} className="flex items-end gap-2">
                 <input type="hidden" name="id" value={t.id} />
                 <input type="hidden" name="internal" value="1" />
-                <input name="confirm" placeholder="yes" className="w-16 rounded-lg border border-edge px-2 py-1 text-sm" />
+                <input name="confirm" placeholder="type yes" className="w-16 rounded-lg border border-edge px-2 py-1 text-sm" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
                 <button type="submit" className="rounded-lg bg-brand-600 px-2 py-1 text-xs text-white">
                   Mark internal
                 </button>

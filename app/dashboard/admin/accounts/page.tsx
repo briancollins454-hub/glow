@@ -84,6 +84,12 @@ export default async function OwnerAccountsPage({
     signupSinceDays,
     sort,
   });
+  const returnParams = new URLSearchParams(qsBase);
+  if (data.page > 1) returnParams.set("page", String(data.page));
+  if (columns?.length) returnParams.set("cols", columns.join(","));
+  const returnTo = returnParams.toString()
+    ? `/dashboard/admin/accounts?${returnParams.toString()}`
+    : "/dashboard/admin/accounts";
 
   return (
     <div className="space-y-6">
@@ -197,7 +203,7 @@ export default async function OwnerAccountsPage({
         </form>
       </div>
 
-      <AccountsTable rows={tableRows} columns={columns} />
+      <AccountsTable rows={tableRows} columns={columns} returnTo={returnTo} />
 
       <div className="flex items-center justify-between text-sm text-ink-soft">
         <span>

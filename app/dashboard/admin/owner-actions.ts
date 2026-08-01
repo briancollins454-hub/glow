@@ -10,15 +10,12 @@ import { supabaseService } from "@/lib/supabase/service";
 import { requestPasswordReset } from "@/lib/password-reset";
 import { runRemindersJobNow } from "@/lib/owner/ops";
 import { assertNotViewAs } from "@/lib/owner/view-as";
-
-function confirm(formData: FormData, expected: string) {
-  return String(formData.get("confirm") ?? "") === expected;
-}
+import { isConfirmed } from "@/lib/owner/confirm";
 
 export async function ownerSetTesterAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect("/dashboard/admin/accounts?err=confirm");
   }
   const id = String(formData.get("id") ?? "");
@@ -42,7 +39,7 @@ export async function ownerSetTesterAction(formData: FormData) {
 export async function ownerSetCompAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect("/dashboard/admin/accounts?err=confirm");
   }
   const id = String(formData.get("id") ?? "");
@@ -67,7 +64,7 @@ export async function ownerSetCompAction(formData: FormData) {
 export async function ownerPasswordResetAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect("/dashboard/admin/accounts?err=confirm");
   }
   const id = String(formData.get("id") ?? "");
@@ -86,7 +83,7 @@ export async function ownerPasswordResetAction(formData: FormData) {
 export async function ownerRunCronAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect("/dashboard/admin/ops?err=confirm");
   }
   const result = await runRemindersJobNow("manual");
@@ -127,7 +124,7 @@ export async function ownerFeedbackStatusAction(formData: FormData) {
 export async function ownerCompleteClosureAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect("/dashboard/admin/support?err=confirm");
   }
   const id = String(formData.get("id") ?? "");
@@ -190,7 +187,7 @@ export async function ownerCreatePartnerAction(formData: FormData) {
 export async function ownerBlockAccountAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requirePlatformOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect(`/dashboard/admin/accounts/${String(formData.get("id") ?? "")}?err=confirm`);
   }
   const id = String(formData.get("id") ?? "");
@@ -232,7 +229,7 @@ export async function ownerBlockAccountAction(formData: FormData) {
 export async function ownerUnblockAccountAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requirePlatformOwner();
-  if (!confirm(formData, "yes")) {
+  if (!isConfirmed(formData, "yes")) {
     redirect(`/dashboard/admin/accounts/${String(formData.get("id") ?? "")}?err=confirm`);
   }
   const id = String(formData.get("id") ?? "");

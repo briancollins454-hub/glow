@@ -6,15 +6,12 @@ import { ownerSb } from "@/lib/owner/require-owner";
 import { writeOwnerAudit } from "@/lib/owner/owner-audit-log";
 import { updateTech } from "@/lib/db/queries";
 import { assertNotViewAs } from "@/lib/owner/view-as";
-
-function confirm(formData: FormData) {
-  return String(formData.get("confirm") ?? "") === "yes";
-}
+import { isConfirmed } from "@/lib/owner/confirm";
 
 export async function unsuppressEmailAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/deliverability?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/deliverability?err=confirm");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const reason = String(formData.get("reason") ?? "").trim();
   if (!email || !reason) redirect("/dashboard/admin/deliverability?err=reason");
@@ -41,7 +38,7 @@ export async function unsuppressEmailAction(formData: FormData) {
 export async function clearTechDeliveryFlagAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/deliverability?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/deliverability?err=confirm");
   const id = String(formData.get("id") ?? "");
   await updateTech(ownerSb(), id, {
     emailDeliveryIssue: false,

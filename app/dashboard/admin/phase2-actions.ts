@@ -12,15 +12,12 @@ import { addPartnerLedgerEntry } from "@/lib/owner/referrals";
 import { setFeedbackThemeStatus, type RoadmapStatus } from "@/lib/owner/feedback-board";
 import { runOwnerDailyJob } from "@/lib/owner/daily-job";
 import { randomId } from "@/lib/ids";
-
-function confirm(formData: FormData) {
-  return String(formData.get("confirm") ?? "") === "yes";
-}
+import { isConfirmed } from "@/lib/owner/confirm";
 
 export async function worklistNudgeAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/worklists?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/worklists?err=confirm");
   const id = String(formData.get("id") ?? "");
   const kind = String(formData.get("kind") ?? "setup_help");
   const target = await getTechById(ownerSb(), id);
@@ -80,7 +77,7 @@ export async function setAtRiskManualAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
   const id = String(formData.get("id") ?? "");
-  if (!confirm(formData)) redirect(`/dashboard/admin/accounts/${id}?err=confirm`);
+  if (!isConfirmed(formData)) redirect(`/dashboard/admin/accounts/${id}?err=confirm`);
   const on = formData.get("on") === "1";
   await updateTech(ownerSb(), id, { atRiskManual: on });
   await writeOwnerAudit({
@@ -97,7 +94,7 @@ export async function setAtRiskManualAction(formData: FormData) {
 export async function setOwnerTagsAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) {
+  if (!isConfirmed(formData)) {
     redirect(`/dashboard/admin/accounts/${String(formData.get("id") ?? "")}?err=confirm`);
   }
   const id = String(formData.get("id") ?? "");
@@ -122,7 +119,7 @@ export async function setOwnerTagsAction(formData: FormData) {
 export async function addCostRecordAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/economics?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/economics?err=confirm");
   const provider = String(formData.get("provider") ?? "") as
     | "supabase"
     | "resend"
@@ -154,7 +151,7 @@ export async function addCostRecordAction(formData: FormData) {
 export async function addPartnerLedgerAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/referrals?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/referrals?err=confirm");
   const partnerSlug = String(formData.get("partnerSlug") ?? "").trim();
   const kind = String(formData.get("kind") ?? "") as "commission_owed" | "commission_paid" | "adjustment";
   const amountPounds = Number(formData.get("amount") ?? "0");
@@ -181,7 +178,7 @@ export async function addPartnerLedgerAction(formData: FormData) {
 export async function setFeedbackStatusAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/feedback?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/feedback?err=confirm");
   const themeKey = String(formData.get("themeKey") ?? "");
   const status = String(formData.get("status") ?? "") as RoadmapStatus;
   const ids = String(formData.get("ids") ?? "")

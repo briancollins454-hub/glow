@@ -16,10 +16,14 @@ import {
 } from "@/lib/owner/broadcast";
 import { sendEmail } from "@/lib/email";
 import { sendOwnerWeeklyDigest } from "@/lib/owner/digest";
-
-function confirm(formData: FormData) {
-  return String(formData.get("confirm") ?? "") === "yes";
-}
+import {
+  accountsReturnPath,
+  accountsReturnWith,
+  escapeForPre,
+  isConfirmed,
+  ownerNudgeBody,
+  ownerNudgeSubject,
+} from "@/lib/owner/confirm";
 
 function idsFromForm(formData: FormData): string[] {
   const raw = formData.getAll("ids");
@@ -54,11 +58,12 @@ export async function addOwnerNoteAction(formData: FormData) {
 export async function bulkOwnerAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/accounts?err=confirm");
+  const returnTo = formData.get("returnTo");
+  if (!isConfirmed(formData)) redirect(accountsReturnPath(returnTo, "confirm"));
   const action = String(formData.get("bulkAction") ?? "");
   assertNotBulkDelete(action);
   const ids = idsFromForm(formData);
-  if (!ids.length) redirect("/dashboard/admin/accounts?err=ids");
+  if (!ids.length) redirect(accountsReturnPath(returnTo, "ids"));
 
   if (action === "mark_internal") {
     for (const id of ids) {
@@ -82,7 +87,7 @@ export async function bulkOwnerAction(formData: FormData) {
     }
   } else if (action === "add_tag") {
     const tag = String(formData.get("tag") ?? "").trim().toLowerCase();
-    if (!tag) redirect("/dashboard/admin/accounts?err=tag");
+    if (!tag) redirect(accountsReturnPath(returnTo, "tag"));
     for (const id of ids) {
       const tech = await getTechById(ownerSb(), id);
       if (!tech) continue;
@@ -98,7 +103,7 @@ export async function bulkOwnerAction(formData: FormData) {
     }
   } else if (action === "add_note") {
     const body = String(formData.get("note") ?? "").trim();
-    if (!body) redirect("/dashboard/admin/accounts?err=note");
+    if (!body) redirect(accountsReturnPath(returnTo, "note"));
     for (const id of ids) {
       await ownerSb().from("owner_notes").insert({
         id: randomId("onote"),
@@ -115,24 +120,26 @@ export async function bulkOwnerAction(formData: FormData) {
     });
   } else if (action === "nudge") {
     const kind = String(formData.get("kind") ?? "setup_help");
+    const note = String(formData.get("note") ?? "").trim();
+    if (!note) redirect(accountsReturnPath(returnTo, "note"));
+    const subject = ownerNudgeSubject(kind);
     for (const id of ids) {
       const target = await getTechById(ownerSb(), id);
       if (!target?.email) continue;
-      const text =
-        `Hi ${target.name || target.businessName},\n\n` +
-        `Quick note from Glow support — reply if you need a hand.\n\nBrian`;
+      const name = target.name || target.businessName || "there";
+      const text = ownerNudgeBody(name, note);
       await sendEmail({
         to: target.email,
-        subject: "A quick note from Glow",
+        subject,
         text,
-        html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${text.replace(/</g, "&lt;")}</pre>`,
+        html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeForPre(text)}</pre>`,
         kind: `owner_${kind}`,
         techId: target.id,
       });
       await ownerSb().from("owner_notes").insert({
         id: randomId("onote"),
         techId: id,
-        body: `Bulk nudge sent: ${kind}`,
+        body: note.slice(0, 4000),
         authorEmail: admin.email,
         createdAt: new Date().toISOString(),
       });
@@ -143,11 +150,11 @@ export async function bulkOwnerAction(formData: FormData) {
       metadata: { count: ids.length, kind },
     });
   } else {
-    redirect("/dashboard/admin/accounts?err=action");
+    redirect(accountsReturnPath(returnTo, "action"));
   }
 
   revalidatePath("/dashboard/admin/accounts");
-  redirect(`/dashboard/admin/accounts?ok=bulk_${action}`);
+  redirect(accountsReturnWith(returnTo, "ok", `bulk_${action}`));
 }
 
 export async function saveAccountViewAction(formData: FormData) {
@@ -217,7 +224,7 @@ export async function previewBroadcastAction(formData: FormData) {
 export async function sendBroadcastAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/broadcast?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/broadcast?err=confirm");
   const id = String(formData.get("broadcastId") ?? "");
   const result = await sendBroadcast({ broadcastId: id, actorEmail: admin.email });
   if (result.blocked) {
@@ -229,7 +236,7 @@ export async function sendBroadcastAction(formData: FormData) {
 export async function runOwnerWeeklyDigestAction(formData: FormData) {
   await assertNotViewAs();
   await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/ops?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/ops?err=confirm");
   const result = await sendOwnerWeeklyDigest("manual");
   redirect(result.ok ? "/dashboard/admin/ops?ok=digest" : "/dashboard/admin/ops?err=digest");
 }

@@ -126,7 +126,7 @@ export default async function OwnerOpsPage({
           <form action={ownerRunCronAction} className="flex flex-wrap items-end gap-2">
             <div>
               <label className="block text-xs text-ink-faint">Type yes to confirm</label>
-              <input name="confirm" className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm" />
+              <input name="confirm" placeholder="type yes" className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
             </div>
             <button type="submit" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white">
               Run now
@@ -143,9 +143,13 @@ export default async function OwnerOpsPage({
               <label className="block text-xs text-ink-faint">Type yes to confirm</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <PendingSubmitButton
               idleLabel="Run owner daily now"
@@ -166,9 +170,13 @@ export default async function OwnerOpsPage({
               <label className="block text-xs text-ink-faint">Type yes to confirm</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
               Send digest now

@@ -65,10 +65,13 @@ export default async function OwnerOffersPage({
             Type yes to confirm
             <input
               name="confirm"
-              autoComplete="off"
+              placeholder="type yes"
               className="mt-1 block w-full max-w-xs rounded-xl border border-edge bg-cream px-3 py-2 text-sm"
-              placeholder="yes"
-            />
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="off"
+              />
           </label>
           <SubmitButton pendingLabel="Saving…">Save offer mode</SubmitButton>
         </form>

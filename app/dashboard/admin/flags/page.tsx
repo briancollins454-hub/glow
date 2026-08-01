@@ -58,10 +58,13 @@ export default async function OwnerFlagsPage({
                   <input type="hidden" name="enabled" value={f.enabledGlobal ? "0" : "1"} />
                   <input
                     name="confirm"
-                    placeholder="yes"
+                    placeholder="type yes"
                     className="w-14 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     autoComplete="off"
-                  />
+                    />
                   <button type="submit" className="rounded-lg border border-edge px-3 py-1.5 text-sm">
                     {f.enabledGlobal ? "Turn off globally" : "Turn on globally"}
                   </button>
@@ -84,10 +87,13 @@ export default async function OwnerFlagsPage({
                 </select>
                 <input
                   name="confirm"
-                  placeholder="yes"
+                  placeholder="type yes"
                   className="w-14 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   autoComplete="off"
-                />
+                  />
                 <button type="submit" className="rounded-lg border border-edge px-3 py-1.5 text-sm">
                   Set override
                 </button>

@@ -99,10 +99,13 @@ export default async function OwnerWebhooksPage({
                 <input type="hidden" name="eventId" value={e.eventId} />
                 <input
                   name="confirm"
-                  placeholder="yes"
+                  placeholder="type yes"
                   className="w-14 rounded-lg border border-edge px-2 py-1 text-sm"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   autoComplete="off"
-                />
+                  />
                 <button type="submit" className="rounded-lg border border-edge px-2 py-1 text-sm">
                   Replay
                 </button>

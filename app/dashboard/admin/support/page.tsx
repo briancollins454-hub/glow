@@ -128,7 +128,11 @@ export default async function OwnerSupportPage({
                         name="confirm"
                         placeholder="type yes"
                         className="w-24 rounded-lg border border-edge px-2 py-1 text-xs"
-                      />
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        autoComplete="off"
+                        />
                       <button type="submit" className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white">
                         Mark completed
                       </button>

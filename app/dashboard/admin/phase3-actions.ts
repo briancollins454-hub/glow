@@ -15,10 +15,7 @@ import { resolveErrorGroup } from "@/lib/owner/error-groups";
 import { replayStripeWebhookEvent } from "@/lib/owner/webhooks";
 import { setFeatureFlagGlobal, setFeatureFlagOverride } from "@/lib/owner/flags";
 import { writeOwnerAudit } from "@/lib/owner/owner-audit-log";
-
-function confirm(formData: FormData) {
-  return String(formData.get("confirm") ?? "") === "yes";
-}
+import { isConfirmed } from "@/lib/owner/confirm";
 
 function isNextRedirect(e: unknown): boolean {
   return (
@@ -32,7 +29,7 @@ function isNextRedirect(e: unknown): boolean {
 export async function setKillSwitchAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/controls?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/controls?err=confirm");
   const key = String(formData.get("key") ?? "") as KillSwitchKey;
   const paused = formData.get("paused") === "1";
   const reason = String(formData.get("reason") ?? "").trim();
@@ -46,7 +43,7 @@ export async function setAccountOutboundPauseAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
   const id = String(formData.get("id") ?? "");
-  if (!confirm(formData)) redirect(`/dashboard/admin/accounts/${id}?err=confirm`);
+  if (!isConfirmed(formData)) redirect(`/dashboard/admin/accounts/${id}?err=confirm`);
   const paused = formData.get("paused") === "1";
   const reason = String(formData.get("reason") ?? "").trim() || (paused ? "Paused by owner" : "Resumed");
   await setAccountOutboundPaused({ techId: id, paused, byEmail: admin.email, reason });
@@ -57,7 +54,7 @@ export async function setAccountOutboundPauseAction(formData: FormData) {
 export async function cancelOutboundSendAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/outbound?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/outbound?err=confirm");
   const reminderId = String(formData.get("reminderId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
   if (!reminderId || !reason) redirect("/dashboard/admin/outbound?err=reason");
@@ -74,7 +71,7 @@ export async function cancelAllOutboundAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
   const techId = String(formData.get("techId") ?? "");
-  if (!confirm(formData)) redirect(`/dashboard/admin/outbound?tech=${techId}&err=confirm`);
+  if (!isConfirmed(formData)) redirect(`/dashboard/admin/outbound?tech=${techId}&err=confirm`);
   const reason = String(formData.get("reason") ?? "").trim();
   if (!techId || !reason) redirect("/dashboard/admin/outbound?err=reason");
   await cancelAllOutboundForTech({ techId, byEmail: admin.email, reason });
@@ -99,7 +96,7 @@ export async function dismissAlertAction(formData: FormData) {
 export async function resolveErrorGroupAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/errors?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/errors?err=confirm");
   const signature = String(formData.get("signature") ?? "");
   await resolveErrorGroup(signature, admin.email);
   revalidatePath("/dashboard/admin/errors");
@@ -109,7 +106,7 @@ export async function resolveErrorGroupAction(formData: FormData) {
 export async function replayWebhookAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/webhooks?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/webhooks?err=confirm");
   const eventId = String(formData.get("eventId") ?? "");
   const result = await replayStripeWebhookEvent(eventId);
   await writeOwnerAudit({
@@ -124,7 +121,7 @@ export async function replayWebhookAction(formData: FormData) {
 export async function setFlagGlobalAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/flags?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/flags?err=confirm");
   const key = String(formData.get("key") ?? "");
   const enabled = formData.get("enabled") === "1";
   await setFeatureFlagGlobal({ key, enabled, byEmail: admin.email });
@@ -135,7 +132,7 @@ export async function setFlagGlobalAction(formData: FormData) {
 export async function setFlagOverrideAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();
-  if (!confirm(formData)) redirect("/dashboard/admin/flags?err=confirm");
+  if (!isConfirmed(formData)) redirect("/dashboard/admin/flags?err=confirm");
   const key = String(formData.get("key") ?? "");
   const techId = String(formData.get("techId") ?? "");
   const enabled = formData.get("enabled") === "1";

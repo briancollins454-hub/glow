@@ -54,10 +54,13 @@ export default async function ControlsPage() {
                   />
                   <input
                     name="confirm"
-                    placeholder="yes"
+                    placeholder="type yes"
                     className="w-16 rounded-lg border border-edge px-2 py-1.5 text-sm"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     autoComplete="off"
-                  />
+                    />
                   <button
                     type="submit"
                     className={

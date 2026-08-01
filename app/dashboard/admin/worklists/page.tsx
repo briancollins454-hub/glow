@@ -88,10 +88,13 @@ export default async function WorklistsPage() {
                           <input type="hidden" name="kind" value={NUDGE[key]} />
                           <input
                             name="confirm"
-                            placeholder="yes"
+                            placeholder="type yes"
                             className="w-12 rounded border border-edge px-1 text-xs"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
                             autoComplete="off"
-                          />
+                            />
                           <button type="submit" className="rounded-lg bg-brand-600 px-2 py-1 text-xs text-white">
                             Nudge
                           </button>

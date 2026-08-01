@@ -155,9 +155,13 @@ export default async function OwnerAccountDetailPage({
               <label className="block text-xs text-ink-faint">Type yes</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <button
               type="submit"
@@ -362,9 +366,13 @@ export default async function OwnerAccountDetailPage({
               <label className="block text-xs text-ink-faint">Type yes to confirm</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
               {tech.isInternal ? "Unmark internal" : "Mark as internal"}
@@ -377,9 +385,13 @@ export default async function OwnerAccountDetailPage({
               <label className="block text-xs text-ink-faint">Type yes to confirm</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
               {tech.atRiskManual ? "Clear manual at-risk" : "Flag at-risk manually"}
@@ -399,9 +411,13 @@ export default async function OwnerAccountDetailPage({
               <label className="block text-xs text-ink-faint">Type yes</label>
               <input
                 name="confirm"
+                placeholder="type yes"
                 className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 autoComplete="off"
-              />
+                />
             </div>
             <button type="submit" className="rounded-lg border border-edge px-3 py-2 text-sm font-medium">
               Save tags
@@ -456,16 +472,20 @@ export default async function OwnerAccountDetailPage({
                     placeholder="e.g. T&Cs breach — spam bookings"
                     className="mt-1 w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
                     autoComplete="off"
-                  />
+                    />
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
                   <div>
                     <label className="block text-xs text-ink-faint">Type yes to confirm</label>
                     <input
                       name="confirm"
+                      placeholder="type yes"
                       className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       autoComplete="off"
-                    />
+                      />
                   </div>
                   <button
                     type="submit"
@@ -493,17 +513,20 @@ export default async function OwnerAccountDetailPage({
                   placeholder="Optional note for the audit log"
                   className="mt-1 w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
                   autoComplete="off"
-                />
+                  />
               </div>
               <div className="flex flex-wrap items-end gap-2">
                 <div>
                   <label className="block text-xs text-ink-faint">Type handle to confirm</label>
                   <input
                     name="confirm"
-                    className="mt-1 w-40 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
-                    autoComplete="off"
                     placeholder={tech.handle}
-                  />
+                    className="mt-1 w-40 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="off"
+                    />
                 </div>
                 <button
                   type="submit"
@@ -710,9 +733,13 @@ function ActionForm({
         <label className="block text-xs text-ink-faint">Type yes to confirm</label>
         <input
           name="confirm"
+          placeholder="type yes"
           className="mt-1 w-28 rounded-lg border border-edge bg-surface px-2 py-1.5 text-sm"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           autoComplete="off"
-        />
+          />
       </div>
       <button type="submit" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white">
         {label}

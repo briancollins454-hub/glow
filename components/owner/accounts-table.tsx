@@ -58,9 +58,12 @@ const ALL_COLS = [
 export function AccountsTable({
   rows,
   columns,
+  returnTo = "/dashboard/admin/accounts",
 }: {
   rows: AccountTableRow[];
   columns?: string[];
+  /** Current accounts list URL (path + query) so confirm failures keep filters. */
+  returnTo?: string;
 }) {
   const cols = useMemo(() => {
     const wanted = columns?.length ? columns : [...ALL_COLS];
@@ -72,6 +75,7 @@ export function AccountsTable({
   return (
     <div className="space-y-3">
       <form action={bulkOwnerAction} className="rounded-xl border border-edge bg-cream p-3 space-y-2">
+        <input type="hidden" name="returnTo" value={returnTo} />
         {chosen.map((id) => (
           <input key={id} type="hidden" name="ids" value={id} />
         ))}
@@ -104,7 +108,7 @@ export function AccountsTable({
           <input name="tag" placeholder="tag" className="w-28 rounded-lg border border-edge px-2 py-1.5 text-sm" />
           <input
             name="note"
-            placeholder="note"
+            placeholder="message to send"
             className="min-w-[140px] flex-1 rounded-lg border border-edge px-2 py-1.5 text-sm"
           />
           <select name="kind" className="rounded-lg border border-edge px-2 py-1.5 text-sm">
@@ -115,10 +119,13 @@ export function AccountsTable({
           </select>
           <input
             name="confirm"
-            placeholder="yes"
-            className="w-14 rounded-lg border border-edge px-2 py-1.5 text-sm"
+            placeholder="type yes"
+            className="w-20 rounded-lg border border-edge px-2 py-1.5 text-sm"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             autoComplete="off"
-          />
+            />
           <button
             type="submit"
             disabled={chosen.length === 0}
