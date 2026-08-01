@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   accountsReturnWith,
-  escapeForPre,
+  escapeHtml,
   isConfirmed,
+  ownerGreetingName,
   ownerNudgeBody,
+  ownerNudgeBodyHtml,
+  ownerNudgeCta,
   ownerNudgeSubject,
 } from "@/lib/owner/confirm";
 import { makeTech } from "./fixtures";
@@ -49,8 +52,26 @@ describe("owner nudge copy", () => {
     );
   });
 
-  it("escapes note content for the HTML <pre> block", () => {
-    expect(escapeForPre('Hi <script> & "x"')).toBe("Hi &lt;script&gt; &amp; \"x\"");
+  it("title-cases the greeting first name", () => {
+    expect(ownerGreetingName("brian")).toBe("Brian");
+    expect(ownerGreetingName("BRIAN COLLINS")).toBe("Brian");
+    expect(ownerGreetingName("", "sam's nails")).toBe("Sam's");
+    expect(ownerGreetingName(null, null)).toBe("there");
+  });
+
+  it("builds branded HTML body with escaped note and <br/> newlines", () => {
+    expect(ownerNudgeBodyHtml("Brian", "Line one\nLine <two> & three")).toBe(
+      "<p>Hi Brian,</p><p>Line one<br/>Line &lt;two&gt; &amp; three</p>",
+    );
+    expect(escapeHtml("<x>")).toBe("&lt;x&gt;");
+  });
+
+  it("picks CTA by kind", () => {
+    expect(ownerNudgeCta("setup_help").buttonLabel).toBe("Open your dashboard");
+    expect(ownerNudgeCta("go_live").buttonUrl).toMatch(/\/dashboard$/);
+    expect(ownerNudgeCta("trial_nudge")).toMatchObject({ buttonLabel: "See your plan" });
+    expect(ownerNudgeCta("trial_nudge").buttonUrl).toMatch(/\/dashboard\/billing$/);
+    expect(ownerNudgeCta("win_back").buttonLabel).toBe("Come back to Glow");
   });
 });
 
@@ -70,12 +91,18 @@ describe("accountsReturnWith", () => {
 
 // ---- bulk nudge uses the submitted note ------------------------------------
 
-const emails: Array<{ to: string; subject: string; text: string; kind?: string }> = [];
+const emails: Array<{
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  kind?: string;
+}> = [];
 const notes: Array<{ techId: string; body: string }> = [];
 const tech = makeTech({
   id: "tech_nudge_1",
   email: "sam@example.com",
-  name: "Sam",
+  name: "brian",
   businessName: "Sam's Nails",
 });
 
@@ -111,10 +138,25 @@ vi.mock("@/lib/db/queries", () => ({
 }));
 
 vi.mock("@/lib/email", () => ({
-  sendEmail: async (opts: { to: string; subject: string; text: string; kind?: string }) => {
+  sendEmail: async (opts: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+    kind?: string;
+  }) => {
     emails.push(opts);
     return true;
   },
+  brandedEmail: (opts: {
+    brand: string;
+    businessName: string;
+    heading: string;
+    bodyHtml: string;
+    buttonLabel?: string;
+    buttonUrl?: string;
+  }) =>
+    `BRANDED:${opts.businessName}:${opts.heading}:${opts.bodyHtml}:${opts.buttonLabel}:${opts.buttonUrl}`,
 }));
 
 vi.mock("@/lib/owner/digest", () => ({
@@ -157,8 +199,13 @@ describe("bulkOwnerAction nudge branch", () => {
     expect(emails[0]!.subject).toBe("Need a hand getting set up?");
     expect(emails[0]!.kind).toBe("owner_setup_help");
     expect(emails[0]!.text).toContain("Come finish your services list when you can.");
-    expect(emails[0]!.text).toMatch(/^Hi Sam,/);
+    expect(emails[0]!.text).toMatch(/^Hi Brian,/);
     expect(emails[0]!.text).toMatch(/Brian$/);
+    expect(emails[0]!.html).toContain("BRANDED:Glow:");
+    expect(emails[0]!.html).toContain("Need a hand getting set up?");
+    expect(emails[0]!.html).toContain("<p>Hi Brian,</p>");
+    expect(emails[0]!.html).toContain("Open your dashboard");
+    expect(emails[0]!.html).toMatch(/\/dashboard$/);
     expect(notes).toHaveLength(1);
     expect(notes[0]!.body).toBe("Come finish your services list when you can.");
   });

@@ -108,8 +108,8 @@ export function AccountsTable({
           <input name="tag" placeholder="tag" className="w-28 rounded-lg border border-edge px-2 py-1.5 text-sm" />
           <input
             name="note"
-            placeholder="message to send"
-            className="min-w-[140px] flex-1 rounded-lg border border-edge px-2 py-1.5 text-sm"
+            placeholder="message body (no need to start with Hi, that is added for you)"
+            className="min-w-[200px] flex-1 rounded-lg border border-edge px-2 py-1.5 text-sm"
           />
           <select name="kind" className="rounded-lg border border-edge px-2 py-1.5 text-sm">
             <option value="setup_help">setup help</option>

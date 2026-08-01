@@ -14,14 +14,16 @@ import {
   sendBroadcast,
   type BroadcastFilter,
 } from "@/lib/owner/broadcast";
-import { sendEmail } from "@/lib/email";
+import { brandedEmail, sendEmail } from "@/lib/email";
 import { sendOwnerWeeklyDigest } from "@/lib/owner/digest";
 import {
   accountsReturnPath,
   accountsReturnWith,
-  escapeForPre,
   isConfirmed,
+  ownerGreetingName,
   ownerNudgeBody,
+  ownerNudgeBodyHtml,
+  ownerNudgeCta,
   ownerNudgeSubject,
 } from "@/lib/owner/confirm";
 
@@ -123,16 +125,24 @@ export async function bulkOwnerAction(formData: FormData) {
     const note = String(formData.get("note") ?? "").trim();
     if (!note) redirect(accountsReturnPath(returnTo, "note"));
     const subject = ownerNudgeSubject(kind);
+    const cta = ownerNudgeCta(kind);
     for (const id of ids) {
       const target = await getTechById(ownerSb(), id);
       if (!target?.email) continue;
-      const name = target.name || target.businessName || "there";
+      const name = ownerGreetingName(target.name, target.businessName);
       const text = ownerNudgeBody(name, note);
       await sendEmail({
         to: target.email,
         subject,
         text,
-        html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeForPre(text)}</pre>`,
+        html: brandedEmail({
+          brand: "#db2777",
+          businessName: "Glow",
+          heading: subject,
+          bodyHtml: ownerNudgeBodyHtml(name, note),
+          buttonLabel: cta.buttonLabel,
+          buttonUrl: cta.buttonUrl,
+        }),
         kind: `owner_${kind}`,
         techId: target.id,
       });

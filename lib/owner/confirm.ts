@@ -23,14 +23,52 @@ export function ownerNudgeSubject(kind: string): string {
   return NUDGE_SUBJECTS[kind] ?? NUDGE_SUBJECTS.setup_help!;
 }
 
+/**
+ * Title-case the first word of a name for email greetings.
+ * Falls back: name → businessName → "there".
+ */
+export function ownerGreetingName(
+  name: string | null | undefined,
+  businessName?: string | null,
+): string {
+  const raw = String(name || businessName || "").trim();
+  if (!raw) return "there";
+  const first = raw.split(/\s+/)[0]!;
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
 /** Plain-text body for a bulk owner nudge. */
 export function ownerNudgeBody(name: string, note: string): string {
   return `Hi ${name},\n\n${note.trim()}\n\nBrian`;
 }
 
-/** Escape user-typed note content for a `<pre>` HTML email body. */
-export function escapeForPre(text: string): string {
+/** Escape user content for HTML email bodies. */
+export function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** @deprecated use escapeHtml */
+export const escapeForPre = escapeHtml;
+
+/** HTML body: greeting paragraph + note (newlines → `<br/>`). */
+export function ownerNudgeBodyHtml(greetingName: string, note: string): string {
+  const safeName = escapeHtml(greetingName);
+  const safeNote = escapeHtml(note.trim()).replace(/\r\n/g, "\n").replace(/\n/g, "<br/>");
+  return `<p>Hi ${safeName},</p><p>${safeNote}</p>`;
+}
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+/** CTA button for a bulk nudge, driven by kind. */
+export function ownerNudgeCta(kind: string): { buttonLabel: string; buttonUrl: string } {
+  if (kind === "trial_nudge") {
+    return { buttonLabel: "See your plan", buttonUrl: `${APP_URL}/dashboard/billing` };
+  }
+  if (kind === "win_back") {
+    return { buttonLabel: "Come back to Glow", buttonUrl: `${APP_URL}/dashboard` };
+  }
+  // setup_help, go_live, and unknown kinds
+  return { buttonLabel: "Open your dashboard", buttonUrl: `${APP_URL}/dashboard` };
 }
 
 /**
