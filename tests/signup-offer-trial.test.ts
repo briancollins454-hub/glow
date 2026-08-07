@@ -62,17 +62,11 @@ describe("signupOfferMode platform setting", () => {
 
 describe("freezeSignupOffer at signup time", () => {
   it("freezes trial when platform mode is trial", () => {
-    expect(freezeSignupOffer({ mode: "trial", isTester: false })).toBe("trial");
+    expect(freezeSignupOffer({ mode: "trial" })).toBe("trial");
   });
 
   it("freezes half_price when platform mode is half_price_first_month", () => {
-    expect(freezeSignupOffer({ mode: "half_price_first_month", isTester: false })).toBe(
-      "half_price",
-    );
-  });
-
-  it("tester always wins over platform mode", () => {
-    expect(freezeSignupOffer({ mode: "trial", isTester: true })).toBe("tester");
+    expect(freezeSignupOffer({ mode: "half_price_first_month" })).toBe("half_price");
   });
 
   it("signup provision freezes via getSignupOfferMode", () => {

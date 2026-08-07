@@ -187,7 +187,7 @@ export interface Tech {
   depositTierHighValue: number;
   // Completed visits needed before a client counts as trusted (rules mode).
   autoApproveMinVisits: number;
-  // Offer captured at signup ("tester" = invited £1 first month; "" = standard).
+  // Offer captured at signup ("trial", "half_price"; "" = standard/legacy).
   signupOffer: string;
   /** UTM / attribution captured at signup (optional until migration 0046). */
   signupUtmSource?: string | null;

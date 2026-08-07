@@ -2,7 +2,7 @@
  * Honest Glow subscription MRR/ARR from account rows.
  *
  * List prices (GBP): monthly £19, annual £180/yr (= £15/mo).
- * Testers get £1 first month only; that intro is NOT recurring MRR.
+ * Intro-month coupons are NOT recurring MRR.
  * Trialing and complimentary accounts contribute £0 to MRR.
  *
  * When Stripe reconcile is available, prefer Stripe amounts for active subs.
@@ -22,7 +22,6 @@ export type MrrBreakdown = {
   payingAnnual: number;
   /** Accounts counted in MRR. */
   payingCount: number;
-  /** Active testers still on list MRR after intro (we cannot see remaining coupon months without Stripe). */
   note: string;
 };
 
@@ -57,7 +56,7 @@ export function computeMrrFromTechs(techs: Pick<Tech, "subscriptionStatus" | "pl
     payingAnnual,
     payingCount: payingMonthly + payingAnnual,
     note:
-      "MRR uses list prices for subscriptionStatus=active only (£19/mo, £15/mo for annual). Trialing, complimentary, past_due and cancelled are excluded. Tester £1 intro is not recurring MRR.",
+      "MRR uses list prices for subscriptionStatus=active only (£19/mo, £15/mo for annual). Trialing, complimentary, past_due and cancelled are excluded. Intro-month coupons are not recurring MRR.",
   };
 }
 

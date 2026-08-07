@@ -77,7 +77,6 @@ function HomeView({
   const notified = searchParams.get("notified");
   const minutes = searchParams.get("minutes");
   const live = isLive(tech);
-  const isTester = tech.signupOffer === "tester";
   const offer = frozenOfferCopy({
     signupOffer: tech.signupOffer,
     signupPartnerSlug: tech.signupPartnerSlug,
@@ -98,19 +97,17 @@ function HomeView({
       cta: "Check hours",
     },
     {
-      title: isTester
-        ? "Go live - your first month is just £1"
-        : tech.signupOffer === "trial"
+      title:
+        tech.signupOffer === "trial"
           ? "Start your 14-day free trial"
           : "Go live - 50% off your first month",
-      detail: isTester
-        ? "Tester offer: £1 for month one, then £19/mo, cancel anytime."
-        : tech.signupOffer === "trial"
+      detail:
+        tech.signupOffer === "trial"
           ? offer.supporting
           : "Switches on online bookings. £19/mo, cancel anytime.",
       href: "/dashboard/billing",
       done: live,
-      cta: isTester ? "Go live for £1" : tech.signupOffer === "trial" ? "Start free trial" : "Go live",
+      cta: tech.signupOffer === "trial" ? "Start free trial" : "Go live",
     },
     {
       title: "Set up card payments (optional)",
@@ -125,17 +122,6 @@ function HomeView({
 
   return (
     <div className="space-y-6">
-      {isTester && !live && (
-        <Link
-          href="/dashboard/billing"
-          className="block rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-white shadow-glow transition hover:from-brand-500 hover:to-brand-600"
-        >
-          <p className="font-display text-lg font-semibold">Congrats - you&apos;re an invited tester!</p>
-          <p className="mt-0.5 text-2xl font-bold">Your first month is just £1</p>
-          <p className="mt-1 text-sm text-white/85">Then £19/mo, cancel anytime. Tap here to go live for £1 →</p>
-        </Link>
-      )}
-
       {!(essentialsDone && isPaymentsReady(tech)) && (
         <OnboardingChecklist steps={setupSteps} bookingUrl={`${APP_URL}/${tech.handle}`} />
       )}

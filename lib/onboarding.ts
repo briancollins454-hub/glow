@@ -39,14 +39,11 @@ export async function notifyOwnerOfSignup(tech: Tech): Promise<void> {
     signupOffer: tech.signupOffer,
     signupPartnerSlug: tech.signupPartnerSlug,
   });
-  const offerLine =
-    tech.signupOffer === "tester"
-      ? "Tester (£1 first month)"
-      : tech.signupPartnerSlug
-        ? "Partner (3 months free)"
-        : tech.signupOffer === "trial"
-          ? "Trial (14 days free)"
-          : `Standard (${offer.firstMonthLabel} first month)`;
+  const offerLine = tech.signupPartnerSlug
+    ? "Partner (3 months free)"
+    : tech.signupOffer === "trial"
+      ? "Trial (14 days free)"
+      : `Standard (${offer.firstMonthLabel} first month)`;
 
   const html = brandedEmail({
     brand: BRAND,

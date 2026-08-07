@@ -5,8 +5,6 @@ import type { SignupOfferMode } from "@/lib/platform-settings";
 export const OFFERS = {
   /** Public offer: 50% off the first month. Name shown in Stripe: First month half price. */
   firstMonth50: "first-month-50",
-  /** Private tester offer (£1 first month), shared by unlisted link only. */
-  tester1: "tester-first-month-1",
   /** Partner academy offer: 100% off for 3 months. */
   partner3Months: "partner-3-months-free",
 } as const;
@@ -14,7 +12,7 @@ export const OFFERS = {
 export type OfferId = (typeof OFFERS)[keyof typeof OFFERS];
 
 /** Frozen per-tech signup offer captured at account creation. */
-export type FrozenSignupOffer = "trial" | "half_price" | "tester" | "";
+export type FrozenSignupOffer = "trial" | "half_price" | "";
 
 export const TRIAL_DAYS = 14;
 export const MONTHLY_PRICE_LABEL = "£19";
@@ -45,20 +43,16 @@ export function partnerOfferEnabled(): boolean {
 }
 
 /**
- * Map the live platform mode (+ tester flag) into the value frozen on the tech
- * at signup. Partner slug is separate (signupPartnerSlug).
+ * Map the live platform mode into the value frozen on the tech at signup.
+ * Partner slug is separate (signupPartnerSlug).
  */
-export function freezeSignupOffer(opts: {
-  mode: SignupOfferMode;
-  isTester: boolean;
-}): FrozenSignupOffer {
-  if (opts.isTester) return "tester";
+export function freezeSignupOffer(opts: { mode: SignupOfferMode }): FrozenSignupOffer {
   if (opts.mode === "trial") return "trial";
   return "half_price";
 }
 
 export type PublicOfferCopy = {
-  mode: SignupOfferMode | "tester";
+  mode: SignupOfferMode;
   firstMonthLabel: string;
   thenLabel: string;
   ctaLabel: string;
@@ -68,21 +62,7 @@ export type PublicOfferCopy = {
 };
 
 /** Customer-facing pricing copy driven by the live platform mode (marketing). */
-export function publicOfferCopy(
-  mode: SignupOfferMode,
-  opts?: { isTester?: boolean },
-): PublicOfferCopy {
-  if (opts?.isTester) {
-    return {
-      mode: "tester",
-      firstMonthLabel: "£1",
-      thenLabel: "then £19/mo",
-      ctaLabel: "Go live for £1",
-      trustLine: "Tester offer. Then £19/mo. Cancel anytime.",
-      headline: "Go live for £1",
-      supporting: "Tester offer — £1 your first month, then £19/mo. Cancel any time.",
-    };
-  }
+export function publicOfferCopy(mode: SignupOfferMode): PublicOfferCopy {
   if (mode === "trial") {
     return {
       mode: "trial",
@@ -127,9 +107,6 @@ export function frozenOfferCopy(opts: {
   signupOffer: string;
   signupPartnerSlug?: string | null;
 }): PublicOfferCopy {
-  if (opts.signupOffer === "tester") {
-    return publicOfferCopy("half_price_first_month", { isTester: true });
-  }
   if (opts.signupPartnerSlug && partnerOfferEnabled()) {
     return {
       mode: "half_price_first_month",
@@ -149,24 +126,24 @@ export function frozenOfferCopy(opts: {
 }
 
 /** @deprecated Prefer publicOfferCopy(mode) or frozenOfferCopy. Kept for tests. */
-export function launchOfferCopy(isTester: boolean): {
+export function launchOfferCopy(): {
   firstMonthLabel: string;
   thenLabel: string;
   ctaLabel: string;
   trustLine: string;
 } {
-  const copy = publicOfferCopy("half_price_first_month", { isTester });
+  const copy = publicOfferCopy("half_price_first_month");
   return {
     firstMonthLabel: copy.firstMonthLabel,
     thenLabel: copy.thenLabel,
-    ctaLabel: isTester ? copy.ctaLabel : "Get started, £9.50 your first month",
+    ctaLabel: "Get started, £9.50 your first month",
     trustLine: copy.trustLine,
   };
 }
 
 /**
  * Which intro coupon to attach to a monthly Checkout session.
- * Priority: tester > partner > half_price launch coupon.
+ * Priority: partner > half_price launch coupon.
  * Trial never gets a coupon (trial and coupon must never stack).
  * Annual plans get no intro coupon.
  */
@@ -176,7 +153,6 @@ export function selectCheckoutOffer(input: {
   signupPartnerSlug?: string | null;
 }): OfferId | "" {
   if (input.plan !== "monthly") return "";
-  if (input.signupOffer === "tester") return OFFERS.tester1;
   if (input.signupPartnerSlug && partnerOfferEnabled()) return OFFERS.partner3Months;
   // Trial and coupon never stack.
   if (input.signupOffer === "trial") return "";

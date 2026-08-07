@@ -94,8 +94,7 @@ export async function getRevenueSnapshot(opts?: { reconcileStripe?: boolean }): 
           row.mrrPennies > 0 &&
           // Annual Stripe amount is yearly; compare monthly list carefully.
           row.tech.plan === "monthly" &&
-          amount !== 1900 &&
-          amount !== 100 // tester intro invoices vary
+          amount !== 1900
         ) {
           // Soft flag only when list monthly amount differs and not obviously intro.
           if (amount !== row.mrrPennies) {
@@ -120,7 +119,7 @@ export async function getRevenueSnapshot(opts?: { reconcileStripe?: boolean }): 
     stripeConfigured: stripeConfigured(),
     stripeReconcileNote,
     promoNote:
-      "Promo/tester £1 first month is a one-off Stripe coupon; it does not reduce ongoing MRR after the intro period.",
+      "Intro-month promos are one-off Stripe coupons; they do not reduce ongoing MRR after the intro period.",
     generatedAt: new Date().toISOString(),
   };
 }

@@ -12,30 +12,6 @@ import { runRemindersJobNow } from "@/lib/owner/ops";
 import { assertNotViewAs } from "@/lib/owner/view-as";
 import { isConfirmed } from "@/lib/owner/confirm";
 
-export async function ownerSetTesterAction(formData: FormData) {
-  await assertNotViewAs();
-  const { tech: admin } = await requireOwner();
-  if (!isConfirmed(formData, "yes")) {
-    redirect("/dashboard/admin/accounts?err=confirm");
-  }
-  const id = String(formData.get("id") ?? "");
-  const makeTester = formData.get("tester") === "1";
-  const target = await getTechById(supabaseService(), id);
-  if (!target) notFound();
-  await updateTech(supabaseService(), id, { signupOffer: makeTester ? "tester" : "" });
-  await ownerAudit({
-    actorTechId: admin.id,
-    action: makeTester ? "admin_marked_tester" : "admin_unmarked_tester",
-    targetTechId: id,
-    before: { signupOffer: target.signupOffer },
-    after: { signupOffer: makeTester ? "tester" : "" },
-  });
-  cachedInvalidate("owner:");
-  revalidatePath("/dashboard/admin");
-  revalidatePath(`/dashboard/admin/accounts/${id}`);
-  redirect(`/dashboard/admin/accounts/${id}?ok=tester`);
-}
-
 export async function ownerSetCompAction(formData: FormData) {
   await assertNotViewAs();
   const { tech: admin } = await requireOwner();

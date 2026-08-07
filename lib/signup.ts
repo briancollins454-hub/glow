@@ -27,7 +27,6 @@ export async function provisionNewTechAccount(
     businessName: string;
     handleSeed: string;
     refRaw: string;
-    isTester: boolean;
     signupUtmSource?: string | null;
     signupUtmMedium?: string | null;
     signupUtmCampaign?: string | null;
@@ -51,7 +50,7 @@ export async function provisionNewTechAccount(
 
   // Freeze the live platform mode onto this tech at signup time.
   const mode = await getSignupOfferMode(admin);
-  const signupOffer = freezeSignupOffer({ mode, isTester: opts.isTester });
+  const signupOffer = freezeSignupOffer({ mode });
 
   const techId = randomId("tech");
   let tech: Tech;

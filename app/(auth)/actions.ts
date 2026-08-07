@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseService } from "@/lib/supabase/service";
 import { getTechByAuthUserId } from "@/lib/db/queries";
@@ -95,7 +94,6 @@ export async function signupAction(formData: FormData) {
 
   const admin = supabaseService();
   const sb = await createSupabaseServerClient();
-  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
 
   // 1) Create Auth user. On "already registered" (double-submit / orphan),
   //    sign in with the password they just typed and continue.
@@ -134,7 +132,6 @@ export async function signupAction(formData: FormData) {
     businessName,
     handleSeed,
     refRaw,
-    isTester,
     signupUtmSource,
     signupUtmMedium,
     signupUtmCampaign,

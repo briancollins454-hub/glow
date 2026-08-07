@@ -11,7 +11,7 @@ describe("computeMrrFromTechs", () => {
       { subscriptionStatus: "trialing", plan: "monthly", signupOffer: "" },
       { subscriptionStatus: "comped", plan: "monthly", signupOffer: "" },
       { subscriptionStatus: "past_due", plan: "monthly", signupOffer: "" },
-      { subscriptionStatus: "active", plan: null, signupOffer: "tester" },
+      { subscriptionStatus: "active", plan: null, signupOffer: "" },
     ]);
     expect(mrr.payingMonthly).toBe(1);
     expect(mrr.payingAnnual).toBe(1);

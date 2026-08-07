@@ -21,7 +21,6 @@ export type OverviewCounts = {
   trialing: number;
   cancelled: number;
   complimentary: number;
-  testers: number;
   pastDue: number;
   none: number;
   staffTotal: MetricValue;
@@ -188,7 +187,6 @@ async function computeOverview(): Promise<OverviewCounts> {
   const trialing = list.filter((t) => t.subscriptionStatus === "trialing").length;
   const cancelled = list.filter((t) => t.subscriptionStatus === "canceled").length;
   const complimentary = list.filter((t) => t.subscriptionStatus === "comped").length;
-  const testers = list.filter((t) => t.signupOffer === "tester").length;
   const pastDue = list.filter((t) => t.subscriptionStatus === "past_due").length;
   const none = list.filter((t) => t.subscriptionStatus === "none").length;
 
@@ -264,7 +262,6 @@ async function computeOverview(): Promise<OverviewCounts> {
     trialing,
     cancelled,
     complimentary,
-    testers,
     pastDue,
     none,
     staffTotal,

@@ -101,16 +101,6 @@ describe("selectCheckoutOffer", () => {
     ).toBe("");
   });
 
-  it("prefers tester over partner and launch", () => {
-    expect(
-      selectCheckoutOffer({
-        plan: "monthly",
-        signupOffer: "tester",
-        signupPartnerSlug: "academy",
-      }),
-    ).toBe(OFFERS.tester1);
-  });
-
   it("applies partner 3-month coupon for partner signups", () => {
     expect(
       selectCheckoutOffer({
@@ -147,7 +137,7 @@ describe("launchOfferCopy", () => {
   it("shows £9.50 then £19 when launch offer is on", () => {
     delete process.env.LAUNCH_OFFER;
     delete process.env.NEXT_PUBLIC_LAUNCH_OFFER;
-    const copy = launchOfferCopy(false);
+    const copy = launchOfferCopy();
     expect(copy.firstMonthLabel).toBe("£9.50");
     expect(copy.thenLabel).toContain("£19");
   });
@@ -316,8 +306,8 @@ describe("marketing routes + meta + sitemap", () => {
 
 describe("marketing CTA copy", () => {
   it("hero CTA does not say free and shows £9.50", () => {
-    expect(launchOfferCopy(false).ctaLabel).toBe("Get started, £9.50 your first month");
-    expect(launchOfferCopy(false).ctaLabel.toLowerCase()).not.toContain("free");
+    expect(launchOfferCopy().ctaLabel).toBe("Get started, £9.50 your first month");
+    expect(launchOfferCopy().ctaLabel.toLowerCase()).not.toContain("free");
   });
 
   it("landing customer/demo buttons use studio labels", () => {

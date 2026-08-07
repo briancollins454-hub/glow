@@ -45,6 +45,13 @@ const nextConfig = {
         destination: "https://glow-uk.com/:path*",
         permanent: true,
       },
+      // The retired tester-invite link still circulates in old messages.
+      // Send it to the normal signup page (standard pricing) instead of a 404.
+      {
+        source: "/tester",
+        destination: "/signup",
+        permanent: true,
+      },
     ];
   },
 };

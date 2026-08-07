@@ -26,11 +26,11 @@ async function ctx() {
  * Subscription checkout. Intro offers are applied to the Checkout session so
  * Stripe shows the real amount due today.
  *
- * Half-price / tester / partner: coupon on invoice 1 only. Referral free-month
+ * Half-price / partner: coupon on invoice 1 only. Referral free-month
  * credits for the referrer apply from invoice 2 onward (see referral-credit).
  *
  * Trial mode (frozen signupOffer=trial): 14-day trial with card required,
- * no coupon. Half-price / tester / partner: coupon on first invoice, no trial.
+ * no coupon. Half-price / partner: coupon on first invoice, no trial.
  * Trial and coupon never stack.
  */
 export async function startCheckoutAction(formData: FormData) {
