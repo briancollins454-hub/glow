@@ -62,7 +62,6 @@ export default async function OwnerOverviewPage() {
           <MetricTile
             label="Total accounts"
             value={String(o.accountsTotal)}
-            hint={`${o.testers} tester offer`}
             href="/dashboard/admin/accounts"
           />
           <MetricTile

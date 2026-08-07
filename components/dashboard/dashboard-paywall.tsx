@@ -5,7 +5,7 @@ import { frozenOfferCopy } from "@/lib/offers";
 
 /**
  * Full-screen gate shown across the dashboard until a tech activates a plan.
- * Copy follows the offer frozen on the tech at signup (trial / half-price / tester).
+ * Copy follows the offer frozen on the tech at signup (trial / half-price).
  */
 export function DashboardPaywall({ tech }: { tech: Tech }) {
   const offer = frozenOfferCopy({

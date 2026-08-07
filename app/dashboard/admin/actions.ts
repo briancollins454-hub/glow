@@ -278,17 +278,6 @@ export async function applyClientNameCleanupAction(
   return { ok: true, fixed, skipped };
 }
 
-/** Toggle the £1 tester offer on an account (fixes pre-fix signups too). */
-export async function setTesterOfferAction(formData: FormData) {
-  const { tech: admin } = await adminCtx();
-  const id = String(formData.get("id") ?? "");
-  const makeTester = formData.get("tester") === "1";
-  await updateTech(supabaseService(), id, { signupOffer: makeTester ? "tester" : "" });
-  await adminAudit(admin.id, makeTester ? "admin_marked_tester" : "admin_unmarked_tester", id);
-  revalidatePath("/dashboard/admin");
-  redirect("/dashboard/admin");
-}
-
 /** Give (or remove) complimentary access - e.g. friends & family accounts. */
 export async function setCompAction(formData: FormData) {
   const { tech: admin } = await adminCtx();

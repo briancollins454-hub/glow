@@ -140,7 +140,7 @@ export async function processStripeEventForReplay(event: Stripe.Event): Promise<
         }
 
         // Subscription starts immediately at the plan price, with the intro
-        // offer (50% off first month, or £1 tester offer) as a one-off coupon
+        // offer (50% off first month) as a one-off coupon
         // on the first invoice. An explicit promo code takes priority.
         // Trial must never use this path with a coupon (handled via subscription mode).
         const planPrice = plan === "annual" ? PRICES.annual : PRICES.monthly;

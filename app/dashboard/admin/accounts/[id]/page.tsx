@@ -10,7 +10,6 @@ import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PLATFORM_TZ, salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import {
-  ownerSetTesterAction,
   ownerSetCompAction,
   ownerPasswordResetAction,
   ownerBlockAccountAction,
@@ -190,7 +189,6 @@ export default async function OwnerAccountDetailPage({
         <Badge tone="neutral">{tech.subscriptionStatus}</Badge>
         {isBlocked ? <Badge tone="amber">Blocked</Badge> : null}
         {tech.plan ? <Badge tone="neutral">{tech.plan}</Badge> : null}
-        {tech.signupOffer === "tester" ? <Badge tone="brand">Tester</Badge> : null}
         {tech.signupOffer === "trial" ? <Badge tone="brand">Trial signup</Badge> : null}
         {tech.signupOffer === "half_price" ? <Badge tone="neutral">Half-price signup</Badge> : null}
         {tech.signupPartnerSlug ? <Badge tone="brand">Partner: {tech.signupPartnerSlug}</Badge> : null}
@@ -330,12 +328,6 @@ export default async function OwnerAccountDetailPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ActionForm
-            action={ownerSetTesterAction}
-            id={tech.id}
-            hidden={{ tester: tech.signupOffer === "tester" ? "0" : "1" }}
-            label={tech.signupOffer === "tester" ? "Remove tester (£1) offer" : "Grant tester (£1) offer"}
-          />
           {!isLive || tech.subscriptionStatus === "comped" ? (
             <ActionForm
               action={ownerSetCompAction}

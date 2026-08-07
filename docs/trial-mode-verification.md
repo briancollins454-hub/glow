@@ -33,7 +33,7 @@ Default remains `half_price_first_month` so deploy alone changes nothing.
 ## C. Trial signup + card capture
 
 1. Set mode to `trial`.
-2. Create a fresh signup (not tester / not partner).
+2. Create a fresh signup (not partner).
 3. Confirm tech.signupOffer is `trial` and frozen (does not change if you flip the platform mode later).
 4. Start monthly Checkout:
    - Mode is subscription with **14-day trial**

@@ -1,8 +1,6 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
-import { CalendarHeart, PartyPopper } from "lucide-react";
+import { CalendarHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { ClearSessionCache } from "@/components/auth/clear-session-cache";
@@ -35,36 +33,24 @@ const errors: Record<string, ReactNode> = {
   password: "Password needs to be at least 8 characters.",
 };
 
-/** When the private tester cookie is set, keep the £1 offer out of search results. */
-export async function generateMetadata(): Promise<Metadata> {
-  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
-  if (!isTester) return {};
-  return { robots: { index: false, follow: false } };
-}
-
 export default async function SignupPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; ref?: string; partner?: string }>;
 }) {
   const { error, ref, partner: partnerParam } = await searchParams;
-  const isTester = (await cookies()).get("glow_offer")?.value === "tester";
   const partnerSlug = (partnerParam ?? "").trim().toLowerCase() || null;
   const partner =
     partnerSlug && partnerOfferEnabled() ? await getPartnerBySlug(partnerSlug).catch(() => null) : null;
   const mode = await getSignupOfferMode(supabaseService());
-  const offer = isTester
-    ? publicOfferCopy(mode, { isTester: true })
-    : publicOfferCopy(mode);
-  const subtitle = isTester
-    ? "£1 your first month, then £19. No commission, ever."
-    : partner
-      ? "3 months free via your academy, then £19/mo. No commission, ever."
-      : offer.mode === "trial"
-        ? "Try free for 14 days, then £19/mo. No commission, ever."
-        : launchOfferEnabled()
-          ? "£9.50 your first month, then £19. No commission, ever."
-          : "£19/mo when you go live. No commission, ever.";
+  const offer = publicOfferCopy(mode);
+  const subtitle = partner
+    ? "3 months free via your academy, then £19/mo. No commission, ever."
+    : offer.mode === "trial"
+      ? "Try free for 14 days, then £19/mo. No commission, ever."
+      : launchOfferEnabled()
+        ? "£9.50 your first month, then £19. No commission, ever."
+        : "£19/mo when you go live. No commission, ever.";
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream px-4 py-10">
@@ -78,21 +64,7 @@ export default async function SignupPage({
           <span className="font-display text-xl font-semibold">Glow</span>
         </Link>
 
-        {isTester && (
-          <div className="mb-4 rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
-            <p className="flex items-center justify-center gap-2 font-display text-xl font-semibold">
-              <PartyPopper className="h-6 w-6" /> You&apos;re an invited tester!
-            </p>
-            <p className="mt-1 text-2xl font-bold">
-              Your first month is just £1
-            </p>
-            <p className="mt-1 text-sm text-white/85">
-              Then £19/mo. Cancel anytime. Thanks for helping us build Glow.
-            </p>
-          </div>
-        )}
-
-        {partner && !isTester && (
+        {partner && (
           <div className="mb-4 rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
             {partner.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

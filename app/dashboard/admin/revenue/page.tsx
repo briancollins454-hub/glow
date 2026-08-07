@@ -217,7 +217,6 @@ export default async function OwnerRevenuePage({
                   <td className="px-2 py-1.5">{row.tech.subscriptionStatus}</td>
                   <td className="px-2 py-1.5">
                     {row.tech.plan ?? "—"}
-                    {row.tech.signupOffer === "tester" ? " · tester" : ""}
                     {row.tech.subscriptionStatus === "comped" ? " · comp" : ""}
                   </td>
                   <td className="px-2 py-1.5">{row.mrrPennies ? gbpFromPennies(row.mrrPennies) : "—"}</td>

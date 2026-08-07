@@ -19,7 +19,6 @@ export default function robots(): MetadataRoute.Robots {
         "/pay/",
         "/api/",
         "/*/booked/",
-        "/tester",
         // Booking page deep-links with query params (same content as clean /{handle}).
         "/*?*service=",
         "/*?*staff=",

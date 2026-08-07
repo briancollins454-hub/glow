@@ -37,7 +37,6 @@ export function countTrialingAccounts(techs: Pick<Tech, "subscriptionStatus" | "
 }
 
 export function signupOfferLabel(tech: Pick<Tech, "signupOffer" | "signupPartnerSlug">): string {
-  if (tech.signupOffer === "tester") return "tester";
   if (tech.signupPartnerSlug) return "partner";
   if (tech.signupOffer === "trial") return "trial";
   if (tech.signupOffer === "half_price") return "half_price";

@@ -45,14 +45,7 @@ export async function ensureCoupon(s: Stripe, id: OfferId): Promise<string> {
     await s.coupons.retrieve(id);
     return id;
   } catch {
-    if (id === OFFERS.firstMonth50) {
-      await s.coupons.create({
-        id,
-        percent_off: 50,
-        duration: "once",
-        name: "First month half price",
-      });
-    } else if (id === OFFERS.partner3Months) {
+    if (id === OFFERS.partner3Months) {
       await s.coupons.create({
         id,
         percent_off: 100,
@@ -63,12 +56,9 @@ export async function ensureCoupon(s: Stripe, id: OfferId): Promise<string> {
     } else {
       await s.coupons.create({
         id,
-        amount_off: 1800,
-        // Glow's own subscription pricing is GBP for everyone, regardless of
-        // the salon's client-payment currency. Never localise this.
-        currency: "gbp",
+        percent_off: 50,
         duration: "once",
-        name: "Tester offer: first month £1",
+        name: "First month half price",
       });
     }
     return id;

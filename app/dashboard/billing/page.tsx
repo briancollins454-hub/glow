@@ -53,7 +53,6 @@ function BillingView({
   const status = searchParams.get("status");
   const welcome = searchParams.get("welcome") === "1";
   const live = isLive(tech);
-  const isTester = tech.signupOffer === "tester";
   const isPartner = !!tech.signupPartnerSlug && partnerOfferEnabled();
   const isTrial = tech.signupOffer === "trial";
   const offer = frozenOfferCopy({
@@ -70,11 +69,9 @@ function BillingView({
     ? "14-day free trial"
     : isPartner
       ? "Partner: 3 months free"
-      : isTester
-        ? "Tester offer"
-        : offer.firstMonthLabel === "£9.50"
-          ? "50% off first month"
-          : "Everything included";
+      : offer.firstMonthLabel === "£9.50"
+        ? "50% off first month"
+        : "Everything included";
   const monthlyButton = offer.ctaLabel;
   const footerNote = offer.supporting;
 
@@ -107,16 +104,7 @@ function BillingView({
           </p>
         </div>
       )}
-      {isTester && !live && (
-        <div className="rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
-          <p className="font-display text-lg font-semibold">Tester offer active</p>
-          <p className="mt-1 text-3xl font-bold">First month £1</p>
-          <p className="mt-1 text-sm text-white/85">
-            Then £19/mo, cancel anytime. Pick Monthly below - the £1 shows at checkout. Thanks for helping test Glow!
-          </p>
-        </div>
-      )}
-      {isPartner && !isTester && !live && (
+      {isPartner && !live && (
         <div className="rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
           <p className="font-display text-lg font-semibold">Partner offer active</p>
           <p className="mt-1 text-3xl font-bold">3 months free</p>
@@ -125,7 +113,7 @@ function BillingView({
           </p>
         </div>
       )}
-      {isTrial && !isTester && !isPartner && !live && (
+      {isTrial && !isPartner && !live && (
         <div className="rounded-2xl border-2 border-brand-400 bg-gradient-to-r from-brand-600 to-brand-700 p-5 text-center text-white shadow-glow">
           <p className="font-display text-lg font-semibold">14-day free trial</p>
           <p className="mt-1 text-sm text-white/85">{offer.supporting}</p>
@@ -191,7 +179,7 @@ function BillingView({
             />
           </div>
           <p className="text-center text-xs text-ink-faint">{footerNote}</p>
-          {!isTester && !isPartner && !isTrial && offer.firstMonthLabel === "£9.50" ? (
+          {!isPartner && !isTrial && offer.firstMonthLabel === "£9.50" ? (
             <p className="text-center text-xs text-ink-faint">
               Launch offer: {offer.firstMonthLabel} {offer.thenLabel}. Referral free-month credits apply from invoice 2 onward for the referrer.
             </p>
