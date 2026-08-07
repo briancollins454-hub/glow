@@ -229,6 +229,14 @@ describe("processDueReminders batch send behaviour", () => {
         emails.push(opts);
         return true;
       },
+      sendClientEmail: async (opts: {
+        tech?: { id: string } | null;
+        techId?: string | null;
+        subject?: string;
+      }) => {
+        emails.push({ techId: opts.tech?.id ?? opts.techId, subject: opts.subject });
+        return true;
+      },
       brandedEmail: () => "<html/>",
       emailConfigured: () => true,
     }));

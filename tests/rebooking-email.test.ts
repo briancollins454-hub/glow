@@ -3,6 +3,7 @@ import { makeClient, makeService, makeTech } from "./fixtures";
 
 const updateClient = vi.fn(async () => undefined);
 const sendEmail = vi.fn(async () => true);
+const sendClientEmail = vi.fn(async () => true);
 
 vi.mock("@/lib/db/queries", () => ({
   listLiveTechs: vi.fn(async () => [
@@ -19,6 +20,7 @@ vi.mock("@/lib/email", async (importOriginal) => {
   return {
     ...actual,
     sendEmail,
+    sendClientEmail,
     brandedEmail: actual.brandedEmail,
   };
 });
@@ -53,12 +55,12 @@ describe("processRebookNudges email handling", () => {
     const { processRebookNudges } = await import("@/lib/rebooking");
     const sent = await processRebookNudges({} as never);
     expect(sent).toBe(0);
-    expect(sendEmail).not.toHaveBeenCalled();
+    expect(sendClientEmail).not.toHaveBeenCalled();
     expect(updateClient).not.toHaveBeenCalled();
   });
 
   it("stamps lastNudgeAtIso even when send fails so dead addresses are not retried", async () => {
-    sendEmail.mockResolvedValueOnce(false);
+    sendClientEmail.mockResolvedValueOnce(false);
     const queries = await import("@/lib/db/queries");
     vi.mocked(queries.listRebookNudgeClients).mockResolvedValue([
       makeClient({
@@ -82,7 +84,7 @@ describe("processRebookNudges email handling", () => {
     const { processRebookNudges } = await import("@/lib/rebooking");
     const sent = await processRebookNudges({} as never);
     expect(sent).toBe(0);
-    expect(sendEmail).toHaveBeenCalledOnce();
+    expect(sendClientEmail).toHaveBeenCalledOnce();
     expect(updateClient).toHaveBeenCalledWith(
       expect.anything(),
       "cli_ok",
@@ -98,11 +100,11 @@ describe("processRebookNudges email handling", () => {
         lastNudgeAtIso: new Date().toISOString(),
       }),
     ]);
-    sendEmail.mockClear();
+    sendClientEmail.mockClear();
     updateClient.mockClear();
     const sent2 = await processRebookNudges({} as never);
     expect(sent2).toBe(0);
-    expect(sendEmail).not.toHaveBeenCalled();
+    expect(sendClientEmail).not.toHaveBeenCalled();
     expect(updateClient).not.toHaveBeenCalled();
   });
 });
