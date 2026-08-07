@@ -8,7 +8,7 @@ import {
   type RebookNudgeBooking,
   type RebookNudgeClient,
 } from "@/lib/db/queries";
-import { sendEmail, brandedEmail, isValidEmail } from "@/lib/email";
+import { sendClientEmail, brandedEmail, isValidEmail } from "@/lib/email";
 import type { Tech } from "@/lib/db/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -122,14 +122,14 @@ async function sendNudge(
     buttonLabel: "Book now",
     buttonUrl: url,
   });
-  return sendEmail({
+  return sendClientEmail({
+    tech,
     to: client.email,
     subject: `We miss you at ${biz}!`,
     html,
     text: `Hi ${name}, it's been a while since your last visit at ${biz}. Book your next appointment: ${url}\n\nUnsubscribe from these emails: ${unsubUrl}`,
     idempotencyKey: `rebook-nudge/${client.id}/${new Date().toISOString().slice(0, 10)}`,
     kind: "rebook_nudge",
-    techId: tech.id,
   });
 }
 

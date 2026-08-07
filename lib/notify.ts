@@ -5,7 +5,7 @@ import { salonCountry, salonCurrency, salonTz } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { INFILL_NUDGE_LEAD_DAYS } from "@/lib/infill-nudge";
 import { riskTierLabel } from "@/lib/rules";
-import { sendEmail, brandedEmail } from "@/lib/email";
+import { sendEmail, sendClientEmail, brandedEmail } from "@/lib/email";
 import { sendSms, smsSupportedForTech, techAllowsSms } from "@/lib/sms";
 import { sendsBalanceEmails, salonTakesClientPayments, usesCardCapture } from "@/lib/subscriptions";
 import type { Booking, Client, Reminder, ReminderKind, Service, Tech } from "@/lib/db/types";
@@ -131,13 +131,13 @@ export async function notifyClientOfMessage(
     buttonLabel: "View & reply",
     buttonUrl: url,
   });
-  return sendEmail({
+  return sendClientEmail({
+    tech,
     to: client.email.trim(),
     subject,
     html,
     text: `${biz} sent you a message: "${truncate(body)}"\n\nView & reply: ${url}`,
     idempotencyKey: `message-notify/client/${messageId}`,
-    techId: tech.id,
     kind: "client_message",
   });
 }
@@ -218,13 +218,13 @@ export async function notifyClientOfPatchTestRetest(opts: {
       buttonLabel: "Arrange your patch test",
       buttonUrl: arrangeUrl,
     });
-    email = await sendEmail({
+    email = await sendClientEmail({
+      tech,
       to: client.email.trim(),
       subject: `${biz}: patch test needed before your appointment`,
       html,
       text,
       idempotencyKey: `patch-retest/${client.id}/${categoryId}/${nowIso.slice(0, 10)}`,
-      techId: tech.id,
       kind: "patch_retest",
     });
   }
@@ -299,13 +299,13 @@ export async function sendAftercareEmail(
     buttonLabel: infill ? `Book ${infill.name}` : "Book again",
     buttonUrl: rebookUrl,
   });
-  await sendEmail({
+  await sendClientEmail({
+    tech,
     to: client.email,
     subject: `Aftercare for your ${service.name} + easy rebooking`,
     html,
     text: `Hi ${name}, aftercare for your ${service.name}:\n\n${service.aftercareText}\n\nBook your next appointment: ${rebookUrl}`,
     idempotencyKey: `aftercare/${booking.id}`,
-    techId: booking.techId,
     kind: "aftercare",
   });
 }
@@ -370,14 +370,15 @@ export async function sendReminder(sb: SupabaseClient, reminder: Reminder): Prom
 
   let emailOk = false;
   if (emailTo) {
-    emailOk = await sendEmail({
+    emailOk = await sendClientEmail({
+      tech,
+      techId: booking.techId,
       to: emailTo,
       subject,
       html,
       text,
       idempotencyKey: `reminder/${reminder.id}`,
       kind: reminder.kind,
-      techId: booking.techId,
     });
   }
 
@@ -552,14 +553,15 @@ export async function sendBatchedReminders(
 
   let emailOk = false;
   if (emailTo) {
-    emailOk = await sendEmail({
+    emailOk = await sendClientEmail({
+      tech,
+      techId: primary.booking.techId,
       to: emailTo,
       subject,
       html,
       text,
       idempotencyKey: `reminder-batch/${batchKey}`,
       kind,
-      techId: primary.booking.techId,
     });
   }
 
@@ -652,13 +654,13 @@ export async function sendReviewRequestEmail(sb: SupabaseClient, booking: Bookin
     buttonLabel: "Leave a quick review",
     buttonUrl: url,
   });
-  await sendEmail({
+  await sendClientEmail({
+    tech,
     to: client.email,
     subject: `How was your ${service?.name ?? "appointment"}?`,
     html,
     text: `Hi ${name}, thanks for visiting ${biz}! Leave a quick review: ${url}`,
     idempotencyKey: `review-request/${booking.id}`,
-    techId: booking.techId,
     kind: "review_request",
   });
 }
@@ -883,7 +885,8 @@ export async function notifyClientBookingApproved(
         : "View booking",
     buttonUrl: actionUrl,
   });
-  await sendEmail({
+  await sendClientEmail({
+    tech,
     to: client.email,
     subject: needsDeposit
       ? `${biz} approved your booking — deposit due`
@@ -897,7 +900,6 @@ export async function notifyClientBookingApproved(
         ? `Hi ${name}, ${biz} approved your ${service.name} on ${when}. Save a card (nothing charged) to secure it: ${actionUrl}`
         : `Hi ${name}, your ${service.name} with ${biz} on ${when} is confirmed. ${actionUrl}`,
     idempotencyKey: `booking-approved/${booking.id}`,
-    techId: booking.techId,
     kind: "booking_approved",
   });
 }
@@ -922,13 +924,13 @@ export async function notifyClientBookingDeclined(
     buttonLabel: "Choose another time",
     buttonUrl: rebookUrl,
   });
-  await sendEmail({
+  await sendClientEmail({
+    tech,
     to: client.email,
     subject: `Update on your booking request with ${biz}`,
     html,
     text: `Hi ${name}, ${biz} couldn't take your ${service.name} request for ${when}. Pick another time: ${rebookUrl}`,
     idempotencyKey: `booking-declined/${booking.id}`,
-    techId: booking.techId,
     kind: "booking_declined",
   });
 }
@@ -974,13 +976,13 @@ export async function notifyClientOfReactionCheckin(
       buttonLabel: "Reply in one tap",
       buttonUrl: url,
     });
-    sent = await sendEmail({
+    sent = await sendClientEmail({
+      tech,
       to: client.email.trim(),
       subject: `${biz}: how is your skin after your ${catName} appointment?`,
       html,
       text,
       idempotencyKey: `reaction-checkin/${checkin.id}`,
-      techId: tech.id,
       kind: "reaction_checkin",
     });
   }
@@ -1064,7 +1066,8 @@ export async function notifyClientOfInfillDeadline(
     buttonUrl: url,
   });
 
-  return sendEmail({
+  return sendClientEmail({
+    tech,
     to: client.email.trim(),
     subject: `${biz}: book your infill before ${deadline}`,
     html,
@@ -1072,7 +1075,6 @@ export async function notifyClientOfInfillDeadline(
       `Hi ${name}, your infill window at ${biz} closes on ${deadline}. ` +
       `Book ${infillService.name}: ${url}\n\nUnsubscribe: ${unsubUrl}`,
     idempotencyKey: `infill-deadline/${client.id}/${deadlineIso.slice(0, 10)}`,
-    techId: tech.id,
     kind: "infill_nudge",
   });
 }
@@ -1116,13 +1118,13 @@ export async function notifyClientRunningLate(opts: {
       heading: "Running a little late",
       bodyHtml,
     });
-    email = await sendEmail({
+    email = await sendClientEmail({
+      tech,
       to: client.email.trim(),
       subject: `${biz}: running ~${minutesLate} min late for your appointment`,
       html,
       text,
       idempotencyKey: `late-cascade/${eventId}/${booking.id}/email`,
-      techId: booking.techId,
       kind: "late_cascade",
     });
   }
@@ -1186,13 +1188,13 @@ export async function notifyClientOfPreCare(
       buttonLabel: "I've read and understood",
       buttonUrl: url,
     });
-    sent = await sendEmail({
+    sent = await sendClientEmail({
+      tech,
       to: client.email.trim(),
       subject: `${biz}: prep for your ${service.name} appointment`,
       html,
       text,
       idempotencyKey: `precare/${row.id}`,
-      techId: tech.id,
       kind: "precare",
     });
   }

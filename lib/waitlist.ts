@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatInTimeZone } from "date-fns-tz";
 import { getService, getTechById, listWaitlist, updateWaitlistEntry } from "@/lib/db/queries";
-import { sendEmail, brandedEmail } from "@/lib/email";
+import { sendClientEmail, brandedEmail } from "@/lib/email";
 import { salonTz } from "@/lib/locale";
 import type { Booking, Client, WaitlistEntry } from "@/lib/db/types";
 
@@ -39,7 +39,8 @@ export async function notifyWaitlistForCancelledBooking(
   let notified = 0;
   for (const entry of waiting) {
     const name = entry.name?.split(" ")[0] || "there";
-    const ok = await sendEmail({
+    const ok = await sendClientEmail({
+      tech,
       to: entry.email,
       subject: `A slot just opened up at ${biz}`,
       html: brandedEmail({
@@ -54,7 +55,6 @@ export async function notifyWaitlistForCancelledBooking(
       }),
       text: `Hi ${name}, a slot on ${niceWhen} just opened up at ${biz}. Book: ${url}`,
       idempotencyKey: `waitlist/${entry.id}/${booking.id}`,
-      techId: tech.id,
       kind: "waitlist",
     });
     if (ok) {

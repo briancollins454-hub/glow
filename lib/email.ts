@@ -2,14 +2,64 @@ import { Resend } from "resend";
 import { randomId } from "@/lib/ids";
 import { supabaseService } from "@/lib/supabase/service";
 import { isEmailSuppressed, normaliseEmail } from "@/lib/email-suppression";
+import type { Tech } from "@/lib/db/types";
 
 // Email sending via Resend. No-ops gracefully if RESEND_API_KEY isn't set, so
 // the app (and reminder scheduler) keep working without email configured.
 
 const FROM = process.env.RESEND_FROM ?? "Glow <onboarding@resend.dev>";
 
+// Where client replies land when a salon has no email on file. The Resend
+// inbound webhook (app/api/resend/inbound) matches these back to a salon.
+const PLATFORM_REPLY_TO = process.env.PLATFORM_REPLY_TO ?? "support@glow-uk.com";
+
 export function fromAddress(): string {
   return FROM;
+}
+
+export function platformReplyTo(): string {
+  return PLATFORM_REPLY_TO;
+}
+
+/**
+ * Every email kind a client can receive. Sends with these kinds must go
+ * through sendClientEmail so the salon is always the reply-to address.
+ */
+export const CLIENT_EMAIL_KINDS = [
+  "confirmation",
+  "reminder_24h",
+  "reminder_2h",
+  "balance_request",
+  "patch_test_retest",
+  "patch_retest",
+  "client_message",
+  "aftercare",
+  "review_request",
+  "booking_approved",
+  "booking_declined",
+  "reaction_checkin",
+  "infill_nudge",
+  "late_cascade",
+  "precare",
+  "waitlist",
+  "rebook_nudge",
+] as const;
+
+export type ClientEmailKind = (typeof CLIENT_EMAIL_KINDS)[number];
+
+/**
+ * From header for client-facing mail: the salon's name as the display name on
+ * the verified Glow address, e.g. "Allure Beauty via Glow <bookings@glow-uk.com>".
+ * The address never changes, so DKIM/SPF alignment is untouched.
+ */
+export function clientFromAddress(businessName: string | null | undefined): string {
+  const addr = FROM.match(/<([^>]+)>/)?.[1] ?? FROM;
+  const name = (businessName ?? "")
+    .replace(/[\r\n"<>;,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!name) return FROM;
+  return `${name} via Glow <${addr}>`;
 }
 
 const EMAIL_RE = /^[^\s@,]+@[^\s@,]+\.[^\s@,]{2,}$/;
@@ -91,24 +141,31 @@ async function logOutbound(opts: {
   idempotencyKey?: string;
   resendEmailId?: string | null;
   deliveryStatus?: string | null;
+  replyTo?: string | null;
 }): Promise<void> {
   try {
     const destination = normaliseEmail(opts.destination) || opts.destination.trim();
-    await supabaseService()
+    const row = {
+      id: randomId("out"),
+      channel: "email",
+      destination: destination.slice(0, 320),
+      subject: opts.subject.slice(0, 500),
+      kind: opts.kind ?? null,
+      ok: opts.ok,
+      error: opts.error ?? null,
+      techId: opts.techId ?? null,
+      idempotencyKey: opts.idempotencyKey ?? null,
+      resendEmailId: opts.resendEmailId ?? null,
+      deliveryStatus: opts.deliveryStatus ?? null,
+    };
+    const sb = supabaseService();
+    const { error } = await sb
       .from("outbound_sends")
-      .insert({
-        id: randomId("out"),
-        channel: "email",
-        destination: destination.slice(0, 320),
-        subject: opts.subject.slice(0, 500),
-        kind: opts.kind ?? null,
-        ok: opts.ok,
-        error: opts.error ?? null,
-        techId: opts.techId ?? null,
-        idempotencyKey: opts.idempotencyKey ?? null,
-        resendEmailId: opts.resendEmailId ?? null,
-        deliveryStatus: opts.deliveryStatus ?? null,
-      });
+      .insert({ ...row, replyTo: opts.replyTo ?? null });
+    if (error) {
+      // Migration 0067 (replyTo column) may be pending — keep logging without it.
+      await sb.from("outbound_sends").insert(row);
+    }
   } catch {
     // Migration may be pending.
   }
@@ -123,6 +180,8 @@ export async function sendEmail(params: {
   replyTo?: string;
   kind?: string;
   techId?: string | null;
+  /** Display-name override (same verified address). Set by sendClientEmail; leave unset elsewhere. */
+  from?: string;
 }): Promise<boolean> {
   if (!emailConfigured() || !params.to) return false;
   if (!isValidEmail(params.to)) {
@@ -145,6 +204,7 @@ export async function sendEmail(params: {
         techId: params.techId,
         idempotencyKey: params.idempotencyKey,
         deliveryStatus: "suppressed_skip",
+        replyTo: params.replyTo ?? null,
       });
       return false;
     }
@@ -169,6 +229,7 @@ export async function sendEmail(params: {
         techId: params.techId,
         idempotencyKey: params.idempotencyKey,
         deliveryStatus: "suppressed_skip",
+        replyTo: params.replyTo ?? null,
       });
       return false;
     }
@@ -181,7 +242,7 @@ export async function sendEmail(params: {
     // The Resend SDK returns { data, error } (it does not throw on API errors).
     const { data, error } = await getResend().emails.send(
       {
-        from: FROM,
+        from: params.from ?? FROM,
         to: params.to,
         subject: params.subject,
         html: params.html,
@@ -200,6 +261,7 @@ export async function sendEmail(params: {
         error: error.message,
         techId: params.techId,
         idempotencyKey: params.idempotencyKey,
+        replyTo: params.replyTo ?? null,
       });
       return false;
     }
@@ -216,6 +278,7 @@ export async function sendEmail(params: {
       idempotencyKey: params.idempotencyKey,
       resendEmailId: resendEmailId || null,
       deliveryStatus: "accepted",
+      replyTo: params.replyTo ?? null,
     });
     return true;
   } catch (err) {
@@ -228,9 +291,56 @@ export async function sendEmail(params: {
       error: (err as Error).message,
       techId: params.techId,
       idempotencyKey: params.idempotencyKey,
+      replyTo: params.replyTo ?? null,
     });
     return false;
   }
+}
+
+/**
+ * Send a client-facing email on behalf of a salon. Guarantees:
+ * - replyTo is always set: the salon's email, or the platform inbox (with a
+ *   warning to chase) when the salon has no usable email on file.
+ * - From shows the salon's name on the verified Glow address, e.g.
+ *   "Allure Beauty via Glow <bookings@glow-uk.com>".
+ * Every send in lib/notify.ts (and other client mail) must use this, never
+ * bare sendEmail — clients replying must reach the salon, not Glow.
+ */
+export async function sendClientEmail(params: {
+  /** Salon the mail is sent on behalf of. Null only when the tech row could not be loaded. */
+  tech: Pick<Tech, "id" | "email" | "businessName"> | null;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  idempotencyKey?: string;
+  kind: ClientEmailKind;
+  /** Logged techId when the tech row itself was unavailable (e.g. booking.techId). */
+  techId?: string | null;
+}): Promise<boolean> {
+  const techEmail = params.tech?.email?.trim() ?? "";
+  let replyTo = techEmail;
+  if (!replyTo || !isValidEmail(replyTo)) {
+    replyTo = PLATFORM_REPLY_TO;
+    console.warn(
+      "[resend] client email using platform replyTo — salon has no usable email on file, chase it",
+      JSON.stringify({
+        techId: params.tech?.id ?? params.techId ?? null,
+        kind: params.kind,
+      }),
+    );
+  }
+  return sendEmail({
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+    idempotencyKey: params.idempotencyKey,
+    kind: params.kind,
+    techId: params.tech?.id ?? params.techId ?? null,
+    replyTo,
+    from: clientFromAddress(params.tech?.businessName),
+  });
 }
 
 /** Minimal branded, email-client-safe HTML wrapper. */
